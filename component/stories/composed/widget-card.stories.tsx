@@ -84,6 +84,26 @@ export const PlaygroundDark: Story = {
   globals: { theme: "dark" },
 };
 
+/** A filter this card uses is hovered: azure edge and a tag in the source line (#2369). */
+export const Driven: Story = {
+  args: { ...Playground.args, driven: "Uses Actor" },
+};
+
+export const DrivenDark: Story = {
+  ...Driven,
+  globals: { theme: "dark" },
+};
+
+/** Refetching under a new filter value: the result stays, a 2 px line runs on the top edge (#2369). */
+export const Refreshing: Story = {
+  args: { ...Playground.args, refreshing: true },
+};
+
+export const RefreshingDark: Story = {
+  ...Refreshing,
+  globals: { theme: "dark" },
+};
+
 export const SerifTitle: Story = {
   args: { ...Playground.args, titleFont: "serif" },
 };

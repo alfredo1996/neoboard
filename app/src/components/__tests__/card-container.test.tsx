@@ -4,28 +4,36 @@
  * (e.g. normal view + fullscreen dialog).
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { useEffect } from "react";
 import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { DashboardWidget } from "@/lib/db/schema";
 
 // ── Capture ChartRenderer props to verify effectiveWidgetId ───────────
 let capturedChartProps: Record<string, unknown> = {};
+let chartMounts = 0;
 
 vi.mock("@/components/chart-renderer", () => ({
   ChartRenderer: (props: Record<string, unknown>) => {
     capturedChartProps = props;
+    useEffect(() => {
+      chartMounts++;
+    }, []);
     return <div data-testid="chart-renderer" />;
   },
 }));
 
 /** What the stubbed widget query resolved to; null is "no data". */
 let widgetQueryData: unknown = null;
+/** The stubbed query is refetching and still shows its previous data. */
+let widgetQueryPlaceholder = false;
 
 vi.mock("@/hooks/use-widget-query", () => ({
   useWidgetQuery: () => ({
     isPending: false,
     isError: false,
     data: widgetQueryData,
+    isPlaceholderData: widgetQueryPlaceholder,
     fetchStatus: "idle",
     missingParams: [],
   }),
@@ -133,6 +141,7 @@ vi.mock("@/lib/widget/card-utils", () => ({
 
 // Import after mocks
 import { CardContainer } from "../card-container";
+import { CardRefreshContext } from "../card-refresh-context";
 
 function createWidget(overrides?: Partial<DashboardWidget>): DashboardWidget {
   return {
@@ -159,6 +168,8 @@ function renderWithProviders(ui: React.ReactElement) {
 describe("CardContainer", () => {
   beforeEach(() => {
     capturedChartProps = {};
+    chartMounts = 0;
+    widgetQueryPlaceholder = false;
     widgetQueryData = null;
     hasClickAction = false;
     paramValuesNow = {};
@@ -204,6 +215,51 @@ describe("CardContainer", () => {
         <CardContainer widget={barWidget()} previewData={rows} />,
       );
       expect(highlighted()).toBeUndefined();
+    });
+  });
+
+  describe("refetching under the line (#2369)", () => {
+    const result = (resultId: string) => ({ data: [{ n: 1 }], resultId });
+    const barWidget = () =>
+      createWidget({ chartType: "bar", query: "RETURN 1", settings: {} });
+
+    it("reports a refetch to its frame", () => {
+      const onRefreshingChange = vi.fn();
+      widgetQueryData = result("r1");
+      widgetQueryPlaceholder = true;
+      renderWithProviders(
+        <CardRefreshContext.Provider value={onRefreshingChange}>
+          <CardContainer widget={barWidget()} />
+        </CardRefreshContext.Provider>,
+      );
+      expect(onRefreshingChange).toHaveBeenLastCalledWith(true);
+    });
+
+    it("reports not refreshing for a settled result", () => {
+      const onRefreshingChange = vi.fn();
+      widgetQueryData = result("r1");
+      renderWithProviders(
+        <CardRefreshContext.Provider value={onRefreshingChange}>
+          <CardContainer widget={barWidget()} />
+        </CardRefreshContext.Provider>,
+      );
+      expect(onRefreshingChange).toHaveBeenLastCalledWith(false);
+    });
+
+    it("remounts the chart when a new result lands, and not on a rerender of the same one", () => {
+      widgetQueryData = result("r1");
+      const ui = () => (
+        <QueryClientProvider client={new QueryClient()}>
+          <CardContainer widget={barWidget()} />
+        </QueryClientProvider>
+      );
+      const { rerender } = render(ui());
+      expect(chartMounts).toBe(1);
+      rerender(ui());
+      expect(chartMounts).toBe(1);
+      widgetQueryData = result("r2");
+      rerender(ui());
+      expect(chartMounts).toBe(2);
     });
   });
 

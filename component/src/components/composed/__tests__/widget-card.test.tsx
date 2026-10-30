@@ -3,6 +3,59 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { WidgetCard } from "../widget-card";
 
+describe("WidgetCard driven and refreshing (#2369)", () => {
+  const panel = (c: HTMLElement) => c.firstElementChild as HTMLElement;
+
+  it("driven with a label shows the tag in the source line beside the source, and the ring edge", () => {
+    const { container } = render(
+      <WidgetCard title="Films" source="Movies graph" driven="Uses Actor">
+        x
+      </WidgetCard>,
+    );
+    expect(screen.getByText("Uses Actor")).toBeInTheDocument();
+    expect(screen.getByText("Movies graph")).toBeInTheDocument();
+    expect(panel(container)).toHaveAttribute("data-driven", "true");
+    expect(panel(container)).toHaveClass("border-ring");
+  });
+
+  it("driven puts the tag on the reserved source line of a card with no source", () => {
+    render(
+      <WidgetCard title="Films" driven="Uses Actor">
+        x
+      </WidgetCard>,
+    );
+    expect(screen.getByText("Uses Actor")).toBeInTheDocument();
+  });
+
+  it("driven without a label draws the edge only", () => {
+    const { container } = render(<WidgetCard driven>x</WidgetCard>);
+    expect(panel(container)).toHaveClass("border-ring");
+    expect(screen.queryByText(/^Uses /)).not.toBeInTheDocument();
+  });
+
+  it("a card that is not driven has no edge, tag or marker", () => {
+    const { container } = render(<WidgetCard title="Films">x</WidgetCard>);
+    expect(panel(container)).not.toHaveAttribute("data-driven");
+    expect(panel(container)).not.toHaveClass("border-ring");
+  });
+
+  it("refreshing draws the line and keeps the children mounted", () => {
+    const { container } = render(
+      <WidgetCard title="Films" refreshing>
+        <p>old rows</p>
+      </WidgetCard>,
+    );
+    expect(container.querySelector("[data-refresh-line]")).toBeInTheDocument();
+    expect(screen.getByText("old rows")).toBeInTheDocument();
+    expect(panel(container)).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("not refreshing draws no line", () => {
+    const { container } = render(<WidgetCard title="Films">x</WidgetCard>);
+    expect(container.querySelector("[data-refresh-line]")).toBeNull();
+  });
+});
+
 describe("WidgetCard", () => {
   it("renders children", () => {
     render(<WidgetCard>Content here</WidgetCard>);

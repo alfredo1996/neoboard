@@ -29,6 +29,7 @@ import type {
 
 // Capture the actions array passed to WidgetCard for assertions.
 const widgetCardProps: Array<Record<string, unknown>> = [];
+const gridItemRefs = new Set<HTMLElement>();
 
 vi.mock("@neoboard/components", async () => ({
   WidgetCard: ({
@@ -40,11 +41,15 @@ vi.mock("@neoboard/components", async () => ({
     headerExtra,
     source,
     titleIcon,
+    driven,
+    refreshing,
   }: {
     children: React.ReactNode;
     title: string;
     titleIcon?: React.ReactNode;
     source?: string;
+    driven?: boolean | string;
+    refreshing?: boolean;
     actions?: Array<{
       label: string;
       onClick?: () => void;
@@ -67,6 +72,8 @@ vi.mock("@neoboard/components", async () => ({
         data-testid="widget-card-inner"
         data-title={title}
         data-source={source}
+        data-driven={driven ? String(driven) : undefined}
+        data-refreshing={refreshing ? "true" : undefined}
       >
         <div data-testid="widget-header-extra">
           {headerExtra}
@@ -118,8 +125,19 @@ vi.mock("@neoboard/components", async () => ({
       {description && <span>{description}</span>}
     </div>
   ),
+  // Like react-grid-layout, which clones each child with a ref of its own.
   DashboardGrid: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="dashboard-grid">{children}</div>
+    <div data-testid="dashboard-grid">
+      {React.Children.map(children, (child) =>
+        React.isValidElement(child)
+          ? React.cloneElement(child as React.ReactElement<{ ref?: unknown }>, {
+              ref: (node: HTMLElement | null) => {
+                if (node) gridItemRefs.add(node);
+              },
+            })
+          : child,
+      )}
+    </div>
   ),
   Dialog: ({
     children,
@@ -242,11 +260,27 @@ vi.mock("@neoboard/components", async () => ({
   buildExportFilename: vi.fn((title: string, ext: string) => `${title}.${ext}`),
 }));
 
-vi.mock("@/components/card-container", () => ({
-  CardContainer: ({ widgetIdSuffix }: { widgetIdSuffix?: string }) => (
-    <div data-testid="card-container" data-suffix={widgetIdSuffix ?? ""} />
-  ),
-}));
+vi.mock("@/components/card-container", async () => {
+  const { useContext, useLayoutEffect, useRef } = await import("react");
+  const { CardRefreshContext } = await import("../card-refresh-context");
+  return {
+    CardContainer: ({ widgetIdSuffix }: { widgetIdSuffix?: string }) => {
+      cardRenders++;
+      const report = useContext(CardRefreshContext);
+      // Like the real card: reports in a layout effect when its state flips,
+      // in the same commit as a new title.
+      const reported = useRef(false);
+      useLayoutEffect(() => {
+        if (reported.current === mockCardRefreshing) return;
+        reported.current = mockCardRefreshing;
+        report?.(mockCardRefreshing);
+      });
+      return (
+        <div data-testid="card-container" data-suffix={widgetIdSuffix ?? ""} />
+      );
+    },
+  };
+});
 
 vi.mock("@/lib/widget/interpolate-title", () => ({
   interpolateTitle: (
@@ -261,6 +295,8 @@ vi.mock("@/lib/widget/card-utils", () => ({
   buildExportData: (...args: unknown[]) => mockBuildExportData(...args),
 }));
 
+let mockCardRefreshing = false;
+let cardRenders = 0;
 const mockIsTemplateOutdated = vi.fn();
 // What `focusedMenuTrigger()` finds: the widget's "Widget actions" button.
 const mockMenuTrigger = Object.assign(document.createElement("button"), {
@@ -363,6 +399,9 @@ function renderWithProviders(ui: React.ReactElement) {
 beforeEach(() => {
   vi.clearAllMocks();
   widgetCardProps.length = 0;
+  gridItemRefs.clear();
+  mockCardRefreshing = false;
+  cardRenders = 0;
   parametersState.parameters = {};
   // Tests reassign this; shuffled order must not inherit another test's values.
   paramValues = { foo: "bar" };
@@ -1428,5 +1467,206 @@ describe("DashboardContainer — an embedded page names its domain in the header
     expect(
       screen.getByTestId("widget-card-inner").getAttribute("data-source"),
     ).toBe(expected);
+  });
+});
+
+describe("DashboardContainer — a filter shows what it drives (#2369)", () => {
+  const filter = makeWidget({
+    id: "f",
+    chartType: "parameter-select",
+    query: "",
+    settings: { title: "Actor", chartOptions: { parameterName: "actor" } },
+  });
+  const driven = makeWidget({
+    id: "d",
+    query: "MATCH (a {name: $param_actor}) RETURN a",
+    settings: { title: "Films" },
+  });
+  const other = makeWidget({ id: "o", settings: { title: "Notes" } });
+  const slot = (id: string) =>
+    document.querySelector(`[data-widget-id="${id}"]`) as HTMLElement;
+  const drivenOf = (id: string) =>
+    slot(id)
+      .querySelector("[data-testid='widget-card-inner']")
+      ?.getAttribute("data-driven");
+  const hover = (id: string, type: "pointerenter" | "pointerleave") =>
+    act(() => {
+      slot(id).dispatchEvent(new Event(type));
+    });
+
+  it("marks the cards using the parameter while the filter is hovered, and no other", () => {
+    renderWithProviders(
+      <DashboardContainer page={makePage([filter, driven, other])} />,
+    );
+    hover("f", "pointerenter");
+    expect(drivenOf("d")).toBe("Uses Actor");
+    expect(drivenOf("o")).toBeNull();
+    expect(drivenOf("f")).toBeNull();
+    hover("f", "pointerleave");
+    expect(drivenOf("d")).toBeNull();
+  });
+
+  it("still hands the grid its ref on each cell", () => {
+    renderWithProviders(
+      <DashboardContainer page={makePage([filter, driven])} />,
+    );
+    expect([...gridItemRefs].map((n) => n.dataset.widgetId).sort()).toEqual([
+      "d",
+      "f",
+    ]);
+  });
+
+  it("marks nothing in edit mode", () => {
+    renderWithProviders(
+      <DashboardContainer page={makePage([filter, driven])} editable />,
+    );
+    hover("f", "pointerenter");
+    expect(drivenOf("d")).toBeNull();
+  });
+
+  it("holds the title with the old rows while the card refetches, then lets it catch up", () => {
+    mockGetWidgetDisplayTitle.mockReturnValue("Films with Tom Hanks");
+    const page = makePage([driven]);
+    const { queryClient, rerender } = renderWithProviders(
+      <DashboardContainer page={page} />,
+    );
+    const inner = () => screen.getByTestId("widget-card-inner");
+    expect(inner().getAttribute("data-title")).toBe("Films with Tom Hanks");
+
+    // The parameter changes: the title is recomputed and the card reports in
+    // the same commit.
+    mockGetWidgetDisplayTitle.mockReturnValue("Films with Meg Ryan");
+    mockCardRefreshing = true;
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <DashboardContainer page={page} refetchInterval={false} />
+      </QueryClientProvider>,
+    );
+    expect(inner().getAttribute("data-refreshing")).toBe("true");
+    expect(inner().getAttribute("data-title")).toBe("Films with Tom Hanks");
+
+    mockCardRefreshing = false;
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <DashboardContainer page={page} />
+      </QueryClientProvider>,
+    );
+    expect(inner().getAttribute("data-refreshing")).toBeNull();
+    expect(inner().getAttribute("data-title")).toBe("Films with Meg Ryan");
+  });
+
+  it("holds the source line with the old rows too, and shows the new one when the result lands", () => {
+    const page = makePage([driven]);
+    const key = widgetQueryKey({ ...driven, params: {} });
+    const names = { "conn-1": "Movies graph" };
+    const view = (extra = {}) => (
+      <QueryClientProvider client={queryClient}>
+        <DashboardContainer page={page} connectionNames={names} {...extra} />
+      </QueryClientProvider>
+    );
+    const { queryClient, rerender } = renderWithProviders(
+      <DashboardContainer page={page} connectionNames={names} />,
+    );
+    const observe = () =>
+      new QueryObserver(queryClient, {
+        queryKey: key,
+        queryFn: async () => ({ data: [], resultId: "r" }),
+        staleTime: Infinity,
+      }).subscribe(() => {});
+    let unsubscribe = () => {};
+    act(() => {
+      queryClient.setQueryData(
+        key,
+        { data: [1, 2, 3], resultId: "r" },
+        { updatedAt: Date.now() },
+      );
+      unsubscribe = observe();
+    });
+    const inner = () => screen.getByTestId("widget-card-inner");
+    expect(inner().getAttribute("data-source")).toBe(
+      "Movies graph · 3 rows · just now",
+    );
+
+    // The parameter changes: the card reports that it is refetching in the
+    // commit of the change, and only then does its observer move to the new
+    // key, so the line (read from the observed queries) goes blank.
+    mockCardRefreshing = true;
+    rerender(view({ refetchInterval: false }));
+    act(() => {
+      unsubscribe();
+      queryClient.removeQueries({ queryKey: key });
+    });
+    expect(inner().getAttribute("data-source")).toBe(
+      "Movies graph · 3 rows · just now",
+    );
+
+    mockCardRefreshing = false;
+    act(() => {
+      queryClient.setQueryData(
+        key,
+        { data: [1, 2, 3, 4], resultId: "r2" },
+        { updatedAt: Date.now() },
+      );
+      observe();
+    });
+    rerender(view());
+    expect(inner().getAttribute("data-source")).toBe(
+      "Movies graph · 4 rows · just now",
+    );
+  });
+
+  it("pointing at a filter does not re-render the other cards", () => {
+    renderWithProviders(
+      <DashboardContainer page={makePage([filter, driven, other])} />,
+    );
+    const before = cardRenders;
+    hover("f", "pointerenter");
+    expect(drivenOf("d")).toBe("Uses Actor"); // the lit state did change
+    hover("f", "pointerleave");
+    expect(cardRenders).toBe(before);
+  });
+
+  it("the fullscreen copy holds its title and draws the line while its card refetches", () => {
+    vi.useFakeTimers();
+    try {
+      mockGetWidgetDisplayTitle.mockReturnValue("Films with Tom Hanks");
+      const page = makePage([driven]);
+      const { queryClient, rerender } = renderWithProviders(
+        <DashboardContainer page={page} />,
+      );
+      act(() => {
+        fireEvent.click(screen.getByText("Fullscreen").closest("button")!);
+      });
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      const dialog = () => screen.getByTestId("fullscreen-dialog");
+      expect(dialog().querySelector("[data-refresh-line]")).toBeNull();
+
+      mockGetWidgetDisplayTitle.mockReturnValue("Films with Meg Ryan");
+      mockCardRefreshing = true;
+      rerender(
+        <QueryClientProvider client={queryClient}>
+          <DashboardContainer page={page} refetchInterval={false} />
+        </QueryClientProvider>,
+      );
+      expect(screen.getByTestId("fullscreen-title").textContent).toBe(
+        "Films with Tom Hanks",
+      );
+      expect(dialog().querySelector("[data-refresh-line]")).not.toBeNull();
+
+      mockCardRefreshing = false;
+      rerender(
+        <QueryClientProvider client={queryClient}>
+          <DashboardContainer page={page} />
+        </QueryClientProvider>,
+      );
+      expect(screen.getByTestId("fullscreen-title").textContent).toBe(
+        "Films with Meg Ryan",
+      );
+      expect(dialog().querySelector("[data-refresh-line]")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
