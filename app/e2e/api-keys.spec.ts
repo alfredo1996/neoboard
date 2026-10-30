@@ -198,6 +198,7 @@ test.describe("API key authentication", () => {
       const admin = await request.get("/api/health", {
         headers: { Authorization: `Bearer ${key}` },
       });
+      expect(admin.status()).toBe(200);
       expect((await admin.json()).data.config.ENCRYPTION_KEY).toBe("set");
     } finally {
       await page.request.delete(`/api/keys/${id}`);
