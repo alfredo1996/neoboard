@@ -72,6 +72,14 @@ export interface WidgetCardProps {
   onFullscreen?: (opener: HTMLElement | null) => void;
   /** Keeps the refresh control visible but non-interactive. */
   refreshDisabled?: boolean;
+  /**
+   * A filter this card uses is being pointed at (#2369): the card takes the
+   * azure edge. A string is also the tag text ("Uses Actor") in the source
+   * line; `true` is the edge alone, for a card with no line to put it on.
+   */
+  driven?: boolean | string;
+  /** The card is refetching and still shows its previous result: a 2 px line runs along its top edge. */
+  refreshing?: boolean;
 }
 
 // The bar's metrics, in px and as the Tailwind classes that draw them. The
@@ -185,6 +193,8 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
       onRefresh,
       onFullscreen,
       refreshDisabled = false,
+      driven = false,
+      refreshing = false,
     },
     ref,
   ) => {
@@ -216,8 +226,12 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
       <Panel
         ref={ref}
         data-title-font={titleFont}
+        data-driven={driven ? "true" : undefined}
+        aria-busy={refreshing || undefined}
         className={cn(
-          "group/panel flex h-full flex-col",
+          "group/panel relative flex h-full flex-col",
+          driven &&
+            "border-ring shadow-[0_0_0_1px_hsl(var(--ring))] hover:border-ring focus-within:border-ring",
           // Edit mode: a dashed strong edge, no shadow, no hover darkening.
           draggable
             ? "border-dashed border-rule-strong shadow-none hover:border-rule-strong focus-within:border-rule-strong"
@@ -225,6 +239,13 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
           className,
         )}
       >
+        {refreshing && (
+          <div
+            data-refresh-line
+            aria-hidden="true"
+            className="refresh-line pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 rounded-t-md"
+          />
+        )}
         {hasHeader && (
           <PanelHeader
             data-widget-header
@@ -356,7 +377,23 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                 )}
               </div>
             </div>
-            {source ? (
+            {typeof driven === "string" && driven && (source || title) ? (
+              // The tag sits in the reserved line, so nothing shifts; a long
+              // source truncates first and the tag stays (#2369).
+              <div className="mt-[3px] flex min-w-0 items-center gap-1.5 text-meta leading-4 text-muted-foreground">
+                {source && (
+                  <p
+                    className="min-w-0 truncate"
+                    title={typeof source === "string" ? source : undefined}
+                  >
+                    {source}
+                  </p>
+                )}
+                <span className="shrink-0 rounded-sm bg-accent px-1.5 font-medium text-ring dark:text-accent-foreground">
+                  {driven}
+                </span>
+              </div>
+            ) : source ? (
               <p
                 className="mt-[3px] truncate text-meta leading-4 text-muted-foreground"
                 title={typeof source === "string" ? source : undefined}

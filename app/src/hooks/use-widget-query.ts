@@ -1,7 +1,7 @@
 "use client";
 
 import { isParamUnset } from "@/lib/parameter/is-param-unset";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import {
   unwrapFullResponse,
@@ -290,6 +290,17 @@ export function useWidgetQuery(
     return { ...input, params: mergedParams };
   }, [input, mergedParams]);
 
+  const enabled =
+    (options?.enabled ?? true) &&
+    !!mergedInput?.connectionId &&
+    !!mergedInput?.query &&
+    allReferencedParamsReady(mergedInput.query, allParameters);
+  const prefix = widgetQueryKeyPrefix(mergedInput);
+  // TanStack's "previous data" outlives a disabled stretch, so a waiting state
+  // is remembered here: rows from before it are never shown under a new pick.
+  const [waited, setWaited] = useState(false);
+  if (!enabled && !waited) setWaited(true);
+
   const queryResult = useQuery<QueryResult, Error>({
     queryKey: widgetQueryKey(mergedInput, options?.staleTime),
     queryFn: async ({ signal }) => {
@@ -320,11 +331,19 @@ export function useWidgetQuery(
       }
       return result;
     },
-    enabled:
-      (options?.enabled ?? true) &&
-      !!mergedInput?.connectionId &&
-      !!mergedInput?.query &&
-      allReferencedParamsReady(mergedInput.query, allParameters),
+    enabled,
+    // A new parameter value keeps the old rows (isPlaceholderData) until its
+    // result lands (#2369). TanStack hands placeholder data to a DISABLED
+    // query too, which would hide the waiting text, so: only when enabled, and
+    // only from the same query (connection, database, text), never another's.
+    placeholderData: (previous, previousQuery) =>
+      enabled &&
+      !waited &&
+      previousQuery &&
+      JSON.stringify(previousQuery.queryKey.slice(0, prefix.length)) ===
+        JSON.stringify(prefix)
+        ? previous
+        : undefined,
     // staleTime controls how long cached data is considered fresh.
     // When enableCache is false on the widget, callers pass 0 (always refetch).
     // When enableCache is true, callers pass cacheTtlMinutes * 60_000.
@@ -349,6 +368,15 @@ export function useWidgetQuery(
       return Math.min(500 * 2 ** attemptIndex, 5000);
     },
   });
+
+  if (
+    waited &&
+    enabled &&
+    queryResult.status === "success" &&
+    !queryResult.isPlaceholderData
+  ) {
+    setWaited(false);
+  }
 
   const missingParams = useMemo(
     () =>

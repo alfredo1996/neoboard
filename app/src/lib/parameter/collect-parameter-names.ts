@@ -1,8 +1,10 @@
 import type {
   DashboardLayoutV2,
   ClickAction,
+  DashboardPage,
   DashboardWidget,
 } from "@/lib/db/schema";
+import { filterClearNames } from "@/lib/parameter/dashboard-filters";
 
 const PARAM_REGEX = /\$param_(\w+)/g;
 
@@ -198,4 +200,50 @@ export function buildParameterSourceMap(
   }
 
   return map;
+}
+
+// ─── Parameter Consumer Map (#2369) ───────────────────────────────────
+
+/** Parameter name (as referenced: `date_from` stays `date_from`) to the ids of the page's widgets that read it. */
+export type ParameterConsumerMap = Record<string, string[]>;
+
+/**
+ * Which widgets of one page read each parameter: `$param_<name>` anywhere in
+ * the query or the settings (title, markdown text, URL), or a select naming it
+ * as its `parentParameterName`. Pure function.
+ */
+export function buildParameterConsumerMap(
+  page: DashboardPage,
+): ParameterConsumerMap {
+  const map: ParameterConsumerMap = {};
+  const add = (name: string, id: string) => {
+    const ids = (map[name] ??= []);
+    if (!ids.includes(id)) ids.push(id);
+  };
+  for (const widget of page.widgets) {
+    const text = `${widget.query ?? ""}\n${JSON.stringify(widget.settings ?? {})}`;
+    for (const m of text.matchAll(PARAM_REGEX)) add(m[1], widget.id);
+    const parent = (
+      widget.settings?.chartOptions as Record<string, unknown> | undefined
+    )?.parentParameterName;
+    if (typeof parent === "string" && parent) add(parent, widget.id);
+  }
+  return map;
+}
+
+/**
+ * The widgets a filter drives: its own parameter and a range's companions
+ * (`_from`/`_to`/`_min`/`_max`), never the filter card itself.
+ */
+export function drivenWidgetIds(
+  map: ParameterConsumerMap,
+  filterName: string,
+  filterWidgetId: string,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const name of filterClearNames(filterName)) {
+    for (const id of map[name] ?? []) ids.add(id);
+  }
+  ids.delete(filterWidgetId);
+  return ids;
 }

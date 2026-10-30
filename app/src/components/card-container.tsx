@@ -29,7 +29,14 @@ import {
   extractColumnNames,
   resolveStylingConfig,
 } from "@/lib/widget/card-utils";
-import React, { useMemo, useCallback, useState } from "react";
+import { CardRefreshContext } from "./card-refresh-context";
+import React, {
+  useContext,
+  useMemo,
+  useCallback,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { AlertCircle, Clock, Play, Unplug } from "lucide-react";
 import {
   QueueFullError,
@@ -252,6 +259,7 @@ export function CardContainer({
   currentPageId,
   connector,
 }: Readonly<CardContainerProps>) {
+  const onRefreshingChange = useContext(CardRefreshContext);
   const effectiveWidgetId = widgetIdSuffix
     ? `${widget.id}--${widgetIdSuffix}`
     : widget.id;
@@ -320,6 +328,12 @@ export function CardContainer({
     refetchInterval,
     enabled: manualEnabled,
   });
+
+  // Before paint, so the frame never shows the new title over the old rows.
+  const refreshing = widgetQuery.isPlaceholderData;
+  useLayoutEffect(() => {
+    onRefreshingChange?.(refreshing);
+  }, [refreshing, onRefreshingChange]);
 
   // What the other widgets have learned about their connections (#1678). A
   // widget that never gets to run — gated on a parameter whose seed query is
@@ -899,6 +913,9 @@ export function CardContainer({
       )}
       <div className="flex-1 min-h-0">
         <ChartRenderer
+          // A new result remounts the chart: its table page, map bounds and
+          // graph layout reset as they did behind the skeleton (#2369).
+          key={widgetQuery.data.resultId}
           type={chartConfig.type}
           data={transformedData}
           settings={chartOptions}

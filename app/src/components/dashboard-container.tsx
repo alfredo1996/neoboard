@@ -1,8 +1,16 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
+import { CardRefreshContext } from "./card-refresh-context";
 import { FilterStrip } from "@neoboard/components/kit";
 import { scrollAndHighlight } from "@/lib/widget/scroll-to-widget";
 import {
@@ -10,6 +18,7 @@ import {
   filterClearNames,
 } from "@/lib/parameter/dashboard-filters";
 import { useFilterBarShown } from "@/hooks/use-filter-bar-shown";
+import { useFilterLit } from "@/hooks/use-filter-lit";
 import { useWidgetSourceLine } from "@/hooks/use-widget-source-line";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { paramLabel } from "@/lib/parameter/param-label";
@@ -34,7 +43,11 @@ import type {
   GridLayoutItem,
   WidgetTemplate,
 } from "@/lib/db/schema";
-import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
+import {
+  buildParameterConsumerMap,
+  drivenWidgetIds,
+  type ParameterSourceMap,
+} from "@/lib/parameter/collect-parameter-names";
 import {
   useParameterStore,
   useParameterValues,
@@ -87,11 +100,26 @@ export interface WidgetActions {
 function SourcedWidgetCard({
   widget,
   connectionName,
+  children,
+  title,
   ...props
 }: Readonly<
   WidgetCardProps & { widget: DashboardWidget; connectionName?: string }
 >) {
   const line = useWidgetSourceLine(widget, connectionName);
+  // While the body refetches under its old rows, the title waits with them
+  // (#2369). The body reports in a layout effect, which runs before this
+  // component's own: `lastTitle` still holds the title of the previous commit,
+  // the one that matches the rows.
+  const lastTitle = useRef(title);
+  useLayoutEffect(() => {
+    lastTitle.current = title;
+  });
+  const [held, setHeld] = useState<{ title?: string } | null>(null);
+  const onRefreshingChange = useCallback(
+    (r: boolean) => setHeld(r ? { title: lastTitle.current } : null),
+    [],
+  );
   // An embedded page runs no query: its source line is the page's domain.
   // Same substitution and values as the iframe's own src (card-container), so
   // the link opens the page shown; iframeSourceLink still refuses non-http(s).
@@ -106,6 +134,7 @@ function SourcedWidgetCard({
   return (
     <WidgetCard
       {...props}
+<<<<<<< HEAD
       // One icon marks every filter card, in view and edit mode (#2367).
       titleIcon={
         widget.chartType === "parameter-select" ? (
@@ -115,8 +144,70 @@ function SourcedWidgetCard({
           />
         ) : undefined
       }
+=======
+      title={held ? held.title : title}
+      refreshing={held !== null}
+>>>>>>> 373a3ffc (feat(dashboard): a filter shows which cards it drives, and a refetching card keeps its result under a thin line (#2369))
       source={(widget.chartType === "iframe" && iframeSourceLink(url)) || line}
-    />
+    >
+      <CardRefreshContext.Provider value={onRefreshingChange}>
+        {children}
+      </CardRefreshContext.Provider>
+    </WidgetCard>
+  );
+}
+
+/**
+ * The grid cell of one widget. A filter card in view mode reports whether it
+ * is lit (hovered, keyboard-focused or its list open) so the cards it drives
+ * can show it (#2369).
+ */
+function WidgetSlot({
+  widgetId,
+  filterName,
+  onLit,
+  children,
+  ref: gridRef,
+  ...rest
+}: Readonly<
+  Omit<React.HTMLAttributes<HTMLDivElement>, "id"> & {
+    /** The grid hands its item a ref (React 19: a prop), which this cell must pass on. */
+    ref?: React.Ref<HTMLDivElement>;
+    widgetId: string;
+    /** The parameter the filter sets; unset for a card that is not a lit filter. */
+    filterName?: string;
+    onLit: (
+      update: (
+        current: { name: string; widgetId: string } | null,
+      ) => { name: string; widgetId: string } | null,
+    ) => void;
+  }
+>) {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const ref = useCallback(
+    (node: HTMLDivElement | null) => {
+      setEl(node);
+      if (typeof gridRef === "function") gridRef(node);
+      else if (gridRef) gridRef.current = node;
+    },
+    [gridRef],
+  );
+  const report = useCallback(
+    (lit: boolean) =>
+      onLit((cur) =>
+        lit && filterName
+          ? { name: filterName, widgetId }
+          : cur?.widgetId === widgetId
+            ? null
+            : cur,
+      ),
+    [onLit, filterName, widgetId],
+  );
+  useFilterLit(el, Boolean(filterName), report);
+  return (
+    <div ref={ref} {...rest}>
+      {children}
+    </div>
   );
 }
 
@@ -247,6 +338,18 @@ export function DashboardContainer({
           : undefined,
       }));
   }, [parameterSourceMap, parameters, onNavigateToPage, page.id]);
+  // The filter being pointed at, and the cards it drives (#2369). View mode only.
+  const [lit, setLit] = useState<{ name: string; widgetId: string } | null>(
+    null,
+  );
+  const consumers = useMemo(() => buildParameterConsumerMap(page), [page]);
+  const drivenIds = useMemo(
+    () =>
+      lit && !editable
+        ? drivenWidgetIds(consumers, lit.name, lit.widgetId)
+        : new Set<string>(),
+    [lit, editable, consumers],
+  );
   const labelOf = (n: string) => paramLabel(n, parameterSourceMap);
   const displayTitle = (widget: DashboardWidget) =>
     interpolateTitle(getWidgetDisplayTitle(widget), parameters, labelOf);
@@ -402,9 +505,19 @@ export function DashboardContainer({
             const chartOpts = ((widget.settings ?? {}).chartOptions ??
               {}) as Record<string, unknown>;
             const showRefresh = shouldShowRefreshButton(chartOpts);
+            const filterName =
+              !editable &&
+              widget.chartType === "parameter-select" &&
+              typeof chartOpts.parameterName === "string" &&
+              chartOpts.parameterName
+                ? chartOpts.parameterName
+                : undefined;
             return (
-              <div
+              <WidgetSlot
                 key={widget.id}
+                widgetId={widget.id}
+                filterName={filterName}
+                onLit={setLit}
                 data-testid="widget-card"
                 data-widget-id={widget.id}
                 onDoubleClick={
@@ -420,6 +533,11 @@ export function DashboardContainer({
                   widget={widget}
                   connectionName={connectionNames?.[widget.connectionId]}
                   title={displayTitle(widget)}
+                  driven={
+                    lit && drivenIds.has(widget.id)
+                      ? `Uses ${labelOf(lit.name)}`
+                      : false
+                  }
                   className="h-full"
                   mode={editable ? "edit" : "view"}
                   actions={buildActions(widget)}
@@ -479,7 +597,7 @@ export function DashboardContainer({
                     connector={connectorCapabilities?.[widget.connectionId]}
                   />
                 </SourcedWidgetCard>
-              </div>
+              </WidgetSlot>
             );
           })}
         </DashboardGrid>

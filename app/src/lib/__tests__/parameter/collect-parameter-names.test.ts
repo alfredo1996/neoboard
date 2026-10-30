@@ -5,8 +5,14 @@ import {
   getWidgetParameterNames,
   aggregateClickActionParamNames,
   buildParameterSourceMap,
+  buildParameterConsumerMap,
+  drivenWidgetIds,
 } from "@/lib/parameter/collect-parameter-names";
-import type { DashboardLayoutV2 } from "@/lib/db/schema";
+import type {
+  DashboardLayoutV2,
+  DashboardPage,
+  DashboardWidget,
+} from "@/lib/db/schema";
 
 function makeLayout(pages: DashboardLayoutV2["pages"]): DashboardLayoutV2 {
   return { version: 2, pages };
@@ -894,5 +900,83 @@ describe("buildParameterSourceMap", () => {
     // Only w1 sets "region"; w2 only consumes it
     expect(map.region).toHaveLength(1);
     expect(map.region[0].widgetId).toBe("w1");
+  });
+});
+
+describe("buildParameterConsumerMap and drivenWidgetIds (#2369)", () => {
+  const w = (
+    id: string,
+    over: Partial<DashboardWidget> = {},
+  ): DashboardWidget => ({
+    id,
+    chartType: "bar",
+    connectionId: "c1",
+    query: "RETURN 1",
+    settings: {},
+    ...over,
+  });
+  const page = (widgets: DashboardWidget[]): DashboardPage => ({
+    id: "p1",
+    title: "Page",
+    widgets,
+    gridLayout: [],
+  });
+  const select = (id: string, name: string, extra = {}): DashboardWidget =>
+    w(id, {
+      chartType: "parameter-select",
+      query: "",
+      settings: { chartOptions: { parameterName: name, ...extra } },
+    });
+
+  it("lists a widget under the parameter its query, title, text or url uses, and no other", () => {
+    const map = buildParameterConsumerMap(
+      page([
+        w("q", { query: "MATCH (a {n: $param_actor}) RETURN a" }),
+        w("t", { settings: { title: "Films with $param_actor" } }),
+        w("md", {
+          chartType: "markdown",
+          query: "",
+          settings: { chartOptions: { content: "# $param_actor" } },
+        }),
+        w("url", {
+          chartType: "iframe",
+          query: "",
+          settings: { chartOptions: { url: "https://x.test/?a=$param_actor" } },
+        }),
+        w("other", { query: "RETURN $param_genre" }),
+        w("none", { query: "RETURN 1" }),
+      ]),
+    );
+    expect(map.actor).toEqual(["q", "t", "md", "url"]);
+    expect(map.genre).toEqual(["other"]);
+  });
+
+  it("lists a select under the parameter it names as its parent", () => {
+    const map = buildParameterConsumerMap(
+      page([select("city", "city", { parentParameterName: "year" })]),
+    );
+    expect(map.year).toEqual(["city"]);
+  });
+
+  it("a range filter drives the cards using its companions", () => {
+    const map = buildParameterConsumerMap(
+      page([
+        select("f", "date"),
+        w("a", {
+          query: "WHERE d >= $param_date_from AND d <= $param_date_to",
+        }),
+        w("b", { query: "WHERE n >= $param_score_min" }),
+      ]),
+    );
+    expect([...drivenWidgetIds(map, "date", "f")]).toEqual(["a"]);
+    expect([...drivenWidgetIds(map, "score", "g")]).toEqual(["b"]);
+  });
+
+  it("a filter card is not driven by its own parameter", () => {
+    const map = buildParameterConsumerMap(
+      page([select("f", "actor", { seedQuery: "x $param_actor" })]),
+    );
+    map.actor = ["f"];
+    expect([...drivenWidgetIds(map, "actor", "f")]).toEqual([]);
   });
 });
