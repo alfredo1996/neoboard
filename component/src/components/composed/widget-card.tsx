@@ -128,6 +128,71 @@ function headerLayout(p: {
   };
 }
 
+/** The panel's edge and shadow for its state. */
+function panelEdge(
+  draggable: boolean,
+  driven: boolean | string,
+  elevation: boolean,
+) {
+  // Edit mode: a dashed strong edge, no shadow, no hover darkening.
+  if (draggable) {
+    return "border-dashed border-rule-strong shadow-none hover:border-rule-strong focus-within:border-rule-strong";
+  }
+  return cn(
+    driven &&
+      "border-ring shadow-[0_0_0_1px_hsl(var(--ring))] hover:border-ring focus-within:border-ring",
+    !elevation && "shadow-none",
+  );
+}
+
+/** The line under the title: the source, the driven tag, or reserved space. */
+function SourceLine({
+  source,
+  title,
+  driven,
+}: {
+  readonly source: WidgetCardProps["source"];
+  readonly title?: string;
+  readonly driven: boolean | string;
+}) {
+  const hover = typeof source === "string" ? source : undefined;
+  if (typeof driven === "string" && driven && (source || title)) {
+    // The tag sits in the reserved line, so nothing shifts; a long source
+    // truncates first and the tag stays (#2369).
+    return (
+      <div className="mt-[3px] flex min-w-0 items-center gap-1.5 text-meta leading-4 text-muted-foreground">
+        {source && (
+          <p className="min-w-0 truncate" title={hover}>
+            {source}
+          </p>
+        )}
+        <span className="shrink-0 rounded-sm bg-accent px-1.5 font-medium text-ring dark:text-accent-foreground">
+          {driven}
+        </span>
+      </div>
+    );
+  }
+  if (source) {
+    return (
+      <p
+        className="mt-[3px] truncate text-meta leading-4 text-muted-foreground"
+        title={hover}
+      >
+        {source}
+      </p>
+    );
+  }
+  if (!title) return null;
+  // Reserve the source line so titled cards in the same row start their
+  // content at the same height — otherwise a card with a source pushes its
+  // chart down relative to its neighbour and the row visibly fails to align
+  // (#1246). h-4 matches the line-height; empty + aria-hidden because the
+  // space carries no meaning.
+  return (
+    <p data-source-placeholder aria-hidden="true" className="mt-[3px] h-4" />
+  );
+}
+
 function ActionItems({ actions }: { readonly actions: WidgetCardAction[] }) {
   return actions.map((action, index) => (
     <React.Fragment key={`${action.label}-${index}`}>
@@ -230,12 +295,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
         aria-busy={refreshing || undefined}
         className={cn(
           "group/panel relative flex h-full flex-col",
-          driven &&
-            "border-ring shadow-[0_0_0_1px_hsl(var(--ring))] hover:border-ring focus-within:border-ring",
-          // Edit mode: a dashed strong edge, no shadow, no hover darkening.
-          draggable
-            ? "border-dashed border-rule-strong shadow-none hover:border-rule-strong focus-within:border-rule-strong"
-            : !elevation && "shadow-none",
+          panelEdge(draggable, driven, elevation),
           className,
         )}
       >
@@ -377,44 +437,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                 )}
               </div>
             </div>
-            {typeof driven === "string" && driven && (source || title) ? (
-              // The tag sits in the reserved line, so nothing shifts; a long
-              // source truncates first and the tag stays (#2369).
-              <div className="mt-[3px] flex min-w-0 items-center gap-1.5 text-meta leading-4 text-muted-foreground">
-                {source && (
-                  <p
-                    className="min-w-0 truncate"
-                    title={typeof source === "string" ? source : undefined}
-                  >
-                    {source}
-                  </p>
-                )}
-                <span className="shrink-0 rounded-sm bg-accent px-1.5 font-medium text-ring dark:text-accent-foreground">
-                  {driven}
-                </span>
-              </div>
-            ) : source ? (
-              <p
-                className="mt-[3px] truncate text-meta leading-4 text-muted-foreground"
-                title={typeof source === "string" ? source : undefined}
-              >
-                {source}
-              </p>
-            ) : (
-              title && (
-                /* Reserve the source line so titled cards in the same row
-                   start their content at the same height — otherwise a card
-                   with a source pushes its chart down relative to its
-                   neighbour and the row visibly fails to align (#1246).
-                   h-4 matches the line-height; empty + aria-hidden
-                   because the space carries no meaning. */
-                <p
-                  data-source-placeholder
-                  aria-hidden="true"
-                  className="mt-[3px] h-4"
-                />
-              )
-            )}
+            <SourceLine source={source} title={title} driven={driven} />
           </PanelHeader>
         )}
         <PanelContent
