@@ -1,34 +1,42 @@
 import { type ChartOptionDef } from "./shared";
 
+/** A preset picker: Default, then each name as `<prefix>-<name>` (#2368). */
+function swatchOption(
+  key: string,
+  label: string,
+  defaultToken: string,
+  prefix: string,
+  names: string[],
+): ChartOptionDef {
+  return {
+    key,
+    label,
+    type: "swatch",
+    default: "default",
+    category: "Appearance",
+    options: [
+      { value: "default", label: "Default", token: defaultToken },
+      ...names.map((name) => {
+        const value = name.toLowerCase();
+        return { value, label: name, token: `${prefix}-${value}` };
+      }),
+    ],
+  };
+}
+
 export const parameterSelectOptions: ChartOptionDef[] = [
-  {
-    key: "fieldFill",
-    label: "Field fill",
-    type: "swatch",
-    default: "default",
-    category: "Appearance",
-    options: [
-      { value: "default", label: "Default", token: "--field" },
-      { value: "azure", label: "Azure", token: "--param-fill-azure" },
-      { value: "citrine", label: "Citrine", token: "--param-fill-citrine" },
-      { value: "sage", label: "Sage", token: "--param-fill-sage" },
-      { value: "rose", label: "Rose", token: "--param-fill-rose" },
-    ],
-  },
-  {
-    key: "fieldBorder",
-    label: "Field border",
-    type: "swatch",
-    default: "default",
-    category: "Appearance",
-    options: [
-      { value: "default", label: "Default", token: "--input" },
-      { value: "azure", label: "Azure", token: "--param-border-azure" },
-      { value: "citrine", label: "Citrine", token: "--param-border-citrine" },
-      { value: "sage", label: "Sage", token: "--param-border-sage" },
-      { value: "ink", label: "Ink", token: "--param-border-ink" },
-    ],
-  },
+  swatchOption("fieldFill", "Field fill", "--field", "--param-fill", [
+    "Azure",
+    "Citrine",
+    "Sage",
+    "Rose",
+  ]),
+  swatchOption("fieldBorder", "Field border", "--input", "--param-border", [
+    "Azure",
+    "Citrine",
+    "Sage",
+    "Ink",
+  ]),
   {
     key: "placeholder",
     label: "Placeholder",
