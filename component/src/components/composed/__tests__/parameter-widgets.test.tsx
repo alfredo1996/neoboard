@@ -2325,7 +2325,7 @@ describe("a long value stays inside its field (#2367)", () => {
       />,
     );
     const trigger = screen.getByRole("combobox");
-    expect(trigger).toHaveClass("[&>span]:mr-5", "[&>span]:truncate");
+    expect(trigger).toHaveClass("[&>span]:mr-6", "[&>span]:truncate");
   });
 
   it("multi-select parameter uses the field border, not the stronger one", () => {
@@ -2339,5 +2339,17 @@ describe("a long value stays inside its field (#2367)", () => {
     );
     expect(container.innerHTML).toContain("border-input");
     expect(container.innerHTML).not.toContain("border-border-strong");
+    // Same states as the sibling multi-select.tsx: a waiting select keeps its
+    // border on hover, keyboard focus shows the azure border and a 1px offset.
+    expect(container.innerHTML).toContain(
+      "has-[[role=combobox]:disabled]:hover:border-input",
+    );
+    expect(container.innerHTML).toContain(
+      "has-[[role=combobox]:focus-visible]:border-ring",
+    );
+    expect(container.innerHTML).toContain(
+      "has-[[role=combobox]:focus-visible]:ring-offset-1",
+    );
+    expect(container.innerHTML).not.toContain("ring-offset-2");
   });
 });

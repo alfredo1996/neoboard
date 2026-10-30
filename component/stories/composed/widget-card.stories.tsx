@@ -170,6 +170,10 @@ const opts = [
   { value: "b", label: "Beta" },
 ];
 const noop = () => {};
+// Wider than any field here, so the value must truncate beside the x.
+const longOpts = [
+  { value: "a", label: "A very long option label that cannot fit in a field" },
+];
 
 /**
  * #2357: every selector type in a two-row card (172px, the dashboard grid's
@@ -257,7 +261,8 @@ export const SelectorCardsTwoRows: Story = {
 
 /**
  * #2367: a filter card holding a field of each field-shaped type (relative date
- * is a segmented control and number range a slider: neither is a field). Every
+ * is a segmented control; number range's two inputs are the same `Input` as
+ * the text card, so they add nothing here). Every
  * field is painted with `--field` and the 3:1 `--input` border, fills the card
  * body's width, and a long value ends inside it, clear of the x. The date range
  * sits in a card about 237px wide, the narrowest a filter gets.
@@ -277,14 +282,14 @@ export const FilterCardFields: Story = {
           key="s"
           parameterName="select"
           searchable
-          options={opts}
+          options={longOpts}
           value="a"
           onChange={noop}
         />,
         <ParamSelector
           key="p"
           parameterName="plain"
-          options={opts}
+          options={longOpts}
           value="a"
           onChange={noop}
         />,
@@ -293,6 +298,21 @@ export const FilterCardFields: Story = {
           parameterName="multi"
           options={opts}
           values={["a"]}
+          onChange={noop}
+        />,
+        <ParamSelector
+          key="s0"
+          parameterName="select-empty"
+          searchable
+          options={longOpts}
+          value=""
+          onChange={noop}
+        />,
+        <ParamSelector
+          key="p0"
+          parameterName="plain-empty"
+          options={longOpts}
+          value=""
           onChange={noop}
         />,
         <DatePickerParameter
@@ -333,7 +353,10 @@ export const FilterCardFields: Story = {
       "[class*=overflow-hidden]",
     );
     const bodies = [...cards].filter((b) => b.className.includes("pb-4"));
-    expect(bodies).toHaveLength(6);
+    expect(bodies).toHaveLength(8);
+    // chevron offset from the field's right edge: select, plain, multi,
+    // then the valueless select and plain
+    const chevronGap: number[] = [];
     for (const body of bodies) {
       const control = body.querySelector<HTMLElement>(
         "input, button[aria-expanded]",
@@ -357,7 +380,7 @@ export const FilterCardFields: Story = {
       // Text never runs past the field, or under the clear x beside it.
       const box = field.getBoundingClientRect();
       const clear = body.querySelector<HTMLElement>(
-        "button[aria-label^=Clear], button[aria-label*=Clear]",
+        "button[aria-label*=Clear]",
       );
       for (const span of field.querySelectorAll("span")) {
         const r = span.getBoundingClientRect();
@@ -369,6 +392,23 @@ export const FilterCardFields: Story = {
           );
         }
       }
+      // A select: the x sits left of the chevron.
+      const chevron = body
+        .querySelector("[role=combobox]")
+        ?.querySelector("svg:last-of-type");
+      if (chevron) {
+        const c = chevron.getBoundingClientRect();
+        chevronGap.push(box.right - c.right);
+        if (clear) {
+          expect(clear.getBoundingClientRect().right).toBeLessThanOrEqual(
+            c.left + 0.5,
+          );
+        }
+      }
     }
+    // The chevron does not move when a value (and so the x) appears.
+    expect(chevronGap).toHaveLength(5);
+    expect(chevronGap[0]).toBeCloseTo(chevronGap[3], 0);
+    expect(chevronGap[1]).toBeCloseTo(chevronGap[4], 0);
   },
 };

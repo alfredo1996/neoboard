@@ -180,7 +180,7 @@ function ParamMultiSelector({
           placeholder={resolvedPlaceholder}
           onRemove={handleRemove}
           padX="px-2.5"
-          className="w-full border-input hover:border-input-hover has-[[role=combobox]:focus-visible]:ring-offset-2"
+          className="w-full border-input hover:border-input-hover has-[[role=combobox]:disabled]:hover:border-input has-[[role=combobox]:focus-visible]:border-ring has-[[role=combobox]:focus-visible]:ring-offset-1"
         />
         <PopoverContent
           id={listId}

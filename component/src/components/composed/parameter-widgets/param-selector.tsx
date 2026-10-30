@@ -92,6 +92,18 @@ export interface ParamSelectorProps extends ExternalLabelProps {
   className?: string;
 }
 
+function resolvePlaceholder(
+  placeholder: string | undefined,
+  isWaiting: boolean,
+  parentName: string,
+  scopedLabel: string | undefined,
+) {
+  if (placeholder !== undefined) return placeholder;
+  if (isWaiting) return `Select ${parentName} first…`;
+  if (scopedLabel) return `${pickPrompt(scopedLabel)}…`;
+  return "Select a value…";
+}
+
 /**
  * Single-select dropdown for a parameter widget seeded from a DB query.
  * Pure presentational — receives options as props, calls onChange.
@@ -159,11 +171,12 @@ function ParamSelector({
   const parentName =
     parentScopeLabel ??
     (parentParameterName ? humanizeParamName(parentParameterName) : "");
-  let resolvedPlaceholder = "Select a value…";
-  if (placeholder !== undefined) resolvedPlaceholder = placeholder;
-  else if (isWaitingForParent)
-    resolvedPlaceholder = `Select ${parentName} first…`;
-  else if (scopedLabel) resolvedPlaceholder = `${pickPrompt(scopedLabel)}…`;
+  const resolvedPlaceholder = resolvePlaceholder(
+    placeholder,
+    isWaitingForParent,
+    parentName,
+    scopedLabel,
+  );
 
   // The dependency hint is a DESCRIPTION, not part of the name. Putting it
   // inside the <Label> made the child's accessible name "movie(depends on
@@ -309,8 +322,8 @@ function ParamSelector({
           <SelectTrigger
             id={id}
             // Fits its card as the searchable trigger above does (#2056); the
-            // value's mr-5 leaves room for the clear x beside the chevron.
-            className={cn("min-w-0 flex-1", value && "[&>span]:mr-5")}
+            // value's mr-6 (no flex gap, unlike the Button above) clears the x.
+            className={cn("min-w-0 flex-1", value && "[&>span]:mr-6")}
             aria-required={required || undefined}
             aria-labelledby={scopedLabel ? undefined : labelId}
             aria-label={scopedLabel}
