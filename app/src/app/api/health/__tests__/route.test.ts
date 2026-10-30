@@ -72,7 +72,6 @@ describe("GET /api/health", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.status).toBe("ok");
-    expect(body.data.config).toBeDefined();
   });
 
   it("returns 200 with degraded status when warnings exist", async () => {
@@ -86,7 +85,9 @@ describe("GET /api/health", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.status).toBe("degraded");
-    expect(body.data.warnings).toHaveLength(1);
+    mockRequireSession.mockResolvedValue({ userId: "u1", role: "admin" });
+    const adminBody = await (await GET()).json();
+    expect(adminBody.data.warnings).toHaveLength(1);
   });
 
   it("returns 503 when required vars are missing", async () => {
@@ -100,7 +101,10 @@ describe("GET /api/health", () => {
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.data.status).toBe("error");
-    expect(body.data.errors).toHaveLength(1);
+    expect(body.data.errors).toBeUndefined();
+    mockRequireSession.mockResolvedValue({ userId: "u1", role: "admin" });
+    const adminBody = await (await GET()).json();
+    expect(adminBody.data.errors).toHaveLength(1);
   });
 
   it("never exposes actual env var values", async () => {
@@ -110,6 +114,7 @@ describe("GET /api/health", () => {
       warnings: [],
       config: { DATABASE_URL: "set", ENCRYPTION_KEY: "set" },
     });
+    mockRequireSession.mockResolvedValue({ userId: "u1", role: "admin" });
     const res = await GET();
     const body = await res.json();
     const configValues = Object.values(body.data.config);
@@ -159,6 +164,35 @@ describe("GET /api/health", () => {
     mockDbExecute.mockResolvedValue([{ "?column?": 1 }]);
     const res = await GET();
     expect(res.status).toBe(503);
+  });
+
+  // #2332 — which secrets and settings are configured is admin-only.
+  describe("config detail is admin-only (#2332)", () => {
+    const failing = {
+      status: "degraded",
+      errors: [{ key: "A", level: "error", message: "m" }],
+      warnings: [{ key: "B", level: "warning", message: "m" }],
+      config: { ENCRYPTION_KEY: "set" },
+    };
+
+    it.each([
+      ["anonymous", null],
+      ["non-admin", { userId: "u2", role: "creator" }],
+    ])("%s callers get only status and db", async (_label, session) => {
+      mockValidate.mockReturnValue(failing);
+      if (session) mockRequireSession.mockResolvedValue(session);
+      const body = await (await GET()).json();
+      expect(Object.keys(body.data).sort()).toEqual(["db", "status"]);
+    });
+
+    it("admins get config, errors and warnings", async () => {
+      mockValidate.mockReturnValue(failing);
+      mockRequireSession.mockResolvedValue({ userId: "u1", role: "admin" });
+      const body = await (await GET()).json();
+      expect(body.data.config).toEqual({ ENCRYPTION_KEY: "set" });
+      expect(body.data.errors).toHaveLength(1);
+      expect(body.data.warnings).toHaveLength(1);
+    });
   });
 
   // #930 — extended payload: version / migrations / schedulers, admin-gated.

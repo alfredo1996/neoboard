@@ -286,7 +286,7 @@ For rotation procedure (intentional key change without data loss), see the [Cred
 
 If your symptom doesn't match anything above:
 
-1. **`neoboard status`** — what's the CLI's view of mode, containers and DB health? (Its migration count comes from the journal, so check `/api/health` as an admin for the applied count.)
+1. **`neoboard status`** — what's the CLI's view of mode, containers and DB health? (Its migration count comes from the journal, so check `/api/health` as an admin for the applied count and for `errors`, `warnings` and `config`.)
 2. **`neoboard logs -n 200`** — what did the failing service print? Grep for `error`.
 3. **`neoboard logs postgres -n 100`** — narrow to one database (`postgres`/`pg` or `neo4j`). `neoboard logs` does not cover the app: for the full-stack container started by `neoboard start --full`, run `docker logs --tail 100 neoboard-app`; under `neoboard dev` the app's output is in the terminal running it.
 4. **`docker compose ps`** — does the container's `State` match the CLI's view?

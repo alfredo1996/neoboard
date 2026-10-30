@@ -98,7 +98,7 @@ See the [Chart Plugin Guide](/extend/new-chart-plugin) to add your own.
 
 All routes are protected by `proxy.ts` (Next.js middleware):
 
-1. **Public routes** pass through without a session: `/login`, `/signup`, `/change-password`, `/api/auth/*`, `/api/docs`, `/api/openapi*` and `/api/health`. `/api/health` is the unauthenticated health probe. Anonymous callers get which known env vars are set or unset, config validation errors, and database status, never values. Admins also get version, migration and scheduler details.
+1. **Public routes** pass through without a session: `/login`, `/signup`, `/change-password`, `/api/auth/*`, `/api/docs`, `/api/openapi*` and `/api/health`. `/api/health` is the unauthenticated health probe. Anonymous callers get the overall status and database status only. Admins also get which known env vars are set or unset, config validation errors and warnings (never values), version, migration and scheduler details.
 2. **API key requests** to `/api/*` (`Authorization: Bearer nb_*`) pass through to server-side validation. Page routes still need a session.
 3. **Unauthenticated page requests** redirect to `/login`
 4. **Unauthenticated API requests** return `401 JSON`

@@ -178,7 +178,7 @@ Restart for a change to take effect. In Docker mode run `neoboard stop && neoboa
 
 ```bash
 neoboard env --validate    # local mode only: check that app/.env.local sets each required variable (presence only; does nothing in Docker mode)
-curl -s localhost:3000/api/health | jq '.data | {errors, config}'
+curl -s -H "Authorization: Bearer nb_<your-admin-key>" localhost:3000/api/health | jq '.data | {errors, config}'
 ```
 
-`--validate` checks presence only. The format rules (64-character hex `ENCRYPTION_KEY`, secrets of at least 32 characters) run when the app boots, and any failures show up in `/api/health` under `data.errors`. `data.config` reports each variable as `set` or `unset`, never its value, so it is safe to expose to an uptime probe. See [Monitoring](/deploy/monitoring).
+`--validate` checks presence only. The format rules (64-character hex `ENCRYPTION_KEY`, secrets of at least 32 characters) run when the app boots, and any failures show up in `/api/health` under `data.errors`. Both are shown to an admin only (an admin session or an admin API key); an anonymous probe gets `status` and `db`. `data.config` reports each variable as `set` or `unset`, never its value. See [Monitoring](/deploy/monitoring).

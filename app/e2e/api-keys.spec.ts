@@ -176,6 +176,34 @@ test.describe("API key authentication", () => {
     expect(res.status()).toBe(401);
   });
 
+  test("/api/health answers up/down to anyone and shows config only to an admin key (#2332)", async ({
+    page,
+    request,
+  }) => {
+    // Anonymous: the probe works (200) but names no secret or setting.
+    const anon = await request.get("/api/health");
+    expect(anon.status()).toBe(200);
+    const anonData = (await anon.json()).data;
+    expect(anonData.status).toBe("ok");
+    expect(anonData).not.toHaveProperty("config");
+    expect(anonData).not.toHaveProperty("errors");
+
+    await new AuthPage(page).login(ALICE.email, ALICE.password);
+    const minted = await page.request.post("/api/keys", {
+      data: { name: `health ${uid()}` },
+    });
+    expect(minted.status()).toBe(201);
+    const { id, key } = (await minted.json()).data;
+    try {
+      const admin = await request.get("/api/health", {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      expect((await admin.json()).data.config.ENCRYPTION_KEY).toBe("set");
+    } finally {
+      await page.request.delete(`/api/keys/${id}`);
+    }
+  });
+
   test("a disabled user's key is refused, and works again when re-enabled (#2003)", async ({
     browser,
     request,
