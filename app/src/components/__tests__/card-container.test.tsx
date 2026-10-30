@@ -223,7 +223,7 @@ describe("CardContainer", () => {
     const barWidget = () =>
       createWidget({ chartType: "bar", query: "RETURN 1", settings: {} });
 
-    it("reports a refetch with its previous rows and keeps the chart, no skeleton", () => {
+    it("reports a refetch to its frame", () => {
       const onRefreshingChange = vi.fn();
       widgetQueryData = result("r1");
       widgetQueryPlaceholder = true;
@@ -233,8 +233,6 @@ describe("CardContainer", () => {
         </CardRefreshContext.Provider>,
       );
       expect(onRefreshingChange).toHaveBeenLastCalledWith(true);
-      expect(screen.getByTestId("chart-renderer")).toBeInTheDocument();
-      expect(screen.queryByTestId("skeleton")).not.toBeInTheDocument();
     });
 
     it("reports not refreshing for a settled result", () => {

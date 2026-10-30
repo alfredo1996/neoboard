@@ -2,7 +2,11 @@
 
 import { isParamUnset } from "@/lib/parameter/is-param-unset";
 import { useMemo, useState } from "react";
-import { useQuery, type QueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  type PlaceholderDataFunction,
+  type QueryClient,
+} from "@tanstack/react-query";
 import {
   unwrapFullResponse,
   QueueFullError,
@@ -240,6 +244,34 @@ export function getShownWidgetQueryData(
 }
 
 /**
+ * placeholderData for a widget query (#2369). TanStack hands placeholder data
+ * to a DISABLED query too, which would hide the waiting text, so `waited`
+ * (a stretch with no result: disabled, or an error) turns it off until a new
+ * result lands. It also returns nothing for another query's rows (connection,
+ * database or text differ) and on a connection already known dead, where the
+ * verdict beats old rows (#1888).
+ */
+function keepSameQuery(
+  prefix: readonly unknown[],
+  waited: boolean,
+  connectionId: string | undefined,
+): PlaceholderDataFunction<QueryResult, Error> {
+  return (previous, previousQuery) => {
+    if (waited || !previousQuery) return undefined;
+    if (
+      connectionId &&
+      useConnectionStatusStore.getState().statuses[connectionId] === "error"
+    ) {
+      return undefined;
+    }
+    const same =
+      JSON.stringify(previousQuery.queryKey.slice(0, prefix.length)) ===
+      JSON.stringify(prefix);
+    return same ? previous : undefined;
+  };
+}
+
+/**
  * Cached query hook for widget data. Uses React Query's cache with a stable
  * key based on connectionId + query text, so the same query is never executed
  * twice (e.g. when navigating from view mode to edit mode).
@@ -333,17 +365,8 @@ export function useWidgetQuery(
     },
     enabled,
     // A new parameter value keeps the old rows (isPlaceholderData) until its
-    // result lands (#2369). TanStack hands placeholder data to a DISABLED
-    // query too, which would hide the waiting text, so: only when enabled, and
-    // only from the same query (connection, database, text), never another's.
-    placeholderData: (previous, previousQuery) =>
-      enabled &&
-      !waited &&
-      previousQuery &&
-      JSON.stringify(previousQuery.queryKey.slice(0, prefix.length)) ===
-        JSON.stringify(prefix)
-        ? previous
-        : undefined,
+    // result lands (#2369).
+    placeholderData: keepSameQuery(prefix, waited, mergedInput?.connectionId),
     // staleTime controls how long cached data is considered fresh.
     // When enableCache is false on the widget, callers pass 0 (always refetch).
     // When enableCache is true, callers pass cacheTtlMinutes * 60_000.
@@ -369,6 +392,9 @@ export function useWidgetQuery(
     },
   });
 
+  // An error is a stretch with no result too: the next pick must not bring
+  // back the rows from before it.
+  if (!waited && queryResult.status === "error") setWaited(true);
   if (
     waited &&
     enabled &&

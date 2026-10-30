@@ -55,6 +55,35 @@ describe("useFilterLit (#2369)", () => {
     expect(onChange).toHaveBeenLastCalledWith(false);
   });
 
+  it("a mouse choice does not light the field it hands focus back to", () => {
+    // A mouse click on a text field, or on an option of a portalled list whose
+    // trigger then takes focus back, still matches :focus-visible.
+    const { trigger, onChange } = setup();
+    vi.spyOn(trigger, "matches").mockReturnValue(true);
+    act(() => {
+      document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    });
+    fire(trigger, "focusin");
+    expect(onChange).not.toHaveBeenCalled();
+    // The next key press hands the field back to the keyboard.
+    act(() => {
+      document.body.dispatchEvent(new Event("keydown", { bubbles: true }));
+    });
+    fire(trigger, "focusin");
+    expect(onChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it("moving focus within the card keeps it lit; leaving it clears", () => {
+    const { trigger, card, onChange } = setup();
+    vi.spyOn(trigger, "matches").mockReturnValue(true);
+    fire(trigger, "focusin");
+    onChange.mockClear();
+    fire(trigger, "focusout", { relatedTarget: card });
+    expect(onChange).not.toHaveBeenCalled();
+    fire(trigger, "focusout", { relatedTarget: document.body });
+    expect(onChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("stays lit while the list is open and clears when it closes with the pointer elsewhere", async () => {
     const { card, trigger, onChange } = setup();
     fire(card, "pointerenter", { bubbles: false });

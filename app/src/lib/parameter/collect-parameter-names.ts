@@ -217,11 +217,22 @@ export function buildParameterConsumerMap(
 ): ParameterConsumerMap {
   const map: ParameterConsumerMap = {};
   const add = (name: string, id: string) => {
-    const ids = (map[name] ??= []);
-    if (!ids.includes(id)) ids.push(id);
+    map[name] ??= [];
+    if (!map[name].includes(id)) map[name].push(id);
   };
   for (const widget of page.widgets) {
-    const text = `${widget.query ?? ""}\n${JSON.stringify(widget.settings ?? {})}`;
+    // A searchable select's seed query reads its own search box as
+    // $param_search (use-seed-query.ts); that is not a filter named "search".
+    const settings = { ...widget.settings };
+    const chartOptions = settings.chartOptions as
+      Record<string, unknown> | undefined;
+    if (typeof chartOptions?.seedQuery === "string") {
+      settings.chartOptions = {
+        ...chartOptions,
+        seedQuery: chartOptions.seedQuery.replaceAll("$param_search", ""),
+      };
+    }
+    const text = `${widget.query ?? ""}\n${JSON.stringify(settings)}`;
     for (const m of text.matchAll(PARAM_REGEX)) add(m[1], widget.id);
     const parent = (
       widget.settings?.chartOptions as Record<string, unknown> | undefined

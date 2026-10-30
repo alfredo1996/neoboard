@@ -530,10 +530,12 @@ html {
   }
 }
 @keyframes refresh-line-sweep {
+  /* The image is 3x the element: lowering the position moves the segment
+     from the left edge to the right (the approved mock's direction). */
   from {
-    background-position: 0% 0;
+    background-position: 100% 0;
   }
   to {
-    background-position: 100% 0;
+    background-position: 0% 0;
   }
 }

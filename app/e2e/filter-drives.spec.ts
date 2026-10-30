@@ -12,7 +12,11 @@ test.describe("A filter shows what it drives (#2369)", () => {
   const FILMS_QUERY =
     "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WHERE elementId(p) = $param_actor RETURN m.title AS title ORDER BY title";
 
-  async function setup(page: Page, name: string) {
+  async function setup(
+    page: Page,
+    name: string,
+    filterOptions: Record<string, unknown> = {},
+  ) {
     const { id, cleanup } = await createTestDashboard(page.request, name);
     const res = await page.request.put(`/api/dashboards/${id}`, {
       data: {
@@ -35,6 +39,7 @@ test.describe("A filter shows what it drives (#2369)", () => {
                       parameterName: "actor",
                       seedQuery:
                         "MATCH (p:Person)-[:ACTED_IN]->(:Movie {title: 'The Matrix'}) RETURN elementId(p) AS value, p.name AS label ORDER BY label",
+                      ...filterOptions,
                     },
                   },
                 },
@@ -43,7 +48,7 @@ test.describe("A filter shows what it drives (#2369)", () => {
                   chartType: "table",
                   connectionId: "conn-neo4j-001",
                   query: FILMS_QUERY,
-                  settings: { title: "Films" },
+                  settings: { title: "Films with $param_actor" },
                 },
                 {
                   id: "t-stars",
@@ -75,7 +80,10 @@ test.describe("A filter shows what it drives (#2369)", () => {
         },
       },
     });
-    if (!res.ok()) throw new Error(`PUT dashboard failed: ${res.status()}`);
+    if (!res.ok()) {
+      await cleanup(); // by id, so a failed PUT leaves no dashboard behind
+      throw new Error(`PUT dashboard failed: ${res.status()}`);
+    }
     return { id, cleanup };
   }
 
@@ -162,6 +170,54 @@ test.describe("A filter shows what it drives (#2369)", () => {
     }
   });
 
+  test("a mouse choice on a list without search does not leave the filter lit", async ({
+    page,
+  }) => {
+    const { id, cleanup } = await setup(page, `drives-nosearch ${uid()}`, {
+      searchable: false,
+    });
+    try {
+      await page.goto(`/${id}`);
+      await expect(trigger(page)).toBeEnabled({ timeout: 15_000 });
+      await trigger(page).click();
+      await page
+        .getByRole("option", { name: "Keanu Reeves", exact: true })
+        .click();
+      await expect(trigger(page)).toHaveText(/Keanu Reeves/);
+      // Focus went back to the trigger, which matches :focus-visible.
+      await expect(trigger(page)).toBeFocused();
+      await card(page, "m-notes").hover();
+      await expect(tag(page)).toHaveCount(0);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("a mouse click into a text filter does not leave it lit once the pointer moves away", async ({
+    page,
+  }) => {
+    const { id, cleanup } = await setup(page, `drives-text ${uid()}`, {
+      parameterType: "text",
+      seedQuery: undefined,
+    });
+    try {
+      await page.goto(`/${id}`);
+      const input = page.getByLabel("Actor", { exact: true });
+      await expect(input).toBeVisible({ timeout: 15_000 });
+      await input.click();
+      await expect(input).toBeFocused();
+      await card(page, "m-notes").hover();
+      await expect(tag(page)).toHaveCount(0);
+      // The keyboard still lights it: Tab out and back in.
+      await page.keyboard.press("Shift+Tab");
+      await page.keyboard.press("Tab");
+      await expect(input).toBeFocused();
+      await expect(tag(page)).toHaveCount(2);
+    } finally {
+      await cleanup();
+    }
+  });
+
   test("changing the filter keeps the rows under a line, never the loading skeleton", async ({
     page,
   }) => {
@@ -188,6 +244,13 @@ test.describe("A filter shows what it drives (#2369)", () => {
       const firstRow = films.getByRole("row").nth(1);
       await expect(firstRow).toBeVisible({ timeout: 15_000 });
       const before = await firstRow.innerText();
+      const header = films.locator("[data-widget-header]");
+      // The title interpolates the filter's value: it names the rows shown.
+      const titleBefore = (await header.innerText()).split("\n")[0];
+      expect(titleBefore).toMatch(/^Films with ./);
+      const sourceLine = header.locator("[title*='rows']");
+      const sourceBefore = (await sourceLine.getAttribute("title")) ?? "";
+      expect(sourceBefore).toContain("rows");
 
       held = true;
       await trigger(page).click();
@@ -200,6 +263,9 @@ test.describe("A filter shows what it drives (#2369)", () => {
       // Old rows stay, nothing blanks.
       await expect(page.locator("[data-loading='true']")).toHaveCount(0);
       await expect(firstRow).toHaveText(before);
+      // The title and the source line wait with the rows.
+      await expect(header).toContainText(titleBefore);
+      await expect(sourceLine).toHaveAttribute("title", sourceBefore);
 
       // Reduced motion (the suite's default): no animation, the full line.
       const animation = () =>
@@ -217,6 +283,8 @@ test.describe("A filter shows what it drives (#2369)", () => {
       release();
       await expect(firstRow).not.toHaveText(before, { timeout: 15_000 });
       await expect(line).toHaveCount(0);
+      await expect(header).not.toContainText(titleBefore);
+      await expect(header).toContainText("Films with ");
     } finally {
       release();
       await cleanup();

@@ -974,9 +974,22 @@ describe("buildParameterConsumerMap and drivenWidgetIds (#2369)", () => {
 
   it("a filter card is not driven by its own parameter", () => {
     const map = buildParameterConsumerMap(
-      page([select("f", "actor", { seedQuery: "x $param_actor" })]),
+      page([
+        select("f", "actor", { seedQuery: "x $param_actor" }),
+        w("q", { query: "RETURN $param_actor" }),
+      ]),
     );
-    map.actor = ["f"];
-    expect([...drivenWidgetIds(map, "actor", "f")]).toEqual([]);
+    expect(map.actor).toEqual(["f", "q"]); // the select does read it
+    expect([...drivenWidgetIds(map, "actor", "f")]).toEqual(["q"]);
+  });
+
+  it("a searchable select's own $param_search is its search box, not a filter named search", () => {
+    const map = buildParameterConsumerMap(
+      page([
+        select("s", "actor", { seedQuery: "WHERE n CONTAINS $param_search" }),
+        w("q", { query: "RETURN $param_search" }),
+      ]),
+    );
+    expect(map.search).toEqual(["q"]);
   });
 });
