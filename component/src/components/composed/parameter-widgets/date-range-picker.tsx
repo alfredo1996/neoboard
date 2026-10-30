@@ -20,7 +20,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { pickerTriggerClasses } from "@/components/ui/control-sizes";
+import {
+  invalidControlClasses,
+  pickerTriggerClasses,
+} from "@/components/ui/control-sizes";
 import { cn } from "@/lib/utils";
 import { qualifiedName, type ExternalLabelProps } from "./external-label";
 import { parseIsoDate, formatIsoDate } from "../../../lib/date-utils";
@@ -110,6 +113,12 @@ function DateRangeParameter({
     setOpen(false);
   };
 
+  let rangeLabel = "Pick a date range…";
+  if (fromDate) {
+    rangeLabel = format(fromDate, "MMM d, yyyy");
+    if (toDate) rangeLabel += ` – ${format(toDate, "MMM d, yyyy")}`;
+  }
+
   return (
     <div className={cn("space-y-1.5", className)}>
       {!labelledBy && <ParamLabel parameterName={parameterName} id={labelId} />}
@@ -124,24 +133,14 @@ function DateRangeParameter({
               aria-invalid={invalid || undefined}
               className={cn(
                 pickerTriggerClasses,
-                "justify-start text-left",
+                invalidControlClasses,
+                "min-w-0 justify-start text-left",
                 hasValue && "pr-9",
                 !hasValue && "text-muted-foreground",
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-              {fromDate ? (
-                toDate ? (
-                  <>
-                    {format(fromDate, "MMM d, yyyy")} –{" "}
-                    {format(toDate, "MMM d, yyyy")}
-                  </>
-                ) : (
-                  format(fromDate, "MMM d, yyyy")
-                )
-              ) : (
-                "Pick a date range…"
-              )}
+              <span className="truncate">{rangeLabel}</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
@@ -176,7 +175,7 @@ function DateRangeParameter({
             type="button"
             variant="ghost"
             size="icon"
-            className="absolute right-1 h-7 w-7 text-muted-foreground hover:text-foreground"
+            className="absolute right-1 h-6 w-6 text-muted-foreground hover:text-foreground"
             onClick={() => onChange("", "")}
             {...qualifiedName(
               labelledBy,

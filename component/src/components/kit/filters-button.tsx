@@ -3,6 +3,7 @@
 import * as React from "react";
 import { ArrowRight, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import {
   Popover,
@@ -200,13 +201,13 @@ function FiltersButton({
           </span>
         </div>
         {items.length > SEARCH_ABOVE && (
-          <input
+          <Input
             type="search"
             aria-label="Find a filter"
             placeholder="Find a filter"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="mx-3 mb-2 h-[30px] w-[calc(100%-24px)] rounded-md border border-rule-strong bg-card px-2.5 text-sm"
+            className="mx-3 mb-2 h-[30px] w-[calc(100%-24px)]"
           />
         )}
         <div

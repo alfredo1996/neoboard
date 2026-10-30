@@ -12,7 +12,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { pickerTriggerClasses } from "@/components/ui/control-sizes";
+import {
+  invalidControlClasses,
+  pickerTriggerClasses,
+} from "@/components/ui/control-sizes";
 import { cn } from "@/lib/utils";
 import { qualifiedName, type ExternalLabelProps } from "./external-label";
 import { parseIsoDate, formatIsoDate } from "../../../lib/date-utils";
@@ -65,13 +68,16 @@ function DatePickerParameter({
               aria-invalid={invalid || undefined}
               className={cn(
                 pickerTriggerClasses,
-                "justify-start text-left",
+                invalidControlClasses,
+                "min-w-0 justify-start text-left",
                 value && "pr-9",
                 !selected && "text-muted-foreground",
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-              {selected ? format(selected, "MMM d, yyyy") : "Pick a date…"}
+              <span className="truncate">
+                {selected ? format(selected, "MMM d, yyyy") : "Pick a date…"}
+              </span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
@@ -88,7 +94,7 @@ function DatePickerParameter({
             type="button"
             variant="ghost"
             size="icon"
-            className="absolute right-1 h-7 w-7 text-muted-foreground hover:text-foreground"
+            className="absolute right-1 h-6 w-6 text-muted-foreground hover:text-foreground"
             onClick={() => onChange("")}
             {...qualifiedName(
               labelledBy,

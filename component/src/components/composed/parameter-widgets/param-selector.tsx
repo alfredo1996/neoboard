@@ -31,7 +31,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { pickerTriggerClasses } from "@/components/ui/control-sizes";
+import {
+  invalidControlClasses,
+  pickerTriggerClasses,
+} from "@/components/ui/control-sizes";
 import { cn } from "@/lib/utils";
 import {
   joinIds,
@@ -191,7 +194,8 @@ function ParamSelector({
         type="button"
         variant="ghost"
         size="icon"
-        className="absolute right-1 h-7 w-7 text-muted-foreground hover:text-foreground"
+        // right-[27px]: the 1px border, the 10px padding and the 16px chevron it sits beside.
+        className="absolute right-[27px] h-6 w-6 text-muted-foreground hover:text-foreground"
         onClick={() => onChange("")}
         {...qualifiedName(
           labelledBy,
@@ -230,23 +234,24 @@ function ParamSelector({
                 aria-invalid={invalid || undefined}
                 disabled={isWaitingForParent}
                 // min-w-0 + truncate: a long label ends in an ellipsis inside
-                // its card; pr-9 keeps it clear of the chevron and the x.
+                // its card; the value's mr-5 keeps it clear of the x.
                 className={cn(
                   pickerTriggerClasses,
+                  invalidControlClasses,
                   "min-w-0 flex-1",
-                  value && "pr-9",
                 )}
               >
                 <span
                   className={cn(
                     "truncate",
+                    value && "mr-5",
                     selectedLabel === undefined &&
                       "text-muted-foreground font-normal",
                   )}
                 >
                   {selectedLabel ?? resolvedPlaceholder}
                 </span>
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-full min-w-[200px] p-0" align="start">
@@ -303,9 +308,9 @@ function ParamSelector({
         >
           <SelectTrigger
             id={id}
-            // Fits its card as the searchable trigger above does (#2056); pr-9
-            // leaves room for the clear x.
-            className={cn("min-w-0 flex-1", value && "pr-9")}
+            // Fits its card as the searchable trigger above does (#2056); the
+            // value's mr-5 leaves room for the clear x beside the chevron.
+            className={cn("min-w-0 flex-1", value && "[&>span]:mr-5")}
             aria-required={required || undefined}
             aria-labelledby={scopedLabel ? undefined : labelId}
             aria-label={scopedLabel}

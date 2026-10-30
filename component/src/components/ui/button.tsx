@@ -15,7 +15,7 @@ const buttonVariants = cva(
       variant: {
         // The ink fill.
         primary: "bg-primary text-primary-foreground hover:bg-primary/90",
-        // Hairline on the field colour; replaces outline and the grey fill.
+        // Hairline on the card colour; replaces outline and the grey fill.
         secondary:
           "border-border-strong bg-card text-foreground hover:bg-active",
         ghost: "text-foreground hover:bg-active",

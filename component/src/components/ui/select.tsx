@@ -33,7 +33,7 @@ const SelectTrigger = React.forwardRef<
     <SelectPrimitive.Trigger
       ref={ref}
       className={cn(
-        "flex items-center justify-between whitespace-nowrap py-2 [&>span]:line-clamp-1 data-[placeholder]:text-muted-foreground focus:outline-none",
+        "flex items-center justify-between whitespace-nowrap py-2 [&>span]:truncate data-[placeholder]:text-muted-foreground focus:outline-none",
         fieldBaseClasses,
         invalidControlClasses,
         controlSizes[size],

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { ParamMultiSelector } from "@/components/composed/parameter-widgets/param-multi-selector";
 import { ParamSelector } from "@/components/composed/parameter-widgets/param-selector";
 import { TextInputParameter } from "@/components/composed/parameter-widgets/text-input";
+import { DateRangeParameter } from "@/components/composed/parameter-widgets/date-range-picker";
 import { DatePickerParameter } from "@/components/composed/parameter-widgets/date-picker";
 import { NumberRangeSlider } from "@/components/composed/parameter-widgets/number-range-slider";
 
@@ -255,13 +256,16 @@ export const SelectorCardsTwoRows: Story = {
 };
 
 /**
- * #2367: a filter card holding a field of each type. Every field is painted
- * with `--field`, which differs from the card, and fills the card body's width.
+ * #2367: a filter card holding a field of each field-shaped type (relative date
+ * is a segmented control and number range a slider: neither is a field). Every
+ * field is painted with `--field` and the 3:1 `--input` border, fills the card
+ * body's width, and a long value ends inside it, clear of the x. The date range
+ * sits in a card about 237px wide, the narrowest a filter gets.
  */
 export const FilterCardFields: Story = {
   args: { title: "Filters", children: null },
   render: () => (
-    <div className="flex gap-4">
+    <div className="flex flex-wrap gap-4">
       {[
         <TextInputParameter
           key="t"
@@ -277,10 +281,31 @@ export const FilterCardFields: Story = {
           value="a"
           onChange={noop}
         />,
+        <ParamSelector
+          key="p"
+          parameterName="plain"
+          options={opts}
+          value="a"
+          onChange={noop}
+        />,
+        <ParamMultiSelector
+          key="m"
+          parameterName="multi"
+          options={opts}
+          values={["a"]}
+          onChange={noop}
+        />,
         <DatePickerParameter
           key="d"
           parameterName="date"
           value="2026-01-01"
+          onChange={noop}
+        />,
+        <DateRangeParameter
+          key="r"
+          parameterName="range"
+          from="2026-01-01"
+          to="2026-12-31"
           onChange={noop}
         />,
       ].map((field) => (
@@ -288,7 +313,7 @@ export const FilterCardFields: Story = {
           key={field.key}
           title="Filter"
           titleIcon={<SlidersHorizontal className="h-3.5 w-3.5" />}
-          className="w-[300px]"
+          className={field.key === "r" ? "w-[237px]" : "w-[300px]"}
         >
           {field}
         </WidgetCard>
@@ -298,19 +323,30 @@ export const FilterCardFields: Story = {
   play: async ({ canvasElement }) => {
     const probe = document.createElement("div");
     probe.style.background = "hsl(var(--field))";
+    probe.style.borderColor = "hsl(var(--input))";
+    probe.style.borderStyle = "solid";
     canvasElement.append(probe);
     const fieldFill = getComputedStyle(probe).backgroundColor;
+    const inputBorder = getComputedStyle(probe).borderTopColor;
     probe.remove();
     const cards = canvasElement.querySelectorAll<HTMLElement>(
       "[class*=overflow-hidden]",
     );
     const bodies = [...cards].filter((b) => b.className.includes("pb-4"));
-    expect(bodies).toHaveLength(3);
+    expect(bodies).toHaveLength(6);
     for (const body of bodies) {
-      const field = body.querySelector("input, button[aria-expanded]")!;
+      const control = body.querySelector<HTMLElement>(
+        "input, button[aria-expanded]",
+      )!;
+      // The multi-select's trigger is an overlay; its parent draws the field.
+      const field =
+        getComputedStyle(control).position === "absolute"
+          ? control.parentElement!
+          : control;
       const bg = getComputedStyle(field).backgroundColor;
       expect(bg).toBe(fieldFill);
       expect(bg).not.toBe(getComputedStyle(body).backgroundColor);
+      expect(getComputedStyle(field).borderTopColor).toBe(inputBorder);
       const inner =
         body.clientWidth -
         Number.parseFloat(getComputedStyle(body).paddingLeft) -
@@ -318,6 +354,21 @@ export const FilterCardFields: Story = {
       expect(field.getBoundingClientRect().width).toBeGreaterThanOrEqual(
         inner - 1,
       );
+      // Text never runs past the field, or under the clear x beside it.
+      const box = field.getBoundingClientRect();
+      const clear = body.querySelector<HTMLElement>(
+        "button[aria-label^=Clear], button[aria-label*=Clear]",
+      );
+      for (const span of field.querySelectorAll("span")) {
+        const r = span.getBoundingClientRect();
+        if (r.width === 0) continue;
+        expect(r.right).toBeLessThanOrEqual(box.right + 0.5);
+        if (clear) {
+          expect(r.right).toBeLessThanOrEqual(
+            clear.getBoundingClientRect().left + 0.5,
+          );
+        }
+      }
     }
   },
 };

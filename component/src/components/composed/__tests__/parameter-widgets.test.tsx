@@ -20,6 +20,7 @@ import {
 } from "../parameter-widgets";
 import { Field } from "../../ui/field";
 import { PARAM_SELECTOR_EMPTY_SENTINEL } from "../parameter-widgets/param-selector";
+import { ParamLabelScope } from "../parameter-widgets/param-label";
 
 // ─── TextInputParameter ───────────────────────────────────────────────────────
 
@@ -2218,6 +2219,8 @@ describe("parameter triggers look like fields (#2367)", () => {
       ) as HTMLElement;
       expect(trigger).toHaveClass("border-input", "bg-field");
       expect(trigger).not.toHaveClass("border-border-strong");
+      // An invalid filter shows the red border, as every other field does.
+      expect(trigger).toHaveClass("aria-[invalid=true]:border-destructive");
       const clear = screen.getByRole("button", { name: /^clear/i });
       expect(trigger.contains(clear)).toBe(false);
       expect(clear.parentElement).toHaveClass("relative");
@@ -2250,5 +2253,91 @@ describe("TextInputParameter placeholder (#2367)", () => {
       "placeholder",
       "Anything",
     );
+  });
+
+  it("is built from the card's label when a ParamLabelScope names it", () => {
+    render(
+      <ParamLabelScope label="Release year">
+        <TextInputParameter parameterName="y" value="" onChange={vi.fn()} />
+      </ParamLabelScope>,
+    );
+    expect(screen.getByRole("textbox")).toHaveAttribute(
+      "placeholder",
+      "Type a release year…",
+    );
+  });
+});
+
+describe("a long value stays inside its field (#2367)", () => {
+  it.each([
+    [
+      "DatePicker",
+      <DatePickerParameter
+        key="d"
+        parameterName="day"
+        value="2024-03-05"
+        onChange={vi.fn()}
+      />,
+      /Mar 5, 2024/,
+    ],
+    [
+      "DateRangeParameter",
+      <DateRangeParameter
+        key="r"
+        parameterName="span"
+        from="2024-03-05"
+        to="2024-03-09"
+        onChange={vi.fn()}
+      />,
+      /Mar 5, 2024 – Mar 9, 2024/,
+    ],
+  ])(
+    "%s: the text truncates instead of running under the x",
+    (_n, ui, text) => {
+      render(ui);
+      expect(screen.getByText(text)).toHaveClass("truncate");
+    },
+  );
+
+  it("searchable select: the x sits left of the chevron and the value reserves its room", () => {
+    render(
+      <ParamSelector
+        parameterName="actor"
+        options={[{ label: "Tom", value: "tom" }]}
+        value="tom"
+        searchable
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Tom")).toHaveClass("truncate", "mr-5");
+    expect(screen.getByRole("button", { name: /^clear/i })).toHaveClass(
+      "right-[27px]",
+    );
+  });
+
+  it("plain select: the value reserves the x's room and keeps its ellipsis", () => {
+    render(
+      <ParamSelector
+        parameterName="actor"
+        options={[{ label: "Tom", value: "tom" }]}
+        value="tom"
+        onChange={vi.fn()}
+      />,
+    );
+    const trigger = screen.getByRole("combobox");
+    expect(trigger).toHaveClass("[&>span]:mr-5", "[&>span]:truncate");
+  });
+
+  it("multi-select parameter uses the field border, not the stronger one", () => {
+    const { container } = render(
+      <ParamMultiSelector
+        parameterName="g"
+        options={[{ value: "a", label: "Alpha" }]}
+        values={[]}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(container.innerHTML).toContain("border-input");
+    expect(container.innerHTML).not.toContain("border-border-strong");
   });
 });
