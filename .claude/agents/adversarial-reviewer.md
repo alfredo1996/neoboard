@@ -14,7 +14,7 @@ Read the issue with its comments (`gh issue view <N> --repo alfredo1996/neoboard
 Try hard to find REAL defects; style nits do not count. Check:
 
 - **The issue:** every Expected point, every Required test, and any owner decision in the comments.
-- **Root cause:** grep every caller and sibling path of what changed. Is the fix where they all route, or only on the path the issue named?
+- **Root cause:** run `graphify affected "<fn>()" --depth 1 --relation calls` on each function the diff changes, then grep every caller and sibling path; grep stays the exact count. List the callers the diff did not touch and why each is safe. Is the fix where they all route, or only on the path the issue named?
 - **The tests:** would each new test fail with the fix reverted? Reason from the diff, or run it against a scratch copy.
 - **Regressions nearby:** other callers, every connector, behaviours named by issue number in comments.
 - **CLAUDE.md DO-NOT-VIOLATE rules:** package boundaries, connector agnosticism, tenant filters, query safety, credentials.

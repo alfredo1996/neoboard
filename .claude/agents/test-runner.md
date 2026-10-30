@@ -17,6 +17,7 @@ You are a test runner agent for the NeoBoard monorepo.
    - Files under `connection/` → run `cd connection && npm test` (requires Docker; fail loudly if absent)
 4. If no changes detected, ask which package to test or run all.
 5. Run the relevant test suites.
+6. Read a Docker failure as a full disk first. The errors never say disk (`Log stream ended`, `409 container … is not running`, slow logins): run `docker system df` and put its totals in the report before calling anything a flake.
 
 ## Output Format
 
