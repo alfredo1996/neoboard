@@ -13,7 +13,7 @@ The redesign system (epic #2210, tokens from #2215). Code you read may still car
 
 ## The page, and the widget card
 
-- The page and its sections are one surface, set off by whitespace and hairline rules (`border-border`, `--rule`). No `p-6` card around every block. `--surface` is the page colour; `--side` is the sidebar; `--field` fills inputs and overlays.
+- The page and its sections are one surface, set off by whitespace and hairline rules (`border-border`, `--rule`). No `p-6` card around every block. `--surface` is the page colour; `--side` is the sidebar; `--field` fills inputs only.
 - A widget is a BI card (#2247), the one thing that floats: a white `--card` (`#FFFFFF` light, `#181B20` dark), a 1 px `--card-edge` (`#DDE1E6` / `#2C3038`), an 8 px radius and the two-layer `--card-shadow` (`shadow-card`), on `--page-ground` (`#EEF0F3` / `#0D0F12`). Cards sit 12 px apart. `Panel` is that card; use it, never rebuild it.
 - Inside the card: a header (12/16/10: sans title 14/600, a 12 px ink-3 source line, a 1 px `--rule` under it) and a body (12/16/16). Hover or focus darkens the edge to `--card-edge-hover`; the fill never tints. Actions show by opacity only (so Tab reaches them); on touch only the menu shows.
 - Shadows elsewhere only on overlays (popover, dropdown, dialog, toast). Never on a button, input or section.

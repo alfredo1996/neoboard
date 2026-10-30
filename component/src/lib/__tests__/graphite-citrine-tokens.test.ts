@@ -189,7 +189,7 @@ describe("ruled-sheet palette (#2215)", () => {
     ["--foreground-2", "222 11% 36%", "217 11% 71%"], // ink 2
     ["--muted-foreground", "220 8% 44%", "219 9% 62%"], // ink 3
     ["--rule", "220 12% 91%", "218 13% 17%"],
-    ["--field", "0 0% 100%", "218 13% 12%"], // #FFFFFF / #1B1E23
+    ["--field", "216 25% 96.5%", "218 13% 16%"], // Mist (#2367)
     ["--input", "219 8% 56%", "218 9% 43%"], // field border, 3:1 on page and side
     ["--card", "0 0% 100%", "218 14.3% 11%"], // #FFFFFF / #181B20 (#2247)
     ["--card-edge", "213 15.3% 88.4%", "220 12% 19.6%"], // #DDE1E6 / #2C3038
@@ -199,6 +199,20 @@ describe("ruled-sheet palette (#2215)", () => {
   ])("%s", (token, l, d) => {
     expect(tokenValue(light, token)).toBe(l);
     expect(tokenValue(dark, token)).toBe(d);
+  });
+
+  it("a field reads off its card and its placeholder stays legible (#2367)", () => {
+    for (const mode of [light, dark]) {
+      const l = (t: string) =>
+        Number(tokenValue(mode, t)!.split(/\s+/)[2].replace("%", ""));
+      expect(Math.abs(l("--field") - l("--card"))).toBeGreaterThanOrEqual(2);
+      expect(
+        contrast(
+          hsl(tokenValue(mode, "--muted-foreground")),
+          hsl(tokenValue(mode, "--field")),
+        ),
+      ).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it("pins the card shadow in both themes (#2247)", () => {

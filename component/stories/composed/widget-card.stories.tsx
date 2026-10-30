@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { WidgetCard } from "@/components/composed/widget-card";
 import { expect } from "storybook/test";
+import { SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ParamMultiSelector } from "@/components/composed/parameter-widgets/param-multi-selector";
 import { ParamSelector } from "@/components/composed/parameter-widgets/param-selector";
@@ -249,6 +250,74 @@ export const SelectorCardsTwoRows: Story = {
           0,
         );
       }
+    }
+  },
+};
+
+/**
+ * #2367: a filter card holding a field of each type. Every field is painted
+ * with `--field`, which differs from the card, and fills the card body's width.
+ */
+export const FilterCardFields: Story = {
+  args: { title: "Filters", children: null },
+  render: () => (
+    <div className="flex gap-4">
+      {[
+        <TextInputParameter
+          key="t"
+          parameterName="text"
+          value="abc"
+          onChange={noop}
+        />,
+        <ParamSelector
+          key="s"
+          parameterName="select"
+          searchable
+          options={opts}
+          value="a"
+          onChange={noop}
+        />,
+        <DatePickerParameter
+          key="d"
+          parameterName="date"
+          value="2026-01-01"
+          onChange={noop}
+        />,
+      ].map((field) => (
+        <WidgetCard
+          key={field.key}
+          title="Filter"
+          titleIcon={<SlidersHorizontal className="h-3.5 w-3.5" />}
+          className="w-[300px]"
+        >
+          {field}
+        </WidgetCard>
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const probe = document.createElement("div");
+    probe.style.background = "hsl(var(--field))";
+    canvasElement.append(probe);
+    const fieldFill = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    const cards = canvasElement.querySelectorAll<HTMLElement>(
+      "[class*=overflow-hidden]",
+    );
+    const bodies = [...cards].filter((b) => b.className.includes("pb-4"));
+    expect(bodies).toHaveLength(3);
+    for (const body of bodies) {
+      const field = body.querySelector("input, button[aria-expanded]")!;
+      const bg = getComputedStyle(field).backgroundColor;
+      expect(bg).toBe(fieldFill);
+      expect(bg).not.toBe(getComputedStyle(body).backgroundColor);
+      const inner =
+        body.clientWidth -
+        Number.parseFloat(getComputedStyle(body).paddingLeft) -
+        Number.parseFloat(getComputedStyle(body).paddingRight);
+      expect(field.getBoundingClientRect().width).toBeGreaterThanOrEqual(
+        inner - 1,
+      );
     }
   },
 };

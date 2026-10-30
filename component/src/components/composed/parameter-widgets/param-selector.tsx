@@ -31,6 +31,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { pickerTriggerClasses } from "@/components/ui/control-sizes";
 import { cn } from "@/lib/utils";
 import {
   joinIds,
@@ -190,7 +191,7 @@ function ParamSelector({
         type="button"
         variant="ghost"
         size="icon"
-        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+        className="absolute right-1 h-7 w-7 text-muted-foreground hover:text-foreground"
         onClick={() => onChange("")}
         {...qualifiedName(
           labelledBy,
@@ -199,7 +200,7 @@ function ParamSelector({
           true,
         )}
       >
-        <X className="h-4 w-4" />
+        <X className="h-3.5 w-3.5" />
       </Button>
       {labelledBy && (
         <span id={clearId} hidden>
@@ -214,7 +215,7 @@ function ParamSelector({
     return (
       <div className={cn("space-y-1.5", className)}>
         {label}
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="relative flex items-center">
           <Popover open={open} onOpenChange={handleOpenChange}>
             <PopoverTrigger asChild>
               <Button
@@ -228,10 +229,13 @@ function ParamSelector({
                 aria-describedby={joinIds(hintId, describedBy)}
                 aria-invalid={invalid || undefined}
                 disabled={isWaitingForParent}
-                // min-w-0 + truncate: a long label stays inside its card.
-                // basis-24 + the row's flex-wrap: rather than leave the
-                // trigger under 6rem, the clear button wraps below it (#2056).
-                className="min-w-0 flex-1 basis-24 justify-between"
+                // min-w-0 + truncate: a long label ends in an ellipsis inside
+                // its card; pr-9 keeps it clear of the chevron and the x.
+                className={cn(
+                  pickerTriggerClasses,
+                  "min-w-0 flex-1",
+                  value && "pr-9",
+                )}
               >
                 <span
                   className={cn(
@@ -291,7 +295,7 @@ function ParamSelector({
   return (
     <div className={cn("space-y-1.5", className)}>
       {label}
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="relative flex items-center">
         <Select
           value={value}
           onValueChange={onChange}
@@ -299,8 +303,9 @@ function ParamSelector({
         >
           <SelectTrigger
             id={id}
-            // Fits its card as the searchable trigger above does (#2056).
-            className="min-w-0 flex-1 basis-24"
+            // Fits its card as the searchable trigger above does (#2056); pr-9
+            // leaves room for the clear x.
+            className={cn("min-w-0 flex-1", value && "pr-9")}
             aria-required={required || undefined}
             aria-labelledby={scopedLabel ? undefined : labelId}
             aria-label={scopedLabel}

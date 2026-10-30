@@ -31,7 +31,7 @@ The old `Toolbar` and the old composed `PageHeader` were removed in #2256.
 1. **Page**: `bg-background`; `--surface` is the same colour. Sections are not cards.
 2. **Rules**: areas are separated by a 1px hairline (`border-border` = `--rule`; `--rule-strong` for an emphasised divider). Whitespace first, a rule second, a container last.
 3. **Side**: `--side` for the sidebar and rails. `--active` (`#E9ECF0` / `#22262D`) is the neutral fill of the active sidebar item and of a hovered list row (#2225).
-4. **Field**: `--field` fills inputs and overlays (white in light, a step lighter than the page in dark).
+4. **Field**: `--field` fills inputs only (Mist, a tinted step off the card in both themes, #2367).
 5. **Widget card** (#2247): the dashboard sits on `--page-ground` (`bg-page-ground`); each widget is a `Panel`/`WidgetCard`: `--card` fill, `--card-edge` 1px edge, 8px radius, `shadow-card`. See the widget card section below.
 6. **Overlays**: popovers, dropdowns, dialogs and toasts have the heavier shadows (`shadow-md` menus, `shadow-lg` dialogs).
 7. **Tooltips**: `bg-primary text-primary-foreground` — inverted colours.
@@ -109,7 +109,7 @@ Tailwind: `bg-card`, `border-card-edge` (`hover:border-card-edge-hover`), `shado
 | `--muted-foreground`                | `220 8% 44%` (#676D79)      | `219 9% 62%` (#959BA7)  | Ink 3: captions, metadata                                                                           |
 | `--rule` / `--border`               | `220 12% 91%` (#E5E7EB)     | `218 13% 17%` (#262A31) | Hairline rules, all default borders                                                                 |
 | `--rule-strong` / `--border-strong` | `216 11% 82%` (#CCD0D6)     | `219 11% 25%`           | Emphasised dividers (about 1.5:1: decoration, never a control edge)                                 |
-| `--field`                           | `0 0% 100%`                 | `218 13% 12%` (#1B1E23) | Input and overlay fill                                                                              |
+| `--field`                           | `216 25% 96.5%`             | `218 13% 16%`           | Input fill (Mist); buttons, toasts and the selected segment use `--card`                            |
 | `--input`                           | `219 8% 56%` (#868C98)      | `218 9% 43%` (#646B78)  | Field border: 3.29:1 light, 3.38:1 dark on the page, and at least 3:1 on `--side` too (WCAG 1.4.11) |
 | `--input-hover`                     | `218 9% 41%` (#5C6370)      | `218 9% 62%` (#8E95A1)  | Field border on hover: more contrast than `--input`; never `--border-strong`, which is lighter      |
 | `--primary`                         | `220 13% 9%` (graphite)     | near-white              | Buttons, active states                                                                              |
@@ -267,7 +267,7 @@ Checkbox, Radio, Switch and Slider share one look; `SegmentedControl` replaces p
 - Checkbox 16 px, 4 px radius, `--input` border off, ink when on, a dash for indeterminate, red border on `aria-invalid`. Radio: ink ring with an 8 px dot. Switch 32x18, no shadow, ink when on; thumb `--switch-thumb` (white) off and `--primary-foreground` on; off track `--input`. Slider: 2 px track, ink fill, 16 px thumbs with a 2 px ink edge.
 - All four: azure focus ring, 50% when disabled, a hit area of at least 24 px (44 px under `(pointer: coarse)`) from an `after:` pseudo-element, so the layout does not move.
 - Switch `stateLabel` writes "On" or "Off" beside it (`aria-hidden`, so the name stays the label). Use it in every form and settings row; leave it off where a column header names the switch.
-- `SegmentedControl`: 32 px grey `--active` track, the selected segment white (`--field`) with a hairline and bold, no shadow; a radio group with arrow keys. 2 to 6 short options, not page navigation (use Tabs).
+- `SegmentedControl`: 32 px grey `--active` track, the selected segment the card colour (`--card`) with a hairline and bold, no shadow; a radio group with arrow keys. 2 to 6 short options, not page navigation (use Tabs).
 
 ### Radius
 

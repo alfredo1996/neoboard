@@ -14,6 +14,19 @@ describe("WidgetCard", () => {
     expect(screen.getByText("Sales")).toBeInTheDocument();
   });
 
+  it("renders titleIcon before the title (#2367)", () => {
+    render(
+      <WidgetCard title="Sales" titleIcon={<svg data-testid="ti" />}>
+        Content
+      </WidgetCard>,
+    );
+    const icon = screen.getByTestId("ti");
+    const title = screen.getByText("Sales");
+    expect(
+      icon.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("exposes a truncated title and source line in full as a tooltip (#2056)", () => {
     render(
       <WidgetCard title="Sales" source="Last 30 days">

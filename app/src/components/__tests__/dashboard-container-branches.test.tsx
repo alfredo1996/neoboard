@@ -39,9 +39,11 @@ vi.mock("@neoboard/components", async () => ({
     onFullscreen,
     headerExtra,
     source,
+    titleIcon,
   }: {
     children: React.ReactNode;
     title: string;
+    titleIcon?: React.ReactNode;
     source?: string;
     actions?: Array<{
       label: string;
@@ -52,7 +54,7 @@ vi.mock("@neoboard/components", async () => ({
     onFullscreen?: (opener: HTMLElement | null) => void;
     headerExtra?: React.ReactNode;
   }) => {
-    widgetCardProps.push({ title, actions, onRefresh });
+    widgetCardProps.push({ title, actions, onRefresh, titleIcon });
     // Flatten parent + submenu children into a single set of buttons so tests
     // can `getByTestId("action-csv")` regardless of whether CSV is a flat
     // entry ("Export CSV") or a submenu child ("Export ▸ CSV"). The testid
@@ -476,6 +478,22 @@ describe("DashboardContainer — buildActions", () => {
     );
     const props = widgetCardProps[0];
     expect(props.actions).toBeUndefined();
+  });
+});
+
+describe("DashboardContainer — filter icon (#2367)", () => {
+  it.each([
+    ["parameter-select", true, true],
+    ["parameter-select", false, true],
+    ["bar", false, false],
+  ])("%s card, editable=%s: icon marked %s", (chartType, editable, marked) => {
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage([makeWidget({ chartType })])}
+        editable={editable}
+      />,
+    );
+    expect(Boolean(widgetCardProps[0].titleIcon)).toBe(marked);
   });
 });
 

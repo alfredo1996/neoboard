@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, it, expect } from "vitest";
-import { oneDarkHighlightStyle } from "@codemirror/theme-one-dark";
-import { lightHighlightStyle } from "../query-editor-highlight";
+import {
+  darkHighlightStyle,
+  lightHighlightStyle,
+} from "../query-editor-highlight";
 
 // Independent WCAG 2.x contrast, from the stylesheet's own --field token.
 const css = readFileSync(
@@ -51,11 +53,7 @@ const colours = (style: { specs: readonly object[] }) => [
 describe("query editor syntax colours reach WCAG AA on the field (#2329)", () => {
   const cases = [
     ["light", lightHighlightStyle, fieldIn(/:root\s*{[^}]*?--field[^}]*}/s)],
-    [
-      "dark",
-      oneDarkHighlightStyle,
-      fieldIn(/\n\.dark\s*{[^}]*?--field[^}]*}/s),
-    ],
+    ["dark", darkHighlightStyle, fieldIn(/\n\.dark\s*{[^}]*?--field[^}]*}/s)],
   ] as const;
   it.each(cases)("%s: every colour is at least 4.5:1", (_n, style, field) => {
     const low = colours(style).filter(

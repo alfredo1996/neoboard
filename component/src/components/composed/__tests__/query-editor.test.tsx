@@ -119,6 +119,7 @@ vi.mock("@codemirror/theme-one-dark", () => ({
 
 vi.mock("../query-editor-highlight", () => ({
   lightHighlightStyle: { type: "lightHighlight" },
+  darkHighlightStyle: { type: "oneDarkHighlight" },
 }));
 
 vi.mock("@codemirror/language", () => ({

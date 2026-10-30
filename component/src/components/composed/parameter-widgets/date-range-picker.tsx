@@ -20,6 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { pickerTriggerClasses } from "@/components/ui/control-sizes";
 import { cn } from "@/lib/utils";
 import { qualifiedName, type ExternalLabelProps } from "./external-label";
 import { parseIsoDate, formatIsoDate } from "../../../lib/date-utils";
@@ -112,7 +113,7 @@ function DateRangeParameter({
   return (
     <div className={cn("space-y-1.5", className)}>
       {!labelledBy && <ParamLabel parameterName={parameterName} id={labelId} />}
-      <div className="flex items-center gap-1">
+      <div className="relative flex items-center">
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -122,7 +123,9 @@ function DateRangeParameter({
               aria-describedby={describedBy}
               aria-invalid={invalid || undefined}
               className={cn(
-                "flex-1 justify-start text-left font-normal",
+                pickerTriggerClasses,
+                "justify-start text-left",
+                hasValue && "pr-9",
                 !hasValue && "text-muted-foreground",
               )}
             >
@@ -173,7 +176,7 @@ function DateRangeParameter({
             type="button"
             variant="ghost"
             size="icon"
-            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+            className="absolute right-1 h-7 w-7 text-muted-foreground hover:text-foreground"
             onClick={() => onChange("", "")}
             {...qualifiedName(
               labelledBy,
@@ -182,7 +185,7 @@ function DateRangeParameter({
               true,
             )}
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </Button>
         )}
         {labelledBy && (

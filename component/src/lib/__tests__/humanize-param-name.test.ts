@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { humanizeParamName, pickPrompt } from "../humanize-param-name";
+import {
+  humanizeParamName,
+  pickPrompt,
+  typePrompt,
+} from "../humanize-param-name";
 
 describe("pickPrompt (#2232)", () => {
   it.each([
@@ -19,6 +23,16 @@ describe("pickPrompt (#2232)", () => {
     ["Choice", "Pick a choice"],
   ])("%j -> %j", (label, expected) => {
     expect(pickPrompt(label)).toBe(expected);
+  });
+});
+
+describe("typePrompt (#2367)", () => {
+  it.each([
+    ["title", "Type a title…"],
+    ["Actor name", "Type actor name…"],
+    ["Year", "Type a year…"],
+  ])("%j -> %j", (label, expected) => {
+    expect(typePrompt(label)).toBe(expected);
   });
 });
 

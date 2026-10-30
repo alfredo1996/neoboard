@@ -2164,3 +2164,91 @@ describe("parameter widgets under a real Field", () => {
     },
   );
 });
+
+// ─── Fields read as fields (#2367) ────────────────────────────────────────────
+
+describe("parameter triggers look like fields (#2367)", () => {
+  const onChange = vi.fn();
+  const cases: [string, () => React.ReactElement, unknown[]][] = [
+    [
+      "searchable ParamSelector",
+      () => (
+        <ParamSelector
+          parameterName="actor"
+          options={[{ label: "Tom", value: "tom" }]}
+          value="tom"
+          searchable
+          onChange={onChange}
+        />
+      ),
+      [""],
+    ],
+    [
+      "DatePicker",
+      () => (
+        <DatePickerParameter
+          parameterName="day"
+          value="2024-03-05"
+          onChange={onChange}
+        />
+      ),
+      [""],
+    ],
+    [
+      "DateRangeParameter",
+      () => (
+        <DateRangeParameter
+          parameterName="span"
+          from="2024-03-05"
+          to="2024-03-09"
+          onChange={onChange}
+        />
+      ),
+      ["", ""],
+    ],
+  ];
+
+  it.each(cases)(
+    "%s: field classes, and a clear x beside the trigger that does not open it",
+    (_n, ui, args) => {
+      onChange.mockClear();
+      render(ui());
+      const trigger = document.querySelector(
+        "button[aria-expanded]",
+      ) as HTMLElement;
+      expect(trigger).toHaveClass("border-input", "bg-field");
+      expect(trigger).not.toHaveClass("border-border-strong");
+      const clear = screen.getByRole("button", { name: /^clear/i });
+      expect(trigger.contains(clear)).toBe(false);
+      expect(clear.parentElement).toHaveClass("relative");
+      expect(clear.parentElement).toContainElement(trigger);
+      fireEvent.click(clear);
+      expect(onChange).toHaveBeenCalledWith(...args);
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+    },
+  );
+});
+
+describe("TextInputParameter placeholder (#2367)", () => {
+  it("is built from the parameter name; an author's own wins", () => {
+    const { rerender } = render(
+      <TextInputParameter parameterName="title" value="" onChange={vi.fn()} />,
+    );
+    expect(screen.getByRole("textbox")).toHaveAttribute(
+      "placeholder",
+      "Type a title…",
+    );
+    rerender(
+      <TextInputParameter
+        parameterName="title"
+        value=""
+        placeholder="Anything"
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("textbox")).toHaveAttribute(
+      "placeholder",
+      "Anything",
+    );
+  });
+});

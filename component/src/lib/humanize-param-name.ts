@@ -6,13 +6,22 @@
  * from the spelling ("user", "hour") and "a item" is wrong.
  */
 export function pickPrompt(label: string): string {
+  return prompt("Pick", label);
+}
+
+/** The text filter's counterpart of `pickPrompt`: "Title" -> "Type a title…" (#2367). */
+export function typePrompt(label: string): string {
+  return `${prompt("Type", label)}…`;
+}
+
+function prompt(verb: string, label: string): string {
   const text = label
     .split(" ")
     .map((w) => (/^[A-Z][a-z]+$/.test(w) ? w.toLowerCase() : w))
     .join(" ");
   return /^[b-df-hj-np-tv-z][a-z]*(\s|$)/.test(text)
-    ? `Pick a ${text}`
-    : `Pick ${text}`;
+    ? `${verb} a ${text}`
+    : `${verb} ${text}`;
 }
 
 /**
