@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Check, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MultiSelect } from "./multi-select";
 
@@ -26,6 +26,8 @@ export interface ChartOptionsPanelProps {
   columns?: string[];
   /** Categories to leave out, for a state where they do not apply (#2368). */
   hiddenCategories?: string[];
+  /** Categories that start open besides the first (#2368). */
+  openCategories?: string[];
 }
 
 /**
@@ -36,13 +38,14 @@ function SwatchGroup({
   option,
   value,
   onChange,
-}: {
+}: Readonly<{
   option: ChartOptionDef;
   value: unknown;
   onChange: (key: string, value: unknown) => void;
-}) {
+}>) {
   const items = option.options ?? [];
-  const current = String(value ?? option.default);
+  // A stored value that is not a preset reads as the default, like the filter does.
+  const current = items.some((i) => i.value === value) ? value : option.default;
   const refs = React.useRef<(HTMLButtonElement | null)[]>([]);
   const labelId = `${option.key}-label`;
   function onKeyDown(e: React.KeyboardEvent, index: number) {
@@ -91,13 +94,15 @@ function SwatchGroup({
               <span
                 aria-hidden="true"
                 className="h-3.5 w-3.5 rounded-sm border border-input"
-                style={
-                  item.token
-                    ? { background: `hsl(var(${item.token}))` }
-                    : undefined
-                }
+                style={{ background: `hsl(var(${item.token}))` }}
               />
               {item.label}
+              {/* Fixed slot, so the chip does not resize when the selection moves. */}
+              {checked ? (
+                <Check aria-hidden="true" className="h-3 w-3" />
+              ) : (
+                <span aria-hidden="true" className="h-3 w-3" />
+              )}
             </button>
           );
         })}
@@ -301,13 +306,17 @@ function OptionField({
 function CategorySection({
   title,
   defaultOpen = false,
+  forceOpen = false,
   children,
 }: {
   title: string;
   defaultOpen?: boolean;
+  /** Searching shows every match, so a hit is never hidden behind a heading. */
+  forceOpen?: boolean;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = React.useState(defaultOpen);
+  const [openState, setOpen] = React.useState(defaultOpen);
+  const open = openState || forceOpen;
   return (
     <div className="space-y-3">
       <button
@@ -335,6 +344,7 @@ function ChartOptionsPanel({
   className,
   columns,
   hiddenCategories,
+  openCategories,
 }: ChartOptionsPanelProps) {
   const [search, setSearch] = React.useState("");
   const allOptions = getChartOptions(chartType);
@@ -391,7 +401,8 @@ function ChartOptionsPanel({
           <CategorySection
             key={category}
             title={category}
-            defaultOpen={index === 0}
+            defaultOpen={index === 0 || !!openCategories?.includes(category)}
+            forceOpen={search.trim() !== ""}
           >
             {opts.map((opt) => (
               <OptionField

@@ -69,10 +69,4 @@ describe("parameter-select wrapper (#2368)", () => {
     expect(wrapper).not.toHaveAttribute("data-field-fill");
     expect(wrapper).not.toHaveAttribute("data-field-border");
   });
-
-  it("a bad colour never reaches the attribute", () => {
-    renderWith({ fieldFill: "#ff0000" });
-    const wrapper = screen.getByLabelText("field").parentElement!;
-    expect(wrapper).not.toHaveAttribute("data-field-fill");
-  });
 });

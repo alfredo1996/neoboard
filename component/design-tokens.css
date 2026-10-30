@@ -359,6 +359,64 @@ html {
   font-variant-numeric: tabular-nums;
 }
 
+/* Filter fill and border (#2368). A filter widget can pick a preset fill and
+   border; the app wrapper sets data-field-fill / data-field-border and the rules
+   below redefine --field, --input and --input-hover for that subtree, so every
+   field inside follows with no prop. Portalled popovers sit outside the subtree
+   and keep the default look. Border width stays 1px; invalid, focus and
+   disabled read their own classes and are untouched. The values are the
+   approved mock's; tonal-contrast.test.ts holds them to 4.5:1 / 3:1. */
+:root {
+  --param-fill-azure: 212 85% 96%;
+  --param-fill-citrine: 42 90% 93%;
+  --param-fill-sage: 142 30% 93%;
+  --param-fill-rose: 350 70% 95.5%;
+  --param-border-azure: 212 70% 45%;
+  --param-border-citrine: 36 80% 38%;
+  --param-border-sage: 142 40% 32%;
+  --param-border-ink: 222 11% 30%;
+}
+.dark {
+  --param-fill-azure: 212 40% 17%;
+  --param-fill-citrine: 38 40% 16%;
+  --param-fill-sage: 142 22% 15%;
+  --param-fill-rose: 350 25% 17%;
+  --param-border-azure: 212 80% 62%;
+  --param-border-citrine: 38 90% 58%;
+  --param-border-sage: 142 45% 55%;
+  --param-border-ink: 218 9% 70%;
+}
+[data-field-fill="azure"] {
+  --field: var(--param-fill-azure);
+}
+[data-field-fill="citrine"] {
+  --field: var(--param-fill-citrine);
+}
+[data-field-fill="sage"] {
+  --field: var(--param-fill-sage);
+}
+[data-field-fill="rose"] {
+  --field: var(--param-fill-rose);
+}
+/* Hover: a coloured border keeps its colour (--input-hover is set to it); the
+   default border still moves to --input-hover. Owner-informed choice (#2368). */
+[data-field-border="azure"] {
+  --input: var(--param-border-azure);
+  --input-hover: var(--param-border-azure);
+}
+[data-field-border="citrine"] {
+  --input: var(--param-border-citrine);
+  --input-hover: var(--param-border-citrine);
+}
+[data-field-border="sage"] {
+  --input: var(--param-border-sage);
+  --input-hover: var(--param-border-sage);
+}
+[data-field-border="ink"] {
+  --input: var(--param-border-ink);
+  --input-hover: var(--param-border-ink);
+}
+
 /**
  * Global reduced-motion reset (#1458).
  *
@@ -505,60 +563,4 @@ html {
   --shiki-token-function: hsl(var(--foreground));
   --shiki-token-punctuation: hsl(var(--foreground));
   --shiki-token-link: hsl(var(--code-key));
-}
-
-/* Filter fill and border (#2368). A filter widget can pick a preset fill and
-   border; the app wrapper sets data-field-fill / data-field-border and the rules
-   below redefine --field, --input and --input-hover for that subtree, so every
-   field inside follows with no prop. Portalled popovers sit outside the subtree
-   and keep the default look. Border width stays 1px; invalid, focus and
-   disabled read their own classes and are untouched. The values are the
-   approved mock's; tonal-contrast.test.ts holds them to 4.5:1 / 3:1. */
-:root {
-  --param-fill-azure: 212 85% 96%;
-  --param-fill-citrine: 42 90% 93%;
-  --param-fill-sage: 142 30% 93%;
-  --param-fill-rose: 350 70% 95.5%;
-  --param-border-azure: 212 70% 45%;
-  --param-border-citrine: 36 80% 38%;
-  --param-border-sage: 142 40% 32%;
-  --param-border-ink: 222 11% 30%;
-}
-.dark {
-  --param-fill-azure: 212 40% 17%;
-  --param-fill-citrine: 38 40% 16%;
-  --param-fill-sage: 142 22% 15%;
-  --param-fill-rose: 350 25% 17%;
-  --param-border-azure: 212 80% 62%;
-  --param-border-citrine: 38 90% 58%;
-  --param-border-sage: 142 45% 55%;
-  --param-border-ink: 218 9% 70%;
-}
-[data-field-fill="azure"] {
-  --field: var(--param-fill-azure);
-}
-[data-field-fill="citrine"] {
-  --field: var(--param-fill-citrine);
-}
-[data-field-fill="sage"] {
-  --field: var(--param-fill-sage);
-}
-[data-field-fill="rose"] {
-  --field: var(--param-fill-rose);
-}
-[data-field-border="azure"] {
-  --input: var(--param-border-azure);
-  --input-hover: var(--param-border-azure);
-}
-[data-field-border="citrine"] {
-  --input: var(--param-border-citrine);
-  --input-hover: var(--param-border-citrine);
-}
-[data-field-border="sage"] {
-  --input: var(--param-border-sage);
-  --input-hover: var(--param-border-sage);
-}
-[data-field-border="ink"] {
-  --input: var(--param-border-ink);
-  --input-hover: var(--param-border-ink);
 }

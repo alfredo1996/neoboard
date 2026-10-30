@@ -925,6 +925,12 @@ export function WidgetEditorModal({
                             ? ["Appearance"]
                             : undefined
                         }
+                        // The mock shows a filter's two groups open (#2368).
+                        openCategories={
+                          isParamSelect
+                            ? ["Appearance", "Behaviour"]
+                            : undefined
+                        }
                       />
                       {chartType === "table" && (
                         <div className="space-y-3 border-t pt-4">

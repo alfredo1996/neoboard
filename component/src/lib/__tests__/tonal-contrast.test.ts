@@ -73,7 +73,10 @@ it.each([":root", ".dark"])(
  * text (labels, placeholders) readable; a border is a UI component edge on the
  * card, WCAG 1.4.11 asks 3:1.
  */
-const PARAM_SECTION = css.slice(css.indexOf("Filter fill and border (#2368)"));
+const PARAM_SECTION = css.slice(
+  css.indexOf("Filter fill and border (#2368)"),
+  css.indexOf("Global reduced-motion reset"),
+);
 const FILLS = ["azure", "citrine", "sage", "rose"];
 const BORDERS = ["azure", "citrine", "sage", "ink"];
 

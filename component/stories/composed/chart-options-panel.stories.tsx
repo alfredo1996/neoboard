@@ -18,8 +18,16 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-function Panel({ chartType }: { chartType: string }) {
-  const [settings, setSettings] = useState<Record<string, unknown>>({});
+function Panel({
+  chartType,
+  initial = {},
+  openCategories,
+}: {
+  chartType: string;
+  initial?: Record<string, unknown>;
+  openCategories?: string[];
+}) {
+  const [settings, setSettings] = useState<Record<string, unknown>>(initial);
   return (
     // Roughly the width the panel gets in the widget editor's two-column grid.
     <div className="max-w-md">
@@ -30,6 +38,7 @@ function Panel({ chartType }: { chartType: string }) {
         // object, not a (key, value) pair.
         onSettingsChange={setSettings}
         columns={["region", "revenue", "units", "margin"]}
+        openCategories={openCategories}
       />
     </div>
   );
@@ -47,12 +56,18 @@ export const Table: Story = {
   render: () => <Panel chartType="table" />,
 };
 
-/** Appearance opens first: a radiogroup of named swatches per option (#2368). */
+/** Both groups open, a radiogroup of named swatches with the checked one marked (#2368). */
 export const FilterAppearance: Story = {
   args: {
     chartType: "parameter-select",
     settings: {},
     onSettingsChange: () => {},
   },
-  render: () => <Panel chartType="parameter-select" />,
+  render: () => (
+    <Panel
+      chartType="parameter-select"
+      initial={{ fieldFill: "azure", fieldBorder: "citrine" }}
+      openCategories={["Appearance", "Behaviour"]}
+    />
+  ),
 };

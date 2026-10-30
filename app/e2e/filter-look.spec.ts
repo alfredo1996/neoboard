@@ -56,11 +56,15 @@ async function seed(
 async function openStyleTab(page: import("@playwright/test").Page) {
   const card = page.locator("[data-widget-id='p-actor']");
   await card.hover();
-  await card.getByRole("button", { name: "Widget actions" }).click();
-  await page.getByRole("menuitem", { name: "Edit Widget" }).click();
-  const dialog = page.getByRole("dialog", { name: "Edit Widget" });
+  await card
+    .getByRole("button", { name: "Widget actions", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Edit Widget", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Edit Widget", exact: true });
   await expect(dialog).toBeVisible({ timeout: 10_000 });
-  await dialog.getByRole("tab", { name: "Style" }).click();
+  await dialog.getByRole("tab", { name: "Style", exact: true }).click();
   return dialog;
 }
 
@@ -92,7 +96,9 @@ test("a filter's fill and border follow the swatches, in both themes", async ({
     await expect(
       dialog.getByTestId("param-preview").locator("[data-field-fill='azure']"),
     ).toBeVisible();
-    await dialog.getByRole("button", { name: "Save Changes" }).click();
+    await dialog
+      .getByRole("button", { name: "Save Changes", exact: true })
+      .click();
     await expect(dialog).toBeHidden();
     await saveDashboard(page);
 
@@ -108,7 +114,7 @@ test("a filter's fill and border follow the swatches, in both themes", async ({
         .getByRole("radiogroup", { name: "Field border", exact: true })
         .getByRole("radio", { name: "Citrine", exact: true }),
     ).toHaveAttribute("aria-checked", "true");
-    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
 
     for (const theme of ["light", "dark"] as const) {
       await page.evaluate(
@@ -176,10 +182,25 @@ test("Appearance is offered for a select and hidden for a relative date", async 
     `filter-look-rel ${uid()}`,
   );
   try {
+    await seed(page.request, id, "select");
+    await page.goto(`/${id}/edit`);
+    await expect(editingCrumb(page)).toBeVisible();
+    let dialog = await openStyleTab(page);
+    for (const name of ["Field fill", "Field border"]) {
+      await expect(
+        dialog.getByRole("radiogroup", { name, exact: true }),
+      ).toBeVisible();
+    }
+    // Both groups are open: Behaviour fields are in the DOM too.
+    await expect(
+      dialog.getByLabel("Placeholder", { exact: true }),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+
     await seed(page.request, id, "date-relative");
     await page.goto(`/${id}/edit`);
     await expect(editingCrumb(page)).toBeVisible();
-    const dialog = await openStyleTab(page);
+    dialog = await openStyleTab(page);
     await expect(
       dialog.getByRole("button", { name: "Behaviour", exact: true }),
     ).toBeVisible();

@@ -270,9 +270,9 @@ describe("ChartOptionsPanel", () => {
         chartType="parameter-select"
         settings={{}}
         onSettingsChange={vi.fn()}
+        openCategories={["Appearance", "Behaviour"]}
       />,
     );
-    expandAllCategories();
     expect(screen.getByLabelText("Placeholder")).toBeInTheDocument();
     expect(screen.getByText("Search-as-you-type")).toBeInTheDocument();
     // Should NOT show the old primary fields
@@ -508,14 +508,67 @@ describe("ChartOptionsPanel", () => {
       });
     });
 
-    it("arrow keys move the selection and only the checked swatch is tabbable", () => {
+    it("arrow keys move the selection and focus, and wrap; only the checked swatch is tabbable", () => {
       const onChange = vi.fn();
       renderFilter({ fieldFill: "azure" }, onChange);
       const fill = screen.getByRole("radiogroup", { name: "Field fill" });
       const radios = within(fill).getAllByRole("radio");
       expect(radios.map((r) => r.tabIndex)).toEqual([-1, 0, -1, -1, -1]);
       fireEvent.keyDown(radios[1], { key: "ArrowRight" });
-      expect(onChange).toHaveBeenCalledWith({ fieldFill: "citrine" });
+      expect(onChange).toHaveBeenLastCalledWith({ fieldFill: "citrine" });
+      expect(radios[2]).toHaveFocus();
+      fireEvent.keyDown(radios[0], { key: "ArrowLeft" });
+      expect(onChange).toHaveBeenLastCalledWith({ fieldFill: "rose" });
+      expect(radios[4]).toHaveFocus();
+      fireEvent.keyDown(radios[4], { key: "ArrowDown" });
+      expect(onChange).toHaveBeenLastCalledWith({ fieldFill: "default" });
+      expect(radios[0]).toHaveFocus();
+    });
+
+    it("a stored value that is not a preset reads as Default, and stays reachable by keyboard", () => {
+      renderFilter({ fieldFill: "#ff0000" });
+      const radios = within(
+        screen.getByRole("radiogroup", { name: "Field fill" }),
+      ).getAllByRole("radio");
+      expect(radios[0]).toHaveAttribute("aria-checked", "true");
+      expect(radios.map((r) => r.tabIndex)).toEqual([0, -1, -1, -1, -1]);
+    });
+
+    it("the checked swatch carries a check mark, the others none", () => {
+      renderFilter({ fieldFill: "sage" });
+      const radios = within(
+        screen.getByRole("radiogroup", { name: "Field fill" }),
+      ).getAllByRole("radio");
+      expect(radios.map((r) => r.querySelector("svg") !== null)).toEqual([
+        false,
+        false,
+        false,
+        true,
+        false,
+      ]);
+    });
+
+    it("openCategories opens Behaviour beside Appearance on a filter", () => {
+      renderFilter({}, vi.fn(), {
+        openCategories: ["Appearance", "Behaviour"],
+      });
+      expect(screen.getByLabelText("Placeholder")).toBeInTheDocument();
+      expect(
+        screen.getByRole("radiogroup", { name: "Field fill" }),
+      ).toBeInTheDocument();
+    });
+
+    it("without openCategories only the first group is open", () => {
+      renderFilter({});
+      expect(screen.queryByLabelText("Placeholder")).not.toBeInTheDocument();
+    });
+
+    it("a search match inside a collapsed group shows the field, not just the heading", () => {
+      renderFilter({});
+      fireEvent.change(screen.getByPlaceholderText("Search options..."), {
+        target: { value: "sync" },
+      });
+      expect(screen.getByText("Sync to URL")).toBeInTheDocument();
     });
 
     it("hiddenCategories leaves a category out", () => {
