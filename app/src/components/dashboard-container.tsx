@@ -3,6 +3,12 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
+import { CardRefreshContext, useRefreshHold } from "./card-refresh-context";
+import {
+  FilterLitProvider,
+  useDrivenLabel,
+  useSetLit,
+} from "./filter-lit-context";
 import { FilterStrip } from "@neoboard/components/kit";
 import { scrollAndHighlight } from "@/lib/widget/scroll-to-widget";
 import {
@@ -10,6 +16,7 @@ import {
   filterClearNames,
 } from "@/lib/parameter/dashboard-filters";
 import { useFilterBarShown } from "@/hooks/use-filter-bar-shown";
+import { useFilterLit } from "@/hooks/use-filter-lit";
 import { useWidgetSourceLine } from "@/hooks/use-widget-source-line";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { paramLabel } from "@/lib/parameter/param-label";
@@ -87,6 +94,8 @@ export interface WidgetActions {
 function SourcedWidgetCard({
   widget,
   connectionName,
+  children,
+  title,
   ...props
 }: Readonly<
   WidgetCardProps & { widget: DashboardWidget; connectionName?: string }
@@ -103,6 +112,13 @@ function SourcedWidgetCard({
     template === undefined
       ? undefined
       : substituteParamsInUrl(template, paramValues);
+  const driven = useDrivenLabel(widget.id);
+  // While the body refetches under its old rows, the title and the source line
+  // wait with them (#2369, owner 2026-10-30).
+  const { shown, refreshing, report } = useRefreshHold({
+    title,
+    source: (widget.chartType === "iframe" && iframeSourceLink(url)) || line,
+  });
   return (
     <WidgetCard
       {...props}
@@ -115,8 +131,85 @@ function SourcedWidgetCard({
           />
         ) : undefined
       }
-      source={(widget.chartType === "iframe" && iframeSourceLink(url)) || line}
-    />
+      title={shown.title}
+      source={shown.source}
+      refreshing={refreshing}
+      driven={driven}
+    >
+      <CardRefreshContext.Provider value={report}>
+        {children}
+      </CardRefreshContext.Provider>
+    </WidgetCard>
+  );
+}
+
+/**
+ * The fullscreen dialog's title and body: like the card, it keeps its title
+ * and draws the line while the card refetches under its old rows (#2369).
+ */
+function FullscreenFrame({
+  title,
+  children,
+}: Readonly<{ title: string; children: React.ReactNode }>) {
+  const { shown, refreshing, report } = useRefreshHold(title);
+  return (
+    <CardRefreshContext.Provider value={report}>
+      {refreshing && (
+        <div
+          data-refresh-line
+          aria-hidden="true"
+          className="refresh-line pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 rounded-t-lg"
+        />
+      )}
+      <DialogTitle className="text-lg font-semibold mb-2">{shown}</DialogTitle>
+      {children}
+    </CardRefreshContext.Provider>
+  );
+}
+
+/**
+ * The grid cell of one widget. A filter card in view mode reports whether it
+ * is lit (hovered, keyboard-focused or its list open) so the cards it drives
+ * can show it (#2369).
+ */
+function WidgetSlot({
+  widgetId,
+  filterName,
+  children,
+  ref: gridRef,
+  ...rest
+}: Readonly<
+  Omit<React.HTMLAttributes<HTMLDivElement>, "id"> & {
+    /** The grid hands its item a ref (React 19: a prop), which this cell must pass on. */
+    ref?: React.Ref<HTMLDivElement>;
+    widgetId: string;
+    /** The parameter the filter sets; unset for a card that is not a lit filter. */
+    filterName?: string;
+  }
+>) {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const ref = useCallback(
+    (node: HTMLDivElement | null) => {
+      setEl(node);
+      if (typeof gridRef === "function") gridRef(node);
+      else if (gridRef) gridRef.current = node;
+    },
+    [gridRef],
+  );
+  const setLit = useSetLit();
+  const report = useCallback(
+    (lit: boolean) =>
+      setLit((cur) => {
+        if (lit && filterName) return { name: filterName, widgetId };
+        return cur?.widgetId === widgetId ? null : cur;
+      }),
+    [setLit, filterName, widgetId],
+  );
+  useFilterLit(el, Boolean(filterName), report);
+  return (
+    <div ref={ref} {...rest}>
+      {children}
+    </div>
   );
 }
 
@@ -388,101 +481,117 @@ export function DashboardContainer({
         />
       )}
       <div className="w-full min-w-0">
-        <DashboardGrid
-          layout={withWidgetMinHeights(page.gridLayout, page.widgets)}
-          onLayoutChange={(items) =>
-            onLayoutChange?.(items as GridLayoutItem[])
-          }
-          isDraggable={editable}
-          isResizable={editable}
+        <FilterLitProvider
+          page={page}
+          editable={editable}
+          parameterSourceMap={parameterSourceMap}
         >
-          {page.widgets.map((widget) => {
-            const outdated =
-              editable && isWidgetTemplateOutdated(widget, templateMap);
-            const chartOpts = ((widget.settings ?? {}).chartOptions ??
-              {}) as Record<string, unknown>;
-            const showRefresh = shouldShowRefreshButton(chartOpts);
-            return (
-              <div
-                key={widget.id}
-                data-testid="widget-card"
-                data-widget-id={widget.id}
-                onDoubleClick={
-                  editable && onEditWidget
-                    ? (e: React.MouseEvent) => {
-                        if ((e.target as HTMLElement).closest("button")) return;
-                        onEditWidget(widget);
-                      }
-                    : undefined
-                }
-              >
-                <SourcedWidgetCard
-                  widget={widget}
-                  connectionName={connectionNames?.[widget.connectionId]}
-                  title={displayTitle(widget)}
-                  className="h-full"
-                  mode={editable ? "edit" : "view"}
-                  actions={buildActions(widget)}
-                  onRefresh={
-                    showRefresh
-                      ? () => {
-                          // Refetch every params variant of this widget's query:
-                          // the hook merges $param_xxx values into `params` at
-                          // call time, so only the prefix is known here.
-                          void queryClient.invalidateQueries({
-                            queryKey: widgetQueryKeyPrefix(widget),
-                          });
+          <DashboardGrid
+            layout={withWidgetMinHeights(page.gridLayout, page.widgets)}
+            onLayoutChange={(items) =>
+              onLayoutChange?.(items as GridLayoutItem[])
+            }
+            isDraggable={editable}
+            isResizable={editable}
+          >
+            {page.widgets.map((widget) => {
+              const outdated =
+                editable && isWidgetTemplateOutdated(widget, templateMap);
+              const chartOpts = ((widget.settings ?? {}).chartOptions ??
+                {}) as Record<string, unknown>;
+              const showRefresh = shouldShowRefreshButton(chartOpts);
+              const filterName =
+                !editable &&
+                widget.chartType === "parameter-select" &&
+                typeof chartOpts.parameterName === "string" &&
+                chartOpts.parameterName
+                  ? chartOpts.parameterName
+                  : undefined;
+              return (
+                <WidgetSlot
+                  key={widget.id}
+                  widgetId={widget.id}
+                  filterName={filterName}
+                  data-testid="widget-card"
+                  data-widget-id={widget.id}
+                  onDoubleClick={
+                    editable && onEditWidget
+                      ? (e: React.MouseEvent) => {
+                          if ((e.target as HTMLElement).closest("button"))
+                            return;
+                          onEditWidget(widget);
                         }
                       : undefined
                   }
-                  onFullscreen={(opener) => {
-                    // From the menu (touch) there is no icon button to return
-                    // focus to: the menu trigger that was just used is.
-                    setDialogOpener({
-                      el: opener ?? focusedMenuTrigger(),
-                      fallback: null,
-                    });
-                    openFullscreen(widget);
-                  }}
-                  headerExtra={
-                    outdated ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-amber-500"
-                        onClick={(e) => {
-                          setDialogOpener({
-                            el: e.currentTarget,
-                            fallback:
-                              e.currentTarget.parentElement?.querySelector<HTMLElement>(
-                                "[data-widget-fullscreen]",
-                              ) ?? null,
-                          });
-                          setPendingSyncWidget(widget);
-                          setSyncOpen(true);
-                        }}
-                        aria-label="Template update available"
-                        title="Template update available — click to sync"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
-                    ) : undefined
-                  }
                 >
-                  <CardContainer
+                  <SourcedWidgetCard
                     widget={widget}
-                    isEditMode={editable}
-                    refetchInterval={refetchInterval}
-                    onNavigateToPage={onNavigateToPage}
-                    parameterSourceMap={parameterSourceMap}
-                    currentPageId={page.id}
-                    connector={connectorCapabilities?.[widget.connectionId]}
-                  />
-                </SourcedWidgetCard>
-              </div>
-            );
-          })}
-        </DashboardGrid>
+                    connectionName={connectionNames?.[widget.connectionId]}
+                    title={displayTitle(widget)}
+                    className="h-full"
+                    mode={editable ? "edit" : "view"}
+                    actions={buildActions(widget)}
+                    onRefresh={
+                      showRefresh
+                        ? () => {
+                            // Refetch every params variant of this widget's query:
+                            // the hook merges $param_xxx values into `params` at
+                            // call time, so only the prefix is known here.
+                            void queryClient.invalidateQueries({
+                              queryKey: widgetQueryKeyPrefix(widget),
+                            });
+                          }
+                        : undefined
+                    }
+                    onFullscreen={(opener) => {
+                      // From the menu (touch) there is no icon button to return
+                      // focus to: the menu trigger that was just used is.
+                      setDialogOpener({
+                        el: opener ?? focusedMenuTrigger(),
+                        fallback: null,
+                      });
+                      openFullscreen(widget);
+                    }}
+                    headerExtra={
+                      outdated ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-amber-500"
+                          onClick={(e) => {
+                            setDialogOpener({
+                              el: e.currentTarget,
+                              fallback:
+                                e.currentTarget.parentElement?.querySelector<HTMLElement>(
+                                  "[data-widget-fullscreen]",
+                                ) ?? null,
+                            });
+                            setPendingSyncWidget(widget);
+                            setSyncOpen(true);
+                          }}
+                          aria-label="Template update available"
+                          title="Template update available — click to sync"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      ) : undefined
+                    }
+                  >
+                    <CardContainer
+                      widget={widget}
+                      isEditMode={editable}
+                      refetchInterval={refetchInterval}
+                      onNavigateToPage={onNavigateToPage}
+                      parameterSourceMap={parameterSourceMap}
+                      currentPageId={page.id}
+                      connector={connectorCapabilities?.[widget.connectionId]}
+                    />
+                  </SourcedWidgetCard>
+                </WidgetSlot>
+              );
+            })}
+          </DashboardGrid>
+        </FilterLitProvider>
       </div>
 
       <Dialog
@@ -495,36 +604,37 @@ export function DashboardContainer({
           className="sm:max-w-[90vw] h-[85vh] flex flex-col"
           onCloseAutoFocus={handBackFocus}
         >
-          <DialogTitle className="text-lg font-semibold mb-2">
-            {fullscreenWidget ? displayTitle(fullscreenWidget) : "Widget"}
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            This widget is shown at full size. Press Escape to return to the
-            dashboard.
-          </DialogDescription>
-          {fullscreenWidget && (
-            <div className="flex-1 min-h-0">
-              {fullscreenReady ? (
-                <CardContainer
-                  key={`${fullscreenWidget.id}-fullscreen`}
-                  widget={fullscreenWidget}
-                  refetchInterval={refetchInterval}
-                  onNavigateToPage={onNavigateToPage}
-                  parameterSourceMap={parameterSourceMap}
-                  currentPageId={page.id}
-                  connector={
-                    connectorCapabilities?.[fullscreenWidget.connectionId]
-                  }
-                  autoFit
-                  widgetIdSuffix="fullscreen"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
-                </div>
-              )}
-            </div>
-          )}
+          <FullscreenFrame
+            title={fullscreenWidget ? displayTitle(fullscreenWidget) : "Widget"}
+          >
+            <DialogDescription className="sr-only">
+              This widget is shown at full size. Press Escape to return to the
+              dashboard.
+            </DialogDescription>
+            {fullscreenWidget && (
+              <div className="flex-1 min-h-0">
+                {fullscreenReady ? (
+                  <CardContainer
+                    key={`${fullscreenWidget.id}-fullscreen`}
+                    widget={fullscreenWidget}
+                    refetchInterval={refetchInterval}
+                    onNavigateToPage={onNavigateToPage}
+                    parameterSourceMap={parameterSourceMap}
+                    currentPageId={page.id}
+                    connector={
+                      connectorCapabilities?.[fullscreenWidget.connectionId]
+                    }
+                    autoFit
+                    widgetIdSuffix="fullscreen"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                  </div>
+                )}
+              </div>
+            )}
+          </FullscreenFrame>
         </DialogContent>
       </Dialog>
 

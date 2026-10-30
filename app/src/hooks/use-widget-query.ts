@@ -1,8 +1,12 @@
 "use client";
 
 import { isParamUnset } from "@/lib/parameter/is-param-unset";
-import { useMemo } from "react";
-import { useQuery, type QueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import {
+  useQuery,
+  type PlaceholderDataFunction,
+  type QueryClient,
+} from "@tanstack/react-query";
 import {
   unwrapFullResponse,
   QueueFullError,
@@ -240,6 +244,34 @@ export function getShownWidgetQueryData(
 }
 
 /**
+ * placeholderData for a widget query (#2369). TanStack hands placeholder data
+ * to a DISABLED query too, which would hide the waiting text, so `waited`
+ * (a stretch with no result: disabled, or an error) turns it off until a new
+ * result lands. It also returns nothing for another query's rows (connection,
+ * database or text differ) and on a connection already known dead, where the
+ * verdict beats old rows (#1888).
+ */
+function keepSameQuery(
+  prefix: readonly unknown[],
+  waited: boolean,
+  connectionId: string | undefined,
+): PlaceholderDataFunction<QueryResult, Error> {
+  return (previous, previousQuery) => {
+    if (waited || !previousQuery) return undefined;
+    if (
+      connectionId &&
+      useConnectionStatusStore.getState().statuses[connectionId] === "error"
+    ) {
+      return undefined;
+    }
+    const same =
+      JSON.stringify(previousQuery.queryKey.slice(0, prefix.length)) ===
+      JSON.stringify(prefix);
+    return same ? previous : undefined;
+  };
+}
+
+/**
  * Cached query hook for widget data. Uses React Query's cache with a stable
  * key based on connectionId + query text, so the same query is never executed
  * twice (e.g. when navigating from view mode to edit mode).
@@ -290,6 +322,17 @@ export function useWidgetQuery(
     return { ...input, params: mergedParams };
   }, [input, mergedParams]);
 
+  const enabled =
+    (options?.enabled ?? true) &&
+    !!mergedInput?.connectionId &&
+    !!mergedInput?.query &&
+    allReferencedParamsReady(mergedInput.query, allParameters);
+  const prefix = widgetQueryKeyPrefix(mergedInput);
+  // TanStack's "previous data" outlives a disabled stretch, so a waiting state
+  // is remembered here: rows from before it are never shown under a new pick.
+  const [waited, setWaited] = useState(false);
+  if (!enabled && !waited) setWaited(true);
+
   const queryResult = useQuery<QueryResult, Error>({
     queryKey: widgetQueryKey(mergedInput, options?.staleTime),
     queryFn: async ({ signal }) => {
@@ -320,11 +363,10 @@ export function useWidgetQuery(
       }
       return result;
     },
-    enabled:
-      (options?.enabled ?? true) &&
-      !!mergedInput?.connectionId &&
-      !!mergedInput?.query &&
-      allReferencedParamsReady(mergedInput.query, allParameters),
+    enabled,
+    // A new parameter value keeps the old rows (isPlaceholderData) until its
+    // result lands (#2369).
+    placeholderData: keepSameQuery(prefix, waited, mergedInput?.connectionId),
     // staleTime controls how long cached data is considered fresh.
     // When enableCache is false on the widget, callers pass 0 (always refetch).
     // When enableCache is true, callers pass cacheTtlMinutes * 60_000.
@@ -349,6 +391,18 @@ export function useWidgetQuery(
       return Math.min(500 * 2 ** attemptIndex, 5000);
     },
   });
+
+  // An error is a stretch with no result too: the next pick must not bring
+  // back the rows from before it.
+  if (!waited && queryResult.status === "error") setWaited(true);
+  if (
+    waited &&
+    enabled &&
+    queryResult.status === "success" &&
+    !queryResult.isPlaceholderData
+  ) {
+    setWaited(false);
+  }
 
   const missingParams = useMemo(
     () =>

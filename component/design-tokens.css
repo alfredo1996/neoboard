@@ -506,3 +506,36 @@ html {
   --shiki-token-punctuation: hsl(var(--foreground));
   --shiki-token-link: hsl(var(--code-key));
 }
+
+/* A card refetching keeps its result under this 2 px line on its top edge
+   (#2369). The resting state is the full static line; the 40 % sweep exists
+   only when motion is allowed, so the global reduced-motion reset above
+   (animation: none !important) leaves the full line, not a stub. */
+.refresh-line {
+  background: hsl(var(--ring));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .refresh-line {
+    /* The segment is 0.4 of the element: 13.33 % of a 3x-wide image. */
+    background-image: linear-gradient(
+      90deg,
+      transparent 43.33%,
+      hsl(var(--ring)) 43.33%,
+      hsl(var(--ring)) 56.66%,
+      transparent 56.66%
+    );
+    background-color: transparent;
+    background-size: 300% 100%;
+    animation: refresh-line-sweep 650ms var(--ease-standard) infinite;
+  }
+}
+@keyframes refresh-line-sweep {
+  /* The image is 3x the element: lowering the position moves the segment
+     from the left edge to the right (the approved mock's direction). */
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
