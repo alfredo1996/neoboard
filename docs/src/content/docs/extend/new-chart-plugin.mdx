@@ -128,13 +128,18 @@ Options define what users can configure in the Chart Options panel:
 interface ChartOptionDef {
   key: string;          // settings key (e.g. "showLegend")
   label: string;        // UI label
-  type: "boolean" | "select" | "text" | "number" | "column-multi-select" | "swatch";
+  type: "boolean" | "select" | "text" | "textarea" | "number" | "swatch" | "column-multi-select";
   default: unknown;     // default value
   category: OptionGroup; // one of the fixed groups (e.g. "Layout", "Legend", "Data labels"); each belongs to Data, Style or Behavior
   options?: { label: string; value: string; token?: string }[];  // for "select" and "swatch" (token: the CSS variable a chip shows)
   description?: string; // read aloud by screen readers; not drawn
   help?: string;        // one line under the control, only where it adds a rule
   unit?: string;        // written after a number field (px, %)
+  placeholder?: string; // number only: shown while the field is empty
+  auto?: number;        // number only: the stored value that means automatic, shown empty as "Auto"
+  percent?: boolean;    // stored as text with a % suffix ("30%"), edited as a number
+  multiline?: boolean;  // a small textarea instead of one line
+  validate?: (value: string) => { level: "error" | "warning"; message: string } | null; // text inputs: inline check
 }
 ```
 

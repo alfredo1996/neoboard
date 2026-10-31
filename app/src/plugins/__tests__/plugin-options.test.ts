@@ -71,6 +71,7 @@ vi.mock("@/components/graph-exploration-wrapper", () => ({
 }));
 
 import { pluginRegistry, CHART_TYPES } from "../index";
+import type { ChartOptionDef } from "@/lib/plugin/chart-plugin-registry";
 
 describe("plugin options (Phase 5)", () => {
   it("bar plugin has options defined with entries", () => {
@@ -133,5 +134,21 @@ describe("plugin options (Phase 5)", () => {
       expect(opt).toHaveProperty("default");
       expect(opt).toHaveProperty("category");
     }
+  });
+});
+
+describe("ChartOptionDef (#2388)", () => {
+  it("accepts the help and unit fields the plugin docs tell authors to set", () => {
+    // Fails under tsc (excess property) if the type drops them.
+    const option: ChartOptionDef = {
+      key: "gap",
+      label: "Gap",
+      type: "number",
+      default: 0,
+      category: "Layout",
+      help: "One line under the control",
+      unit: "px",
+    };
+    expect(option.unit).toBe("px");
   });
 });
