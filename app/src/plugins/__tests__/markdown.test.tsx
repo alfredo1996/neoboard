@@ -3,8 +3,22 @@ import { render, screen } from "@testing-library/react";
 import { markdownPlugin } from "../markdown";
 
 vi.mock("@neoboard/components", () => ({
-  MarkdownWidget: ({ content }: { content?: string }) => (
-    <div data-testid="markdown-widget">{content ?? ""}</div>
+  MarkdownWidget: ({
+    content,
+    textSize,
+    textAlign,
+  }: {
+    content?: string;
+    textSize?: string;
+    textAlign?: string;
+  }) => (
+    <div
+      data-testid="markdown-widget"
+      data-size={textSize}
+      data-align={textAlign}
+    >
+      {content ?? ""}
+    </div>
   ),
   getChartOptions: (type: string) =>
     type === "markdown"
@@ -51,6 +65,22 @@ describe("markdownPlugin", () => {
     render(<Component settings={{ content: "Hello **world**" }} />);
     expect(screen.getByTestId("markdown-widget")).toHaveTextContent(
       "Hello **world**",
+    );
+  });
+
+  it("passes textSize and textAlign to MarkdownWidget, and drops a bad stored value (#2392)", () => {
+    const Component = markdownPlugin.component;
+    render(
+      <Component
+        settings={{ content: "x", textSize: "lg", textAlign: "center" }}
+      />,
+    );
+    const el = screen.getByTestId("markdown-widget");
+    expect(el).toHaveAttribute("data-size", "lg");
+    expect(el).toHaveAttribute("data-align", "center");
+    render(<Component settings={{ content: "y", textSize: 7 }} />);
+    expect(screen.getAllByTestId("markdown-widget")[1]).not.toHaveAttribute(
+      "data-size",
     );
   });
 

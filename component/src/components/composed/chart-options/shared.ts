@@ -16,6 +16,7 @@ export const OPTION_GROUPS = {
   Fields: "data",
   Transform: "data",
   // Style
+  Text: "style",
   Field: "style",
   "Submit button": "style",
   Bars: "style",

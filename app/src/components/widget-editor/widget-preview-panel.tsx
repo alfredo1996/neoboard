@@ -6,6 +6,8 @@ import { CardContainer } from "../card-container";
 import { ParameterPreview } from "./parameter-preview";
 import { mapPreviewError } from "@/lib/query/preview-error";
 import { isRunDisabled } from "./preview-run-state";
+import { markdownSettingsSchema } from "@/plugins/markdown/settings";
+import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 import { PREVIEW_ROW_LIMIT } from "./use-auto-preview";
 import type { StylingConfig } from "@/lib/db/schema";
 import type { Transform } from "@/lib/query/data-transforms";
@@ -72,8 +74,14 @@ type WidgetPreviewPanelProps = Readonly<{
 }>;
 
 function renderMarkdown(chartOptions: Record<string, unknown>) {
+  // The schema drops a stored value it does not know, as the dashboard does.
+  const s = safeParseSettings(markdownSettingsSchema, chartOptions, "markdown");
   return (
-    <MarkdownWidget content={chartOptions.content as string | undefined} />
+    <MarkdownWidget
+      content={s.content}
+      textSize={s.textSize}
+      textAlign={s.textAlign}
+    />
   );
 }
 

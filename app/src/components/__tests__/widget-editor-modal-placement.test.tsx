@@ -121,6 +121,32 @@ describe("WidgetEditorModal — option placement through the real panel (#2388)"
     expect(onSave.mock.calls[0][0].settings.chartOptions).toEqual(chartOptions);
   });
 
+  it("a markdown widget has Content and Style; Text size and Alignment are in Style, and a save without them adds none (#2392)", async () => {
+    const chartOptions = { content: "# Saved" };
+    const onSave = renderEditor({
+      chartType: "markdown",
+      connectionId: undefined,
+      settings: { chartOptions },
+    });
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Content",
+      "Style",
+    ]);
+    await openSection("Style");
+    const text = within(group("Text"));
+    expect(text.getByRole("radio", { name: "Medium" })).toHaveAttribute(
+      "data-state",
+      "on",
+    );
+    expect(text.getByRole("radio", { name: "Left" })).toHaveAttribute(
+      "data-state",
+      "on",
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    expect(onSave.mock.calls[0][0].settings.chartOptions).toEqual(chartOptions);
+  });
+
   it("a saved Off plus Forever opens as Forever, and an untouched save leaves both stored values", async () => {
     const onSave = renderEditor({
       chartType: "bar",
