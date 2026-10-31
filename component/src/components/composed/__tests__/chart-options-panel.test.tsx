@@ -126,7 +126,7 @@ describe("OptionRows", () => {
     expect(screen.getByLabelText("Page size")).toHaveValue(null);
   });
 
-  it("offers a markdown widget's Text size and Alignment as segmented controls in Style (#2392)", () => {
+  it("declares a markdown widget's Text size and Alignment as select options in the Text group, which is Style (#2392)", () => {
     const opts = getChartOptions("markdown");
     for (const [key, values, def] of [
       ["textSize", ["sm", "md", "lg"], "md"],

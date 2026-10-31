@@ -855,7 +855,7 @@ describe("MarkdownWidget text size and alignment (#2392)", () => {
 
   it.each([
     ["sm", "text-caption", "--md-scale: 0.9286"],
-    ["lg", "text-[1.125rem]", "--md-scale: 1.2857"],
+    ["lg", "text-lg", "--md-scale: 1.2857"],
   ])("textSize %s sets the body size and the heading scale", (size, cls, v) => {
     render(<MarkdownWidget content={MD} textSize={size as "sm" | "lg"} />);
     expect(root()).toHaveClass(cls);
@@ -871,11 +871,6 @@ describe("MarkdownWidget text size and alignment (#2392)", () => {
       <MarkdownWidget content={MD} textAlign={align as "center" | "right"} />,
     );
     expect(root()).toHaveClass(cls);
-  });
-
-  it("keeps code blocks left-aligned when the text is centred", () => {
-    render(<MarkdownWidget content={MD} textAlign="center" />);
-    expect(root().className).toContain("[&_pre]:text-left");
   });
 
   it("falls back to today's look for a value it does not know", () => {

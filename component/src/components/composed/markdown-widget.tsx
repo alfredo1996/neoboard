@@ -18,14 +18,17 @@ export interface MarkdownWidgetProps {
 
 // Only the non-default values have an entry, so an unset or unknown value
 // renders exactly today's classes (#2392).
-const SIZE_CLASS = { sm: "text-caption", lg: "text-[1.125rem]" } as const;
+const SIZE_CLASS = { sm: "text-caption", lg: "text-lg" } as const;
 // Headings are fixed rem classes; this multiplies them by size/14px.
 const SIZE_SCALE = { sm: "0.9286", lg: "1.2857" } as const;
 const SCALED_HEADINGS =
   "[&_h1]:text-[length:calc(1.5rem*var(--md-scale))] [&_h2]:text-[length:calc(1.25rem*var(--md-scale))] [&_:is(h3,h4,h5,h6)]:text-[length:calc(0.9375rem*var(--md-scale))] [&_:is(h1,h2,h3,h4,h5,h6)]:leading-snug";
 const ALIGN_CLASS = {
-  center: "text-center [&_pre]:text-left",
-  right: "text-right [&_pre]:text-left",
+  // Bullets travel with the text (list-inside); images are block, so margins move them.
+  center:
+    "text-center [&_pre]:text-left [&_:is(ul,ol)]:list-inside [&_:is(ul,ol)]:pl-0 [&_img]:mx-auto",
+  right:
+    "text-right [&_pre]:text-left [&_:is(ul,ol)]:list-inside [&_:is(ul,ol)]:pl-0 [&_img]:ml-auto",
 } as const;
 
 /**
