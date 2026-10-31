@@ -125,10 +125,13 @@ const cardOf = (page: Page, widgetId: string) =>
 const infoOf = (page: Page, widgetId: string) =>
   page
     .locator(`[data-widget-id='${widgetId}']`)
-    .getByRole("button", { name: "About this card", exact: true });
+    .getByRole("button", { name: /^About this card/ });
 
 async function textIsShown(page: Page, shown: boolean) {
-  const text = page.getByText(DESCRIPTION, { exact: true });
+  // The popover only: a screen-reader copy of the text is always in the icon.
+  const text = page
+    .locator("[data-radix-popper-content-wrapper]")
+    .getByText(DESCRIPTION, { exact: true });
   if (shown) await expect(text).toBeVisible();
   else await expect(text).toHaveCount(0);
 }
@@ -224,6 +227,57 @@ test("a chart's Style has the Description and no Background", async ({
     await expect(
       dialog.getByRole("radiogroup", { name: "Background", exact: true }),
     ).toHaveCount(0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("a long title leaves the info icon clear of the hover bar, so hovering it opens the text", async ({
+  page,
+  authPage,
+}) => {
+  test.setTimeout(90_000);
+  await authPage.login(ALICE.email, ALICE.password);
+  const { id, cleanup } = await createTestDashboard(
+    page.request,
+    `card-options-long ${uid()}`,
+  );
+  try {
+    const long = {
+      ...widgets[0],
+      settings: {
+        ...widgets[0].settings,
+        title: "A very long title that cannot fit on one line of a narrow card",
+        description: DESCRIPTION,
+      },
+    };
+    const put = await page.request.put(`/api/dashboards/${id}`, {
+      data: {
+        layoutJson: {
+          version: 2 as const,
+          pages: [
+            {
+              id: "page-1",
+              title: "Main",
+              widgets: [long],
+              gridLayout: [{ i: "w-md", x: 0, y: 0, w: 3, h: 4 }],
+            },
+          ],
+        },
+      },
+    });
+    expect(put.ok()).toBe(true);
+    await page.goto(`/${id}`);
+    const icon = infoOf(page, "w-md");
+    await expect(icon).toBeVisible({ timeout: 15_000 });
+    // The pointer is on the card, so the bar is showing; the icon is not under it.
+    await page.locator("[data-widget-id='w-md']").hover();
+    const bar = page.getByRole("button", { name: "Fullscreen", exact: true });
+    await expect(bar).toBeVisible();
+    const [i, b] = [await icon.boundingBox(), await bar.boundingBox()];
+    expect(i!.x + i!.width).toBeLessThanOrEqual(b!.x);
+    await icon.hover();
+    await textIsShown(page, true);
   } finally {
     await cleanup();
   }

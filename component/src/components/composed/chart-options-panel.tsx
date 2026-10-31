@@ -318,6 +318,11 @@ function TextControl({
           aria-describedby={described}
         />
       )}
+      {option.maxLength && (
+        <p className="text-right text-meta tabular-nums text-muted-foreground">
+          {textValue.length} / {option.maxLength}
+        </p>
+      )}
       {validation && isError && (
         <FieldError id={messageId}>{validation.message}</FieldError>
       )}
@@ -496,9 +501,9 @@ const CARD_OPTIONS: ChartOptionDef[] = [
       { value: "default", label: "Default", token: "--card-plain" },
       { value: "none", label: "None" },
       { value: "azure", label: "Azure", token: "--param-fill-azure" },
-      { value: "citrine", label: "Citrine", token: "--param-fill-citrine" },
+      { value: "citrine", label: "Citrine", token: "--card-fill-citrine" },
       { value: "sage", label: "Sage", token: "--param-fill-sage" },
-      { value: "rose", label: "Rose", token: "--param-fill-rose" },
+      { value: "rose", label: "Rose", token: "--card-fill-rose" },
     ],
   },
   {

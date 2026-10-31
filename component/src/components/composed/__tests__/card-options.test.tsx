@@ -71,6 +71,27 @@ describe("cardOptionGroup (#2394)", () => {
     expect(onChange).toHaveBeenCalledWith("description", "Hi there");
   });
 
+  it("counts the description against its 200 characters", () => {
+    renderCard({ settings: { description: "Hi" } });
+    expect(screen.getByText("2 / 200")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Description"), {
+      target: { value: "Hi there" },
+    });
+    // Controlled by settings, so the count follows the stored value.
+    expect(screen.getByText("2 / 200")).toBeInTheDocument();
+  });
+
+  it("paints the Citrine and Rose chips with the colour the card shows", () => {
+    renderCard();
+    const bg = (name: string) =>
+      screen
+        .getByRole("radio", { name })
+        .querySelector("span[style]")
+        ?.getAttribute("style");
+    expect(bg("Citrine")).toContain("--card-fill-citrine");
+    expect(bg("Rose")).toContain("--card-fill-rose");
+  });
+
   it("a Style search that matches no row hides the group", () => {
     const { group } = renderCard({}, "");
     expect(group.render("zzz")).toBeNull();

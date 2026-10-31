@@ -230,6 +230,12 @@ for (const def of LIGHTWEIGHT_DEFS) {
   }
 }
 
+const SYNCED_CAPABILITIES = [
+  "isECharts",
+  "supportsCardBackground",
+  "supportsStyling",
+] as const;
+
 /**
  * Validate that registered plugins match LIGHTWEIGHT_DEFS expectations.
  * Call after all real plugins have registered to catch capability drift.
@@ -250,44 +256,12 @@ export function validatePluginStubSync(): void {
     if (def.capabilities) {
       const stubCaps = def.capabilities;
       const realCaps = real.capabilities;
-      if (
-        stubCaps.isECharts !== undefined &&
-        stubCaps.isECharts !== realCaps.isECharts
-      ) {
-        console.warn(
-          '[plugin-sync] "' +
-            def.type +
-            '": stub says isECharts=' +
-            stubCaps.isECharts +
-            " but real plugin has " +
-            realCaps.isECharts,
-        );
-      }
-      if (
-        stubCaps.supportsCardBackground !== undefined &&
-        stubCaps.supportsCardBackground !== realCaps.supportsCardBackground
-      ) {
-        console.warn(
-          '[plugin-sync] "' +
-            def.type +
-            '": stub says supportsCardBackground=' +
-            stubCaps.supportsCardBackground +
-            " but real plugin has " +
-            realCaps.supportsCardBackground,
-        );
-      }
-      if (
-        stubCaps.supportsStyling !== undefined &&
-        stubCaps.supportsStyling !== realCaps.supportsStyling
-      ) {
-        console.warn(
-          '[plugin-sync] "' +
-            def.type +
-            '": stub says supportsStyling=' +
-            stubCaps.supportsStyling +
-            " but real plugin has " +
-            realCaps.supportsStyling,
-        );
+      for (const key of SYNCED_CAPABILITIES) {
+        if (stubCaps[key] !== undefined && stubCaps[key] !== realCaps[key]) {
+          console.warn(
+            `[plugin-sync] "${def.type}": stub says ${key}=${stubCaps[key]} but real plugin has ${realCaps[key]}`,
+          );
+        }
       }
     }
   }

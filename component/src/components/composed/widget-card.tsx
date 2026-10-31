@@ -175,32 +175,58 @@ function panelEdge(
  * touch. It opens on hover, keyboard focus and tap. 18 px high, so a header
  * with the icon is as tall as one without and a row of cards stays aligned.
  */
-function DescriptionInfo({ text }: { readonly text: string }) {
+function DescriptionInfo({
+  text,
+  title,
+}: {
+  readonly text: string;
+  readonly title?: string;
+}) {
   const [open, setOpen] = React.useState(false);
   const button = React.useRef<HTMLButtonElement>(null);
+  const timer = React.useRef<ReturnType<typeof setTimeout>>(undefined);
+  const textId = React.useId();
+  const cancelClose = () => clearTimeout(timer.current);
+  // WCAG 1.4.13: the pointer may travel from the icon onto the text.
+  const closeSoon = () => {
+    cancelClose();
+    timer.current = setTimeout(() => {
+      if (document.activeElement !== button.current) setOpen(false);
+    }, 150);
+  };
+  React.useEffect(() => cancelClose, []);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
         <button
           ref={button}
           type="button"
-          aria-label="About this card"
+          aria-label={title ? `About this card: ${title}` : "About this card"}
+          aria-describedby={textId}
           aria-expanded={open}
           className="-ml-1 grid h-[18px] w-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onPointerEnter={(e) => e.pointerType !== "touch" && setOpen(true)}
-          onPointerLeave={() =>
-            document.activeElement !== button.current && setOpen(false)
-          }
+          onPointerEnter={(e) => {
+            cancelClose();
+            if (e.pointerType !== "touch") setOpen(true);
+          }}
+          onPointerLeave={closeSoon}
           onFocus={() => setOpen(true)}
           onBlur={() => setOpen(false)}
           onClick={() => setOpen(true)}
         >
           <Info aria-hidden="true" className="h-3.5 w-3.5" />
+          {/* The popover is portalled and unmounted when shut: keep the text
+              here for a screen reader. */}
+          <span id={textId} className="sr-only">
+            {text}
+          </span>
         </button>
       </PopoverAnchor>
       <PopoverContent
         align="start"
-        className="w-auto max-w-[260px] whitespace-pre-line px-2 py-1.5 text-xs leading-4"
+        className="w-auto max-w-[260px] whitespace-pre-line break-words px-2 py-1.5 text-xs leading-4"
+        onPointerEnter={cancelClose}
+        onPointerLeave={closeSoon}
         // Focus stays on the icon: the text is not interactive.
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
@@ -408,7 +434,10 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
               <div
                 className="flex min-w-0 flex-1 items-center gap-2"
                 // Room for controls that stay in view (edit mode, touch).
-                style={{ paddingRight: overlay ? undefined : reserved }}
+                style={{
+                  paddingRight:
+                    overlay && !description?.trim() ? undefined : reserved,
+                }}
               >
                 {draggable && (
                   <button
@@ -438,7 +467,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                   </h3>
                 )}
                 {description?.trim() && (
-                  <DescriptionInfo text={description.trim()} />
+                  <DescriptionInfo text={description.trim()} title={title} />
                 )}
               </div>
               {/* Hidden at rest with opacity only, never display or

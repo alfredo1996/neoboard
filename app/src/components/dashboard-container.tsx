@@ -118,6 +118,7 @@ function SourcedWidgetCard({
   // wait with them (#2369, owner 2026-10-30).
   const { shown, refreshing, report } = useRefreshHold({
     title,
+    description: props.description,
     source: (widget.chartType === "iframe" && iframeSourceLink(url)) || line,
   });
   return (
@@ -134,6 +135,7 @@ function SourcedWidgetCard({
       }
       title={shown.title}
       source={shown.source}
+      description={shown.description}
       refreshing={refreshing}
       driven={driven}
     >
@@ -158,7 +160,7 @@ function FullscreenFrame({
   description?: string;
   children: React.ReactNode;
 }>) {
-  const { shown, refreshing, report } = useRefreshHold(title);
+  const { shown, refreshing, report } = useRefreshHold({ title, description });
   return (
     <CardRefreshContext.Provider value={report}>
       {refreshing && (
@@ -169,13 +171,13 @@ function FullscreenFrame({
         />
       )}
       <DialogTitle
-        className={`text-lg font-semibold ${description ? "mb-1" : "mb-2"}`}
+        className={`text-lg font-semibold ${shown.description ? "mb-1" : "mb-2"}`}
       >
-        {shown}
+        {shown.title}
       </DialogTitle>
-      {description && (
+      {shown.description && (
         <p className="mb-2 whitespace-pre-line text-sm text-muted-foreground">
-          {description}
+          {shown.description}
         </p>
       )}
       {children}

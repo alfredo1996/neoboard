@@ -1552,6 +1552,28 @@ describe("DashboardWorkspace", () => {
     expect(w.templateSyncedAt).toBe(synced);
   });
 
+  it("syncing from a template with Default and no description clears both on the widget (#2394)", () => {
+    pathname = "/d1/edit";
+    const linked = makeDashboard(1);
+    linked.layoutJson.pages[0].widgets[0] = {
+      ...linked.layoutJson.pages[0].widgets[0],
+      templateId: "t1",
+      settings: { cardBackground: "rose", description: "Old", keep: 1 },
+    } as never;
+    dashboard = linked;
+    mockUseWidgetTemplates.mockReturnValue({
+      data: [{ id: "t1", chartType: "line", query: "SELECT 2", settings: {} }],
+    });
+
+    render(<DashboardWorkspace id="d1" editMode={true} />);
+    fireEvent.click(screen.getByTestId("act-sync"));
+
+    const w = useDashboardStore.getState().layout.pages[0].widgets[0];
+    expect(w.settings?.cardBackground).toBeUndefined();
+    expect(w.settings?.description).toBeUndefined();
+    expect(w.settings?.keep).toBe(1);
+  });
+
   it("leaves the widget alone when its template was deleted", () => {
     pathname = "/d1/edit";
     const linked = makeDashboard(1);

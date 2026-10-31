@@ -512,6 +512,10 @@ export function DashboardWorkspace({
         settings: {
           ...widget.settings,
           ...(tmpl.settings ?? undefined),
+          // Default and an empty description store nothing, so the spread
+          // would leave the widget's old ones in place (#2394).
+          cardBackground: tmpl.settings?.cardBackground,
+          description: tmpl.settings?.description,
           // Never overwrite the widget's connection
           connectionId: widget.settings?.connectionId,
         },

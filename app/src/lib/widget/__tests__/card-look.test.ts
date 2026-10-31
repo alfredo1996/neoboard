@@ -70,4 +70,16 @@ describe("cardLook (#2394)", () => {
       cardLook(widget("table", { description: { a: 1 } }), {}).description,
     ).toBe("");
   });
+
+  it("cuts the description at 200 characters, after the parameters are substituted", () => {
+    expect(
+      cardLook(widget("table", { description: "x".repeat(300) }), {})
+        .description,
+    ).toHaveLength(200);
+    const long = { region: { value: "y".repeat(250) } as ParameterEntry };
+    expect(
+      cardLook(widget("table", { description: "In $param_region" }), long)
+        .description,
+    ).toHaveLength(200);
+  });
 });

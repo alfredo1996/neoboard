@@ -7,6 +7,8 @@ import {
 import { chartSupportsCardBackground } from "@/lib/plugin/chart-helpers";
 import { interpolateTitle } from "./interpolate-title";
 
+const DESCRIPTION_MAX = 200;
+
 /**
  * What a widget's saved card options show (#2394). A chart ignores a stored
  * background (the type may have been changed in the editor), an unknown value
@@ -24,6 +26,10 @@ export function cardLook(
     background: chartSupportsCardBackground(widget.chartType)
       ? parseCardBackground(s?.cardBackground)
       : "default",
-    description: interpolateTitle(raw, parameters, labelOf).trim(),
+    // The editor stops at 200 characters; a saved or imported card, or a
+    // long parameter value, does not (#2394).
+    description: interpolateTitle(raw, parameters, labelOf)
+      .trim()
+      .slice(0, DESCRIPTION_MAX),
   };
 }
