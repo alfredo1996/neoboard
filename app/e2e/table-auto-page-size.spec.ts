@@ -52,7 +52,7 @@ async function addTableWidget(page: Page, pageSize?: string) {
   await dialog.getByRole("tab", { name: "Style", exact: true }).click();
   const field = dialog.locator("#pageSize");
   await expect(field).toHaveValue("");
-  await expect(field).toHaveAttribute("placeholder", "Auto (fits the card)");
+  await expect(field).toHaveAttribute("placeholder", "Auto");
   if (pageSize) await field.fill(pageSize);
 
   await dialog.getByRole("button", { name: "Add Widget", exact: true }).click();
