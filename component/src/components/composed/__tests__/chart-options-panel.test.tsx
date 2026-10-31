@@ -126,6 +126,23 @@ describe("OptionRows", () => {
     expect(screen.getByLabelText("Page size")).toHaveValue(null);
   });
 
+  it("offers a markdown widget's Text size and Alignment as segmented controls in Style (#2392)", () => {
+    const opts = getChartOptions("markdown");
+    for (const [key, values, def] of [
+      ["textSize", ["sm", "md", "lg"], "md"],
+      ["textAlign", ["left", "center", "right"], "left"],
+    ] as const) {
+      const o = opts.find((x) => x.key === key)!;
+      expect(o).toMatchObject({
+        type: "select",
+        category: "Text",
+        default: def,
+      });
+      expect(o.options!.map((x) => x.value)).toEqual(values);
+    }
+    expect(OPTION_GROUPS.Text).toBe("style");
+  });
+
   it("leaves the panel's labels unmarked: the chart-options panel is exempt from (optional) (#2217)", () => {
     render(
       <OptionRows

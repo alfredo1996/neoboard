@@ -836,3 +836,58 @@ describe("MarkdownWidget", () => {
     });
   });
 });
+
+describe("MarkdownWidget text size and alignment (#2392)", () => {
+  const MD = "# Title\n\nBody";
+  const root = () => screen.getByTestId("markdown-widget");
+
+  it("renders exactly today's classes and headings with neither prop, or with the defaults", () => {
+    const today =
+      "h-full overflow-auto p-4 max-w-none font-body text-sm leading-[1.6] text-foreground";
+    const { unmount } = render(<MarkdownWidget content={MD} />);
+    const bare = root().innerHTML;
+    expect(root().className).toBe(today);
+    unmount();
+    render(<MarkdownWidget content={MD} textSize="md" textAlign="left" />);
+    expect(root().className).toBe(today);
+    expect(root().innerHTML).toBe(bare);
+  });
+
+  it.each([
+    ["sm", "text-caption", "--md-scale: 0.9286"],
+    ["lg", "text-[1.125rem]", "--md-scale: 1.2857"],
+  ])("textSize %s sets the body size and the heading scale", (size, cls, v) => {
+    render(<MarkdownWidget content={MD} textSize={size as "sm" | "lg"} />);
+    expect(root()).toHaveClass(cls);
+    expect(root()).not.toHaveClass("text-sm");
+    expect(root().getAttribute("style")).toContain(v);
+  });
+
+  it.each([
+    ["center", "text-center"],
+    ["right", "text-right"],
+  ])("textAlign %s aligns the text", (align, cls) => {
+    render(
+      <MarkdownWidget content={MD} textAlign={align as "center" | "right"} />,
+    );
+    expect(root()).toHaveClass(cls);
+  });
+
+  it("keeps code blocks left-aligned when the text is centred", () => {
+    render(<MarkdownWidget content={MD} textAlign="center" />);
+    expect(root().className).toContain("[&_pre]:text-left");
+  });
+
+  it("falls back to today's look for a value it does not know", () => {
+    render(
+      <MarkdownWidget
+        content={MD}
+        textSize={"huge" as "sm"}
+        textAlign={"justify" as "left"}
+      />,
+    );
+    expect(root()).toHaveClass("text-sm");
+    expect(root().className).not.toContain("text-justify");
+    expect(root().getAttribute("style")).toBeNull();
+  });
+});

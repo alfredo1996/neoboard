@@ -104,8 +104,8 @@ test.describe("Widget editor layout (#2388)", () => {
     expect(await box(content)).toEqual(dialogBox);
     await pickType(page, dialog, "Markdown");
     expect(await box(content)).toEqual(dialogBox);
-    // Markdown has Content and nothing else: the empty sections are not offered.
-    await expect(tablist.getByRole("tab")).toHaveText(["Content"]);
+    // Markdown has Content and Style: Data and Behavior are empty, so not offered.
+    await expect(tablist.getByRole("tab")).toHaveText(["Content", "Style"]);
   });
 
   test("a jump link brings its group into view, and the pane is the only scroller", async ({
@@ -208,6 +208,33 @@ test.describe("Widget editor layout (#2388)", () => {
       edit.getByRole("tab", { name: "Content", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
     await expect(edit.locator("#content")).toHaveValue(text);
+  });
+
+  test("a markdown widget's Large and Center are saved and drawn after a reload (#2392)", async ({
+    page,
+  }) => {
+    const dialog = await openAdd(page);
+    await pickType(page, dialog, "Markdown");
+    await dialog.locator("#content").fill(`Body ${uid()}`);
+    await dialog.getByRole("tab", { name: "Style", exact: true }).click();
+    await dialog.getByRole("radio", { name: "Large", exact: true }).click();
+    await dialog.getByRole("radio", { name: "Center", exact: true }).click();
+    // The editor's own preview follows the choice before anything is saved.
+    await expect(dialog.getByTestId("markdown-widget")).toHaveCSS(
+      "text-align",
+      "center",
+    );
+    await dialog
+      .getByRole("button", { name: "Add Widget", exact: true })
+      .click();
+    await expect(dialog).not.toBeVisible();
+    await saveDashboard(page);
+
+    await page.reload();
+    const md = page.getByTestId("markdown-widget").first();
+    await expect(md).toBeVisible({ timeout: 10_000 });
+    await expect(md).toHaveCSS("font-size", "18px");
+    await expect(md).toHaveCSS("text-align", "center");
   });
 
   test("coming back from Manage Styling Rules lands on Style", async ({
