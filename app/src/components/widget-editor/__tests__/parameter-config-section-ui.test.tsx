@@ -57,7 +57,7 @@ vi.mock("@neoboard/components", async () => ({
   SelectValue: ({ placeholder }: { placeholder?: string }) => (
     <span>{placeholder}</span>
   ),
-  Checkbox: ({
+  Switch: ({
     id,
     checked,
     onCheckedChange,
@@ -68,6 +68,7 @@ vi.mock("@neoboard/components", async () => ({
   }) => (
     <input
       type="checkbox"
+      role="switch"
       id={id}
       checked={checked}
       onChange={(e) => onCheckedChange?.(e.target.checked)}

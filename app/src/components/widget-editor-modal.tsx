@@ -707,6 +707,15 @@ export function WidgetEditorModal({
   ).length;
   const connectionRows = hasConnection && (
     <>
+      {chartMismatch && (
+        <Alert variant="default" className="py-2">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle className="text-sm">Incompatible connection</AlertTitle>
+          <AlertDescription className="text-xs">
+            {chartMismatch} Pick another connection or chart type.
+          </AlertDescription>
+        </Alert>
+      )}
       <ConnectionSelect
         connectionId={connectionId}
         onConnectionChange={handleConnectionChange}
@@ -737,6 +746,7 @@ export function WidgetEditorModal({
                   seedQueryExecution={seedQueryExecution}
                   seedPreviewOptions={seedPreviewOptions}
                   isLabMode={isLabMode}
+                  connectionSlot={connectionRows}
                 />
                 {paramSelectCollisions.length > 0 && (
                   <Alert
@@ -762,14 +772,14 @@ export function WidgetEditorModal({
           },
         ]
       : []),
-    ...(hasConnection
+    ...(hasQuery
       ? [
           {
-            name: (hasQuery ? "Query" : "Connection") as OptionGroup,
+            name: "Query" as const,
             render: () => (
               <>
                 {/* Connector-changed warning */}
-                {hasQuery && connectorChanged && (
+                {connectorChanged && (
                   <Alert variant="default" className="py-2">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle className="text-sm">
@@ -778,17 +788,6 @@ export function WidgetEditorModal({
                     <AlertDescription className="text-xs">
                       Switching connectors may make the existing query invalid.
                       Review the query before saving.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                {chartMismatch && (
-                  <Alert variant="default" className="py-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle className="text-sm">
-                      Incompatible connection
-                    </AlertTitle>
-                    <AlertDescription className="text-xs">
-                      {chartMismatch} Pick another connection or chart type.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -812,7 +811,7 @@ export function WidgetEditorModal({
     ...(isForm
       ? [{ name: "Fields" as const, render: () => <FormFieldsEditor /> }]
       : []),
-    ...(hasQuery
+    ...(hasQuery && !isForm
       ? [
           {
             name: "Transform" as const,
@@ -841,23 +840,34 @@ export function WidgetEditorModal({
       ? [
           {
             name: "Color" as const,
-            render: () =>
-              availableFields.length === 0 ? (
-                <p className="text-xs italic text-muted-foreground">
-                  Run a preview query to configure color scales.
-                </p>
-              ) : (
+            named: true,
+            render: () => {
+              if (availableFields.length === 0) {
+                return (
+                  <p className="text-xs italic text-muted-foreground">
+                    Run a preview query to configure color scales.
+                  </p>
+                );
+              }
+              return (
                 <ColorScalePanel
                   columns={availableFields}
                   colorScales={colorScales}
                   onColorScalesChange={setColorScales}
                 />
-              ),
+              );
+            },
           },
         ]
       : []),
     ...(!isParamSelect && !isForm && chartSupportsStyling(chartType)
-      ? [{ name: "Rules" as const, render: () => <RulesSection /> }]
+      ? [
+          {
+            name: "Rules" as const,
+            named: true,
+            render: () => <RulesSection />,
+          },
+        ]
       : []),
     ...(hasCaching
       ? [{ name: "Caching" as const, render: () => <CachingSection /> }]
@@ -997,7 +1007,7 @@ export function WidgetEditorModal({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Untitled widget (optional)"
-                className="min-w-0 font-semibold"
+                className="min-w-0 font-semibold placeholder:font-normal"
               />
               {mode === "add" && !isLabMode && (
                 <Button

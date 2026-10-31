@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { ChartOptionsPanel } from "../chart-options-panel";
+import { OptionRows } from "./option-rows";
 import {
   getChartOptions,
   CHART_TYPES_WITH_OPTIONS,
@@ -43,11 +43,7 @@ describe("#1549 — option help text layout", () => {
     expect(option, "no described boolean option to test").toBeDefined();
 
     render(
-      <ChartOptionsPanel
-        chartType="bar"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
     );
 
     const description = document.getElementById(`${option!.key}-desc`);
@@ -66,11 +62,7 @@ describe("#1549 — option help text layout", () => {
     if (!bare) return; // every boolean is described — nothing to compare
 
     render(
-      <ChartOptionsPanel
-        chartType="bar"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
     );
 
     const rowOf = (key: string) =>

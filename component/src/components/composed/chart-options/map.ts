@@ -10,6 +10,7 @@ export const mapOptions: ChartOptionDef[] = [
     // two together. Not imported: this module must not pull Leaflet in.
     default: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     category: "Map",
+    help: "A URL with {z}/{x}/{y}, or none for a plain background.",
     description:
       'Tile URL template with {z}/{x}/{y}, or "none" for a plain background and no tiles.',
     validate: validateTileTemplate,
@@ -20,6 +21,7 @@ export const mapOptions: ChartOptionDef[] = [
     type: "text",
     default: "",
     category: "Map",
+    help: "For a custom tile server. OpenStreetMap is credited by itself.",
     description:
       "Credit shown on the map for a custom tile server. OpenStreetMap is credited by itself.",
   },
@@ -29,6 +31,7 @@ export const mapOptions: ChartOptionDef[] = [
     type: "boolean",
     default: true,
     category: "Map",
+    help: "Turn off for tiles that are already dark.",
     description:
       "Flip a light basemap to dark in dark mode. Untick for tiles that are already dark.",
   },
@@ -38,6 +41,7 @@ export const mapOptions: ChartOptionDef[] = [
     type: "number",
     default: 3,
     category: "Map",
+    help: "1 is the whole world, 18 is street level.",
     description:
       "Initial zoom level when the map first renders (1 = world view, 18 = street level).",
   },
@@ -70,6 +74,7 @@ export const mapOptions: ChartOptionDef[] = [
     key: "markerSize",
     label: "Marker Size (px)",
     type: "number",
+    unit: "px",
     default: 6,
     category: "Markers",
     description: "Radius of each map marker circle in pixels.",

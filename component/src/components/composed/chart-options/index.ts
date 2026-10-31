@@ -1,5 +1,5 @@
 /**
- * The live source of chart option definitions: `ChartOptionsPanel` reads them
+ * The live source of chart option definitions: `chartOptionGroups` reads them
  * from here via `chart-options-schema`.
  *
  * MIGRATION IN PROGRESS, not deprecated. This carried an `@deprecated` tag

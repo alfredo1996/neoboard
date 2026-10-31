@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { ChartOptionsPanel } from "../chart-options-panel";
+import { OptionRows } from "./option-rows";
 import { getChartOptions } from "../chart-options-schema";
 
 // Same rationale as chart-options-panel.test.tsx: this is a heavy jsdom render.
@@ -26,11 +26,7 @@ describe("#1283 item 2b — option descriptions reach assistive tech", () => {
     expect(described.length).toBeGreaterThan(0);
 
     render(
-      <ChartOptionsPanel
-        chartType="bar"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
     );
 
     for (const option of described) {
@@ -51,11 +47,7 @@ describe("#1283 item 2b — option descriptions reach assistive tech", () => {
   it("does not add aria-describedby to options without a description", () => {
     const plain = getChartOptions("bar").filter((o) => !o.description);
     render(
-      <ChartOptionsPanel
-        chartType="bar"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
     );
 
     for (const option of plain) {

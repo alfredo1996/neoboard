@@ -120,7 +120,14 @@ describe("ChartSettingsPanel (#2388)", () => {
   });
 
   it("searches Style only, and a miss says the rest is in Behavior", () => {
-    render(<Harness chartType="bar" start="style" />);
+    // Rules is one block, not option rows: only its name can match.
+    render(
+      <Harness
+        chartType="bar"
+        start="style"
+        extra={[{ name: "Rules", named: true, render: () => <p>rule list</p> }]}
+      />,
+    );
     const search = screen.getByRole("textbox", { name: "Search options" });
     fireEvent.change(search, { target: { value: "legend" } });
     expect(
@@ -129,8 +136,16 @@ describe("ChartSettingsPanel (#2388)", () => {
     fireEvent.change(search, { target: { value: "refresh" } });
     expect(screen.queryAllByRole("heading", { level: 3 })).toHaveLength(0);
     expect(screen.getByText(/The rest is in Behavior/)).toBeInTheDocument();
+    fireEvent.change(search, { target: { value: "rules" } });
+    expect(screen.getByText("rule list")).toBeInTheDocument();
     // The section row stays: a search never hides a section.
     expect(sectionNames()).toEqual(["Style", "Behavior"]);
+  });
+
+  it("names a section on keyboard focus with a tooltip, for the icon rail", async () => {
+    render(<Harness chartType="bar" start="style" />);
+    fireEvent.focus(screen.getByRole("tab", { name: "Behavior" }));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Behavior");
   });
 
   it("joins groups of the same name under one heading", () => {

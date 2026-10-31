@@ -172,8 +172,8 @@ vi.mock("@neoboard/components", async () => {
     }: React.PropsWithChildren<Record<string, unknown>>) => (
       <label {...props}>{children}</label>
     ),
-    Checkbox: (props: Record<string, unknown>) => (
-      <input type="checkbox" {...props} />
+    Switch: (props: Record<string, unknown>) => (
+      <input type="checkbox" role="switch" {...props} />
     ),
     Alert: ({
       children,
@@ -275,8 +275,16 @@ vi.mock("../widget-editor/form-fields-editor", () => ({
   FormFieldsEditor: () => <div />,
 }));
 vi.mock("../widget-editor/parameter-config-section", () => ({
-  ParameterConfigSection: ({ isLabMode }: { isLabMode?: boolean }) => (
-    <div data-testid="param-config" data-lab-mode={String(isLabMode)} />
+  ParameterConfigSection: ({
+    isLabMode,
+    connectionSlot,
+  }: {
+    isLabMode?: boolean;
+    connectionSlot?: React.ReactNode;
+  }) => (
+    <div data-testid="param-config" data-lab-mode={String(isLabMode)}>
+      {connectionSlot}
+    </div>
   ),
 }));
 vi.mock("../widget-editor/action-rules-editor", () => ({
@@ -1205,20 +1213,24 @@ describe("WidgetEditorModal — which groups each widget gets (#2388)", () => {
       ["Query", "Transform", "Rules", "Caching", "Interaction"],
       ["Fields", "Filter", "After submit", "Write mode"],
     ],
-    [
-      "markdown",
-      [],
-      ["Query", "Transform", "Caching", "Interaction", "Rules", "Connection"],
-    ],
+    ["markdown", [], ["Query", "Transform", "Caching", "Interaction", "Rules"]],
     [
       "form",
-      ["Query", "Fields", "Transform", "After submit"],
-      ["Caching", "Interaction", "Rules", "Filter"],
+      ["Query", "Fields", "After submit"],
+      // Saving discards a form's transforms, so it is not offered one.
+      ["Transform", "Caching", "Interaction", "Rules", "Filter"],
     ],
     [
       "parameter-select",
-      ["Filter", "Connection"],
-      ["Query", "Transform", "Caching", "Interaction", "After submit"],
+      ["Filter"],
+      [
+        "Connection",
+        "Query",
+        "Transform",
+        "Caching",
+        "Interaction",
+        "After submit",
+      ],
     ],
   ])("%s", (chartType, has, hasNot) => {
     const groups = groupsOf(chartType);

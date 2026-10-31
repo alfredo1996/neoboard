@@ -23,9 +23,17 @@ type Story = StoryObj<typeof meta>;
  * active section's groups are jump links beneath them, and the pane is the one
  * scroller. The real editor puts the preview in the third grid cell.
  */
-function Editor({ chartType }: Readonly<{ chartType: string }>) {
-  const [section, setSection] = useState<OptionSection>("style");
-  const [settings, setSettings] = useState<Record<string, unknown>>({});
+function Editor({
+  chartType,
+  initialSection = "style",
+  initial = {},
+}: Readonly<{
+  chartType: string;
+  initialSection?: OptionSection;
+  initial?: Record<string, unknown>;
+}>) {
+  const [section, setSection] = useState<OptionSection>(initialSection);
+  const [settings, setSettings] = useState<Record<string, unknown>>(initial);
   const groups: SettingsGroup[] =
     chartType === "markdown"
       ? []
@@ -89,4 +97,21 @@ export const Bar: Story = {
 export const Markdown: Story = {
   args: { groups: [], section: "content", onSectionChange: () => {} },
   render: () => <Editor chartType="markdown" />,
+};
+
+/** Carries the longest descriptions in the schema. */
+export const Table: Story = {
+  args: { groups: [], section: "style", onSectionChange: () => {} },
+  render: () => <Editor chartType="table" />,
+};
+
+/** A radiogroup of named swatches with the checked one marked (#2368). */
+export const FilterAppearance: Story = {
+  args: { groups: [], section: "style", onSectionChange: () => {} },
+  render: () => (
+    <Editor
+      chartType="parameter-select"
+      initial={{ fieldFill: "azure", fieldBorder: "citrine" }}
+    />
+  ),
 };

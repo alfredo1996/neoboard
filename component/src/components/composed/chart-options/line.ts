@@ -78,6 +78,7 @@ export const lineOptions: ChartOptionDef[] = [
     type: "text",
     default: "",
     category: "Axes",
+    help: "Series names, comma-separated. Empty keeps one axis.",
     description:
       "Comma-separated series to render on a right-hand Y-axis. Empty means one axis.",
   },
@@ -87,6 +88,7 @@ export const lineOptions: ChartOptionDef[] = [
     type: "text",
     default: "",
     category: "Axes",
+    help: "Applies only when Right Y-Axis Series is set.",
     description:
       "Custom label for the secondary Y-axis. Applies only when Right Y-Axis Series is non-empty.",
   },

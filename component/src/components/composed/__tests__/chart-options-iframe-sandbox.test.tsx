@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { ChartOptionsPanel } from "../chart-options-panel";
+import { OptionRows } from "./option-rows";
 
 // Same rationale as chart-options-panel.test.tsx: this is a heavy jsdom render.
 vi.setConfig({ testTimeout: 15000 });
@@ -11,7 +11,7 @@ beforeAll(() => {
 
 function renderIframe(sandbox: string) {
   render(
-    <ChartOptionsPanel
+    <OptionRows
       chartType="iframe"
       settings={{ sandbox }}
       onSettingsChange={vi.fn()}

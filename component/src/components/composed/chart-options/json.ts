@@ -7,6 +7,7 @@ export const jsonOptions: ChartOptionDef[] = [
     type: "number",
     default: 1,
     category: "Layout",
+    help: "0 collapses the tree.",
     description:
       "How many levels deep the JSON tree is expanded when first rendered (0 = collapsed).",
   },

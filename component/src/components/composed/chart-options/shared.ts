@@ -12,7 +12,6 @@ export const OPTION_GROUPS = {
   // Data
   Template: "data",
   Filter: "data",
-  Connection: "data",
   Query: "data",
   Fields: "data",
   Transform: "data",
@@ -156,7 +155,7 @@ export const SHARED_REFERENCE_LINES: ChartOptionDef = {
   default: "",
   category: "Reference lines",
   multiline: true,
-  help: "JSON for now. #1423 replaces this with a list.",
+  help: 'JSON: [{"value":50,"label":"Target","color":"#ff0000"}]',
   description:
     'Value-axis reference lines as JSON: [{"value":50,"label":"Target","color":"#ff0000"}]',
 };

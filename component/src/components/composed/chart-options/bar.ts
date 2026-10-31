@@ -54,6 +54,7 @@ export const barOptions: ChartOptionDef[] = [
     category: "Bars",
     unit: "%",
     percent: true,
+    help: "A percentage of the bar width.",
     description:
       "Gap between bar groups as a percentage of the bar width (e.g. '30%').",
   },
@@ -79,7 +80,7 @@ export const barOptions: ChartOptionDef[] = [
     auto: -1,
     help: "0 to 90. Auto keeps labels flat and cuts them to fit.",
     description:
-      "Axis label rotation, 0-90. Empty keeps labels flat and cuts them to fit (#2226).",
+      "Axis label rotation, 0-90. Empty keeps labels flat and cuts them to fit.",
   },
   SHARED_REFERENCE_LINES,
 ];

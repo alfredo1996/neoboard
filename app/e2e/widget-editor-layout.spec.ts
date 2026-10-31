@@ -20,8 +20,11 @@ import {
 const RUN = "Run query (Ctrl+Enter / ⌘+Enter)";
 
 async function openAdd(page: Page) {
-  await page.getByRole("button", { name: "Add Widget" }).first().click();
-  const dialog = page.getByRole("dialog", { name: "Add Widget" });
+  await page
+    .getByRole("button", { name: "Add Widget", exact: true })
+    .first()
+    .click();
+  const dialog = page.getByRole("dialog", { name: "Add Widget", exact: true });
   await expect(dialog).toBeVisible();
   return dialog;
 }
@@ -69,7 +72,10 @@ test.describe("Widget editor layout (#2388)", () => {
   }) => {
     const dialog = await openAdd(page);
     const content = dialog;
-    const tablist = dialog.getByRole("tablist", { name: "Editor sections" });
+    const tablist = dialog.getByRole("tablist", {
+      name: "Editor sections",
+      exact: true,
+    });
     const dialogBox = await box(content);
     const first = await box(dialog.getByRole("tab").first());
 
@@ -110,8 +116,8 @@ test.describe("Widget editor layout (#2388)", () => {
     const pane = dialog.getByTestId("editor-pane");
     const target = dialog.locator("#group-reference-lines");
     await dialog
-      .getByRole("navigation", { name: "Jump to a group" })
-      .getByRole("button", { name: "Reference lines" })
+      .getByRole("navigation", { name: "Jump to a group", exact: true })
+      .getByRole("button", { name: "Reference lines", exact: true })
       .click();
     await expect
       .poll(async () => {
@@ -145,10 +151,14 @@ test.describe("Widget editor layout (#2388)", () => {
       dialog.getByRole("button", { name: "Run", exact: true }),
     ).toHaveCount(1);
 
-    await dialog.getByRole("button", { name: "Expand editor" }).click();
+    await dialog
+      .getByRole("button", { name: "Expand editor", exact: true })
+      .click();
     await expect(dialog.getByTitle(RUN)).toHaveCount(1);
     await expect(editorFrame.getByTitle(RUN)).toHaveCount(1);
-    await dialog.getByRole("button", { name: "Collapse editor" }).click();
+    await dialog
+      .getByRole("button", { name: "Collapse editor", exact: true })
+      .click();
     await expect(editorFrame.getByTitle(RUN)).toHaveCount(0);
     await expect(dialog.getByTitle(RUN)).toHaveCount(1);
   });
@@ -177,7 +187,9 @@ test.describe("Widget editor layout (#2388)", () => {
     await pickType(page, dialog, "Markdown");
     const text = `# Layout ${uid()}`;
     await dialog.locator("#content").fill(text);
-    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await dialog
+      .getByRole("button", { name: "Add Widget", exact: true })
+      .click();
     await expect(dialog).not.toBeVisible();
     await saveDashboard(page);
 
@@ -191,11 +203,10 @@ test.describe("Widget editor layout (#2388)", () => {
     await page
       .getByRole("menuitem", { name: "Edit Widget", exact: true })
       .click();
-    const edit = page.getByRole("dialog", { name: "Edit Widget" });
-    await expect(edit.getByRole("tab", { name: "Content" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    const edit = page.getByRole("dialog", { name: "Edit Widget", exact: true });
+    await expect(
+      edit.getByRole("tab", { name: "Content", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
     await expect(edit.locator("#content")).toHaveValue(text);
   });
 
@@ -206,26 +217,32 @@ test.describe("Widget editor layout (#2388)", () => {
     await pickType(page, dialog, "Data Table");
     await dialog.getByRole("tab", { name: "Style", exact: true }).click();
     await dialog.getByLabel("Rule-based styling").click();
-    await dialog.getByRole("button", { name: "Manage Styling Rules" }).click();
+    await dialog
+      .getByRole("button", { name: "Manage Styling Rules", exact: true })
+      .click();
     await expect(
-      page.getByRole("heading", { name: "Styling Rules" }),
+      page.getByRole("heading", { name: "Styling Rules", exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("button", { name: "Done", exact: true }).click();
     await expect(
       dialog.getByRole("tab", { name: "Style", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
     await expect(dialog.getByLabel("Rule-based styling")).toBeVisible();
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Discard changes" }).click();
+    await page
+      .getByRole("button", { name: "Discard changes", exact: true })
+      .click();
   });
 
   test("From Template shows only when adding", async ({ page }) => {
     const dialog = await openAdd(page);
     await expect(
-      dialog.getByRole("button", { name: "From Template" }),
+      dialog.getByRole("button", { name: "From Template", exact: true }),
     ).toBeVisible();
     await pickType(page, dialog, "Markdown");
-    await dialog.getByRole("button", { name: "Add Widget" }).click();
+    await dialog
+      .getByRole("button", { name: "Add Widget", exact: true })
+      .click();
     await expect(dialog).not.toBeVisible();
 
     const card = page.locator("[data-widget-id]").first();
@@ -236,10 +253,10 @@ test.describe("Widget editor layout (#2388)", () => {
     await page
       .getByRole("menuitem", { name: "Edit Widget", exact: true })
       .click();
-    const edit = page.getByRole("dialog", { name: "Edit Widget" });
+    const edit = page.getByRole("dialog", { name: "Edit Widget", exact: true });
     await expect(edit).toBeVisible();
     await expect(
-      edit.getByRole("button", { name: "From Template" }),
+      edit.getByRole("button", { name: "From Template", exact: true }),
     ).toHaveCount(0);
   });
 
@@ -259,7 +276,7 @@ test.describe("Widget editor layout (#2388)", () => {
       56,
     );
     await expect(
-      dialog.getByRole("navigation", { name: "Jump to a group" }),
+      dialog.getByRole("navigation", { name: "Jump to a group", exact: true }),
     ).toBeHidden();
     for (const name of ["Data", "Style", "Behavior"]) {
       await dialog.getByRole("tab", { name, exact: true }).click();

@@ -7,6 +7,7 @@ export const singleValueOptions: ChartOptionDef[] = [
     type: "text",
     default: "",
     category: "Value",
+    help: "Leave blank to hide.",
     description: "Custom heading shown above the value. Leave blank to hide.",
   },
   {
@@ -71,6 +72,7 @@ export const singleValueOptions: ChartOptionDef[] = [
     type: "boolean",
     default: false,
     category: "Value",
+    help: "Needs 2 rows.",
     description:
       "Trend arrow comparing the current value to the previous period. Needs 2 rows.",
   },

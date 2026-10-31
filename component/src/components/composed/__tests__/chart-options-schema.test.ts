@@ -626,3 +626,44 @@ describe("treemap chart options", () => {
     }
   });
 });
+
+describe("option units", () => {
+  // The editor strips "(px)" from a label, so the number field must carry it.
+  const unitOf = (label: string) => /\(([^)]+)\)$/.exec(label)?.[1];
+  const labelled = CHART_TYPES_WITH_OPTIONS.flatMap((type) =>
+    getChartOptions(type)
+      .filter((o) => o.type === "number" && unitOf(o.label))
+      .map((o) => [`${type}.${o.key}`, o] as const),
+  );
+
+  it.each(labelled)("%s keeps the unit its label names", (_name, option) => {
+    expect(option.unit).toBe(unitOf(option.label));
+  });
+});
+
+describe("option help", () => {
+  const all = CHART_TYPES_WITH_OPTIONS.flatMap((type) =>
+    getChartOptions(type).map((o) => [`${type}.${o.key}`, o] as const),
+  );
+
+  it.each(all)(
+    "%s names no issue number in text a screen reader reads",
+    (_n, o) => {
+      expect(`${o.description ?? ""} ${o.help ?? ""}`).not.toMatch(/#\d{3,}/);
+    },
+  );
+
+  // The description is read aloud only; these carry a format or a precondition
+  // an author needs on screen.
+  it.each([
+    ["gauge", "thresholdZones"],
+    ["bar", "referenceLines"],
+    ["line", "rightAxisSeries"],
+    ["map", "tileLayer"],
+    ["gantt", "showProgress"],
+    ["single-value", "trendEnabled"],
+  ])("%s.%s shows its rule as help", (type, key) => {
+    const option = getChartOptions(type).find((o) => o.key === key);
+    expect(option?.help).toBeTruthy();
+  });
+});

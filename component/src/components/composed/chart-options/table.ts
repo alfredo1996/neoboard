@@ -50,7 +50,8 @@ export const tableOptions: ChartOptionDef[] = [
     type: "number",
     // No default: unset means Auto, rows fit the card (#2356).
     default: undefined,
-    placeholder: "Auto (fits the card)",
+    placeholder: "Auto",
+    help: "Leave empty to fit the card.",
     category: "Rows",
     description: "Rows per page. Leave empty to fit the card.",
   },

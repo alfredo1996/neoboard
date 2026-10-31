@@ -5,6 +5,12 @@ import type { LucideIcon } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { OPTION_GROUPS } from "./chart-options-schema";
 import type { OptionGroup, OptionSection } from "./chart-options-schema";
@@ -18,6 +24,11 @@ import type { OptionGroup, OptionSection } from "./chart-options-schema";
 export interface SettingsGroup {
   readonly name: OptionGroup;
   readonly render: (search: string) => React.ReactNode;
+  /**
+   * The group is one block, not option rows: a Style search matches it by its
+   * name alone, so a miss hides it and the panel can say there is nothing.
+   */
+  readonly named?: boolean;
 }
 
 export interface ChartSettingsPanelProps {
@@ -70,9 +81,15 @@ function renderSection(
   const byName = new Map<OptionGroup, React.ReactNode[]>();
   for (const g of groups) {
     if (OPTION_GROUPS[g.name] !== section) continue;
+    if (g.named && !g.name.toLowerCase().includes(search)) continue;
     const node = g.render(search);
     if (node === null || node === undefined || node === false) continue;
-    byName.set(g.name, [...(byName.get(g.name) ?? []), node]);
+    // Keyed, so the nodes of one name can sit side by side as an array child.
+    const joined = byName.get(g.name) ?? [];
+    byName.set(g.name, [
+      ...joined,
+      <React.Fragment key={joined.length}>{node}</React.Fragment>,
+    ]);
   }
   return [...byName.entries()].sort(
     ([a], [b]) => GROUP_ORDER.indexOf(a) - GROUP_ORDER.indexOf(b),
@@ -138,95 +155,103 @@ function ChartSettingsPanel({
   }
 
   return (
-    <Tabs
-      orientation="vertical"
-      value={active}
-      onValueChange={(v) => {
-        onSectionChange(v as OptionSection);
-        setSearch("");
-        setCurrent("");
-        paneRef.current?.scrollTo({ top: 0 });
-      }}
-      className={cn("contents", className)}
-    >
-      <div className="flex min-h-0 flex-col gap-2 overflow-y-auto border-r border-rule bg-side px-2.5 py-3">
-        <TabsPrimitive.List
-          aria-label="Editor sections"
-          className="grid gap-0.5"
+    <TooltipProvider delayDuration={0}>
+      <Tabs
+        orientation="vertical"
+        value={active}
+        onValueChange={(v) => {
+          onSectionChange(v as OptionSection);
+          setSearch("");
+          setCurrent("");
+          paneRef.current?.scrollTo({ top: 0 });
+        }}
+        className={cn("contents", className)}
+      >
+        <div className="flex min-h-0 flex-col gap-2 overflow-y-auto border-r border-rule bg-side px-2.5 py-3">
+          <TabsPrimitive.List
+            aria-label="Editor sections"
+            className="grid gap-0.5"
+          >
+            {sections.map((s) => (
+              // The app sidebar's NavButton classes; under 1024px it is its rail,
+              // and the tooltip names the icon (it hides when the label shows).
+              <Tooltip key={s.id}>
+                <TooltipTrigger asChild>
+                  <TabsPrimitive.Trigger
+                    value={s.id}
+                    className="flex w-full items-center gap-2.5 whitespace-nowrap rounded-sm px-2.5 py-[7px] text-sm font-medium text-foreground-2 transition-colors hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:bg-active data-[state=active]:text-foreground"
+                  >
+                    <s.icon className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="sr-only lg:not-sr-only">{s.label}</span>
+                  </TabsPrimitive.Trigger>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="lg:hidden">
+                  {s.label}
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </TabsPrimitive.List>
+          {jumps.length > 0 && (
+            <nav
+              aria-label="Jump to a group"
+              className="hidden gap-px border-t border-rule pt-2 lg:grid"
+            >
+              {jumps.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  aria-current={name === shownCurrent}
+                  onClick={() => jump(name)}
+                  className={cn(
+                    "rounded-sm px-2.5 py-[5px] text-left text-caption text-muted-foreground transition-colors hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    name === shownCurrent && "font-medium text-foreground",
+                  )}
+                >
+                  {name}
+                </button>
+              ))}
+            </nav>
+          )}
+        </div>
+
+        <div
+          ref={paneRef}
+          onScroll={spy}
+          data-testid="editor-pane"
+          className="relative min-h-0 min-w-0 overflow-y-auto px-6 pb-7"
         >
           {sections.map((s) => (
-            // The app sidebar's NavButton classes; under 1024px it is its rail.
-            <TabsPrimitive.Trigger
+            <TabsContent
               key={s.id}
               value={s.id}
-              title={s.label}
-              className="flex w-full items-center gap-2.5 whitespace-nowrap rounded-sm px-2.5 py-[7px] text-sm font-medium text-foreground-2 transition-colors hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:bg-active data-[state=active]:text-foreground"
+              className={cn("mt-0", s.id === "content" && "pt-5")}
             >
-              <s.icon className="h-4 w-4 shrink-0" aria-hidden />
-              <span className="sr-only lg:not-sr-only">{s.label}</span>
-            </TabsPrimitive.Trigger>
+              {s.id === "style" && searchable && (
+                <div className="sticky top-0 z-10 border-b border-rule bg-background pb-3 pt-4">
+                  <Input
+                    aria-label="Search options"
+                    placeholder="Search options"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+              )}
+              {s.id === active &&
+                shown.map(([name, nodes]) => (
+                  <SettingsGroupBlock key={name} name={name}>
+                    {nodes}
+                  </SettingsGroupBlock>
+                ))}
+              {s.id === "style" && needle !== "" && shown.length === 0 && (
+                <p className="pt-6 text-sm text-muted-foreground">
+                  Nothing in Style matches. The rest is in Behavior.
+                </p>
+              )}
+            </TabsContent>
           ))}
-        </TabsPrimitive.List>
-        {jumps.length > 0 && (
-          <nav
-            aria-label="Jump to a group"
-            className="hidden gap-px border-t border-rule pt-2 lg:grid"
-          >
-            {jumps.map((name) => (
-              <button
-                key={name}
-                type="button"
-                aria-current={name === shownCurrent}
-                onClick={() => jump(name)}
-                className={cn(
-                  "rounded-sm px-2.5 py-[5px] text-left text-caption text-muted-foreground transition-colors hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  name === shownCurrent && "font-medium text-foreground",
-                )}
-              >
-                {name}
-              </button>
-            ))}
-          </nav>
-        )}
-      </div>
-
-      <div
-        ref={paneRef}
-        onScroll={spy}
-        data-testid="editor-pane"
-        className="relative min-h-0 min-w-0 overflow-y-auto px-6 pb-7"
-      >
-        {sections.map((s) => (
-          <TabsContent
-            key={s.id}
-            value={s.id}
-            className={cn("mt-0", s.id === "content" && "pt-5")}
-          >
-            {s.id === "style" && searchable && (
-              <div className="sticky top-0 z-10 border-b border-rule bg-background pb-3 pt-4">
-                <Input
-                  aria-label="Search options"
-                  placeholder="Search options"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-            )}
-            {s.id === active &&
-              shown.map(([name, nodes]) => (
-                <SettingsGroupBlock key={name} name={name}>
-                  {nodes}
-                </SettingsGroupBlock>
-              ))}
-            {s.id === "style" && needle !== "" && shown.length === 0 && (
-              <p className="pt-6 text-sm text-muted-foreground">
-                Nothing in Style matches. The rest is in Behavior.
-              </p>
-            )}
-          </TabsContent>
-        ))}
-      </div>
-    </Tabs>
+        </div>
+      </Tabs>
+    </TooltipProvider>
   );
 }
 

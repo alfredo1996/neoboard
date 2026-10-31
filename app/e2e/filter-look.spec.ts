@@ -208,8 +208,12 @@ test("Appearance is offered for a select and hidden for a relative date", async 
     // A relative date has no field to fill or outline, and nothing else to
     // style: the section is not offered at all.
     dialog = await openEditor(page);
-    await expect(dialog.getByRole("tab", { name: "Behavior" })).toBeVisible();
-    await expect(dialog.getByRole("tab", { name: "Style" })).toHaveCount(0);
+    await expect(
+      dialog.getByRole("tab", { name: "Behavior", exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("tab", { name: "Style", exact: true }),
+    ).toHaveCount(0);
     await expect(
       dialog.getByRole("radiogroup", { name: "Field fill", exact: true }),
     ).toHaveCount(0);

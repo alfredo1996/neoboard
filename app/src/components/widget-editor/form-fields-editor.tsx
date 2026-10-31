@@ -10,7 +10,6 @@ import {
   AccordionTrigger,
   Tag,
   Button,
-  Checkbox,
   Input,
   Label,
   Select,
@@ -18,6 +17,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Switch,
   Textarea,
   Field,
 } from "@neoboard/components";
@@ -324,11 +324,11 @@ function SortableFieldItem({
 
         {/* Required toggle */}
         <div className="flex items-center gap-2 pt-1">
-          <Checkbox
+          <Switch
             id={`required-${field.id}`}
             checked={field.required === true}
             onCheckedChange={(checked) =>
-              onUpdate(field.id, { required: !!checked })
+              onUpdate(field.id, { required: checked })
             }
           />
           <Label htmlFor={`required-${field.id}`} className="text-xs">
@@ -383,10 +383,7 @@ export function FormFieldsEditor(_props: FormFieldsEditorProps) {
   return (
     <div className="space-y-3">
       <FormWritePermissionNote />
-      <div className="flex items-center justify-between">
-        <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-          Form Fields
-        </h4>
+      <div className="flex justify-end">
         <Button size="sm" variant="secondary" onClick={addField}>
           <Plus className="h-3 w-3 mr-1" /> Add Field
         </Button>

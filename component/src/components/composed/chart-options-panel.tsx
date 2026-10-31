@@ -18,14 +18,12 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MultiSelect } from "./multi-select";
 import { SettingRow } from "./setting-row";
-import { SettingsGroupBlock, renderSection } from "./chart-settings-panel";
 import type { SettingsGroup } from "./chart-settings-panel";
 
-export interface ChartOptionsPanelProps {
+export interface ChartOptionGroupsProps {
   chartType: string;
   settings: Record<string, unknown>;
   onSettingsChange: (settings: Record<string, unknown>) => void;
-  className?: string;
   /** Available column names from query results — used for column-multi-select fields. */
   columns?: string[];
   /** Groups to leave out, for a state where they do not apply (#2368). */
@@ -150,7 +148,13 @@ function NumberControl({
     // Number("") is 0, so an emptied field is not a typed 0 (#1292): it stores
     // the option's automatic value, or unsets an option that has no stored one
     // (#2356).
-    if (text === "") return onChange(option.key, option.auto);
+    if (text === "") {
+      // No automatic value and no placeholder: the field has nothing to fall
+      // back to, so an emptied one leaves the option alone (#1292).
+      if (option.auto !== undefined || option.placeholder !== undefined)
+        onChange(option.key, option.auto);
+      return;
+    }
     onChange(option.key, Number(text));
   }
   return (
@@ -424,7 +428,7 @@ function chartOptionGroups({
   onSettingsChange,
   columns,
   hiddenCategories,
-}: Omit<ChartOptionsPanelProps, "className">): SettingsGroup[] {
+}: ChartOptionGroupsProps): SettingsGroup[] {
   const options = getChartOptions(chartType).filter(
     (o) => !hiddenCategories?.includes(o.category),
   );
@@ -455,31 +459,4 @@ function chartOptionGroups({
   }));
 }
 
-/** Every option of a chart type in the fixed group order, under group headings. */
-function ChartOptionsPanel({
-  className,
-  ...props
-}: Readonly<ChartOptionsPanelProps>) {
-  const groups = chartOptionGroups(props);
-  if (groups.length === 0) {
-    return (
-      <p className={cn("text-sm text-muted-foreground py-2", className)}>
-        No configurable options for this chart type.
-      </p>
-    );
-  }
-  const sections = ["content", "data", "style", "behavior"] as const;
-  return (
-    <div className={className}>
-      {sections.flatMap((section) =>
-        renderSection(groups, section, "").map(([name, nodes]) => (
-          <SettingsGroupBlock key={name} name={name}>
-            {nodes}
-          </SettingsGroupBlock>
-        )),
-      )}
-    </div>
-  );
-}
-
-export { ChartOptionsPanel, chartOptionGroups };
+export { chartOptionGroups };

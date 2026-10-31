@@ -15,6 +15,7 @@ export const ganttOptions: ChartOptionDef[] = [
     type: "boolean",
     default: false,
     category: "Layout",
+    help: "Needs a progress column returning 0–1.",
     description:
       "Overlay a progress indicator inside each bar (requires a progress column returning 0–1).",
   },

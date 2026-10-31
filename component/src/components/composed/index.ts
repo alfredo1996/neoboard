@@ -83,9 +83,8 @@ export {
   type SettingsGroup,
 } from "./chart-settings-panel";
 export {
-  ChartOptionsPanel,
   chartOptionGroups,
-  type ChartOptionsPanelProps,
+  type ChartOptionGroupsProps,
 } from "./chart-options-panel";
 export { SettingRow, type SettingRowProps } from "./setting-row";
 export {

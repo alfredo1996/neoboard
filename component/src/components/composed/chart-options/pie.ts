@@ -78,6 +78,7 @@ export const pieOptions: ChartOptionDef[] = [
     type: "text",
     default: "",
     category: "Data labels",
+    help: "Leave blank to show the total alone.",
     description:
       "Label shown under the total in the center. Leave blank to show the total alone.",
   },

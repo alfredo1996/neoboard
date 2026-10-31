@@ -323,10 +323,10 @@ test.describe("Form widget", () => {
     await dialog.getByPlaceholder("e.g. Movie Title").fill("Full Name");
     await dialog.getByPlaceholder("e.g. title").fill("name");
 
-    // Fields default to required=true, so no need to click the checkbox —
-    // just verify it's already checked
+    // Fields default to required=true, so no need to flip the switch —
+    // just verify it's already on
     await expect(
-      dialog.getByRole("checkbox", { name: "Required" }),
+      dialog.getByRole("switch", { name: "Required", exact: true }),
     ).toBeChecked();
 
     await expect(
@@ -433,16 +433,16 @@ test.describe("Form widget", () => {
     await formDialog.getByPlaceholder("e.g. Movie Title").fill("Name");
     await formDialog.getByPlaceholder("e.g. title").fill("name");
 
-    // Go to Advanced tab and pick "Refresh Target" from the MultiSelect (#902).
+    // Go to the Behavior tab and pick "Refresh Target" from the MultiSelect (#902).
     await formDialog.getByRole("tab", { name: "Behavior" }).click();
     await expect(formDialog.getByText("After Submit")).toBeVisible({
       timeout: 5_000,
     });
     // The MultiSelect renders as a <button role="combobox"> but its
     // accessible name isn't reliably the placeholder (the chevron icon
-    // disrupts AT name computation). `.last()` on the Advanced tab is the
+    // disrupts AT name computation). `.last()` on the Behavior tab is the
     // simplest stable selector — there's only one combobox in the After
-    // Submit section today. If another combobox is added to the Advanced
+    // Submit section today. If another combobox is added to the Behavior
     // tab below this one, switch to a data-testid on the section.
     await formDialog.getByRole("combobox").last().click();
     await page.getByRole("option", { name: /Refresh Target/ }).click();
