@@ -319,7 +319,7 @@ function TextControl({
         />
       )}
       {option.maxLength && (
-        <p className="text-right text-meta tabular-nums text-muted-foreground">
+        <p className="justify-self-end text-meta tabular-nums text-muted-foreground">
           {textValue.length} / {option.maxLength}
         </p>
       )}
