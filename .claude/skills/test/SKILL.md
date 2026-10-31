@@ -54,6 +54,7 @@ npm run lint
 ```
 
 - `npm run build` before a PR that touches `app/`.
+- Read a Docker failure as a full disk first. The errors never say disk (`Log stream ended`, `409 container … is not running`, slow logins): run `docker system df` before calling anything a flake.
 - `npm run verify` is the local CI mirror: typecheck, lint, unit suites and script tests. It does not include the connection suite or E2E.
 
 ## 5. Report
