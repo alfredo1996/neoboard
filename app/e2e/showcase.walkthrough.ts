@@ -545,9 +545,13 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const adder = page.getByRole("dialog", { name: "Add Widget" });
-    await adder.getByRole("combobox").nth(1).click();
+    await adder
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Parameter Selector" }).click();
-    await adder.getByRole("combobox").nth(0).click();
+    await adder
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: "Neo4j Movies" }).click();
     await adder.locator("#widget-title").fill("Release year");
     await adder
@@ -557,7 +561,7 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
       );
     await adder.locator("#param-widget-name").fill("year");
     await docsShot(page, "add-parameter");
-    await adder.getByRole("tab", { name: "Style" }).click();
+    await adder.getByRole("tab", { name: "Behavior" }).click();
     await adder.getByLabel("Sync to URL").click();
     await docsShot(page, "sync-to-url");
     // The editor has edits, so Escape asks before dropping them (#2054).

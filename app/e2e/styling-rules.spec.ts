@@ -44,9 +44,13 @@ test.describe("Styling rules — table widget", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Data Table + Neo4j connection
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Wait for editor to be ready (connection selection may cause re-render)
@@ -71,7 +75,7 @@ test.describe("Styling rules — table widget", () => {
     await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
 
     // Navigate to Advanced tab
-    await dialog.getByRole("tab", { name: "Advanced" }).click();
+    await dialog.getByRole("tab", { name: "Style" }).click();
 
     return dialog;
   }
@@ -83,7 +87,7 @@ test.describe("Styling rules — table widget", () => {
     const dialog = await addTableAndGoToAdvanced(page);
 
     // Enable styling
-    await dialog.getByLabel("Enable rule-based styling").click();
+    await dialog.getByLabel("Rule-based styling").click();
     await expect(
       dialog.getByText("No styling rules configured."),
     ).toBeVisible();
@@ -117,7 +121,7 @@ test.describe("Styling rules — table widget", () => {
 
     // Should return to the main dialog and show rule count
     // Navigate back to Advanced tab
-    await dialog.getByRole("tab", { name: "Advanced" }).click();
+    await dialog.getByRole("tab", { name: "Style" }).click();
     await expect(
       dialog.getByText("1 styling rule(s) configured."),
     ).toBeVisible();
@@ -130,7 +134,7 @@ test.describe("Styling rules — table widget", () => {
     const dialog = await addTableAndGoToAdvanced(page);
 
     // Enable styling and open editor
-    await dialog.getByLabel("Enable rule-based styling").click();
+    await dialog.getByLabel("Rule-based styling").click();
     await dialog.getByRole("button", { name: "Manage Styling Rules" }).click();
 
     // Add a rule
@@ -155,7 +159,7 @@ test.describe("Styling rules — table widget", () => {
     const dialog = await addTableAndGoToAdvanced(page);
 
     // Enable styling and open editor
-    await dialog.getByLabel("Enable rule-based styling").click();
+    await dialog.getByLabel("Rule-based styling").click();
     await dialog.getByRole("button", { name: "Manage Styling Rules" }).click();
 
     // Add a rule so we can see the per-rule column selector
@@ -172,7 +176,7 @@ test.describe("Styling rules — table widget", () => {
     const dialog = await addTableAndGoToAdvanced(page);
 
     // Enable styling and open editor
-    await dialog.getByLabel("Enable rule-based styling").click();
+    await dialog.getByLabel("Rule-based styling").click();
     await dialog.getByRole("button", { name: "Manage Styling Rules" }).click();
 
     // Add 2 rules
@@ -192,7 +196,7 @@ test.describe("Styling rules — table widget", () => {
     await page.getByRole("button", { name: "Done" }).click();
 
     // Verify rule count
-    await dialog.getByRole("tab", { name: "Advanced" }).click();
+    await dialog.getByRole("tab", { name: "Style" }).click();
     await expect(
       dialog.getByText("1 styling rule(s) configured."),
     ).toBeVisible();
@@ -205,7 +209,7 @@ test.describe("Styling rules — table widget", () => {
     const dialog = await addTableAndGoToAdvanced(page);
 
     // Enable styling and open editor
-    await dialog.getByLabel("Enable rule-based styling").click();
+    await dialog.getByLabel("Rule-based styling").click();
     await dialog.getByRole("button", { name: "Manage Styling Rules" }).click();
 
     // Add a rule: <= 1999 -> red
@@ -298,7 +302,9 @@ test.describe("Styling rules — bar chart", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Bar Chart is default — select Neo4j connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query and run
@@ -316,10 +322,10 @@ test.describe("Styling rules — bar chart", () => {
     await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
 
     // Navigate to Advanced tab
-    await dialog.getByRole("tab", { name: "Advanced" }).click();
+    await dialog.getByRole("tab", { name: "Style" }).click();
 
     // Enable styling
-    await dialog.getByLabel("Enable rule-based styling").click();
+    await dialog.getByLabel("Rule-based styling").click();
     await expect(
       dialog.getByText("No styling rules configured."),
     ).toBeVisible();
@@ -338,7 +344,7 @@ test.describe("Styling rules — bar chart", () => {
     await page.getByRole("button", { name: "Done" }).click();
 
     // Verify rule count
-    await dialog.getByRole("tab", { name: "Advanced" }).click();
+    await dialog.getByRole("tab", { name: "Style" }).click();
     await expect(
       dialog.getByText("1 styling rule(s) configured."),
     ).toBeVisible();

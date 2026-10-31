@@ -210,6 +210,19 @@ export function ParameterConfigSection({
   const parentHint = missingParentHint(parentParameterName, cascade, isLabMode);
   return (
     <div className="space-y-4" data-testid="param-config-section">
+      {/* Parameter Name opens the section: Save needs it (#2388) */}
+      <Field
+        label="Parameter Name"
+        id="param-widget-name"
+        help="Used to reference this parameter in widget queries"
+      >
+        <Input
+          value={paramWidgetName}
+          onChange={(e) => onParamWidgetNameChange(e.target.value)}
+          placeholder="e.g. country"
+        />
+      </Field>
+
       {/* Parameter Type dropdown */}
       <div className="space-y-1.5">
         <Label>Parameter Type</Label>
@@ -446,19 +459,6 @@ export function ParameterConfigSection({
           )}
         </div>
       )}
-
-      {/* Parameter Name */}
-      <Field
-        label="Parameter Name"
-        id="param-widget-name"
-        help="Used to reference this parameter in widget queries"
-      >
-        <Input
-          value={paramWidgetName}
-          onChange={(e) => onParamWidgetNameChange(e.target.value)}
-          placeholder="e.g. country"
-        />
-      </Field>
 
       {/* Reference hint */}
       {paramWidgetName && (

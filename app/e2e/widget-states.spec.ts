@@ -32,7 +32,9 @@ test.describe("Widget editor", () => {
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
       // Select connection (Bar Chart is default)
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option").first().click();
 
       // Enter an invalid query into the CodeMirror editor
@@ -59,7 +61,7 @@ test.describe("Widget editor", () => {
         dialog.locator("label").filter({ hasText: "Connection" }).first(),
       ).toBeVisible();
       await expect(
-        dialog.getByText("Chart Type", { exact: true }),
+        dialog.getByRole("combobox", { name: "Chart Type", exact: true }),
       ).toBeVisible();
 
       // Query editor should be immediately visible
@@ -68,7 +70,9 @@ test.describe("Widget editor", () => {
       ).toBeVisible();
 
       // Open the chart type dropdown (2nd combobox)
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
 
       // All standard chart types should be in the dropdown options
       await expect(
@@ -133,9 +137,13 @@ test.describe("Widget editor", () => {
       // Add a widget first
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
       await page.getByRole("option", { name: "Data Table" }).click();
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option").first().click();
 
       await typeInEditor(

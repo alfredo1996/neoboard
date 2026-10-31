@@ -53,10 +53,14 @@ test.describe("Parameter selectors", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select "Parameter Selector" chart type
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Parameter Selector" }).click();
     // Select Neo4j connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Configure the query for distinct values via the seed-query textarea
@@ -82,9 +86,13 @@ test.describe("Parameter selectors", () => {
   }) => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Parameter Selector" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
     await dialog
       .locator("#seed-query")
@@ -105,7 +113,9 @@ test.describe("Parameter selectors", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Bar Chart (default) + connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Write query and run it
@@ -124,9 +134,9 @@ test.describe("Parameter selectors", () => {
     });
 
     // Navigate to Advanced tab — click action settings live there
-    await dialog.getByRole("tab", { name: "Advanced" }).click();
+    await dialog.getByRole("tab", { name: "Behavior" }).click();
     // Enable click action
-    await dialog.getByLabel("Enable click action").click();
+    await dialog.getByLabel("Click action").click();
 
     // "Manage Action Rules" button should appear
     await expect(
@@ -217,10 +227,14 @@ test.describe("Parameter-to-refresh cycle", () => {
     let dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select "Parameter Selector" chart type
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Parameter Selector" }).click();
     // Select Neo4j connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Configure query for distinct years via the seed-query textarea
@@ -243,10 +257,14 @@ test.describe("Parameter-to-refresh cycle", () => {
     dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select "Data Table" chart type
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
     // Select connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(
@@ -482,15 +500,19 @@ test.describe("Click actions", () => {
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
       // Select "Data Table" chart type
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
       await page.getByRole("option", { name: "Data Table" }).click();
       // Select connection
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option").first().click();
 
       // Navigate to Advanced tab and enable click action
-      await dialog.getByRole("tab", { name: "Advanced" }).click();
-      await dialog.getByLabel("Enable click action").click();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
+      await dialog.getByLabel("Click action").click();
 
       // Should show "Manage Action Rules" button
       await expect(
@@ -525,7 +547,9 @@ test.describe("Click actions", () => {
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
       // Select Bar chart + connection
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option").first().click();
 
       // Run a query to get available fields
@@ -543,8 +567,8 @@ test.describe("Click actions", () => {
       });
 
       // Navigate to Advanced tab and enable click action
-      await dialog.getByRole("tab", { name: "Advanced" }).click();
-      await dialog.getByLabel("Enable click action").click();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
+      await dialog.getByLabel("Click action").click();
 
       // Click "Manage Action Rules" to open the rules editor
       await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
@@ -573,7 +597,7 @@ test.describe("Click actions", () => {
       // Click "Done" to return to main dialog
       await rulesDialog.getByRole("button", { name: "Done" }).click();
       // Navigate back to Advanced tab (Done returns to Data tab)
-      await dialog.getByRole("tab", { name: "Advanced" }).click();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
       // Should show "1 action rule(s) configured."
       await expect(
         dialog.getByText("1 action rule(s) configured."),
@@ -603,30 +627,38 @@ test.describe("Click actions", () => {
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
       // Select connection first
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option").first().click();
 
       // Select "Single Value" chart type
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
       await page.getByRole("option", { name: "Single Value" }).click();
 
       // Navigate to Advanced tab — click action should NOT be visible
-      await dialog.getByRole("tab", { name: "Advanced" }).click();
-      await expect(dialog.getByLabel("Enable click action")).not.toBeVisible();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
+      await expect(dialog.getByLabel("Click action")).not.toBeVisible();
 
       // Switch to "JSON Viewer" — click action should also NOT be visible
       await dialog.getByRole("tab", { name: "Data" }).click();
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
       await page.getByRole("option", { name: "JSON Viewer" }).click();
-      await dialog.getByRole("tab", { name: "Advanced" }).click();
-      await expect(dialog.getByLabel("Enable click action")).not.toBeVisible();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
+      await expect(dialog.getByLabel("Click action")).not.toBeVisible();
 
       // Switch to "Bar Chart" — click action should be visible
       await dialog.getByRole("tab", { name: "Data" }).click();
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
       await page.getByRole("option", { name: "Bar Chart" }).click();
-      await dialog.getByRole("tab", { name: "Advanced" }).click();
-      await expect(dialog.getByLabel("Enable click action")).toBeVisible();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
+      await expect(dialog.getByLabel("Click action")).toBeVisible();
 
       await cancelAndDiscard(page, dialog);
     } finally {
@@ -652,10 +684,14 @@ test.describe("Click actions", () => {
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
       // Select "Data Table" chart type
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
       await page.getByRole("option", { name: "Data Table" }).click();
       // Select connection
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option").first().click();
 
       // Write query and run it to populate available fields
@@ -674,8 +710,8 @@ test.describe("Click actions", () => {
       });
 
       // Navigate to Advanced tab and enable click action
-      await dialog.getByRole("tab", { name: "Advanced" }).click();
-      await dialog.getByLabel("Enable click action").click();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
+      await dialog.getByLabel("Click action").click();
 
       // Open the action rules editor
       await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
@@ -958,9 +994,13 @@ test.describe("Run and save with a parameter (#1912)", () => {
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
       await page.getByRole("option", { name: "Data Table" }).click();
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option").first().click();
       await typeInEditor(
         dialog,
@@ -2341,9 +2381,13 @@ test.describe("Action rules — multi-rule editor", () => {
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
       await page.getByRole("option", { name: "Data Table" }).click();
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option").first().click();
 
       // Wait for editor to be ready after connection selection
@@ -2366,8 +2410,8 @@ test.describe("Action rules — multi-rule editor", () => {
       await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
 
       // Navigate to Advanced tab and enable click action
-      await dialog.getByRole("tab", { name: "Advanced" }).click();
-      await dialog.getByLabel("Enable click action").click();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
+      await dialog.getByLabel("Click action").click();
 
       // Open action rules editor
       await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
@@ -2394,7 +2438,7 @@ test.describe("Action rules — multi-rule editor", () => {
       await rulesDialog.getByRole("button", { name: "Done" }).click();
 
       // Verify rule count
-      await dialog.getByRole("tab", { name: "Advanced" }).click();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
       await expect(
         dialog.getByText("2 action rule(s) configured."),
       ).toBeVisible();
@@ -2420,7 +2464,9 @@ test.describe("Action rules — multi-rule editor", () => {
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option").first().click();
 
       // Wait for editor to be ready after connection selection
@@ -2441,8 +2487,8 @@ test.describe("Action rules — multi-rule editor", () => {
       await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
       await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
 
-      await dialog.getByRole("tab", { name: "Advanced" }).click();
-      await dialog.getByLabel("Enable click action").click();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
+      await dialog.getByLabel("Click action").click();
       await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
 
       const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
@@ -2462,7 +2508,7 @@ test.describe("Action rules — multi-rule editor", () => {
 
       // Done
       await rulesDialog.getByRole("button", { name: "Done" }).click();
-      await dialog.getByRole("tab", { name: "Advanced" }).click();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
       await expect(
         dialog.getByText("1 action rule(s) configured."),
       ).toBeVisible();
@@ -2492,9 +2538,13 @@ test.describe("Action rules — multi-rule editor", () => {
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
       // Select Data Table
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
       await page.getByRole("option", { name: "Data Table" }).click();
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option").first().click();
 
       // Wait for editor to be ready after connection selection
@@ -2515,8 +2565,8 @@ test.describe("Action rules — multi-rule editor", () => {
       await dialog.getByTitle("Run query (Ctrl+Enter / \u2318+Enter)").click();
       await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
 
-      await dialog.getByRole("tab", { name: "Advanced" }).click();
-      await dialog.getByLabel("Enable click action").click();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
+      await dialog.getByLabel("Click action").click();
       await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
 
       const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
@@ -2562,7 +2612,9 @@ test.describe("Preview Run button", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Run button should be visible on Data tab
@@ -2576,7 +2628,7 @@ test.describe("Preview Run button", () => {
     await expect(runButton.first()).toBeVisible();
 
     // Switch to Advanced tab — Run button in preview column should still be visible
-    await dialog.getByRole("tab", { name: "Advanced" }).click();
+    await dialog.getByRole("tab", { name: "Behavior" }).click();
     await expect(runButton.first()).toBeVisible();
 
     await cancelAndDiscard(page, dialog);
@@ -2687,11 +2739,15 @@ test.describe("Param-select searchable default", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select "Parameter Selector" chart type
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Parameter Selector" }).click();
 
     // Select Neo4j connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Fill seed query
@@ -2748,9 +2804,13 @@ test.describe("Parameter collision warning", () => {
     // --- Widget 1: param-select with name "season" ---
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog1 = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog1.getByRole("combobox").nth(1).click();
+    await dialog1
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Parameter Selector" }).click();
-    await dialog1.getByRole("combobox").nth(0).click();
+    await dialog1
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
     await dialog1.locator("#seed-query").fill("RETURN 1 AS x");
     const paramInput1 = dialog1.getByLabel("Parameter Name");
@@ -2762,9 +2822,13 @@ test.describe("Parameter collision warning", () => {
     // --- Widget 2: param-select with the same name "season" ---
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog2 = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog2.getByRole("combobox").nth(1).click();
+    await dialog2
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Parameter Selector" }).click();
-    await dialog2.getByRole("combobox").nth(0).click();
+    await dialog2
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
     await dialog2.locator("#seed-query").fill("RETURN 1 AS x");
     const paramInput2 = dialog2.getByLabel("Parameter Name");

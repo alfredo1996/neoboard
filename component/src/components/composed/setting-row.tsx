@@ -58,7 +58,9 @@ function SettingRow({
       </Label>
       <div
         className={cn(
-          "grid min-w-0 justify-items-start gap-1",
+          // minmax(0, 1fr), not auto: a control with a long value (a connection's name)
+          // shrinks to the column instead of pushing the pane sideways.
+          "grid min-w-0 grid-cols-[minmax(0,1fr)] justify-items-start gap-1",
           compact && "pt-2",
         )}
       >

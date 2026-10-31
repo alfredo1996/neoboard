@@ -143,6 +143,6 @@ describe("ChartSettingsPanel (#2388)", () => {
     );
     expect(screen.getAllByRole("heading", { name: "Refresh" })).toHaveLength(1);
     expect(screen.getByText("from the app")).toBeInTheDocument();
-    expect(screen.getByLabelText("Refresh Button")).toBeInTheDocument();
+    expect(screen.getByLabelText("Refresh button")).toBeInTheDocument();
   });
 });

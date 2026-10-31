@@ -14,7 +14,10 @@ vi.mock("next/dynamic", () => ({
         data-has-on-run={String(typeof props.onRun === "function")}
         data-class-name={String(props.className ?? "")}
         data-placeholder={String(props.placeholder ?? "")}
-      />
+        data-show-run={String(props.showRun)}
+      >
+        {props.toolbar as React.ReactNode}
+      </div>
     );
     Stub.displayName = "QueryEditorStub";
     return Stub;
@@ -369,12 +372,7 @@ describe("QueryEditorPanel", () => {
     expect(onToggleMaximized).toHaveBeenCalledTimes(1);
   });
 
-  it("gives the editor a definite height class only when maximized", () => {
-    // Collapsed the editor has no definite height and grows with the document
-    // (measured 220px empty → 2391px at 120 lines), which makes the whole
-    // settings column scroll. Maximized it gets a definite height so it scrolls
-    // itself with the toolbar pinned — so this class is load-bearing, not
-    // cosmetic.
+  it("lets the query box grow to 320px and then scroll inside; expanded it is half the viewport (#2388)", () => {
     const { unmount } = render(
       <QueryEditorPanel
         editorLanguage="cypher"
@@ -384,7 +382,7 @@ describe("QueryEditorPanel", () => {
     );
     expect(screen.getByTestId("query-editor")).toHaveAttribute(
       "data-class-name",
-      "min-h-[220px]",
+      "[&_.cm-editor]:max-h-[320px]",
     );
     unmount();
 
@@ -395,10 +393,48 @@ describe("QueryEditorPanel", () => {
         onToggleMaximized={vi.fn()}
       />,
     );
-    const className =
-      screen.getByTestId("query-editor").getAttribute("data-class-name") ?? "";
-    expect(className).toContain("h-[70vh]");
-    expect(className).toContain("min-h-[220px]");
+    expect(screen.getByTestId("query-editor")).toHaveAttribute(
+      "data-class-name",
+      "[&_.cm-editor]:min-h-[50vh] [&_.cm-editor]:max-h-[50vh]",
+    );
+  });
+
+  it("shows Run in the query toolbar only while the editor hides the preview, which has its own", () => {
+    const onRun = vi.fn();
+    const { rerender } = render(
+      <QueryEditorPanel editorLanguage="cypher" onRun={onRun} />,
+    );
+    expect(screen.getByTestId("query-editor")).toHaveAttribute(
+      "data-show-run",
+      "false",
+    );
+    rerender(
+      <QueryEditorPanel editorLanguage="cypher" onRun={onRun} maximized />,
+    );
+    expect(screen.getByTestId("query-editor")).toHaveAttribute(
+      "data-show-run",
+      "true",
+    );
+    // A form has no Run at all.
+    rerender(<QueryEditorPanel editorLanguage="cypher" maximized />);
+    expect(screen.getByTestId("query-editor")).toHaveAttribute(
+      "data-show-run",
+      "false",
+    );
+  });
+
+  it("puts the hint, schema and expand controls in the editor's toolbar: one toolbar", () => {
+    useWidgetEditorStore.setState({ chartType: "bar", connectionId: "c1" });
+    render(
+      <QueryEditorPanel editorLanguage="cypher" onToggleMaximized={vi.fn()} />,
+    );
+    const toolbar = screen.getByTestId("query-editor");
+    expect(toolbar).toContainElement(
+      screen.getByRole("button", { name: /refresh schema/i }),
+    );
+    expect(toolbar).toContainElement(
+      screen.getByRole("button", { name: /expand editor/i }),
+    );
   });
 });
 

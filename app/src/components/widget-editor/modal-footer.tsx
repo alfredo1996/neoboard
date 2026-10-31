@@ -49,7 +49,9 @@ export function ModalFooter({
   const canSaveAsTemplate = mode === "edit" && onSaveAsTemplate !== undefined;
 
   return (
-    <DialogFooter>
+    // The dialog has no padding of its own while editing (#2388), so the footer
+    // takes none of the negative margins that reach over it.
+    <DialogFooter className="mx-0 mb-0">
       {labError && (
         <p className="text-sm text-destructive mr-auto">{labError}</p>
       )}

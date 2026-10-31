@@ -27,7 +27,7 @@ const { Stub, OPTION_COUNTS, fakeGetChartOptions } = vi.hoisted(() => {
       label: key,
       type: "boolean" as const,
       default: false,
-      category: "Test",
+      category: "Layout",
     };
   }
   function getOpts(type: string) {

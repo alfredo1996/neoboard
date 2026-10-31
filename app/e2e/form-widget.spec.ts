@@ -51,7 +51,9 @@ test.describe("Form widget", () => {
     // so the note tells the author so at config time (#1051).
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Form" }).click();
 
     await expect(dialog.getByTestId("form-write-permission-note")).toBeVisible({
@@ -66,11 +68,15 @@ test.describe("Form widget", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select "Form" chart type
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Form" }).click();
 
     // Select Neo4j connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Write a write query
@@ -119,9 +125,13 @@ test.describe("Form widget", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Form" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(
@@ -168,9 +178,13 @@ test.describe("Form widget", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Form" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(
@@ -246,9 +260,13 @@ test.describe("Form widget", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Form" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(dialog, page, "CREATE (n:Test {val: $param_val})");
@@ -285,9 +303,13 @@ test.describe("Form widget", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Form" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(
@@ -357,9 +379,13 @@ test.describe("Form widget", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const tableDialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await tableDialog.getByRole("combobox").nth(1).click();
+    await tableDialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Single Value" }).click();
-    await tableDialog.getByRole("combobox").nth(0).click();
+    await tableDialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(
@@ -387,9 +413,13 @@ test.describe("Form widget", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const formDialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await formDialog.getByRole("combobox").nth(1).click();
+    await formDialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Form" }).click();
-    await formDialog.getByRole("combobox").nth(0).click();
+    await formDialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(
@@ -404,7 +434,7 @@ test.describe("Form widget", () => {
     await formDialog.getByPlaceholder("e.g. title").fill("name");
 
     // Go to Advanced tab and pick "Refresh Target" from the MultiSelect (#902).
-    await formDialog.getByRole("tab", { name: "Advanced" }).click();
+    await formDialog.getByRole("tab", { name: "Behavior" }).click();
     await expect(formDialog.getByText("After Submit")).toBeVisible({
       timeout: 5_000,
     });
@@ -417,7 +447,7 @@ test.describe("Form widget", () => {
     await formDialog.getByRole("combobox").last().click();
     await page.getByRole("option", { name: /Refresh Target/ }).click();
     // Close the popover by clicking the dialog title area.
-    await formDialog.getByRole("tab", { name: "Advanced" }).click();
+    await formDialog.getByRole("tab", { name: "Behavior" }).click();
 
     await formDialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(formDialog).not.toBeVisible();
@@ -481,9 +511,13 @@ test.describe("Form widget", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     let dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Parameter Selector" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await dialog
@@ -498,9 +532,13 @@ test.describe("Form widget", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Form" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(
@@ -623,7 +661,9 @@ test.describe("Form widget", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Form" }).click();
 
     // Without connection and query, the Add Widget button should be disabled
@@ -632,7 +672,9 @@ test.describe("Form widget", () => {
     ).toBeDisabled();
 
     // Select connection but no query — still disabled
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
     await expect(
       dialog.getByRole("button", { name: "Add Widget" }),

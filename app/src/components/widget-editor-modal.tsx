@@ -32,24 +32,27 @@ import {
 } from "@/hooks/use-widget-templates";
 
 import {
-  ChartOptionsPanel,
+  chartOptionGroups,
   ChartSettingsPanel,
+  getChartOptions,
   getDefaultChartSettings,
+  OPTION_GROUPS,
   ColorScalePanel,
   Button,
   Input,
-  Label,
   Alert,
   AlertTitle,
   AlertDescription,
-  Checkbox,
   ConfirmDialog,
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
-  Field,
+} from "@neoboard/components";
+import type {
+  OptionGroup,
+  OptionSection,
+  SettingsGroup,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
@@ -60,8 +63,12 @@ import {
 } from "@/lib/plugin/chart-helpers";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import { useParameterValues } from "@/stores/parameter-store";
+import { cn } from "@/lib/utils";
 
-import { ChartTypeSelector } from "./widget-editor/chart-type-selector";
+import {
+  ChartTypeSelect,
+  ConnectionSelect,
+} from "./widget-editor/chart-type-selector";
 import { useBuildWidgetForSave } from "./widget-editor/use-widget-save";
 import { QueryEditorPanel } from "./widget-editor/query-editor-panel";
 import { FormFieldsEditor } from "./widget-editor/form-fields-editor";
@@ -76,10 +83,11 @@ import { TransformEditor } from "./widget-editor/transform-editor";
 import { DatabaseSelector } from "./widget-editor/database-selector";
 import { TemplateBrowser } from "./widget-editor/template-browser";
 import { useAutoPreview } from "./widget-editor/use-auto-preview";
-import { AdvancedCachingSection } from "./widget-editor/advanced-caching-section";
-import { AdvancedInteractivitySection } from "./widget-editor/advanced-interactivity-section";
-import { AdvancedStylingSection } from "./widget-editor/advanced-styling-section";
-import { AdvancedFormRefreshSection } from "./widget-editor/advanced-form-refresh-section";
+import { CachingSection } from "./widget-editor/caching-section";
+import { InteractionSection } from "./widget-editor/interaction-section";
+import { RulesSection } from "./widget-editor/rules-section";
+import { WriteModeSection } from "./widget-editor/write-mode-section";
+import { AfterSubmitRefresh } from "./widget-editor/after-submit-refresh";
 import { LabMetadataForm } from "./widget-editor/lab-metadata-form";
 import { ModalFooter } from "./widget-editor/modal-footer";
 import { WidgetPreviewPanel } from "./widget-editor/widget-preview-panel";
@@ -166,8 +174,6 @@ export function WidgetEditorModal({
   const setConnectionId = useWidgetEditorStore((s) => s.setConnectionId);
   const database = useWidgetEditorStore((s) => s.database);
   const setDatabase = useWidgetEditorStore((s) => s.setDatabase);
-  const allowWrites = useWidgetEditorStore((s) => s.allowWrites);
-  const setAllowWrites = useWidgetEditorStore((s) => s.setAllowWrites);
   const query = useWidgetEditorStore((s) => s.query);
   const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
   const setChartOptions = useWidgetEditorStore((s) => s.setChartOptions);
@@ -210,9 +216,14 @@ export function WidgetEditorModal({
   // ── Initialize store when modal opens ────────────────────────────
   // loadFromWidget / resetForAdd sets all store fields from the widget prop.
   // This replaces the old bidirectional sync approach.
+  // The section on show lives here, above the panel: the panel unmounts while
+  // the styling and action rules screens are open, and a section state inside it
+  // would fall back to Data on the way back (#2388).
+  const [section, setSection] = useState<OptionSection>("data");
   const openedWithRef = useRef<string | null>(null);
   useEffect(() => {
     if (!open) return;
+    setSection("data");
     const store = useWidgetEditorStore.getState();
     if (mode === "edit" && widget) {
       store.loadFromWidget(widget);
@@ -675,6 +686,209 @@ export function WidgetEditorModal({
     onSaveAsTemplate(current);
   }, [onSaveAsTemplate, buildWidgetForSave, onOpenChange]);
 
+  // ── The editor's groups (#2388) ─────────────────────────────────────
+  // Each group says which section it belongs to by its name (OPTION_GROUPS);
+  // the panel puts them in the fixed order, joins the ones with one name and
+  // hides a section with nothing in it.
+  const hasQuery = !isContentOnly && !isParamSelect;
+  const hasCaching = hasQuery && !isForm;
+  const hasConnection =
+    !isContentOnly && (!isParamSelect || paramUIType === "select");
+  // Caching is drawn below as one choice; a relative-date filter has no field
+  // to fill or outline (#2368).
+  const hiddenOptionGroups: OptionGroup[] = [
+    "Caching",
+    ...(isParamSelect && paramUIType === "date" && dateSub === "relative"
+      ? (["Field"] as OptionGroup[])
+      : []),
+  ];
+  const styleOptionCount = getChartOptions(chartType).filter(
+    (o) => OPTION_GROUPS[o.category] === "style",
+  ).length;
+  const connectionRows = hasConnection && (
+    <>
+      <ConnectionSelect
+        connectionId={connectionId}
+        onConnectionChange={handleConnectionChange}
+        connections={connections}
+      />
+      {/* Per-card database selector. A selector's option list loads from it
+          too (#1824). */}
+      {selectedConnection?.allowPerCardDb && connectionId && (
+        <DatabaseSelector
+          connectionId={connectionId}
+          database={database}
+          onDatabaseChange={setDatabase}
+        />
+      )}
+    </>
+  );
+  const settingsGroups: SettingsGroup[] = [
+    ...(isLabMode
+      ? [{ name: "Template" as const, render: () => <LabMetadataForm /> }]
+      : []),
+    ...(isParamSelect
+      ? [
+          {
+            name: "Filter" as const,
+            render: () => (
+              <>
+                <ParameterConfigSection
+                  seedQueryExecution={seedQueryExecution}
+                  seedPreviewOptions={seedPreviewOptions}
+                  isLabMode={isLabMode}
+                />
+                {paramSelectCollisions.length > 0 && (
+                  <Alert
+                    variant="default"
+                    className="py-2"
+                    data-testid="param-collision-banner"
+                  >
+                    <Info className="h-4 w-4" />
+                    <AlertTitle className="text-sm">
+                      Parameter name already in use
+                    </AlertTitle>
+                    <AlertDescription className="text-xs">
+                      {paramSelectCollisions.length === 1
+                        ? `"${paramWidgetName}" is also set by: ${paramSelectCollisions[0].title}.`
+                        : `"${paramWidgetName}" is also set by: ${paramSelectCollisions.map((c) => c.title).join(", ")}.`}{" "}
+                      Multiple widgets writing to the same parameter may
+                      conflict.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </>
+            ),
+          },
+        ]
+      : []),
+    ...(hasConnection
+      ? [
+          {
+            name: (hasQuery ? "Query" : "Connection") as OptionGroup,
+            render: () => (
+              <>
+                {/* Connector-changed warning */}
+                {hasQuery && connectorChanged && (
+                  <Alert variant="default" className="py-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle className="text-sm">
+                      Connector changed
+                    </AlertTitle>
+                    <AlertDescription className="text-xs">
+                      Switching connectors may make the existing query invalid.
+                      Review the query before saving.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {chartMismatch && (
+                  <Alert variant="default" className="py-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle className="text-sm">
+                      Incompatible connection
+                    </AlertTitle>
+                    <AlertDescription className="text-xs">
+                      {chartMismatch} Pick another connection or chart type.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {connectionRows}
+                {hasQuery && (
+                  <QueryEditorPanel
+                    onRun={isForm ? undefined : handlePreview}
+                    editorLanguage={editorLanguage}
+                    running={previewQuery.isPending}
+                    maximized={editorMaximized}
+                    onToggleMaximized={() =>
+                      setEditorMaximizedRequested((m) => !m)
+                    }
+                  />
+                )}
+              </>
+            ),
+          },
+        ]
+      : []),
+    ...(isForm
+      ? [{ name: "Fields" as const, render: () => <FormFieldsEditor /> }]
+      : []),
+    ...(hasQuery
+      ? [
+          {
+            name: "Transform" as const,
+            render: () => (
+              <TransformEditor
+                transforms={transforms}
+                onChange={setTransforms}
+                columns={availableFields}
+                sampleRow={sampleRow}
+                parameterSuggestions={parameterSuggestions}
+                enabled={transformsEnabled}
+                onEnabledChange={setTransformsEnabled}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...chartOptionGroups({
+      chartType,
+      settings: chartOptions,
+      onSettingsChange: setChartOptions,
+      columns: availableFields,
+      hiddenCategories: hiddenOptionGroups,
+    }),
+    ...(chartType === "table"
+      ? [
+          {
+            name: "Color" as const,
+            render: () =>
+              availableFields.length === 0 ? (
+                <p className="text-xs italic text-muted-foreground">
+                  Run a preview query to configure color scales.
+                </p>
+              ) : (
+                <ColorScalePanel
+                  columns={availableFields}
+                  colorScales={colorScales}
+                  onColorScalesChange={setColorScales}
+                />
+              ),
+          },
+        ]
+      : []),
+    ...(!isParamSelect && !isForm && chartSupportsStyling(chartType)
+      ? [{ name: "Rules" as const, render: () => <RulesSection /> }]
+      : []),
+    ...(hasCaching
+      ? [{ name: "Caching" as const, render: () => <CachingSection /> }]
+      : []),
+    ...(!isParamSelect && !isForm && chartSupportsClickAction(chartType)
+      ? [
+          {
+            name: "Interaction" as const,
+            render: () => (
+              <InteractionSection
+                clickActionCollisions={clickActionCollisions}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(canWrite && !isLabMode && hasCaching
+      ? [{ name: "Write mode" as const, render: () => <WriteModeSection /> }]
+      : []),
+    ...(isForm
+      ? [
+          {
+            name: "After submit" as const,
+            render: () => (
+              <AfterSubmitRefresh otherWidgets={otherWidgets ?? []} />
+            ),
+          },
+        ]
+      : []),
+  ];
+
   return (
     // Radix only ever changes `open` here to close it: nothing inside opens it.
     <Dialog open={open} onOpenChange={requestClose}>
@@ -693,7 +907,15 @@ export function WidgetEditorModal({
       />
       <DialogContent
         size="full"
-        className="max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden"
+        className={cn(
+          "flex max-w-[1200px] flex-col overflow-hidden",
+          // One height for every chart and section, so the dialog never
+          // moves under the pointer (#2388). The other steps size to their own
+          // content and keep the dialog's padding.
+          dialogStep === "main"
+            ? "h-[min(90vh,780px)] gap-0 p-0"
+            : "max-h-[90vh]",
+        )}
         // Only the Add title needs saying more; the others and the template
         // browser are named by their title, so no description is wired (#2223).
         {...(dialogStep === "main" && isAddMode
@@ -738,300 +960,71 @@ export function WidgetEditorModal({
         )}
         {dialogStep === "main" && (
           <>
-            <DialogHeader>
-              <DialogTitle>
-                {(() => {
-                  switch (mode) {
-                    case "lab-edit":
-                      return "Edit Template";
-                    case "lab-create":
-                      return "Create Template";
-                    case "edit":
-                      return "Edit Widget";
-                    default:
-                      return "Add Widget";
-                  }
-                })()}
-              </DialogTitle>
-              {isAddMode && (
-                <DialogDescription>
-                  Choose a widget type, write its query, and configure how
-                  results are displayed.
-                </DialogDescription>
+            <DialogTitle className="sr-only">
+              {(() => {
+                switch (mode) {
+                  case "lab-edit":
+                    return "Edit Template";
+                  case "lab-create":
+                    return "Create Template";
+                  case "edit":
+                    return "Edit Widget";
+                  default:
+                    return "Add Widget";
+                }
+              })()}
+            </DialogTitle>
+            {isAddMode && (
+              <DialogDescription className="sr-only">
+                Choose a widget type, write its query, and configure how results
+                are displayed.
+              </DialogDescription>
+            )}
+
+            {/* The chart type and the title, in view from every section. From
+                Template replaces what they show, so it sits here and only
+                while adding. */}
+            <header className="grid grid-cols-[208px_320px_auto] gap-2.5 border-b border-rule py-3.5 pl-5 pr-12">
+              <ChartTypeSelect
+                chartType={chartType}
+                onChartTypeChange={handleChartTypeChange}
+                compatibleChartTypes={compatibleChartTypes}
+                className="w-full"
+              />
+              <Input
+                id="widget-title"
+                aria-label="Widget Title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Untitled widget (optional)"
+                className="min-w-0 font-semibold"
+              />
+              {mode === "add" && !isLabMode && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="justify-self-start text-muted-foreground"
+                  onClick={() => setDialogStep("templates")}
+                >
+                  <FlaskConical />
+                  From Template
+                </Button>
               )}
-            </DialogHeader>
+            </header>
 
             <div
-              className="py-4 min-h-[520px] flex-1 overflow-y-auto"
-              style={{
-                display: "grid",
-                gridTemplateColumns: editorMaximized
-                  ? "minmax(0, 1fr)"
-                  : "minmax(0, 1fr) minmax(0, 1fr)",
-                gap: "1.5rem",
-              }}
+              className={cn(
+                "grid min-h-0 flex-1 grid-cols-[56px_minmax(0,1fr)] lg:grid-cols-[168px_minmax(0,1fr)]",
+                !editorMaximized &&
+                  "grid-cols-[56px_minmax(0,1fr)_minmax(0,1.1fr)] lg:grid-cols-[168px_minmax(0,1fr)_minmax(0,1.1fr)]",
+              )}
             >
-              {/* Left column: tabs + settings */}
-              <div className="overflow-y-auto max-h-[calc(90vh-180px)] pr-2">
-                {/* Lab mode: template metadata */}
-                {isLabMode && <LabMetadataForm />}
-
-                {/* Widget title — always visible above tabs */}
-                <Field
-                  label="Widget Title"
-                  optional
-                  id="widget-title"
-                  className="mb-4"
-                >
-                  <Input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Custom title"
-                  />
-                </Field>
-
-                <ChartSettingsPanel
-                  resetKey={chartType}
-                  dataTab={
-                    <div className="space-y-4">
-                      <ChartTypeSelector
-                        connectionId={connectionId}
-                        onConnectionChange={handleConnectionChange}
-                        chartType={chartType}
-                        onChartTypeChange={handleChartTypeChange}
-                        compatibleChartTypes={compatibleChartTypes}
-                        connections={connections}
-                        showConnection={
-                          !isContentOnly &&
-                          (isForm || !isParamSelect || paramUIType === "select")
-                        }
-                      />
-
-                      {mode === "add" && !isLabMode && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
-                          onClick={() => setDialogStep("templates")}
-                        >
-                          <FlaskConical className="h-4 w-4" />
-                          From Template
-                        </Button>
-                      )}
-
-                      {/* Connector-changed warning */}
-                      {!isParamSelect && !isContentOnly && connectorChanged && (
-                        <Alert variant="default" className="py-2">
-                          <AlertTriangle className="h-4 w-4" />
-                          <AlertTitle className="text-sm">
-                            Connector changed
-                          </AlertTitle>
-                          <AlertDescription className="text-xs">
-                            Switching connectors may make the existing query
-                            invalid. Review the query before saving.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-
-                      {chartMismatch && (
-                        <Alert variant="default" className="py-2">
-                          <AlertTriangle className="h-4 w-4" />
-                          <AlertTitle className="text-sm">
-                            Incompatible connection
-                          </AlertTitle>
-                          <AlertDescription className="text-xs">
-                            {chartMismatch} Pick another connection or chart
-                            type.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-
-                      {/* Parameter config (when parameter-select) */}
-                      {isParamSelect && (
-                        <ParameterConfigSection
-                          seedQueryExecution={seedQueryExecution}
-                          seedPreviewOptions={seedPreviewOptions}
-                          isLabMode={isLabMode}
-                        />
-                      )}
-
-                      {/* Collision warning for param-select */}
-                      {isParamSelect && paramSelectCollisions.length > 0 && (
-                        <Alert
-                          variant="default"
-                          className="py-2"
-                          data-testid="param-collision-banner"
-                        >
-                          <Info className="h-4 w-4" />
-                          <AlertTitle className="text-sm">
-                            Parameter name already in use
-                          </AlertTitle>
-                          <AlertDescription className="text-xs">
-                            {paramSelectCollisions.length === 1
-                              ? `"${paramWidgetName}" is also set by: ${paramSelectCollisions[0].title}.`
-                              : `"${paramWidgetName}" is also set by: ${paramSelectCollisions.map((c) => c.title).join(", ")}.`}{" "}
-                            Multiple widgets writing to the same parameter may
-                            conflict.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-
-                      {/* Query editor (non-parameter and non-content types) */}
-                      {!isParamSelect && !isContentOnly && (
-                        <QueryEditorPanel
-                          onRun={isForm ? undefined : handlePreview}
-                          editorLanguage={editorLanguage}
-                          running={previewQuery.isPending}
-                          maximized={editorMaximized}
-                          onToggleMaximized={() =>
-                            setEditorMaximizedRequested((m) => !m)
-                          }
-                        />
-                      )}
-
-                      {/* Per-card database selector. A selector's option list
-                          loads from it too (#1824). */}
-                      {(!isParamSelect || paramUIType === "select") &&
-                        !isContentOnly &&
-                        selectedConnection?.allowPerCardDb &&
-                        connectionId && (
-                          <DatabaseSelector
-                            connectionId={connectionId}
-                            database={database}
-                            onDatabaseChange={setDatabase}
-                          />
-                        )}
-
-                      {/* Form fields editor (form type only). The editor
-                          itself renders the config-time write-permission note
-                          (#1051). */}
-                      {isForm && <FormFieldsEditor />}
-                    </div>
-                  }
-                  styleTab={
-                    <div className="space-y-4">
-                      <ChartOptionsPanel
-                        chartType={chartType}
-                        settings={chartOptions}
-                        onSettingsChange={setChartOptions}
-                        columns={availableFields}
-                        // A relative-date filter is a segmented control with no
-                        // field to fill or outline (#2368).
-                        hiddenCategories={
-                          isParamSelect &&
-                          paramUIType === "date" &&
-                          dateSub === "relative"
-                            ? ["Appearance"]
-                            : undefined
-                        }
-                        // The mock shows a filter's two groups open (#2368).
-                        openCategories={
-                          isParamSelect
-                            ? ["Appearance", "Behaviour"]
-                            : undefined
-                        }
-                      />
-                      {chartType === "table" && (
-                        <div className="space-y-3 border-t pt-4">
-                          <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                            Color Scales
-                          </h4>
-                          {availableFields.length === 0 ? (
-                            <p className="text-xs text-muted-foreground italic">
-                              Run a preview query to configure color scales.
-                            </p>
-                          ) : (
-                            <ColorScalePanel
-                              columns={availableFields}
-                              colorScales={colorScales}
-                              onColorScalesChange={setColorScales}
-                            />
-                          )}
-                        </div>
-                      )}
-                      {chartOptions.cacheMode === "forever" && (
-                        <div
-                          className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs text-muted-foreground"
-                          data-testid="cache-forever-info"
-                        >
-                          <Info className="h-4 w-4 shrink-0" />
-                          <span>
-                            Data will be fetched once and cached until manually
-                            refreshed.
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  }
-                  transformTab={
-                    !isContentOnly && !isParamSelect ? (
-                      <div className="space-y-4">
-                        <TransformEditor
-                          transforms={transforms}
-                          onChange={setTransforms}
-                          columns={availableFields}
-                          sampleRow={sampleRow}
-                          parameterSuggestions={parameterSuggestions}
-                          enabled={transformsEnabled}
-                          onEnabledChange={setTransformsEnabled}
-                        />
-                      </div>
-                    ) : undefined
-                  }
-                  advancedTab={
-                    isParamSelect ? (
-                      <p className="text-sm text-muted-foreground">
-                        No advanced options for parameter widgets.
-                      </p>
-                    ) : isForm ? (
-                      <AdvancedFormRefreshSection
-                        otherWidgets={otherWidgets ?? []}
-                      />
-                    ) : (
-                      <div className="space-y-4">
-                        {/* Write mode — only for users with canWrite, not content-only widgets */}
-                        {canWrite && !isLabMode && !isContentOnly && (
-                          <div className="space-y-4">
-                            <h4 className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
-                              Write Mode
-                            </h4>
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                id="allow-writes"
-                                checked={allowWrites}
-                                onCheckedChange={(checked) =>
-                                  setAllowWrites(!!checked)
-                                }
-                              />
-                              <Label htmlFor="allow-writes" className="text-sm">
-                                Enable write mode
-                              </Label>
-                            </div>
-                            {allowWrites && (
-                              <p className="text-xs text-muted-foreground pl-6">
-                                This widget can execute write queries. The
-                                server still requires your account to have write
-                                permission.
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        <AdvancedCachingSection />
-                        {chartSupportsClickAction(chartType) && (
-                          <AdvancedInteractivitySection
-                            clickActionCollisions={clickActionCollisions}
-                          />
-                        )}
-                        {chartSupportsStyling(chartType) && (
-                          <AdvancedStylingSection />
-                        )}
-                      </div>
-                    )
-                  }
-                />
-              </div>
+              <ChartSettingsPanel
+                groups={settingsGroups}
+                section={section}
+                onSectionChange={setSection}
+                searchable={styleOptionCount > 4}
+              />
 
               {/* Right column: preview — UNMOUNT when maximized, never hide.
                   Chart/graph renderers measure their container and NVL's WebGL

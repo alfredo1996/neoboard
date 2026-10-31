@@ -13,7 +13,6 @@ import {
 import {
   Alert,
   AlertDescription,
-  Label,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -186,152 +185,157 @@ export function QueryEditorPanel({
   const templates = content?.templates ?? [];
   const hint = queryHintFor(chartType, content);
 
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5">
-        <Label id="editor-query-label">Query</Label>
-        {hint && (
-          <Tooltip>
-            {/* #1283: an <svg> is not focusable, so this tooltip's focus
+  const tools = (
+    <>
+      {hint && (
+        <Tooltip>
+          {/* #1283: an <svg> is not focusable, so this tooltip's focus
                 handlers could never fire and the query hint was pointer-only.
                 A real button carries the same tooltip and reaches keyboards. */}
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label="Query hint"
-                className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              className="max-w-sm text-xs whitespace-pre-line"
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label="Query hint"
+              className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              {hint}
-            </TooltipContent>
-          </Tooltip>
-        )}
-        {connectionId && (
-          <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5"
-                  onClick={() => refreshSchema()}
-                  disabled={isFetching}
-                  aria-label="Refresh schema"
-                >
-                  <RefreshCw
-                    className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`}
-                  />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="text-xs">
-                Refresh schema for autocompletion
-              </TooltipContent>
-            </Tooltip>
-            {!query && templates.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 gap-1 px-1.5 text-xs text-muted-foreground"
-                  >
-                    <FileCode className="h-3 w-3" />
-                    Templates
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {templates.map((t) => (
-                    <DropdownMenuItem
-                      key={t.label}
-                      onSelect={() => onQueryChange(t.query)}
-                    >
-                      {t.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            {queryHistory.length > 0 && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 gap-1 px-1.5 text-xs text-muted-foreground"
-                    aria-label="Query history"
-                  >
-                    <Clock className="h-3 w-3" />
-                    History
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent
-                  align="start"
-                  className="w-80 max-h-64 overflow-y-auto p-0"
-                >
-                  <div className="px-3 py-2 border-b">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      Previous queries
-                    </p>
-                  </div>
-                  {queryHistory.map((entry, i) => (
-                    <button
-                      key={entry.savedAt + i}
-                      type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-accent text-xs border-b last:border-b-0 transition-colors"
-                      onClick={() => onQueryChange(entry.query)}
-                    >
-                      <code className="block truncate text-[11px]">
-                        {entry.query.split("\n")[0]}
-                      </code>
-                      <span className="text-muted-foreground text-[10px]">
-                        {formatTimeAgo(entry.savedAt)}
-                      </span>
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-            )}
-          </>
-        )}
-        {/* #1374 — lives in the *editor* header, not the preview header: the
-            preview header disappears when maximized, which would leave no way
-            back (and #1372 adds its own toggle there). */}
-        {onToggleMaximized && (
+              <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help shrink-0" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent
+            side="top"
+            className="max-w-sm text-xs whitespace-pre-line"
+          >
+            {hint}
+          </TooltipContent>
+        </Tooltip>
+      )}
+      {connectionId && (
+        <>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="ml-auto h-5 w-5"
-                onClick={onToggleMaximized}
-                aria-pressed={maximized}
-                aria-label={maximized ? "Collapse editor" : "Expand editor"}
+                className="h-5 w-5"
+                onClick={() => refreshSchema()}
+                disabled={isFetching}
+                aria-label="Refresh schema"
               >
-                {maximized ? (
-                  <Minimize2 className="h-3 w-3" />
-                ) : (
-                  <Maximize2 className="h-3 w-3" />
-                )}
+                <RefreshCw
+                  className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`}
+                />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top" className="text-xs">
-              {maximized
-                ? "Restore the preview alongside the editor"
-                : "Hide the preview and give the editor the full modal width"}
+              Refresh schema for autocompletion
             </TooltipContent>
           </Tooltip>
-        )}
-      </div>
+          {!query && templates.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 gap-1 px-1.5 text-xs text-muted-foreground"
+                >
+                  <FileCode className="h-3 w-3" />
+                  Templates
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {templates.map((t) => (
+                  <DropdownMenuItem
+                    key={t.label}
+                    onSelect={() => onQueryChange(t.query)}
+                  >
+                    {t.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {queryHistory.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 gap-1 px-1.5 text-xs text-muted-foreground"
+                  aria-label="Query history"
+                >
+                  <Clock className="h-3 w-3" />
+                  History
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="w-80 max-h-64 overflow-y-auto p-0"
+              >
+                <div className="px-3 py-2 border-b">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Previous queries
+                  </p>
+                </div>
+                {queryHistory.map((entry, i) => (
+                  <button
+                    key={entry.savedAt + i}
+                    type="button"
+                    className="w-full text-left px-3 py-2 hover:bg-accent text-xs border-b last:border-b-0 transition-colors"
+                    onClick={() => onQueryChange(entry.query)}
+                  >
+                    <code className="block truncate text-[11px]">
+                      {entry.query.split("\n")[0]}
+                    </code>
+                    <span className="text-muted-foreground text-[10px]">
+                      {formatTimeAgo(entry.savedAt)}
+                    </span>
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          )}
+        </>
+      )}
+      {/* #1374 — lives in the *editor* header, not the preview header: the
+            preview header disappears when maximized, which would leave no way
+            back (and #1372 adds its own toggle there). */}
+      {onToggleMaximized && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5"
+              onClick={onToggleMaximized}
+              aria-pressed={maximized}
+              aria-label={maximized ? "Collapse editor" : "Expand editor"}
+            >
+              {maximized ? (
+                <Minimize2 className="h-3 w-3" />
+              ) : (
+                <Maximize2 className="h-3 w-3" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            {maximized
+              ? "Restore the preview alongside the editor"
+              : "Hide the preview and give the editor the full modal width"}
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </>
+  );
+
+  return (
+    <div className="space-y-1.5">
+      <span id="editor-query-label" className="sr-only">
+        Query
+      </span>
       {!connectionId && query.trim() && (
         <Alert
           className="border-amber-500/50 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400"
@@ -349,20 +353,23 @@ export function QueryEditorPanel({
         aria-labelledby="editor-query-label"
         onChange={onQueryChange}
         onRun={onRun}
+        // The preview has the Run; while the editor hides it, the Run comes
+        // here. Cmd/Ctrl+Enter runs either way (#2388).
+        showRun={maximized && !!onRun}
+        toolbar={tools}
         running={running}
         language={editorLanguage}
         schema={schema}
         placeholder={placeholderFor(editorLanguage, content)}
-        // The editor fills its frame by flex (`flex: 1 1 auto` on `.cm-editor`),
-        // not by `height: 100%`, which resolves to `auto` against an indefinite
-        // parent. Collapsed, the frame has no definite height, so the column
-        // grows with the document (measured 220px empty -> 2391px at 120 lines)
-        // and the whole settings column scrolls. Maximized we give the frame a
-        // definite height so the editor scrolls itself with the Run toolbar
-        // pinned. 70vh is the practical ceiling: the modal body is capped at
-        // calc(90vh - 180px), so anything larger spills back into the column
-        // (#1374).
-        className={maximized ? "h-[70vh] min-h-[220px]" : "min-h-[220px]"}
+        // The query box grows with its text to 320px, then scrolls inside; it is
+        // the only nested scroller (#2388). Expanded, it is half the
+        // viewport: the pane around it is the one scroller, and the dialog is a
+        // fixed height, so the old 70vh would push Run out of view.
+        className={
+          maximized
+            ? "[&_.cm-editor]:min-h-[50vh] [&_.cm-editor]:max-h-[50vh]"
+            : "[&_.cm-editor]:max-h-[320px]"
+        }
       />
     </div>
   );

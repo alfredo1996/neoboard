@@ -34,7 +34,9 @@ test.describe("Widget creation", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select connection (Bar Chart is default)
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(
@@ -68,8 +70,14 @@ test.describe("Widget creation", () => {
       name: "Add Widget",
       exact: true,
     });
-    const connection = dialog.getByRole("combobox").nth(0);
-    const chartType = dialog.getByRole("combobox").nth(1);
+    const connection = dialog.getByRole("combobox", {
+      name: "Connection",
+      exact: true,
+    });
+    const chartType = dialog.getByRole("combobox", {
+      name: "Chart Type",
+      exact: true,
+    });
 
     await connection.click();
     await page.getByRole("option").first().click();
@@ -107,9 +115,13 @@ test.describe("Widget creation", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     // Select connection first to avoid CM readonly race (chart type change after
     // connection is set re-renders the editor but preserves the connectionId state)
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
 
     await typeInEditor(
@@ -128,9 +140,13 @@ test.describe("Widget creation", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     // Select connection first to avoid CM readonly race
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "JSON Viewer" }).click();
 
     await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m LIMIT 3");
@@ -147,9 +163,13 @@ test.describe("Widget creation", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     // Select connection first to avoid CM readonly race
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
 
     // Use a Cypher query that returns dotted field names. No LIMIT: the
@@ -188,9 +208,13 @@ test.describe("Widget creation", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
     // Select PG connection first to avoid CM readonly race
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
 
     await typeInEditor(
@@ -224,7 +248,9 @@ test.describe("Widget creation", () => {
     await expect(
       dialog.locator("label").filter({ hasText: "Connection" }).first(),
     ).toBeVisible();
-    await expect(dialog.getByText("Chart Type", { exact: true })).toBeVisible();
+    await expect(
+      dialog.getByRole("combobox", { name: "Chart Type", exact: true }),
+    ).toBeVisible();
 
     // Query editor should be immediately visible
     await expect(
@@ -237,7 +263,9 @@ test.describe("Widget creation", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Open the connection combobox (first combobox in dialog)
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     // Type a partial name that exists (e.g. "neo" matches the Neo4j connection)
     await page.getByPlaceholder("Search connections...").fill("neo");
     // At least one matching option should be visible
@@ -285,7 +313,9 @@ test.describe("Widget edit – query cache invalidation", () => {
     // Step 1: add a widget via the dialog
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(dialog, page, firstQuery);
@@ -362,9 +392,13 @@ test.describe("Widget duplicate", () => {
     // Add a widget
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m.title LIMIT 3");
@@ -416,7 +450,9 @@ test.describe("Widget editor UX", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select chart type "Data Table" but do NOT select a connection
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
 
     // Warning should NOT show until user types a query
@@ -429,7 +465,9 @@ test.describe("Widget editor UX", () => {
     await expect(warning).toContainText("Select a connection");
 
     // Now select a connection (first in dropdown)
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Assert warning disappears
@@ -445,7 +483,9 @@ test.describe("Widget editor UX", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Neo4j connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Enter query via typeInEditor helper — do NOT click Run button
@@ -499,9 +539,13 @@ test.describe("Widget editor UX", () => {
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
 
     const previewResponse = page.waitForResponse(
@@ -710,7 +754,9 @@ test.describe("Unsaved edits in the widget editor (#2054)", () => {
     const query = "MATCH (m:Movie) RETURN m.title AS title LIMIT 3";
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
     await typeInEditor(dialog, page, query);
     // typeInEditor writes through the CodeMirror API; Escape comes from
@@ -758,11 +804,15 @@ test.describe("Unsaved edits in the widget editor (#2054)", () => {
   test("Escape on an open select closes only the select", async ({ page }) => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
     await typeInEditor(dialog, page, "MATCH (n) RETURN n LIMIT 1");
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     const listbox = page.getByRole("listbox");
     await expect(listbox).toBeVisible();
     await page.keyboard.press("Escape");
@@ -818,8 +868,8 @@ test.describe("Unsaved edits in the widget editor (#2054)", () => {
     await card.getByRole("button", { name: "Widget actions" }).click();
     await page.getByRole("menuitem", { name: "Edit Widget" }).click();
     const dialog = page.getByRole("dialog", { name: "Edit Widget" });
-    await dialog.getByRole("tab", { name: "Advanced" }).click();
-    await dialog.getByLabel("Enable click action").click();
+    await dialog.getByRole("tab", { name: "Behavior" }).click();
+    await dialog.getByLabel("Click action").click();
     await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
     const rules = page.getByRole("dialog", { name: "Action Rules" });
     await rules.getByRole("button", { name: "Add Rule" }).click();

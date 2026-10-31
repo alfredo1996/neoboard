@@ -31,6 +31,7 @@
 
 import type React from "react";
 import type { z } from "zod";
+import type { OptionGroup } from "@neoboard/components";
 
 // ---------------------------------------------------------------------------
 // Chart option definition (duplicated shape from @neoboard/components to
@@ -50,7 +51,8 @@ export interface ChartOptionDef {
     | "swatch"
     | "column-multi-select";
   default: unknown;
-  category: string;
+  /** One of the editor's fixed groups (#2388), so a value cannot drift here either. */
+  category: OptionGroup;
   /** For type: "select" and "swatch" (a swatch names its colour token). */
   options?: { label: string; value: string; token?: string }[];
   /** Tooltip text shown next to the label. */

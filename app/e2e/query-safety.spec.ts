@@ -529,7 +529,9 @@ test.describe("Widget editor preview — blocked write vs syntax error (#1932)",
   ) {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
     await typeInEditor(dialog, page, query);
     const run = dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)");

@@ -257,7 +257,7 @@ export const appearanceOptions: ChartOptionDef[] = [
 export const accessibilityOptions: ChartOptionDef[] = [
   {
     key: "colorblindMode",
-    label: "Colorblind Patterns",
+    label: "Colorblind Mode",
     type: "boolean",
     default: false,
     category: "Color",

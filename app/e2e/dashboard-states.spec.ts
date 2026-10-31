@@ -297,9 +297,13 @@ test.describe("Dashboard editor — uncovered states", () => {
     // Add a widget on Page 1
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Single Value" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(dialog, page, "RETURN 42 AS answer");
@@ -315,9 +319,13 @@ test.describe("Dashboard editor — uncovered states", () => {
     // Add widget on Page 2
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog2 = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog2.getByRole("combobox").nth(1).click();
+    await dialog2
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
-    await dialog2.getByRole("combobox").nth(0).click();
+    await dialog2
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
     await typeInEditor(dialog2, page, "MATCH (m:Movie) RETURN m.title LIMIT 3");
     await dialog2.getByRole("button", { name: "Add Widget" }).click();

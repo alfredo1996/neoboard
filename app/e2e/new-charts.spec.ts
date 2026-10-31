@@ -62,11 +62,15 @@ test.describe("New chart types — creation flow", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Neo4j connection first
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Select Gauge chart type
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Gauge" }).click();
 
     // Type query
@@ -96,11 +100,15 @@ test.describe("New chart types — creation flow", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Neo4j connection first
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Open the chart-type picker
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
 
     // Radar stays registered but disabled in the picker (#1158); treemap and
     // circle packing are not registered in the app at all (#1687). None of the
@@ -122,11 +130,15 @@ test.describe("New chart types — creation flow", () => {
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Open the chart-type picker and wait for the options to render.
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await expect(page.getByRole("option", { name: "Sankey" })).toBeVisible();
     const box = await page.evaluate(() => {
       // The scroll container is the [cmdk-list] that actually contains the
@@ -172,11 +184,15 @@ test.describe("New chart types — creation flow", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Neo4j connection first
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Select Sankey chart type
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Sankey" }).click();
 
     // Type query
@@ -204,10 +220,14 @@ test.describe("New chart types — creation flow", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Sankey" }).click();
 
     // The demo's shape: one ordinary flow plus a row whose source and target
@@ -245,10 +265,14 @@ test.describe("New chart types — creation flow", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Sankey" }).click();
 
     await typeInEditor(
@@ -269,11 +293,15 @@ test.describe("New chart types — creation flow", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Neo4j connection first
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Select Sunburst chart type
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Sunburst" }).click();
 
     // Type query
@@ -300,11 +328,15 @@ test.describe("New chart types — creation flow", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Neo4j connection first
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Select Gantt chart type
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Gantt" }).click();
 
     // Real dates. Neo4j hands a date() over as 'YYYY-MM-DD' (#1616).
@@ -333,10 +365,14 @@ test.describe("New chart types — creation flow", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Gantt" }).click();
 
     // `released` is a year. It used to reach the chart as 1 999 000 ms —
@@ -360,10 +396,14 @@ test.describe("New chart types — creation flow", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Gantt" }).click();
 
     // Datetimes, the shape the slider labels were getting wrong.
@@ -373,9 +413,8 @@ test.describe("New chart types — creation flow", () => {
       "UNWIND [['Design', datetime('2026-04-01T09:00:00'), datetime('2026-04-03T17:30:00')], ['Build', datetime('2026-04-03T10:00:00'), datetime('2026-04-10T16:00:00')]] AS r RETURN r[0] AS task, r[1] AS start, r[2] AS end",
     );
 
-    // The option lives in the Style tab under its own, collapsed category.
-    await dialog.getByRole("tab", { name: "Style" }).click();
-    await dialog.getByRole("button", { name: "Interaction" }).click();
+    // The option lives in Behavior, under Interaction.
+    await dialog.getByRole("tab", { name: "Behavior" }).click();
     const toggle = dialog.locator("#enableDataZoom");
     await expect(toggle).toHaveAttribute("aria-checked", "true");
     await toggle.click();
@@ -410,8 +449,7 @@ test.describe("New chart types — creation flow", () => {
 
     const editDialog = page.getByRole("dialog", { name: "Edit Widget" });
     await expect(editDialog).toBeVisible({ timeout: 10_000 });
-    await editDialog.getByRole("tab", { name: "Style" }).click();
-    await editDialog.getByRole("button", { name: "Interaction" }).click();
+    await editDialog.getByRole("tab", { name: "Behavior" }).click();
     await expect(editDialog.locator("#enableDataZoom")).toHaveAttribute(
       "aria-checked",
       "false",

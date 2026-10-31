@@ -2,7 +2,15 @@
 
 import React from "react";
 import { Plus, Trash2, GripVertical, Check } from "lucide-react";
-import { Button, Input, Label, Tag, Field } from "@neoboard/components";
+import {
+  Button,
+  Input,
+  Label,
+  Tag,
+  Field,
+  Switch,
+  SettingRow,
+} from "@neoboard/components";
 import {
   Select,
   SelectContent,
@@ -511,18 +519,18 @@ export function TransformEditor({
   return (
     <div className="space-y-3">
       {onEnabledChange && (
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
+        <SettingRow
+          label="Enable transforms"
+          htmlFor="transforms-enabled"
+          compact
+        >
+          <Switch
+            stateLabel
             id="transforms-enabled"
             checked={enabled}
-            onChange={(e) => onEnabledChange(e.target.checked)}
-            className="h-4 w-4 rounded border-input"
+            onCheckedChange={onEnabledChange}
           />
-          <Label htmlFor="transforms-enabled" className="text-sm font-medium">
-            Enable transforms
-          </Label>
-        </div>
+        </SettingRow>
       )}
       {!enabled && transforms.length > 0 && (
         <p className="text-xs text-muted-foreground">

@@ -46,7 +46,9 @@ test.describe("Bar chart stack mode (#1684)", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Bar Chart is default — select Neo4j connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Two numeric series per label, so stacking has something to stack.
@@ -66,12 +68,9 @@ test.describe("Bar chart stack mode (#1684)", () => {
     const preview = getPreview(dialog);
     await expect(preview.locator("canvas")).toBeVisible({ timeout: 15_000 });
 
-    // Style tab. "Layout" is the first category and open by default;
-    // "Appearance" is collapsed.
+    // Style tab: Stacking is a segmented control, every group is open.
     await dialog.getByRole("tab", { name: "Style" }).click();
-    await dialog.locator("#stackMode").click();
-    await page.getByRole("option", { name: "Stacked", exact: true }).click();
-    await dialog.getByRole("button", { name: "Appearance" }).click();
+    await dialog.getByRole("radio", { name: "Stacked", exact: true }).click();
     await dialog.locator("#colorPalette").click();
     await page.getByRole("option", { name: "Tableau 10" }).click();
 

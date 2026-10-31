@@ -11,29 +11,14 @@ import {
 /**
  * #1374 — query editor maximize toggle.
  *
- * Both the issue and its stated mechanism are wrong about *why* the editor feels
- * cramped, and these measurements are the record of it (1280x720):
- *
- *   empty / 3 lines  → 173px surface, no internal scroll
- *   30 lines         → 627px surface, no internal scroll
- *   120 lines        → 2391px surface, no internal scroll
- *
- * The editor is neither capped nor starved — it has NO definite height, because
- * `.cm-editor { height: 100% }` resolves against an indefinite-height flex
- * parent and therefore computes to `auto`. So it grows without bound with the
- * document, and what actually scrolls is the whole left settings column (the Run
- * toolbar, tabs and chart selectors scroll away with it). The preview never
- * competed for that space either: the modal body is a two-column grid, so the
- * panes are side by side.
- *
- * Maximizing therefore delivers two things, and the tests below measure each
- * separately rather than asserting one blanket "bigger":
- *   1. On open (the short-query case) a definite 70vh height — a real, measured
- *      height gain of >2x over the 220px minimum.
- *   2. On a long query, full modal width plus scrolling moved INTO the editor
- *      with its toolbar pinned. Height cannot grow here: at 720px the modal body
- *      is capped at calc(90vh - 180px) = 468px, so ~457px is the ceiling any
- *      toggle can offer. That ceiling is the modal itself (issue option (c)).
+ * Collapsed, the query box grows with its text to 320px and then scrolls inside
+ * itself; the pane around it is the one other scroller (#2388). Maximizing
+ * unmounts the preview and gives the box the full width and half the viewport's
+ * height. The tests below measure each separately rather than asserting one
+ * blanket "bigger":
+ *   1. A short query: 120px collapsed, half the viewport (360px at 720) expanded.
+ *   2. A long query: scrolling stays inside the editor in both states, and the
+ *      expanded box is wider and taller.
  */
 
 /** Reads the live CM6 doc length — proves the view survived the toggle. */
@@ -82,7 +67,9 @@ test.describe("Query editor maximize (#1374)", () => {
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
   });
 
@@ -211,12 +198,13 @@ test.describe("Query editor maximize (#1374)", () => {
 
     await typeInEditor(dialog, page, LONG_QUERY);
 
-    // Collapsed: the editor has grown past the modal, so it does NOT scroll
-    // itself — the settings column does, dragging the toolbar out of view.
+    // Collapsed: the box stops growing at 320px and scrolls inside itself; the
+    // pane around it is the only other scroller (#2388).
     const collapsed = (await editor.boundingBox())!;
     const collapsedScroll = await scrollState(editor);
-    expect(collapsedScroll.scrollHeight).toBeLessThanOrEqual(
-      collapsedScroll.clientHeight + 1,
+    expect(collapsed.height).toBeLessThanOrEqual(321);
+    expect(collapsedScroll.scrollHeight).toBeGreaterThan(
+      collapsedScroll.clientHeight,
     );
 
     await dialog.getByRole("button", { name: "Expand editor" }).click();
@@ -232,7 +220,6 @@ test.describe("Query editor maximize (#1374)", () => {
     );
 
     // The win here is width plus a self-scrolling editor with a pinned toolbar.
-    // Height cannot grow: calc(90vh - 180px) = 468px is the modal's own ceiling.
     expect(maximized.width).toBeGreaterThan(collapsed.width);
     expect(maximizedScroll.scrollHeight).toBeGreaterThan(
       maximizedScroll.clientHeight,

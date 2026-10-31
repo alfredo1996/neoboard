@@ -44,7 +44,9 @@ test.describe("Design system — Graphite & Citrine palette & accessibility", ()
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Bar Chart is default — select Neo4j connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     await typeInEditor(
@@ -130,7 +132,6 @@ test.describe("Design system — Graphite & Citrine palette & accessibility", ()
     await dialog.getByRole("tab", { name: "Style" }).click();
 
     // Expand the Accessibility category (collapsed by default)
-    await dialog.getByRole("button", { name: "Accessibility" }).click();
 
     // The "Colorblind Mode" switch should now be visible
     await expect(dialog.getByText("Colorblind Mode")).toBeVisible();
@@ -144,7 +145,6 @@ test.describe("Design system — Graphite & Citrine palette & accessibility", ()
 
     // Navigate to Style tab → Accessibility
     await dialog.getByRole("tab", { name: "Style" }).click();
-    await dialog.getByRole("button", { name: "Accessibility" }).click();
 
     // Toggle colorblind mode on
     await dialog.locator("#colorblindMode").click();
@@ -168,9 +168,13 @@ test.describe("Design system — Graphite & Citrine palette & accessibility", ()
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Line Chart
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Line Chart" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     await typeInEditor(
@@ -188,7 +192,6 @@ test.describe("Design system — Graphite & Citrine palette & accessibility", ()
 
     // Navigate to Style tab → Accessibility
     await dialog.getByRole("tab", { name: "Style" }).click();
-    await dialog.getByRole("button", { name: "Accessibility" }).click();
     await expect(dialog.getByText("Colorblind Mode")).toBeVisible();
   });
 
@@ -201,9 +204,13 @@ test.describe("Design system — Graphite & Citrine palette & accessibility", ()
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Pie Chart
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Pie Chart" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     await typeInEditor(
@@ -221,7 +228,6 @@ test.describe("Design system — Graphite & Citrine palette & accessibility", ()
 
     // Navigate to Style tab → Accessibility
     await dialog.getByRole("tab", { name: "Style" }).click();
-    await dialog.getByRole("button", { name: "Accessibility" }).click();
     await expect(dialog.getByText("Colorblind Mode")).toBeVisible();
   });
 
@@ -234,7 +240,9 @@ test.describe("Design system — Graphite & Citrine palette & accessibility", ()
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Data Table
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
 
     // Navigate to Style tab

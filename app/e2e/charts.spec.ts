@@ -39,9 +39,13 @@ test.describe("Chart rendering", () => {
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByRole("button", { name: "Add Widget" }).click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(
@@ -65,9 +69,13 @@ test.describe("Chart rendering", () => {
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByRole("button", { name: "Add Widget" }).click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Single Value" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(
@@ -93,9 +101,13 @@ test.describe("Chart rendering", () => {
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByRole("button", { name: "Add Widget" }).click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "JSON Viewer" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m LIMIT 2");
@@ -141,7 +153,9 @@ test.describe("Neo4j connector → chart visualization", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Bar Chart is default — just select Neo4j connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query for aggregated data
@@ -173,9 +187,13 @@ test.describe("Neo4j connector → chart visualization", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Line Chart" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     await typeInEditor(
@@ -203,9 +221,13 @@ test.describe("Neo4j connector → chart visualization", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Pie Chart" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     await typeInEditor(
@@ -233,9 +255,13 @@ test.describe("Neo4j connector → chart visualization", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     await typeInEditor(
@@ -265,9 +291,13 @@ test.describe("Neo4j connector → chart visualization", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Single Value" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     await typeInEditor(
@@ -314,7 +344,9 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Bar Chart is default — just select PostgreSQL connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await typeInEditor(
@@ -342,9 +374,13 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Line Chart" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await typeInEditor(
@@ -373,9 +409,13 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Pie Chart" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await typeInEditor(
@@ -403,9 +443,13 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Data Table" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await typeInEditor(
@@ -437,9 +481,13 @@ test.describe("PostgreSQL connector → chart visualization", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Single Value" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await typeInEditor(dialog, page, "SELECT COUNT(*) AS total FROM movies");
@@ -532,9 +580,13 @@ test.describe("Graph chart visualization", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select Graph chart + Neo4j connection
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Graph" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query that returns nodes + relationships
@@ -572,9 +624,13 @@ test.describe("Graph chart visualization", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Graph + Neo4j
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Graph" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query returning graph data
@@ -611,9 +667,13 @@ test.describe("Graph chart visualization", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Graph + Neo4j
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Graph" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Query that returns scalars (no nodes/relationships)
@@ -644,9 +704,13 @@ test.describe("Graph chart visualization", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Graph" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     await typeInEditor(
@@ -690,9 +754,13 @@ test.describe("Graph chart visualization", () => {
   }) => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Graph" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
     await typeInEditor(
       dialog,
@@ -724,9 +792,13 @@ test.describe("Graph chart visualization", () => {
     test("graph controls are visible with no hover", async ({ page }) => {
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
       await page.getByRole("option", { name: "Graph" }).click();
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option", { name: /Movies Graph/ }).click();
       await typeInEditor(
         dialog,
@@ -824,9 +896,13 @@ test.describe("Graph chart exploration", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Graph" }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     await typeInEditor(dialog, page, query);
@@ -1505,9 +1581,13 @@ test.describe("Map widget", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Map", exact: true }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     await typeInEditor(
@@ -1533,9 +1613,13 @@ test.describe("Map widget", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Map", exact: true }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await typeInEditor(
@@ -1561,9 +1645,13 @@ test.describe("Map widget", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Map", exact: true }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     await typeInEditor(
@@ -1604,9 +1692,13 @@ test.describe("Map widget", () => {
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Map", exact: true }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     await typeInEditor(dialog, page, POINTS_QUERY);
@@ -1651,9 +1743,13 @@ test.describe("Map widget", () => {
 
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Map", exact: true }).click();
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Set before the first render, so not even the default tiles are fetched.
@@ -1706,7 +1802,9 @@ test.describe("Column mapping overlay", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Bar Chart is default — select Neo4j connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Wait for editor to be ready after connection selection
@@ -1750,7 +1848,9 @@ test.describe("Column mapping overlay", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: /Movies Graph/ }).click();
 
     // Wait for editor to be ready after connection selection

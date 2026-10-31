@@ -21,7 +21,7 @@ import {
   MapPin,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Field, Combobox } from "@neoboard/components";
+import { Combobox, SettingRow } from "@neoboard/components";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { useConnectors } from "@/hooks/use-connectors";
@@ -66,26 +66,20 @@ interface ConnectionOption {
   type: string;
 }
 
-export interface ChartTypeSelectorProps {
-  connectionId: string;
-  onConnectionChange: (id: string) => void;
+export interface ChartTypeSelectProps {
   chartType: string;
   onChartTypeChange: (type: string) => void;
   compatibleChartTypes: ChartType[];
-  connections: ConnectionOption[];
-  showConnection: boolean;
+  className?: string;
 }
 
-export function ChartTypeSelector({
-  connectionId,
-  onConnectionChange,
+/** The chart type, in the editor's header where every section can see it (#2388). */
+export function ChartTypeSelect({
   chartType,
   onChartTypeChange,
   compatibleChartTypes,
-  connections,
-  showConnection,
-}: ChartTypeSelectorProps) {
-  const { data: connectors } = useConnectors();
+  className,
+}: Readonly<ChartTypeSelectProps>) {
   const chartTypeOptions = compatibleChartTypes.map((type) => {
     const meta = getChartTypeMeta(type);
     return {
@@ -94,43 +88,49 @@ export function ChartTypeSelector({
       icon: meta.Icon,
     };
   });
+  return (
+    <Combobox
+      aria-label="Chart Type"
+      value={chartType}
+      onChange={onChartTypeChange}
+      options={chartTypeOptions}
+      placeholder="Select chart type..."
+      searchPlaceholder="Search chart types..."
+      emptyText="No chart types found."
+      className={className}
+    />
+  );
+}
 
-  const chartTypeSelect = (
-    <Field label="Chart Type">
+export interface ConnectionSelectProps {
+  connectionId: string;
+  onConnectionChange: (id: string) => void;
+  connections: ConnectionOption[];
+}
+
+/** The connection, as a row of the Query group. */
+export function ConnectionSelect({
+  connectionId,
+  onConnectionChange,
+  connections,
+}: Readonly<ConnectionSelectProps>) {
+  const { data: connectors } = useConnectors();
+  return (
+    <SettingRow label="Connection" htmlFor="editor-connection">
       <Combobox
-        value={chartType}
-        onChange={onChartTypeChange}
-        options={chartTypeOptions}
-        placeholder="Select chart type..."
-        searchPlaceholder="Search chart types..."
-        emptyText="No chart types found."
+        id="editor-connection"
+        value={connectionId}
+        onChange={onConnectionChange}
+        options={connections.map((c) => ({
+          value: c.id,
+          label: c.name,
+          hint: connectorLabel(connectors, c.type),
+        }))}
+        placeholder="Select a connection..."
+        searchPlaceholder="Search connections..."
+        emptyText="No connections found."
         className="w-full"
       />
-    </Field>
-  );
-
-  if (!showConnection) {
-    return chartTypeSelect;
-  }
-
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      <Field label="Connection">
-        <Combobox
-          value={connectionId}
-          onChange={onConnectionChange}
-          options={connections.map((c) => ({
-            value: c.id,
-            label: c.name,
-            hint: connectorLabel(connectors, c.type),
-          }))}
-          placeholder="Select a connection..."
-          searchPlaceholder="Search connections..."
-          emptyText="No connections found."
-          className="w-full"
-        />
-      </Field>
-      {chartTypeSelect}
-    </div>
+    </SettingRow>
   );
 }

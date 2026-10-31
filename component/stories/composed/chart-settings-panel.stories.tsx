@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
+import { expect, userEvent, within } from "storybook/test";
 import { chartOptionGroups } from "@/components/composed/chart-options-panel";
 import { ChartSettingsPanel } from "@/components/composed/chart-settings-panel";
 import type { SettingsGroup } from "@/components/composed/chart-settings-panel";
@@ -69,6 +70,19 @@ function Editor({ chartType }: Readonly<{ chartType: string }>) {
 export const Bar: Story = {
   args: { groups: [], section: "style", onSectionChange: () => {} },
   render: () => <Editor chartType="bar" />,
+  // The sections are one vertical tablist: arrows move focus, Enter selects.
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const style = canvas.getByRole("tab", { name: "Style" });
+    style.focus();
+    await userEvent.keyboard("{ArrowDown}");
+    await expect(canvas.getByRole("tab", { name: "Behavior" })).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await expect(canvas.getByRole("tab", { name: "Behavior" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  },
 };
 
 /** Markdown has Content and nothing else here: Data, Style and Behavior hide. */

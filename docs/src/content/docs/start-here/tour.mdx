@@ -86,7 +86,7 @@ Click **Edit** in the dashboard toolbar. Every widget now has a **Widget actions
 
 ![The Edit Widget dialog for the top-actors bar chart](/screenshots/tour/edit-widget.png)
 
-The **Data** tab holds the connection, chart type and query; **Style**, **Transform** and **Advanced** hold the rest, including the click action that sets `actor`. The preview on the right redraws when you click **Run**. Change `LIMIT 10` to `LIMIT 5`, run it, click **Save Changes**, then **Save** in the toolbar. To undo your experiments later, see [Reset the showcases](#reset-the-showcases).
+The chart type and title sit along the top. **Data** holds the connection, the query and the transforms; **Style** holds how it looks, and **Behavior** holds what it does, including the click action that sets `actor`. The preview on the right redraws when you click **Run**. Change `LIMIT 10` to `LIMIT 5`, run it, click **Save Changes**, then **Save** in the toolbar. To undo your experiments later, see [Reset the showcases](#reset-the-showcases).
 
 ## 5. Add a parameter
 
@@ -102,9 +102,9 @@ Each row of the seed query becomes an option: name the columns `value` and `labe
 
 ## 6. Copy a link
 
-A dashboard's link is its address: copy it from the browser's address bar, and anyone who can see the dashboard lands on it. To carry a parameter's value in that link, turn on **Sync to URL** in the selector's **Style** tab:
+A dashboard's link is its address: copy it from the browser's address bar, and anyone who can see the dashboard lands on it. To carry a parameter's value in that link, turn on **Sync to URL** in the selector's **Behavior** section:
 
-![Sync to URL switched on in the Style tab of the parameter selector](/screenshots/tour/sync-to-url.png)
+![Sync to URL switched on in the Behavior section of the parameter selector](/screenshots/tour/sync-to-url.png)
 
 Save, pick a value, and the address gains `param_year=` followed by your choice, with a number marked `n:` (`param_year=n%3A1999`), so whoever opens the copied link starts from the same selection. Sync is off by default: a parameter reaches the URL only when its author turns it on.
 

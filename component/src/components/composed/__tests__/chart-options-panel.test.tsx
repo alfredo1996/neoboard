@@ -25,10 +25,10 @@ describe("ChartOptionsPanel", () => {
     );
     expect(screen.getByText("Orientation")).toBeInTheDocument();
     expect(screen.getByText("Stacking")).toBeInTheDocument();
-    expect(screen.getByText("Show Values")).toBeInTheDocument();
-    expect(screen.getByText("Show Legend")).toBeInTheDocument();
-    expect(screen.getByText("Bar Width")).toBeInTheDocument();
-    expect(screen.getByText("Grid Lines")).toBeInTheDocument();
+    expect(screen.getByText("Show values")).toBeInTheDocument();
+    expect(screen.getByText("Show legend")).toBeInTheDocument();
+    expect(screen.getByText("Bar width")).toBeInTheDocument();
+    expect(screen.getByText("Grid lines")).toBeInTheDocument();
   });
 
   it("shows empty message for unknown chart type", () => {
@@ -51,7 +51,7 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={onChange}
       />,
     );
-    const switchEl = screen.getByRole("switch", { name: "Show Values" });
+    const switchEl = screen.getByRole("switch", { name: "Show values" });
     fireEvent.click(switchEl);
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ showValues: true }),
@@ -67,7 +67,7 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={onChange}
       />,
     );
-    const input = screen.getByLabelText("X Axis Label");
+    const input = screen.getByLabelText("X axis label");
     fireEvent.change(input, { target: { value: "Time" } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ xAxisLabel: "Time" }),
@@ -83,7 +83,7 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={onChange}
       />,
     );
-    const input = screen.getByLabelText("Page Size");
+    const input = screen.getByLabelText("Page size");
     fireEvent.change(input, { target: { value: "50" } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ pageSize: 50 }),
@@ -99,7 +99,7 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={onChange}
       />,
     );
-    fireEvent.change(screen.getByLabelText("Page Size"), {
+    fireEvent.change(screen.getByLabelText("Page size"), {
       target: { value: "" },
     });
     // Number("") is 0, so clearing the field used to commit pageSize: 0 —
@@ -116,7 +116,7 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={onChange}
       />,
     );
-    const input = screen.getByLabelText("Page Size");
+    const input = screen.getByLabelText("Page size");
     expect(input).toHaveAttribute("placeholder", "Auto (fits the card)");
     fireEvent.change(input, { target: { value: "" } });
     const saved = onChange.mock.calls[0][0];
@@ -131,7 +131,7 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expect(screen.getByLabelText("Page Size")).toHaveValue(null);
+    expect(screen.getByLabelText("Page size")).toHaveValue(null);
   });
 
   it("leaves the panel's labels unmarked: the chart-options panel is exempt from (optional) (#2217)", () => {
@@ -142,7 +142,7 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expect(screen.getByLabelText("Markdown Content")).toBeInTheDocument();
+    expect(screen.getByLabelText("Markdown content")).toBeInTheDocument();
     expect(screen.queryByText(/\(optional\)/)).not.toBeInTheDocument();
   });
 
@@ -202,7 +202,7 @@ describe("ChartOptionsPanel", () => {
       />,
     );
     // A three-entry select could not take a self-hosted template.
-    const tile = screen.getByLabelText("Tile Layer");
+    const tile = screen.getByLabelText("Tile layer");
     expect(tile.tagName).toBe("INPUT");
     expect(tile).toHaveValue(
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -226,7 +226,7 @@ describe("ChartOptionsPanel", () => {
     );
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("{apikey}");
-    expect(screen.getByLabelText("Tile Layer")).toHaveAttribute(
+    expect(screen.getByLabelText("Tile layer")).toHaveAttribute(
       "aria-invalid",
       "true",
     );
@@ -409,7 +409,7 @@ describe("ChartOptionsPanel", () => {
     screen
       .queryAllByRole("button", { expanded: false })
       .forEach((btn) => fireEvent.click(btn));
-    const field = screen.getByLabelText("Markdown Content");
+    const field = screen.getByLabelText("Markdown content");
     expect(field.tagName).toBe("TEXTAREA");
 
     const multiline = "# Heading\n- item one\n- item two";
@@ -537,11 +537,11 @@ describe("ChartOptionsPanel", () => {
   });
 
   describe("rows sized to their values (#2388)", () => {
-    const rotation = () => screen.getByLabelText("Label Rotation");
+    const rotation = () => screen.getByLabelText("Label rotation");
 
     it.each([
-      ["axisLabelRotation", "Label Rotation", -1],
-      ["barWidth", "Bar Width", 0],
+      ["axisLabelRotation", "Label rotation", -1],
+      ["barWidth", "Bar width", 0],
     ])(
       "shows a stored %s of %s as an empty Auto field and leaves it when saved untouched",
       (key, label, auto) => {

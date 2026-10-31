@@ -35,18 +35,18 @@ ORDER BY value DESC
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | Orientation | select | vertical | Vertical bars (upward) or horizontal bars (left-to-right) |
-| Stack Mode | select | Normal (grouped) | Side by side, stacked, or stacked to 100% |
-| Bar Width (px) | number | 0 (auto) | Width of each bar in pixels. 0 lets the chart auto-size |
+| Stacking | select | Grouped | Side by side, stacked, or stacked to 100% |
+| Bar width | number | Auto | Width of each bar in pixels. Empty lets the chart auto-size |
 | Bar Gap | text | 30% | Gap between bar groups as a percentage of bar width |
 | Show Values | boolean | false | Display the value on each bar, compact to three figures (879K); the tooltip keeps the full value (879,283) |
 | Show Legend | boolean | true | Show the legend identifying each data series. A single series never gets one |
-| X-Axis Label | text | (empty) | Custom label below the horizontal axis |
-| Y-Axis Label | text | (empty) | Custom label beside the vertical axis |
+| X axis label | text | (empty) | Custom label below the horizontal axis |
+| Y axis label | text | (empty) | Custom label beside the vertical axis |
 | Show Grid Lines | boolean | true | Show faint horizontal reference lines |
-| Axis Label Rotation | number | -1 (auto) | Override axis label angle (0-90). -1 auto-rotates at 8+ categories |
+| Label rotation | number | Auto | Axis label angle (0-90). Auto keeps labels flat and cuts them to fit |
 | Reference Lines | text | (empty) | JSON array of horizontal reference lines |
-| Enable Scroll Zoom | boolean | false | Allow scroll-to-zoom on the data axis |
-| Decimal Places | number | -1 (auto) | Fixed decimal places in tooltips (0-6) |
+| Scroll zoom | boolean | false | Allow scroll-to-zoom on the data axis |
+| Decimal places | number | Auto | Fixed decimal places in tooltips (0-6) |
 
 ## Tips
 

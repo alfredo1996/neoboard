@@ -109,9 +109,15 @@ function SwatchGroup({
   );
 }
 
-/** A trailing "(JSON)" or "(px)" in a label is the control's business, not the label's. */
+/**
+ * "Show Grid Lines" reads "Show grid lines" in the editor, and a trailing
+ * "(JSON)" or "(px)" is the control's business, not the label's. Acronyms and
+ * single letters ("URL", "X", "N") keep their case.
+ */
 function labelOf(label: string) {
-  return label.replace(/\s*\([^)]*\)/, "");
+  return label
+    .replace(/\s*\([^)]*\)/, "")
+    .replaceAll(/(?<=\s)[A-Z][a-z]+/g, (word) => word.toLowerCase());
 }
 
 function NumberControl({
@@ -163,6 +169,139 @@ function NumberControl({
   );
 }
 
+interface ControlProps {
+  readonly option: ChartOptionDef;
+  readonly value: unknown;
+  readonly set: (value: unknown) => void;
+  readonly id: string;
+  readonly labelId: string;
+  readonly describedBy?: string;
+}
+
+function SelectControl({
+  option,
+  value,
+  set,
+  id,
+  labelId,
+  describedBy,
+}: ControlProps) {
+  const current = String(value ?? option.default);
+  if ((option.options?.length ?? 0) <= 3) {
+    return (
+      <SegmentedControl
+        aria-labelledby={labelId}
+        aria-describedby={describedBy}
+        value={current}
+        onValueChange={set}
+        options={(option.options ?? []).map((o) => ({
+          value: o.value,
+          label: o.label,
+        }))}
+      />
+    );
+  }
+  return (
+    <Select value={current} onValueChange={set}>
+      <SelectTrigger
+        id={id}
+        aria-labelledby={labelId}
+        aria-describedby={describedBy}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {option.options?.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function ColumnsControl({
+  option,
+  value,
+  set,
+  id,
+  labelId,
+  describedBy,
+  columns,
+}: ControlProps & { readonly columns?: string[] }) {
+  const csv = String(value ?? option.default ?? "");
+  // Fall back to text input when columns are not yet available (no preview query)
+  if (!columns?.length) {
+    return (
+      <Input
+        id={id}
+        value={csv}
+        onChange={(e) => set(e.target.value)}
+        aria-describedby={describedBy}
+        placeholder="Run a preview query to select columns"
+      />
+    );
+  }
+  const selected = csv
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return (
+    <MultiSelect
+      aria-labelledby={labelId}
+      options={columns.map((col) => ({ value: col, label: col }))}
+      value={selected}
+      onChange={(vals) => set(vals.join(","))}
+      placeholder="Select columns…"
+      className="w-full"
+    />
+  );
+}
+
+function TextControl({ option, value, set, id, describedBy }: ControlProps) {
+  const textValue = String(value ?? option.default ?? "");
+  const validation = option.validate?.(textValue) ?? null;
+  const isError = validation?.level === "error";
+  const messageId = `${id}-help`;
+  const described =
+    [describedBy, validation ? messageId : undefined]
+      .filter(Boolean)
+      .join(" ") || undefined;
+  return (
+    <>
+      {option.multiline ? (
+        <Textarea
+          id={id}
+          rows={2}
+          className="font-mono text-xs"
+          value={textValue}
+          onChange={(e) => set(e.target.value)}
+          aria-describedby={described}
+        />
+      ) : (
+        <Input
+          id={id}
+          value={textValue}
+          onChange={(e) => set(e.target.value)}
+          placeholder="None"
+          aria-invalid={isError || undefined}
+          aria-describedby={described}
+        />
+      )}
+      {validation && isError && (
+        <FieldError id={messageId}>{validation.message}</FieldError>
+      )}
+      {/* A warning does not make the field invalid: it joins the help. */}
+      {validation && !isError && (
+        <p id={messageId} className="text-meta text-[hsl(var(--warning))]">
+          {validation.message}
+        </p>
+      )}
+    </>
+  );
+}
+
 // No Field here carries "(optional)": the chart-options panel is exempt (owner, #2217, 2026-10-19).
 function OptionRow({
   option,
@@ -179,208 +318,90 @@ function OptionRow({
   const labelId = `${id}-label`;
   const descId = `${id}-desc`;
   const label = labelOf(option.label);
-  // The long description is read, not shown; `help` is the line that adds a rule.
-  const description = option.description && (
-    <span id={descId} className="sr-only">
-      {option.description}
-    </span>
-  );
-  const describedBy = option.description ? descId : undefined;
   const set = (v: unknown) => onChange(option.key, v);
-  const row = (
-    control: React.ReactNode,
-    props?: { wraps?: boolean; compact?: boolean },
-  ) => (
+  const control: ControlProps = {
+    option,
+    value,
+    set,
+    id,
+    labelId,
+    describedBy: option.description ? descId : undefined,
+  };
+
+  if (option.type === "textarea") {
+    // Multiline string options (e.g. markdown content) — a single-line
+    // Input strips newlines (#1049). The label stacks above it.
+    return (
+      <Field id={id} label={label} help={option.help ?? option.description}>
+        <Textarea
+          value={String(value ?? option.default ?? "")}
+          onChange={(e) => set(e.target.value)}
+          placeholder={option.label}
+          rows={16}
+          className="font-mono text-xs"
+        />
+      </Field>
+    );
+  }
+
+  let body: React.ReactNode = null;
+  if (option.type === "boolean") {
+    body = (
+      <Switch
+        stateLabel
+        id={id}
+        aria-describedby={control.describedBy}
+        checked={Boolean(value ?? option.default)}
+        onCheckedChange={set}
+      />
+    );
+  } else if (option.type === "swatch") {
+    body = (
+      <SwatchGroup
+        option={option}
+        value={value}
+        onChange={onChange}
+        labelId={labelId}
+      />
+    );
+  } else if (option.type === "select") {
+    body = <SelectControl {...control} />;
+  } else if (option.type === "column-multi-select") {
+    body = <ColumnsControl {...control} columns={columns} />;
+  } else if (option.type === "number" || option.percent) {
+    body = (
+      <NumberControl
+        option={option}
+        value={value ?? (option.percent ? option.default : undefined)}
+        onChange={onChange}
+        id={id}
+        describedBy={control.describedBy}
+      />
+    );
+  } else if (option.type === "text") {
+    body = <TextControl {...control} />;
+  }
+  if (body === null) return null;
+
+  return (
     <SettingRow
       label={label}
       htmlFor={id}
       labelId={labelId}
       help={option.help}
-      {...props}
+      // A segmented control has a width of its own: it drops under its label
+      // when it does not fit. A lone switch sits level with the label.
+      wraps={option.type === "select" && (option.options?.length ?? 0) <= 3}
+      compact={option.type === "boolean"}
     >
-      {control}
-      {description}
+      {body}
+      {option.description && (
+        <span id={descId} className="sr-only">
+          {option.description}
+        </span>
+      )}
     </SettingRow>
   );
-
-  switch (option.type) {
-    case "boolean":
-      return row(
-        <Switch
-          stateLabel
-          id={id}
-          aria-describedby={describedBy}
-          checked={Boolean(value ?? option.default)}
-          onCheckedChange={set}
-        />,
-        { compact: true },
-      );
-
-    case "swatch":
-      return row(
-        <SwatchGroup
-          option={option}
-          value={value}
-          onChange={onChange}
-          labelId={labelId}
-        />,
-      );
-
-    case "select": {
-      const current = String(value ?? option.default);
-      if ((option.options?.length ?? 0) <= 3) {
-        return row(
-          <SegmentedControl
-            aria-labelledby={labelId}
-            aria-describedby={describedBy}
-            value={current}
-            onValueChange={set}
-            options={(option.options ?? []).map((o) => ({
-              value: o.value,
-              label: o.label,
-            }))}
-          />,
-          { wraps: true },
-        );
-      }
-      return row(
-        <Select value={current} onValueChange={set}>
-          <SelectTrigger
-            id={id}
-            aria-labelledby={labelId}
-            aria-describedby={describedBy}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {option.options?.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>,
-      );
-    }
-
-    case "column-multi-select": {
-      // Fall back to text input when columns are not yet available (no preview query)
-      if (!columns?.length) {
-        return row(
-          <Input
-            id={id}
-            value={String(value ?? option.default ?? "")}
-            onChange={(e) => set(e.target.value)}
-            aria-describedby={describedBy}
-            placeholder="Run a preview query to select columns"
-          />,
-        );
-      }
-      const csv = String(value ?? option.default ?? "");
-      const selected = csv
-        ? csv
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : [];
-      return row(
-        <MultiSelect
-          options={columns.map((col) => ({ value: col, label: col }))}
-          value={selected}
-          onChange={(vals) => set(vals.join(","))}
-          placeholder="Select columns…"
-          className="w-full"
-        />,
-      );
-    }
-
-    case "textarea":
-      // Multiline string options (e.g. markdown content) — a single-line
-      // Input strips newlines (#1049). The label stacks above it.
-      return (
-        <Field id={id} label={label} help={option.help ?? option.description}>
-          <Textarea
-            value={String(value ?? option.default ?? "")}
-            onChange={(e) => set(e.target.value)}
-            placeholder={option.label}
-            rows={16}
-            className="font-mono text-xs"
-          />
-        </Field>
-      );
-
-    case "text": {
-      const textValue = String(value ?? option.default ?? "");
-      const validation = option.validate?.(textValue) ?? null;
-      const isError = validation?.level === "error";
-      const messageId = `${id}-help`;
-      const control = option.multiline ? (
-        <Textarea
-          id={id}
-          rows={2}
-          className="font-mono text-xs"
-          value={textValue}
-          onChange={(e) => set(e.target.value)}
-          aria-describedby={describedBy}
-        />
-      ) : (
-        <Input
-          id={id}
-          value={textValue}
-          onChange={(e) => set(e.target.value)}
-          placeholder={option.percent ? undefined : "None"}
-          aria-invalid={isError || undefined}
-          aria-describedby={
-            [describedBy, validation ? messageId : undefined]
-              .filter(Boolean)
-              .join(" ") || undefined
-          }
-        />
-      );
-      if (option.percent) {
-        return row(
-          <NumberControl
-            option={option}
-            value={value ?? option.default}
-            onChange={onChange}
-            id={id}
-            describedBy={describedBy}
-          />,
-        );
-      }
-      return row(
-        <>
-          {control}
-          {validation &&
-            (isError ? (
-              <FieldError id={messageId}>{validation.message}</FieldError>
-            ) : (
-              // A warning does not make the field invalid: it joins the help.
-              <p
-                id={messageId}
-                className="text-meta text-[hsl(var(--warning))]"
-              >
-                {validation.message}
-              </p>
-            ))}
-        </>,
-      );
-    }
-
-    case "number":
-      return row(
-        <NumberControl
-          option={option}
-          value={value}
-          onChange={onChange}
-          id={id}
-          describedBy={describedBy}
-        />,
-      );
-
-    default:
-      return null;
-  }
 }
 
 function matches(option: ChartOptionDef, term: string) {
