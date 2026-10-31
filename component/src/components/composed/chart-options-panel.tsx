@@ -113,9 +113,18 @@ function SwatchGroup({
  * single letters ("URL", "X", "N") keep their case.
  */
 function labelOf(label: string) {
-  return label
-    .replace(/\s*\([^)]*\)/, "")
-    .replaceAll(/(?<=\s)[A-Z][a-z]+/g, (word) => word.toLowerCase());
+  const open = label.indexOf("(");
+  const close = label.indexOf(")", open);
+  const bare =
+    open >= 0 && close > open
+      ? label.slice(0, open).trimEnd() + label.slice(close + 1)
+      : label;
+  return bare.replaceAll(/(?<=\s)[A-Z][a-z]+/g, (word) => word.toLowerCase());
+}
+
+/** An option value as field text: strings and numbers show, anything else is empty. */
+function asText(v: unknown) {
+  return typeof v === "string" || typeof v === "number" ? String(v) : "";
 }
 
 function NumberControl({
@@ -132,7 +141,7 @@ function NumberControl({
   describedBy?: string;
 }>) {
   const raw = option.percent
-    ? String(value ?? "").replace("%", "")
+    ? asText(value).replace("%", "")
     : (value ?? option.default);
   // A stored `auto` value (0 or -1) and an unset one both read as empty.
   let shown = "";
@@ -190,7 +199,7 @@ function SelectControl({
   labelId,
   describedBy,
 }: ControlProps) {
-  const current = String(value ?? option.default);
+  const current = asText(value ?? option.default);
   if ((option.options?.length ?? 0) <= 3) {
     return (
       <SegmentedControl
@@ -234,7 +243,7 @@ function ColumnsControl({
   describedBy,
   columns,
 }: ControlProps & { readonly columns?: string[] }) {
-  const csv = String(value ?? option.default ?? "");
+  const csv = asText(value ?? option.default);
   // Fall back to text input when columns are not yet available (no preview query)
   if (!columns?.length) {
     return (
@@ -263,8 +272,14 @@ function ColumnsControl({
   );
 }
 
-function TextControl({ option, value, set, id, describedBy }: ControlProps) {
-  const textValue = String(value ?? option.default ?? "");
+function TextControl({
+  option,
+  value,
+  set,
+  id,
+  describedBy,
+}: Omit<ControlProps, "labelId">) {
+  const textValue = asText(value ?? option.default);
   const validation = option.validate?.(textValue) ?? null;
   const isError = validation?.level === "error";
   const messageId = `${id}-help`;
@@ -338,7 +353,7 @@ function OptionRow({
     return (
       <Field id={id} label={label} help={option.help ?? option.description}>
         <Textarea
-          value={String(value ?? option.default ?? "")}
+          value={asText(value ?? option.default)}
           onChange={(e) => set(e.target.value)}
           placeholder={option.label}
           rows={16}

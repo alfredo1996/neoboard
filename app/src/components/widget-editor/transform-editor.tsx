@@ -10,8 +10,6 @@ import {
   Field,
   Switch,
   SettingRow,
-} from "@neoboard/components";
-import {
   Select,
   SelectContent,
   SelectItem,

@@ -564,4 +564,17 @@ describe("OptionRows", () => {
       ).toBeInTheDocument();
     });
   });
+
+  it("drops the unit in parentheses and lowercases later words in a label", () => {
+    render(
+      <OptionRows
+        chartType="sankey"
+        settings={{}}
+        onSettingsChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Node width")).toBeInTheDocument();
+    expect(screen.getByText("Node gap")).toBeInTheDocument();
+    expect(screen.queryByText(/\(px\)/)).not.toBeInTheDocument();
+  });
 });
