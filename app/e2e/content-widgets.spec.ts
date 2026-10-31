@@ -70,8 +70,7 @@ test.describe("Content-only widgets (Markdown & iFrame)", () => {
       .click();
     await page.getByRole("option", { name: "Markdown" }).click();
 
-    // Author multiline markdown in Content, the one section a markdown widget
-    // has (#2388).
+    // Author multiline markdown in the Content tab.
     await expect(dialog.getByRole("tab", { name: "Content" })).toBeVisible();
     const content = dialog.locator("#content");
     await expect(content).toBeVisible({ timeout: 5_000 });

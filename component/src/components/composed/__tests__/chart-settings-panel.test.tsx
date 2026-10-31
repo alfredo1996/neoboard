@@ -62,14 +62,14 @@ describe("ChartSettingsPanel (#2388)", () => {
     expect(screen.getByText("query box")).toBeInTheDocument();
   });
 
-  it("hides a section with nothing in it: a content widget has Content and nothing else", () => {
+  it("hides a section with nothing in it: a markdown widget has Content and Style and nothing else", () => {
     render(<Harness chartType="markdown" start="content" />);
-    expect(sectionNames()).toEqual(["Content"]);
+    expect(sectionNames()).toEqual(["Content", "Style"]);
     expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 
   it("falls back to the first section when the one on show is gone", () => {
-    render(<Harness chartType="markdown" extra={[]} start="style" />);
+    render(<Harness chartType="markdown" extra={[]} start="behavior" />);
     expect(screen.getByRole("tab", { name: "Content" })).toHaveAttribute(
       "aria-selected",
       "true",

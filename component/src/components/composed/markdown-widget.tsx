@@ -9,8 +9,27 @@ import { highlightSync, ensureHighlighter } from "@/lib/code-highlighter";
 export interface MarkdownWidgetProps {
   /** Markdown content to render */
   content?: string;
+  /** Body size: sm 13px, md 14px (today's), lg 18px. Headings scale with it. */
+  textSize?: "sm" | "md" | "lg";
+  /** Alignment of paragraphs, headings, lists and quotes; tables and code keep their own. */
+  textAlign?: "left" | "center" | "right";
   className?: string;
 }
+
+// Only the non-default values have an entry, so an unset or unknown value
+// renders exactly today's classes (#2392).
+const SIZE_CLASS = { sm: "text-caption", lg: "text-lg" } as const;
+// Headings are fixed rem classes; this multiplies them by size/14px.
+const SIZE_SCALE = { sm: "0.9286", lg: "1.2857" } as const;
+const SCALED_HEADINGS =
+  "[&_h1]:text-[length:calc(1.5rem*var(--md-scale))] [&_h2]:text-[length:calc(1.25rem*var(--md-scale))] [&_:is(h3,h4,h5,h6)]:text-[length:calc(0.9375rem*var(--md-scale))] [&_:is(h1,h2,h3,h4,h5,h6)]:leading-snug";
+const ALIGN_CLASS = {
+  // Bullets travel with the text (list-inside); images are block, so margins move them.
+  center:
+    "text-center [&_pre]:text-left [&_:is(ul,ol)]:list-inside [&_:is(ul,ol)]:pl-0 [&_img]:mx-auto",
+  right:
+    "text-right [&_pre]:text-left [&_:is(ul,ol)]:list-inside [&_:is(ul,ol)]:pl-0 [&_img]:ml-auto",
+} as const;
 
 /**
  * Returns true if a URL is safe for use in `<a href>`.
@@ -414,7 +433,15 @@ function processInline(text: string): string {
   return result.replace(PLACEHOLDERS, (_m, i: string) => tags[+i]);
 }
 
-function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
+function MarkdownWidget({
+  content,
+  textSize,
+  textAlign,
+  className,
+}: Readonly<MarkdownWidgetProps>) {
+  const sizeKey = textSize === "sm" || textSize === "lg" ? textSize : undefined;
+  const alignKey =
+    textAlign === "center" || textAlign === "right" ? textAlign : undefined;
   // Lazy-load Shiki highlighter. On first render code blocks are plain text;
   // once Shiki loads, highlighterReady flips to true and we re-render with
   // syntax-highlighted output via highlightSync().
@@ -460,9 +487,17 @@ function MarkdownWidget({ content, className }: MarkdownWidgetProps) {
       aria-label="Markdown content"
       className={cn(
         "h-full overflow-auto p-4 max-w-none",
-        "font-body text-sm leading-[1.6] text-foreground",
+        "font-body",
+        sizeKey ? [SIZE_CLASS[sizeKey], SCALED_HEADINGS] : "text-sm",
+        "leading-[1.6] text-foreground",
+        alignKey && ALIGN_CLASS[alignKey],
         className,
       )}
+      style={
+        sizeKey
+          ? ({ "--md-scale": SIZE_SCALE[sizeKey] } as React.CSSProperties)
+          : undefined
+      }
       // Safe: parseMarkdown escapes all user text via escapeHtml and validates
       // URLs via isSafeLinkUrl/isSafeImageUrl. No raw user HTML reaches the DOM.
       dangerouslySetInnerHTML={{ __html: html! }} // NOSONAR

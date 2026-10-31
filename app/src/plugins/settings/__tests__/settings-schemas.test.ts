@@ -410,6 +410,21 @@ describe("markdownSettingsSchema", () => {
     const result = markdownSettingsSchema.parse({ content: "# Hello" });
     expect(result.content).toBe("# Hello");
   });
+
+  it("keeps a valid textSize and textAlign, and adds none when absent (#2392)", () => {
+    expect(
+      markdownSettingsSchema.parse({ textSize: "lg", textAlign: "center" }),
+    ).toEqual({ textSize: "lg", textAlign: "center" });
+    expect(markdownSettingsSchema.parse({ content: "x" })).toEqual({
+      content: "x",
+    });
+  });
+
+  it("drops a stored textSize or textAlign it does not know instead of throwing (#2392)", () => {
+    const r = markdownSettingsSchema.parse({ textSize: 99, textAlign: "wide" });
+    expect(r.textSize).toBeUndefined();
+    expect(r.textAlign).toBeUndefined();
+  });
 });
 
 // ---------------------------------------------------------------------------

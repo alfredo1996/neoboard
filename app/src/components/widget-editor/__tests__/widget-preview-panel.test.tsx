@@ -41,8 +41,18 @@ vi.mock("@neoboard/components", () => ({
   TooltipContent: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
-  MarkdownWidget: ({ content }: { content?: string }) => (
-    <div data-testid="markdown">{content}</div>
+  MarkdownWidget: ({
+    content,
+    textSize,
+    textAlign,
+  }: {
+    content?: string;
+    textSize?: string;
+    textAlign?: string;
+  }) => (
+    <div data-testid="markdown" data-size={textSize} data-align={textAlign}>
+      {content}
+    </div>
   ),
   IframeWidget: ({ url }: { url?: string }) => (
     <iframe src={url} title="iframe" />
@@ -226,6 +236,29 @@ describe("WidgetPreviewPanel", () => {
       />,
     );
     expect(screen.getByTestId("markdown")).toHaveTextContent("# Hello");
+  });
+
+  it("previews a markdown widget's text size and alignment, and ignores bad values (#2392)", () => {
+    const { rerender } = render(
+      <WidgetPreviewPanel
+        {...makeProps({
+          isMarkdown: true,
+          chartOptions: { content: "x", textSize: "lg", textAlign: "right" },
+        })}
+      />,
+    );
+    const el = screen.getByTestId("markdown");
+    expect(el).toHaveAttribute("data-size", "lg");
+    expect(el).toHaveAttribute("data-align", "right");
+    rerender(
+      <WidgetPreviewPanel
+        {...makeProps({
+          isMarkdown: true,
+          chartOptions: { content: "x", textSize: 5 },
+        })}
+      />,
+    );
+    expect(screen.getByTestId("markdown")).not.toHaveAttribute("data-size");
   });
 
   // In the Widget Library the preview must not bind a parent value the last

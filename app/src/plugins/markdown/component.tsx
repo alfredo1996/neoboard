@@ -19,7 +19,13 @@ import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
  */
 function MarkdownPluginComponent({ settings: raw }: Readonly<PluginProps>) {
   const settings = safeParseSettings(markdownSettingsSchema, raw, "markdown");
-  return <MarkdownWidget content={settings.content} />;
+  return (
+    <MarkdownWidget
+      content={settings.content}
+      textSize={settings.textSize}
+      textAlign={settings.textAlign}
+    />
+  );
 }
 
 export const markdownPlugin = defineChartPlugin({
