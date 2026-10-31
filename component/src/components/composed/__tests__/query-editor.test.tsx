@@ -54,6 +54,7 @@ vi.mock("@codemirror/view", () => {
   }
   return {
     EditorView: Object.assign(FakeEditorView, {
+      lineWrapping: { type: "lineWrapping" },
       updateListener: {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         of: (fn: any) => {
@@ -657,5 +658,38 @@ describe("QueryEditor — Escape on the completion list (#2054)", () => {
     );
 
     expect(mockCloseCompletion).not.toHaveBeenCalled();
+  });
+});
+
+describe("QueryEditor toolbar and wrapping (#2388)", () => {
+  it("wraps a long line instead of running off the edge", async () => {
+    render(<QueryEditor />);
+    await flushAsync();
+    expect(lastStateConfig?.extensions).toContainEqual({
+      type: "lineWrapping",
+    });
+  });
+
+  it("hides Run when asked, and shows the extra controls in the same toolbar", async () => {
+    const { rerender } = render(
+      <QueryEditor defaultValue="RETURN 1" onRun={vi.fn()} />,
+    );
+    await flushAsync();
+    expect(screen.getByRole("button", { name: /^Run/ })).toBeInTheDocument();
+
+    rerender(
+      <QueryEditor
+        defaultValue="RETURN 1"
+        onRun={vi.fn()}
+        showRun={false}
+        toolbar={<button type="button">Templates</button>}
+      />,
+    );
+    await flushAsync();
+    expect(screen.queryByRole("button", { name: /^Run/ })).toBeNull();
+    const clear = screen.getByRole("button", { name: "Clear query" });
+    expect(clear.closest(".border-b")).toContainElement(
+      screen.getByRole("button", { name: "Templates" }),
+    );
   });
 });
