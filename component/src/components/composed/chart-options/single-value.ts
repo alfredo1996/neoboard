@@ -6,7 +6,8 @@ export const singleValueOptions: ChartOptionDef[] = [
     label: "Title",
     type: "text",
     default: "",
-    category: "Display",
+    category: "Value",
+    help: "Leave blank to hide.",
     description: "Custom heading shown above the value. Leave blank to hide.",
   },
   {
@@ -14,7 +15,7 @@ export const singleValueOptions: ChartOptionDef[] = [
     label: "Prefix",
     type: "text",
     default: "",
-    category: "Display",
+    category: "Value",
     description: "Text prepended to the value (e.g. '$', '€').",
   },
   {
@@ -22,7 +23,7 @@ export const singleValueOptions: ChartOptionDef[] = [
     label: "Suffix",
     type: "text",
     default: "",
-    category: "Display",
+    category: "Value",
     description: "Text appended to the value (e.g. '%', ' items').",
   },
   {
@@ -30,16 +31,18 @@ export const singleValueOptions: ChartOptionDef[] = [
     label: "Decimal Places",
     type: "number",
     default: -1,
-    category: "Display",
+    category: "Value",
+    auto: -1,
+    help: "0 to 6.",
     description:
-      "Fixed number of decimal places (0-6). Set to -1 for automatic.",
+      "Fixed number of decimal places (0-6). Leave empty for automatic.",
   },
   {
     key: "fontSize",
     label: "Font Size",
     type: "select",
     default: "lg",
-    category: "Display",
+    category: "Value",
     description: "Size of the main displayed value.",
     options: [
       { label: "Small", value: "sm" },
@@ -53,7 +56,7 @@ export const singleValueOptions: ChartOptionDef[] = [
     label: "Number Format",
     type: "select",
     default: "plain",
-    category: "Display",
+    category: "Value",
     description:
       "Number format for the value. Percent scales a ratio: query 0.42 to render 42%.",
     options: [
@@ -68,7 +71,8 @@ export const singleValueOptions: ChartOptionDef[] = [
     label: "Show Trend Indicator",
     type: "boolean",
     default: false,
-    category: "Display",
+    category: "Value",
+    help: "Needs 2 rows.",
     description:
       "Trend arrow comparing the current value to the previous period. Needs 2 rows.",
   },

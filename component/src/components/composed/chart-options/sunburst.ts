@@ -7,7 +7,8 @@ export const sunburstOptions: ChartOptionDef[] = [
     label: "Label Depth",
     type: "number",
     default: 2,
-    category: "Labels",
+    category: "Data labels",
+    help: "1 is the first ring only.",
     description:
       "Maximum ring depth at which labels are shown (1 = first ring only, 2 = first two, etc.).",
   },
@@ -29,7 +30,8 @@ export const sunburstOptions: ChartOptionDef[] = [
     label: "Sunburst Center Text",
     type: "text",
     default: "",
-    category: "Labels",
+    category: "Data labels",
+    help: "Leave blank to show the total alone.",
     description:
       "Label shown under the total in the center. Leave blank to show the total alone.",
   },
@@ -38,7 +40,7 @@ export const sunburstOptions: ChartOptionDef[] = [
     label: "Highlight on Hover",
     type: "boolean",
     default: true,
-    category: "Style",
+    category: "Layout",
     description: "Enlarge and emphasise a segment when hovered.",
   },
 ];

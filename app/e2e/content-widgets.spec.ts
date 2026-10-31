@@ -44,7 +44,9 @@ test.describe("Content-only widgets (Markdown & iFrame)", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Chart type is the second combobox (first is connection)
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Markdown" }).click();
 
     // The Add Widget button should be enabled without a query
@@ -63,11 +65,14 @@ test.describe("Content-only widgets (Markdown & iFrame)", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "Markdown" }).click();
 
-    // Author multiline markdown in the Style tab's content textarea.
-    await dialog.getByRole("tab", { name: "Style" }).click();
+    // Author multiline markdown in Content, the one section a markdown widget
+    // has (#2388).
+    await expect(dialog.getByRole("tab", { name: "Content" })).toBeVisible();
     const content = dialog.locator("#content");
     await expect(content).toBeVisible({ timeout: 5_000 });
     // It must be a real textarea (not a single-line input that strips newlines).
@@ -95,7 +100,9 @@ test.describe("Content-only widgets (Markdown & iFrame)", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Chart type is the second combobox (first is connection)
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "iFrame" }).click();
 
     // The Add Widget button should be enabled without a query
@@ -158,12 +165,13 @@ test.describe("Content-only widgets (Markdown & iFrame)", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page.getByRole("option", { name: "iFrame" }).click();
-    await dialog.getByRole("tab", { name: "Style" }).click();
 
     await dialog.locator("#url").fill("https://example.com");
-    await dialog.getByRole("button", { name: "Security" }).click();
+    await dialog.getByRole("tab", { name: "Behavior" }).click();
     await dialog.locator("#sandbox").fill("allow-scripts allow-same-origin");
 
     await expect(dialog.locator("#sandbox-help")).toContainText(

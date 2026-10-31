@@ -24,6 +24,15 @@ vi.mock("@neoboard/components", () => ({
   }: React.PropsWithChildren<Record<string, unknown>>) => (
     <label {...props}>{children}</label>
   ),
+  WidgetCard: ({
+    title,
+    children,
+  }: React.PropsWithChildren<{ title?: string }>) => (
+    <section data-testid="widget-card">
+      {title && <h3>{title}</h3>}
+      {children}
+    </section>
+  ),
   LoadingOverlay: ({ text }: { text?: string }) => (
     <div role="status">{text}</div>
   ),
@@ -135,11 +144,15 @@ describe("WidgetPreviewPanel", () => {
   // grid column*, so the preview never competed for the editor's height.
   // Dropping the dead token; `h-[500px]` stays because chart/graph renderers
   // measure their container.
-  it("keeps a real preview height without the inert flex-shrink-0 token", () => {
-    render(<WidgetPreviewPanel {...makeProps()} />);
-    const preview = screen.getByTestId("widget-preview");
-    expect(preview.className).toContain("h-[500px]");
-    expect(preview.className).not.toContain("flex-shrink-0");
+  it("sits in a widget card that reads as the dashboard's will, with the title (#2388)", () => {
+    render(<WidgetPreviewPanel {...makeProps({ title: "Top actors" })} />);
+    const card = screen.getByTestId("widget-card");
+    expect(card).toContainElement(screen.getByTestId("widget-preview"));
+    expect(card).toHaveTextContent("Top actors");
+    // The old fixed 500px box is gone: the card fills the dialog's height.
+    expect(screen.getByTestId("widget-preview").className).not.toContain(
+      "h-[500px]",
+    );
   });
 
   it("renders 'Run a query to see the preview' when no connection", () => {

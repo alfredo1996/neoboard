@@ -7,6 +7,32 @@ import type { Transform } from "@/lib/query/data-transforms";
 // Mock @neoboard/components to avoid cross-package resolution issues
 vi.mock("@neoboard/components", async () => ({
   Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
+  SettingRow: ({
+    label,
+    htmlFor,
+    children,
+  }: React.PropsWithChildren<{ label: string; htmlFor?: string }>) => (
+    <div>
+      <label htmlFor={htmlFor}>{label}</label>
+      {children}
+    </div>
+  ),
+  Switch: ({
+    id,
+    checked,
+    onCheckedChange,
+  }: {
+    id?: string;
+    checked?: boolean;
+    onCheckedChange?: (v: boolean) => void;
+  }) => (
+    <button
+      role="switch"
+      id={id}
+      aria-checked={checked}
+      onClick={() => onCheckedChange?.(!checked)}
+    />
+  ),
   Button: ({
     children,
     ...props
@@ -181,7 +207,7 @@ describe("TransformEditor", () => {
     expect(screen.getByText(/transforms are disabled/i)).toBeInTheDocument();
   });
 
-  it("renders enable/disable checkbox when onEnabledChange is provided", () => {
+  it("renders Enable transforms as a switch that turns the steps off without deleting them", () => {
     const onEnabledChange = vi.fn();
     render(
       <TransformEditor
@@ -192,7 +218,10 @@ describe("TransformEditor", () => {
         onEnabledChange={onEnabledChange}
       />,
     );
-    expect(screen.getByLabelText(/enable transforms/i)).toBeInTheDocument();
+    const toggle = screen.getByRole("switch", { name: /enable transforms/i });
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(toggle);
+    expect(onEnabledChange).toHaveBeenCalledWith(false);
   });
 
   it("does not render enable/disable checkbox when onEnabledChange is omitted", () => {

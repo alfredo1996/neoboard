@@ -12,7 +12,7 @@ export function LabMetadataForm() {
   const setLabTagsInput = useWidgetEditorStore((s) => s.setLabTagsInput);
 
   return (
-    <div className="space-y-3 mb-4 pb-4 border-b">
+    <div className="grid gap-3">
       <Field label="Template Name" id="lab-template-name">
         <Input
           value={labName}

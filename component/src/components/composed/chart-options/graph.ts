@@ -24,7 +24,7 @@ export const graphOptions: ChartOptionDef[] = [
     label: "Show Relationship Labels",
     type: "boolean",
     default: false,
-    category: "Labels",
+    category: "Data labels",
     description:
       "Draw the relationship type on each edge. Off by default: the type shows on hover.",
   },

@@ -1,19 +1,18 @@
 "use client";
 
-import { useId } from "react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
-import { Tag, Button, MultiSelect } from "@neoboard/components";
+import { Tag, Button, MultiSelect, SettingRow } from "@neoboard/components";
 import type { MultiSelectOption } from "@neoboard/components";
 
-export interface AdvancedFormRefreshSectionProps {
+export interface AfterSubmitRefreshProps {
   otherWidgets: { id: string; title: string; chartType: string }[];
 }
 
-export function AdvancedFormRefreshSection({
+/** Behavior → After submit: the widgets a form refreshes when it succeeds (#2388). */
+export function AfterSubmitRefresh({
   otherWidgets,
-}: AdvancedFormRefreshSectionProps) {
-  const headingId = useId();
+}: Readonly<AfterSubmitRefreshProps>) {
   const refreshWidgetIds = useWidgetEditorStore((s) => s.refreshWidgetIds);
   const setRefreshWidgetIds = useWidgetEditorStore(
     (s) => s.setRefreshWidgetIds,
@@ -29,18 +28,17 @@ export function AdvancedFormRefreshSection({
     otherWidgets.every((w) => refreshWidgetIds.includes(w.id));
 
   return (
-    <div className="space-y-4">
-      <h4
-        id={headingId}
-        className="text-xs font-medium uppercase text-muted-foreground tracking-wider"
-      >
-        After Submit
-      </h4>
-      <p className="text-xs text-muted-foreground">
-        Refresh these widgets when the form submits successfully.
-      </p>
-      {otherWidgets.length > 0 ? (
-        <div className="space-y-2">
+    <SettingRow
+      label="Refresh widgets"
+      labelId="after-submit-refresh-label"
+      help={
+        otherWidgets.length > 0
+          ? "Refreshed when the form submits successfully."
+          : "No other widgets on this page."
+      }
+    >
+      {otherWidgets.length > 0 && (
+        <div className="w-full space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
               {refreshWidgetIds.length} of {otherWidgets.length} selected
@@ -49,7 +47,7 @@ export function AdvancedFormRefreshSection({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-6 text-xs px-2"
+              className="h-6 px-2 text-xs"
               onClick={() => {
                 setRefreshWidgetIds(
                   allSelected ? [] : otherWidgets.map((w) => w.id),
@@ -60,7 +58,7 @@ export function AdvancedFormRefreshSection({
             </Button>
           </div>
           <MultiSelect
-            aria-labelledby={headingId}
+            aria-labelledby="after-submit-refresh-label"
             options={options}
             value={refreshWidgetIds}
             onChange={setRefreshWidgetIds}
@@ -89,11 +87,7 @@ export function AdvancedFormRefreshSection({
             }}
           />
         </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          No other widgets on this page.
-        </p>
       )}
-    </div>
+    </SettingRow>
   );
 }

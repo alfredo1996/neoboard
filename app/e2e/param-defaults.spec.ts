@@ -171,9 +171,13 @@ test.describe("Parameter defaults are applied on load (#1421)", () => {
       await page.goto(`/${id}/edit`);
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
       await page.getByRole("option", { name: "Parameter Selector" }).click();
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option").first().click();
       await dialog.locator("#seed-query").fill("RETURN 1999 AS value");
       await dialog.getByLabel("Parameter Name").fill("year");
@@ -181,7 +185,7 @@ test.describe("Parameter defaults are applied on load (#1421)", () => {
       await expect(
         dialog.getByText("1 option loaded — see preview"),
       ).toBeVisible({ timeout: 15_000 });
-      await dialog.getByRole("tab", { name: "Style" }).click();
+      await dialog.getByRole("tab", { name: "Behavior" }).click();
       await dialog.locator("#defaultValue").fill("1999");
       await dialog.getByRole("button", { name: "Add Widget" }).click();
       await expect(dialog).toBeHidden();

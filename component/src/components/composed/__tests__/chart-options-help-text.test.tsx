@@ -1,6 +1,6 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { ChartOptionsPanel } from "../chart-options-panel";
+import { OptionRows } from "./option-rows";
 import {
   getChartOptions,
   CHART_TYPES_WITH_OPTIONS,
@@ -11,12 +11,6 @@ vi.setConfig({ testTimeout: 15000 });
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
-
-function expandAllCategories() {
-  screen
-    .getAllByRole("button", { expanded: false })
-    .forEach((btn) => fireEvent.click(btn));
-}
 
 /**
  * #1549 — option help text.
@@ -42,31 +36,22 @@ function expandAllCategories() {
 const MAX_DESCRIPTION_LENGTH = 90;
 
 describe("#1549 — option help text layout", () => {
-  it("keeps a boolean row's description out of the switch's flex row", () => {
+  it("reads a boolean's description but does not draw it, so every row stays one line (#2388)", () => {
     const option = getChartOptions("bar").find(
-      (o) => o.type === "boolean" && o.description,
+      (o) => o.type === "boolean" && o.description && !o.help,
     );
     expect(option, "no described boolean option to test").toBeDefined();
 
     render(
-      <ChartOptionsPanel
-        chartType="bar"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
     );
-    expandAllCategories();
 
-    const control = document.getElementById(option!.key);
     const description = document.getElementById(`${option!.key}-desc`);
-    expect(control).not.toBeNull();
-    expect(description).not.toBeNull();
-
-    // The defect, stated structurally: label and description belong to one
-    // wrapper, and the switch is outside it.
-    const wrapper = description!.parentElement!;
-    expect(wrapper.contains(control!)).toBe(false);
-    expect(wrapper.querySelector("label")).not.toBeNull();
+    expect(description).toHaveClass("sr-only");
+    expect(document.getElementById(option!.key)).toHaveAttribute(
+      "aria-describedby",
+      `${option!.key}-desc`,
+    );
   });
 
   it("wraps described and undescribed options the same way", () => {
@@ -77,19 +62,14 @@ describe("#1549 — option help text layout", () => {
     if (!bare) return; // every boolean is described — nothing to compare
 
     render(
-      <ChartOptionsPanel
-        chartType="bar"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
     );
-    expandAllCategories();
 
-    const labelOf = (key: string) =>
+    const rowOf = (key: string) =>
       document.querySelector(`label[for="${key}"]`)!.parentElement!;
-    // Same nesting depth for both, so rows do not jump when a description is
-    // added or removed.
-    expect(labelOf(described!.key).tagName).toBe(labelOf(bare.key).tagName);
+    // Same row for both, so rows do not jump when a description is added or
+    // removed.
+    expect(rowOf(described!.key).className).toBe(rowOf(bare.key).className);
   });
 });
 

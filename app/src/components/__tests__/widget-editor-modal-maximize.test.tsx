@@ -14,7 +14,10 @@ import userEvent from "@testing-library/user-event";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import type { WidgetTemplate } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
-import type { ChartTypeSelectorProps } from "../widget-editor/chart-type-selector";
+import type {
+  ChartTypeSelectProps,
+  ConnectionSelectProps,
+} from "../widget-editor/chart-type-selector";
 
 vi.mock("next/dynamic", () => ({
   default: () => {
@@ -22,7 +25,9 @@ vi.mock("next/dynamic", () => ({
       <div
         data-testid="query-editor"
         data-class-name={String(props.className ?? "")}
-      />
+      >
+        {props.toolbar as React.ReactNode}
+      </div>
     );
     Stub.displayName = "QueryEditorStub";
     return Stub;
@@ -36,7 +41,7 @@ const { dismiss, selector, browser, updateTemplate, seed, connectorList } =
   vi.hoisted(() => ({
     dismiss: {} as Record<string, ((e?: unknown) => void) | undefined>,
     /** The chart-type picker's props, as the user reaches them. */
-    selector: {} as Partial<ChartTypeSelectorProps>,
+    selector: {} as Partial<ChartTypeSelectProps & ConnectionSelectProps>,
     /** From Template's pick, as the user reaches it. */
     browser: {} as { onApply?: (t: WidgetTemplate) => void },
     /** Edit Template's save (#2076). */
@@ -167,8 +172,8 @@ vi.mock("@neoboard/components", async () => {
     }: React.PropsWithChildren<Record<string, unknown>>) => (
       <label {...props}>{children}</label>
     ),
-    Checkbox: (props: Record<string, unknown>) => (
-      <input type="checkbox" {...props} />
+    Switch: (props: Record<string, unknown>) => (
+      <input type="checkbox" role="switch" {...props} />
     ),
     Alert: ({
       children,
@@ -192,11 +197,24 @@ vi.mock("@neoboard/components", async () => {
     DropdownMenuItem: ({ children }: React.PropsWithChildren) => (
       <div>{children}</div>
     ),
-    // Only the Data tab matters here — that's where the query editor lives.
-    ChartSettingsPanel: ({ dataTab }: { dataTab?: React.ReactNode }) => (
-      <div data-testid="chart-settings">{dataTab}</div>
+    // Every group is drawn, in one list: this test is about the modal's
+    // composition, not the panel's sections.
+    ChartSettingsPanel: ({
+      groups,
+    }: {
+      groups: { name: string; render: (search: string) => React.ReactNode }[];
+    }) => (
+      <div data-testid="chart-settings">
+        {groups.map((g) => (
+          <div key={g.name} data-group={g.name}>
+            {g.render("")}
+          </div>
+        ))}
+      </div>
     ),
-    ChartOptionsPanel: () => <div />,
+    chartOptionGroups: () => [],
+    getChartOptions: () => [],
+    OPTION_GROUPS: {},
     ColorScalePanel: () => <div />,
     // Per type, so a reset to another type's defaults shows (#2054).
     getDefaultChartSettings: (type: string) => ({ defaultsFor: type }),
@@ -244,7 +262,11 @@ vi.mock("../widget-editor/widget-preview-panel", () => ({
   },
 }));
 vi.mock("../widget-editor/chart-type-selector", () => ({
-  ChartTypeSelector: (props: ChartTypeSelectorProps) => {
+  ChartTypeSelect: (props: ChartTypeSelectProps) => {
+    Object.assign(selector, props);
+    return <div />;
+  },
+  ConnectionSelect: (props: ConnectionSelectProps) => {
     Object.assign(selector, props);
     return <div />;
   },
@@ -253,8 +275,16 @@ vi.mock("../widget-editor/form-fields-editor", () => ({
   FormFieldsEditor: () => <div />,
 }));
 vi.mock("../widget-editor/parameter-config-section", () => ({
-  ParameterConfigSection: ({ isLabMode }: { isLabMode?: boolean }) => (
-    <div data-testid="param-config" data-lab-mode={String(isLabMode)} />
+  ParameterConfigSection: ({
+    isLabMode,
+    connectionSlot,
+  }: {
+    isLabMode?: boolean;
+    connectionSlot?: React.ReactNode;
+  }) => (
+    <div data-testid="param-config" data-lab-mode={String(isLabMode)}>
+      {connectionSlot}
+    </div>
   ),
 }));
 vi.mock("../widget-editor/action-rules-editor", () => ({
@@ -277,17 +307,20 @@ vi.mock("../widget-editor/template-browser", () => ({
     return <div />;
   },
 }));
-vi.mock("../widget-editor/advanced-caching-section", () => ({
-  AdvancedCachingSection: () => <div />,
+vi.mock("../widget-editor/caching-section", () => ({
+  CachingSection: () => <div />,
 }));
-vi.mock("../widget-editor/advanced-interactivity-section", () => ({
-  AdvancedInteractivitySection: () => <div />,
+vi.mock("../widget-editor/interaction-section", () => ({
+  InteractionSection: () => <div />,
 }));
-vi.mock("../widget-editor/advanced-styling-section", () => ({
-  AdvancedStylingSection: () => <div />,
+vi.mock("../widget-editor/rules-section", () => ({
+  RulesSection: () => <div />,
 }));
-vi.mock("../widget-editor/advanced-form-refresh-section", () => ({
-  AdvancedFormRefreshSection: () => <div />,
+vi.mock("../widget-editor/write-mode-section", () => ({
+  WriteModeSection: () => <div />,
+}));
+vi.mock("../widget-editor/after-submit-refresh", () => ({
+  AfterSubmitRefresh: () => <div />,
 }));
 vi.mock("../widget-editor/lab-metadata-form", () => ({
   LabMetadataForm: () => <div />,
@@ -307,15 +340,6 @@ function renderModal() {
   );
 }
 
-/** The grid lives on the only element carrying an inline gridTemplateColumns. */
-function gridColumns(): string {
-  const body = document.querySelector<HTMLElement>(
-    '[style*="grid-template-columns"]',
-  );
-  expect(body).not.toBeNull();
-  return body!.style.gridTemplateColumns;
-}
-
 function footerButtons() {
   return {
     cancel: screen.queryByRole("button", { name: "Cancel" }),
@@ -328,23 +352,22 @@ describe("WidgetEditorModal — editor maximize (#1374)", () => {
     useWidgetEditorStore.getState().resetForAdd();
   });
 
-  it("marks the widget title optional, once, in the label (#2217)", () => {
+  it("marks the widget title optional in its placeholder, in the header (#2217, #2388)", () => {
     renderModal();
-    const title = screen.getByLabelText("Widget Title (optional)");
-    expect(title).toHaveAttribute("placeholder", "Custom title");
+    const title = screen.getByLabelText("Widget Title");
+    expect(title).toHaveAttribute("placeholder", "Untitled widget (optional)");
   });
 
-  it("starts collapsed: two columns, preview mounted, editor at min height", () => {
+  it("starts collapsed: preview mounted, query box capped at 320px", () => {
     renderModal();
-    expect(gridColumns()).toBe("minmax(0, 1fr) minmax(0, 1fr)");
     expect(screen.getByTestId("widget-preview")).toBeInTheDocument();
     expect(screen.getByTestId("query-editor")).toHaveAttribute(
       "data-class-name",
-      "min-h-[220px]",
+      "[&_.cm-editor]:max-h-[320px]",
     );
   });
 
-  it("unmounts the preview and collapses to one column when maximized", async () => {
+  it("unmounts the preview when maximized", async () => {
     const user = userEvent.setup();
     renderModal();
 
@@ -353,10 +376,9 @@ describe("WidgetEditorModal — editor maximize (#1374)", () => {
     // Unmounted, not hidden — renderers must re-measure from scratch on the
     // way back rather than wake up at 0x0.
     expect(screen.queryByTestId("widget-preview")).not.toBeInTheDocument();
-    expect(gridColumns()).toBe("minmax(0, 1fr)");
     expect(
       screen.getByTestId("query-editor").getAttribute("data-class-name"),
-    ).toContain("h-[70vh]");
+    ).toContain("min-h-[50vh]");
   });
 
   it("restores both panes when toggled back", async () => {
@@ -367,10 +389,9 @@ describe("WidgetEditorModal — editor maximize (#1374)", () => {
     await user.click(screen.getByRole("button", { name: /collapse editor/i }));
 
     expect(screen.getByTestId("widget-preview")).toBeInTheDocument();
-    expect(gridColumns()).toBe("minmax(0, 1fr) minmax(0, 1fr)");
     expect(screen.getByTestId("query-editor")).toHaveAttribute(
       "data-class-name",
-      "min-h-[220px]",
+      "[&_.cm-editor]:max-h-[320px]",
     );
   });
 
@@ -387,7 +408,6 @@ describe("WidgetEditorModal — editor maximize (#1374)", () => {
     useWidgetEditorStore.getState().setChartType("markdown");
 
     expect(await screen.findByTestId("widget-preview")).toBeInTheDocument();
-    expect(gridColumns()).toBe("minmax(0, 1fr) minmax(0, 1fr)");
   });
 
   it("keeps the footer actions rendered in both states (#1041)", async () => {
@@ -403,7 +423,7 @@ describe("WidgetEditorModal — editor maximize (#1374)", () => {
     expect(footerButtons().save).toBeInTheDocument();
     // The footer must stay a sibling of the scrollable body, not inside it.
     const footer = screen.getByTestId("modal-footer");
-    const body = document.querySelector('[style*="grid-template-columns"]');
+    const body = screen.getByTestId("chart-settings").parentElement;
     expect(body!.contains(footer)).toBe(false);
   });
 });
@@ -1161,5 +1181,74 @@ describe("WidgetEditorModal — descriptions (#2223)", () => {
       "data-describedby-suppressed",
       String(!described),
     );
+  });
+});
+
+// #2388: each widget kind gets the groups its sections are made of.
+describe("WidgetEditorModal — which groups each widget gets (#2388)", () => {
+  function groupsOf(
+    chartType: string,
+    mode: "add" | "lab-create" = "add",
+    canWrite = false,
+  ) {
+    render(
+      <WidgetEditorModal
+        open
+        onOpenChange={vi.fn()}
+        mode={mode}
+        connections={[]}
+        onSave={vi.fn()}
+        canWrite={canWrite}
+      />,
+    );
+    act(() => useWidgetEditorStore.getState().setChartType(chartType));
+    return Array.from(document.querySelectorAll("[data-group]")).map(
+      (el) => el.getAttribute("data-group") ?? "",
+    );
+  }
+
+  it.each([
+    [
+      "bar",
+      ["Query", "Transform", "Rules", "Caching", "Interaction"],
+      ["Fields", "Filter", "After submit", "Write mode"],
+    ],
+    ["markdown", [], ["Query", "Transform", "Caching", "Interaction", "Rules"]],
+    [
+      "form",
+      ["Query", "Fields", "After submit"],
+      // Saving discards a form's transforms, so it is not offered one.
+      ["Transform", "Caching", "Interaction", "Rules", "Filter"],
+    ],
+    [
+      "parameter-select",
+      ["Filter"],
+      [
+        "Connection",
+        "Query",
+        "Transform",
+        "Caching",
+        "Interaction",
+        "After submit",
+      ],
+    ],
+  ])("%s", (chartType, has, hasNot) => {
+    const groups = groupsOf(chartType);
+    for (const name of has) expect(groups, name).toContain(name);
+    for (const name of hasNot) expect(groups, name).not.toContain(name);
+  });
+
+  it("the Widget Library puts the template fields in Data, and no write mode", () => {
+    const groups = groupsOf("bar", "lab-create", true);
+    expect(groups).toEqual(expect.arrayContaining(["Template", "Query"]));
+    expect(groups).not.toContain("Write mode");
+  });
+
+  it("write mode is behind canWrite", () => {
+    expect(groupsOf("bar", "add", false)).not.toContain("Write mode");
+  });
+
+  it("write mode shows for a user who can write", () => {
+    expect(groupsOf("bar", "add", true)).toContain("Write mode");
   });
 });

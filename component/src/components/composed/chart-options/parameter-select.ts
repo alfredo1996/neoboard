@@ -13,7 +13,7 @@ function swatchOption(
     label,
     type: "swatch",
     default: "default",
-    category: "Appearance",
+    category: "Field",
     options: [
       { value: "default", label: "Default", token: defaultToken },
       ...names.map((name) => {
@@ -42,7 +42,7 @@ export const parameterSelectOptions: ChartOptionDef[] = [
     label: "Placeholder",
     type: "text",
     default: "",
-    category: "Behaviour",
+    category: "Field",
     description:
       "Hint text shown inside the selector when no value has been chosen.",
   },
@@ -51,7 +51,7 @@ export const parameterSelectOptions: ChartOptionDef[] = [
     label: "Search-as-you-type",
     type: "boolean",
     default: true,
-    category: "Behaviour",
+    category: "Input",
     description:
       "Allow the user to type to filter the option list in real time.",
   },
@@ -60,7 +60,7 @@ export const parameterSelectOptions: ChartOptionDef[] = [
     label: "Default Value",
     type: "text",
     default: "",
-    category: "Behaviour",
+    category: "Input",
     description:
       "Value used on dashboard load when no selection has been made. Leave empty for no default.",
   },
@@ -69,7 +69,7 @@ export const parameterSelectOptions: ChartOptionDef[] = [
     label: "Sync to URL",
     type: "boolean",
     default: false,
-    category: "Behaviour",
+    category: "Input",
     description:
       "Keep the selected value in the URL so it survives reloads and can be shared.",
   },

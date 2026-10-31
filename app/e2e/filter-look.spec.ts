@@ -53,7 +53,7 @@ async function seed(
   expect(put.ok()).toBe(true);
 }
 
-async function openStyleTab(page: import("@playwright/test").Page) {
+async function openEditor(page: import("@playwright/test").Page) {
   const card = page.locator("[data-widget-id='p-actor']");
   await card.hover();
   await card
@@ -64,6 +64,11 @@ async function openStyleTab(page: import("@playwright/test").Page) {
     .click();
   const dialog = page.getByRole("dialog", { name: "Edit Widget", exact: true });
   await expect(dialog).toBeVisible({ timeout: 10_000 });
+  return dialog;
+}
+
+async function openStyleTab(page: import("@playwright/test").Page) {
+  const dialog = await openEditor(page);
   await dialog.getByRole("tab", { name: "Style", exact: true }).click();
   return dialog;
 }
@@ -191,7 +196,7 @@ test("Appearance is offered for a select and hidden for a relative date", async 
         dialog.getByRole("radiogroup", { name, exact: true }),
       ).toBeVisible();
     }
-    // Both groups are open: Behaviour fields are in the DOM too.
+    // Field fill, border and placeholder sit together in Style.
     await expect(
       dialog.getByLabel("Placeholder", { exact: true }),
     ).toBeVisible();
@@ -200,15 +205,17 @@ test("Appearance is offered for a select and hidden for a relative date", async 
     await seed(page.request, id, "date-relative");
     await page.goto(`/${id}/edit`);
     await expect(editingCrumb(page)).toBeVisible();
-    dialog = await openStyleTab(page);
+    // A relative date has no field to fill or outline, and nothing else to
+    // style: the section is not offered at all.
+    dialog = await openEditor(page);
     await expect(
-      dialog.getByRole("button", { name: "Behaviour", exact: true }),
+      dialog.getByRole("tab", { name: "Behavior", exact: true }),
     ).toBeVisible();
     await expect(
-      dialog.getByRole("radiogroup", { name: "Field fill", exact: true }),
+      dialog.getByRole("tab", { name: "Style", exact: true }),
     ).toHaveCount(0);
     await expect(
-      dialog.getByRole("button", { name: "Appearance", exact: true }),
+      dialog.getByRole("radiogroup", { name: "Field fill", exact: true }),
     ).toHaveCount(0);
   } finally {
     await cleanup();

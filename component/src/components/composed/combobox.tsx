@@ -47,6 +47,8 @@ export interface ComboboxProps {
   className?: string;
   disabled?: boolean;
   id?: string;
+  /** Names the control when no visible label points at it (the editor header, #2388). */
+  "aria-label"?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: React.AriaAttributes["aria-invalid"];
 }
@@ -107,14 +109,14 @@ function Combobox({
           )}
         >
           {selectedOption ? (
-            <span className="flex items-center gap-2 truncate">
+            <span className="flex min-w-0 items-center gap-2 truncate">
               {selectedOption.icon && (
                 <selectedOption.icon className="h-4 w-4 shrink-0 opacity-70" />
               )}
               {selectedOption.label}
             </span>
           ) : (
-            placeholder
+            <span className="min-w-0 truncate">{placeholder}</span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>

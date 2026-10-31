@@ -49,6 +49,14 @@ export interface QueryEditorProps {
   "aria-label"?: string;
   /** Id of the element that names the text field; wins over `aria-label`. */
   "aria-labelledby"?: string;
+  /**
+   * Show the Run button in the toolbar (default). Ctrl/Cmd+Enter runs either
+   * way. The widget editor hides it while its preview, which has the Run, is
+   * on screen (#2388).
+   */
+  showRun?: boolean;
+  /** Extra controls in the toolbar, after the language: one toolbar, which wraps (#2388). */
+  toolbar?: React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -197,6 +205,8 @@ async function buildExtensions(
 
   return [
     historyExt(),
+    // A long line wraps instead of running off the edge (#2388).
+    EditorView.lineWrapping,
     closeBrackets(),
     keymap.of([
       ...defaultKeymap,
@@ -235,6 +245,8 @@ function QueryEditor({
   schema,
   "aria-label": ariaLabel = "Query editor",
   "aria-labelledby": ariaLabelledby,
+  showRun = true,
+  toolbar,
 }: QueryEditorProps) {
   const [internalValue, setInternalValue] = React.useState(defaultValue);
   const currentValue = value ?? internalValue;
@@ -683,8 +695,8 @@ function QueryEditor({
       className={cn("rounded-xl border bg-muted/30 flex flex-col", className)}
     >
       {/* Toolbar */}
-      <div className="flex items-center justify-between border-b px-3 py-2 shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b px-3 py-2 shrink-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {languageLabel && (
             <span
               data-testid="query-editor-language"
@@ -693,6 +705,7 @@ function QueryEditor({
               {languageLabel}
             </span>
           )}
+          {toolbar}
           {history && history.length > 0 && (
             <Select onValueChange={handleHistorySelect}>
               <SelectTrigger className="h-7 w-auto gap-1 border-none bg-transparent text-xs text-muted-foreground hover:text-foreground">
@@ -734,20 +747,22 @@ function QueryEditor({
               <span className="ml-1">Run &amp; Save</span>
             </span>
           )}
-          <Button
-            size="sm"
-            className="h-7 gap-1"
-            onClick={handleRun}
-            disabled={!currentValue.trim() || running}
-            title="Run query (Ctrl+Enter / ⌘+Enter)"
-          >
-            {running ? (
-              <Spinner size="sm" className="h-3 w-3" aria-hidden="true" />
-            ) : (
-              <Play className="h-3 w-3" />
-            )}
-            {running ? "Running" : "Run"}
-          </Button>
+          {showRun && (
+            <Button
+              size="sm"
+              className="h-7 gap-1"
+              onClick={handleRun}
+              disabled={!currentValue.trim() || running}
+              title="Run query (Ctrl+Enter / ⌘+Enter)"
+            >
+              {running ? (
+                <Spinner size="sm" className="h-3 w-3" aria-hidden="true" />
+              ) : (
+                <Play className="h-3 w-3" />
+              )}
+              {running ? "Running" : "Run"}
+            </Button>
+          )}
         </div>
       </div>
 

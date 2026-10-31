@@ -216,7 +216,9 @@ test.describe("Code completion — Cypher + SQL", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // Select the PostgreSQL connection
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await waitForEditorReady(dialog, page);
@@ -237,7 +239,9 @@ test.describe("Code completion — Cypher + SQL", () => {
   }) => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
     await waitForEditorReady(dialog, page);
     await waitForSchemaLoaded(dialog, page);
@@ -268,7 +272,9 @@ test.describe("Code completion — Cypher + SQL", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option", { name: SEEDED_PG_OPTION }).click();
 
     await waitForEditorReady(dialog, page);
@@ -294,7 +300,9 @@ test.describe("Code completion — Cypher + SQL", () => {
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
     // The first connection option is the seeded Neo4j instance.
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await waitForEditorReady(dialog, page);
@@ -322,7 +330,9 @@ test.describe("Code completion — Cypher + SQL", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await waitForEditorReady(dialog, page);
@@ -357,7 +367,9 @@ test.describe("Code completion — Cypher + SQL", () => {
       dialog.getByRole("button", { name: "Refresh schema" }),
     ).not.toBeVisible();
 
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     // Now it should appear (connectionId is set)
@@ -370,7 +382,9 @@ test.describe("Code completion — Cypher + SQL", () => {
     await page.getByRole("button", { name: "Add Widget" }).first().click();
     const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
-    await dialog.getByRole("combobox").nth(0).click();
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
     await page.getByRole("option").first().click();
 
     await waitForEditorReady(dialog, page);

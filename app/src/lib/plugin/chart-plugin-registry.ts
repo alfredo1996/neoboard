@@ -31,31 +31,11 @@
 
 import type React from "react";
 import type { z } from "zod";
+import type { ChartOptionDef } from "@neoboard/components";
 
-// ---------------------------------------------------------------------------
-// Chart option definition (duplicated shape from @neoboard/components to
-// avoid a cross-package circular dep — plugins live in the app, components
-// live in component/).
-// ---------------------------------------------------------------------------
-
-export interface ChartOptionDef {
-  key: string;
-  label: string;
-  type:
-    | "boolean"
-    | "select"
-    | "text"
-    | "textarea"
-    | "number"
-    | "swatch"
-    | "column-multi-select";
-  default: unknown;
-  category: string;
-  /** For type: "select" and "swatch" (a swatch names its colour token). */
-  options?: { label: string; value: string; token?: string }[];
-  /** Tooltip text shown next to the label. */
-  description?: string;
-}
+// The option shape lives in @neoboard/components (the editor renders it);
+// type-only, so no chart code enters a server bundle.
+export type { ChartOptionDef };
 
 // ---------------------------------------------------------------------------
 // Capability flags — explicit, no "maybe defaults later" ambiguity.

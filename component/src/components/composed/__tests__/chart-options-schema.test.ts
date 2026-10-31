@@ -1,5 +1,7 @@
+import { CHART_TYPES_WITH_OPTIONS } from "../chart-options/index";
 import { describe, it, expect } from "vitest";
 import {
+  OPTION_GROUPS,
   getChartOptions,
   getDefaultChartSettings,
 } from "../chart-options-schema";
@@ -88,12 +90,12 @@ describe("getChartOptions", () => {
       "syncToUrl",
     ]);
     expect(options.map((o) => o.category)).toEqual([
-      "Appearance",
-      "Appearance",
-      "Behaviour",
-      "Behaviour",
-      "Behaviour",
-      "Behaviour",
+      "Field",
+      "Field",
+      "Field",
+      "Input",
+      "Input",
+      "Input",
     ]);
   });
 
@@ -279,8 +281,8 @@ describe("getDefaultChartSettings", () => {
     const options = getChartOptions("bar");
     const refresh = options.find((o) => o.key === "showRefreshButton");
     const manual = options.find((o) => o.key === "manualRun");
-    expect(refresh?.category).toBe("Behavior");
-    expect(manual?.category).toBe("Behavior");
+    expect(refresh?.category).toBe("Refresh");
+    expect(manual?.category).toBe("Refresh");
   });
 
   it("behavior options default to false", () => {
@@ -328,11 +330,11 @@ describe("getDefaultChartSettings", () => {
     expect(defaults.cacheMode).toBe("ttl");
   });
 
-  it("cacheMode is a select option in category 'Behavior' with ttl and forever values", () => {
+  it("cacheMode is a select option in group 'Caching' with ttl and forever values", () => {
     const options = getChartOptions("bar");
     const cacheMode = options.find((o) => o.key === "cacheMode");
     expect(cacheMode?.type).toBe("select");
-    expect(cacheMode?.category).toBe("Behavior");
+    expect(cacheMode?.category).toBe("Caching");
     expect(cacheMode?.options).toHaveLength(2);
     expect(cacheMode?.options).toContainEqual({
       label: "TTL (time-based)",
@@ -373,10 +375,10 @@ describe("getDefaultChartSettings", () => {
     expect(defaults.colorblindMode).toBe(false);
   });
 
-  it("colorblindMode has category 'Accessibility'", () => {
+  it("colorblindMode sits in the 'Color' group", () => {
     const options = getChartOptions("bar");
     const opt = options.find((o) => o.key === "colorblindMode");
-    expect(opt?.category).toBe("Accessibility");
+    expect(opt?.category).toBe("Color");
     expect(opt?.type).toBe("boolean");
   });
 });
@@ -435,11 +437,11 @@ describe("colorPalette option", () => {
     }
   });
 
-  it("colorPalette is a select option in the 'Appearance' category", () => {
+  it("colorPalette is a select option in the 'Color' group", () => {
     const options = getChartOptions("bar");
     const opt = options.find((o) => o.key === "colorPalette");
     expect(opt?.type).toBe("select");
-    expect(opt?.category).toBe("Appearance");
+    expect(opt?.category).toBe("Color");
   });
 
   it("colorPalette select options include 'citrine' and 'tableau'", () => {
@@ -612,5 +614,56 @@ describe("treemap chart options", () => {
     // groups, and the breadcrumb is derived from whether the data has depth.
     expect(keys).not.toContain("colorSaturation");
     expect(keys).not.toContain("showBreadcrumb");
+  });
+
+  it("every option of every chart sits in a known group (#2388)", () => {
+    for (const type of CHART_TYPES_WITH_OPTIONS) {
+      for (const opt of getChartOptions(type)) {
+        expect(Object.keys(OPTION_GROUPS), `${type}.${opt.key}`).toContain(
+          opt.category,
+        );
+      }
+    }
+  });
+});
+
+describe("option units", () => {
+  // The editor strips "(px)" from a label, so the number field must carry it.
+  const unitOf = (label: string) => /\(([^)]+)\)$/.exec(label)?.[1];
+  const labelled = CHART_TYPES_WITH_OPTIONS.flatMap((type) =>
+    getChartOptions(type)
+      .filter((o) => o.type === "number" && unitOf(o.label))
+      .map((o) => [`${type}.${o.key}`, o] as const),
+  );
+
+  it.each(labelled)("%s keeps the unit its label names", (_name, option) => {
+    expect(option.unit).toBe(unitOf(option.label));
+  });
+});
+
+describe("option help", () => {
+  const all = CHART_TYPES_WITH_OPTIONS.flatMap((type) =>
+    getChartOptions(type).map((o) => [`${type}.${o.key}`, o] as const),
+  );
+
+  it.each(all)(
+    "%s names no issue number in text a screen reader reads",
+    (_n, o) => {
+      expect(`${o.description ?? ""} ${o.help ?? ""}`).not.toMatch(/#\d{3,}/);
+    },
+  );
+
+  // The description is read aloud only; these carry a format or a precondition
+  // an author needs on screen.
+  it.each([
+    ["gauge", "thresholdZones"],
+    ["bar", "referenceLines"],
+    ["line", "rightAxisSeries"],
+    ["map", "tileLayer"],
+    ["gantt", "showProgress"],
+    ["single-value", "trendEnabled"],
+  ])("%s.%s shows its rule as help", (type, key) => {
+    const option = getChartOptions(type).find((o) => o.key === key);
+    expect(option?.help).toBeTruthy();
   });
 });

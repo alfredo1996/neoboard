@@ -21,7 +21,9 @@ async function addBarWidgetToDashboard(page: import("@playwright/test").Page) {
   const dialog = page.getByRole("dialog", { name: "Add Widget" });
 
   // Select Neo4j connection
-  await dialog.getByRole("combobox").nth(0).click();
+  await dialog
+    .getByRole("combobox", { name: "Connection", exact: true })
+    .click();
   await page.getByRole("option").first().click();
 
   // Type a query using the reliable typeInEditor helper
@@ -353,7 +355,9 @@ test.describe("Widget Library", () => {
       await dialog.locator("#lab-template-tags").fill("e2e, test");
 
       // Select a connection
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option").first().click();
 
       // Type a query
@@ -614,7 +618,9 @@ test.describe("Widget Library", () => {
 
         // Re-pick the connection the template preselected: a no-op that
         // keeps it (#2326); it used to toggle it off.
-        await mainDialog.getByRole("combobox").nth(0).click();
+        await mainDialog
+          .getByRole("combobox", { name: "Connection", exact: true })
+          .click();
         await page.getByRole("option").first().click();
 
         await mainDialog.getByRole("button", { name: "Add Widget" }).click();
@@ -858,9 +864,9 @@ test.describe("Widget Library", () => {
           { timeout: 15_000 },
         );
         // On the template's own connection, with no pick of the user's.
-        await expect(addDialog.getByRole("combobox").nth(0)).toContainText(
-          graph!.name,
-        );
+        await expect(
+          addDialog.getByRole("combobox", { name: "Connection", exact: true }),
+        ).toContainText(graph!.name);
         await addDialog.getByRole("button", { name: "Add Widget" }).click();
         await expect(addDialog).not.toBeVisible();
         await saveDashboard(page);

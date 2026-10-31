@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { ChartOptionsPanel } from "../chart-options-panel";
-import { getChartOptions } from "../chart-options-schema";
+import { OptionRows } from "./option-rows";
+import { OPTION_GROUPS, getChartOptions } from "../chart-options-schema";
+import { CHART_TYPES_WITH_OPTIONS } from "../chart-options/index";
 
 // This panel renders every option for a chart type (+ category expansion), a
 // heavy jsdom render that intermittently exceeds the 5s default under parallel
@@ -13,53 +14,29 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
 
-/** Expand all collapsed category sections so their content is in the DOM. */
-function expandAllCategories() {
-  screen
-    .getAllByRole("button", { expanded: false })
-    .forEach((btn) => fireEvent.click(btn));
-}
-
-describe("ChartOptionsPanel", () => {
+describe("OptionRows", () => {
   it("renders options for bar chart", () => {
     render(
-      <ChartOptionsPanel
-        chartType="bar"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
     );
-    expandAllCategories();
     expect(screen.getByText("Orientation")).toBeInTheDocument();
-    expect(screen.getByText("Stack Mode")).toBeInTheDocument();
-    expect(screen.getByText("Show Values")).toBeInTheDocument();
-    expect(screen.getByText("Show Legend")).toBeInTheDocument();
-    expect(screen.getByText("Bar Width (px, 0=auto)")).toBeInTheDocument();
-    expect(screen.getByText("Show Grid Lines")).toBeInTheDocument();
-  });
-
-  it("shows empty message for unknown chart type", () => {
-    render(
-      <ChartOptionsPanel
-        chartType="unknown"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
-    );
-    expect(screen.getByText(/no configurable options/i)).toBeInTheDocument();
+    expect(screen.getByText("Stacking")).toBeInTheDocument();
+    expect(screen.getByText("Show values")).toBeInTheDocument();
+    expect(screen.getByText("Show legend")).toBeInTheDocument();
+    expect(screen.getByText("Bar width")).toBeInTheDocument();
+    expect(screen.getByText("Grid lines")).toBeInTheDocument();
   });
 
   it("calls onSettingsChange when a boolean switch is toggled", () => {
     const onChange = vi.fn();
     render(
-      <ChartOptionsPanel
+      <OptionRows
         chartType="bar"
         settings={{ showValues: false }}
         onSettingsChange={onChange}
       />,
     );
-    expandAllCategories();
-    const switchEl = screen.getByRole("switch", { name: "Show Values" });
+    const switchEl = screen.getByRole("switch", { name: "Show values" });
     fireEvent.click(switchEl);
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ showValues: true }),
@@ -69,14 +46,9 @@ describe("ChartOptionsPanel", () => {
   it("calls onSettingsChange when a text input changes", () => {
     const onChange = vi.fn();
     render(
-      <ChartOptionsPanel
-        chartType="line"
-        settings={{}}
-        onSettingsChange={onChange}
-      />,
+      <OptionRows chartType="line" settings={{}} onSettingsChange={onChange} />,
     );
-    expandAllCategories();
-    const input = screen.getByLabelText("X-Axis Label");
+    const input = screen.getByLabelText("X axis label");
     fireEvent.change(input, { target: { value: "Time" } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ xAxisLabel: "Time" }),
@@ -86,14 +58,13 @@ describe("ChartOptionsPanel", () => {
   it("calls onSettingsChange when a number input changes", () => {
     const onChange = vi.fn();
     render(
-      <ChartOptionsPanel
+      <OptionRows
         chartType="table"
         settings={{}}
         onSettingsChange={onChange}
       />,
     );
-    expandAllCategories();
-    const input = screen.getByLabelText("Page Size");
+    const input = screen.getByLabelText("Page size");
     fireEvent.change(input, { target: { value: "50" } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ pageSize: 50 }),
@@ -103,14 +74,13 @@ describe("ChartOptionsPanel", () => {
   it("ignores a cleared number input instead of committing 0 (#1292)", () => {
     const onChange = vi.fn();
     render(
-      <ChartOptionsPanel
+      <OptionRows
         chartType="table"
         settings={{}}
         onSettingsChange={onChange}
       />,
     );
-    expandAllCategories();
-    fireEvent.change(screen.getByLabelText("Page Size"), {
+    fireEvent.change(screen.getByLabelText("Page size"), {
       target: { value: "" },
     });
     // Number("") is 0, so clearing the field used to commit pageSize: 0 —
@@ -118,18 +88,32 @@ describe("ChartOptionsPanel", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("leaves a number alone when it is emptied and has no automatic value or placeholder (#1292)", () => {
+    const onChange = vi.fn();
+    render(
+      <OptionRows
+        chartType="line"
+        settings={{ lineWidth: 3 }}
+        onSettingsChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Line width"), {
+      target: { value: "" },
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("shows Page Size with the Auto placeholder, and clearing a typed value saves it unset (#2356)", () => {
     const onChange = vi.fn();
     render(
-      <ChartOptionsPanel
+      <OptionRows
         chartType="table"
         settings={{ pageSize: 5 }}
         onSettingsChange={onChange}
       />,
     );
-    expandAllCategories();
-    const input = screen.getByLabelText("Page Size");
-    expect(input).toHaveAttribute("placeholder", "Auto (fits the card)");
+    const input = screen.getByLabelText("Page size");
+    expect(input).toHaveAttribute("placeholder", "Auto");
     fireEvent.change(input, { target: { value: "" } });
     const saved = onChange.mock.calls[0][0];
     expect("pageSize" in saved).toBe(false);
@@ -137,93 +121,72 @@ describe("ChartOptionsPanel", () => {
 
   it("renders Page Size empty when no page size is saved (#2356)", () => {
     render(
-      <ChartOptionsPanel
-        chartType="table"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="table" settings={{}} onSettingsChange={vi.fn()} />,
     );
-    expandAllCategories();
-    expect(screen.getByLabelText("Page Size")).toHaveValue(null);
+    expect(screen.getByLabelText("Page size")).toHaveValue(null);
   });
 
   it("leaves the panel's labels unmarked: the chart-options panel is exempt from (optional) (#2217)", () => {
     render(
-      <ChartOptionsPanel
+      <OptionRows
         chartType="markdown"
         settings={{}}
         onSettingsChange={vi.fn()}
       />,
     );
-    expect(screen.getByLabelText("Markdown Content")).toBeInTheDocument();
+    expect(screen.getByLabelText("Markdown content")).toBeInTheDocument();
     expect(screen.queryByText(/\(optional\)/)).not.toBeInTheDocument();
   });
 
-  it("groups options by category", () => {
+  it("renders a group's rows under its heading, groups in the fixed order for every chart (#2388)", () => {
+    const order = Object.keys(OPTION_GROUPS);
+    for (const type of CHART_TYPES_WITH_OPTIONS) {
+      const { unmount } = render(
+        <OptionRows
+          chartType={type}
+          settings={{}}
+          onSettingsChange={vi.fn()}
+        />,
+      );
+      const headings = screen
+        .queryAllByRole("heading", { level: 3 })
+        .map((h) => h.textContent ?? "");
+      expect(headings, type).toEqual(
+        [...headings].sort((x, y) => order.indexOf(x) - order.indexOf(y)),
+      );
+      // No heading without a row under it.
+      for (const h of screen.queryAllByRole("heading", { level: 3 })) {
+        expect(
+          h.parentElement!.children.length,
+          `${type} ${h.textContent}`,
+        ).toBeGreaterThan(1);
+      }
+      unmount();
+    }
     render(
-      <ChartOptionsPanel
-        chartType="bar"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
-    );
-    expect(screen.getByText("Layout")).toBeInTheDocument();
-    expect(screen.getByText("Labels")).toBeInTheDocument();
-  });
-
-  it("shows search input for chart types with many options", () => {
-    render(
-      <ChartOptionsPanel
-        chartType="map"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
-    );
-    expect(
-      screen.getByPlaceholderText("Search options..."),
-    ).toBeInTheDocument();
-  });
-
-  it("does not show search input for chart types with few options", () => {
-    // markdown has a single option, below the threshold of 4
-    render(
-      <ChartOptionsPanel
-        chartType="markdown"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
     );
     expect(
-      screen.queryByPlaceholderText("Search options..."),
-    ).not.toBeInTheDocument();
-  });
-
-  it("filters options when searching", () => {
-    render(
-      <ChartOptionsPanel
-        chartType="map"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
-    );
-    const searchInput = screen.getByPlaceholderText("Search options...");
-    fireEvent.change(searchInput, { target: { value: "zoom" } });
-    expect(screen.getByText("Default Zoom")).toBeInTheDocument();
-    expect(screen.getByText("Min Zoom")).toBeInTheDocument();
-    expect(screen.getByText("Max Zoom")).toBeInTheDocument();
-    expect(screen.queryByText("Tile Layer")).not.toBeInTheDocument();
+      screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
+    ).toEqual([
+      "Bars",
+      "Axes",
+      "Legend",
+      "Data labels",
+      "Color",
+      "Reference lines",
+      "Refresh",
+      "Caching",
+      "Interaction",
+    ]);
   });
 
   it("renders text inputs for the map tile layer and attribution (#1685)", () => {
     render(
-      <ChartOptionsPanel
-        chartType="map"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="map" settings={{}} onSettingsChange={vi.fn()} />,
     );
     // A three-entry select could not take a self-hosted template.
-    const tile = screen.getByLabelText("Tile Layer");
+    const tile = screen.getByLabelText("Tile layer");
     expect(tile.tagName).toBe("INPUT");
     expect(tile).toHaveValue(
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -236,7 +199,7 @@ describe("ChartOptionsPanel", () => {
     // throw from inside addTo(map); the chart now draws no tiles and the
     // panel says why, inline, before the creator saves it.
     render(
-      <ChartOptionsPanel
+      <OptionRows
         chartType="map"
         settings={{
           tileLayer:
@@ -247,7 +210,7 @@ describe("ChartOptionsPanel", () => {
     );
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("{apikey}");
-    expect(screen.getByLabelText("Tile Layer")).toHaveAttribute(
+    expect(screen.getByLabelText("Tile layer")).toHaveAttribute(
       "aria-invalid",
       "true",
     );
@@ -255,22 +218,17 @@ describe("ChartOptionsPanel", () => {
 
   it("shows no message for the default tile template", () => {
     render(
-      <ChartOptionsPanel
-        chartType="map"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="map" settings={{}} onSettingsChange={vi.fn()} />,
     );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("renders only placeholder and searchable for parameter-select", () => {
     render(
-      <ChartOptionsPanel
+      <OptionRows
         chartType="parameter-select"
         settings={{}}
         onSettingsChange={vi.fn()}
-        openCategories={["Appearance", "Behaviour"]}
       />,
     );
     expect(screen.getByLabelText("Placeholder")).toBeInTheDocument();
@@ -280,31 +238,14 @@ describe("ChartOptionsPanel", () => {
     expect(screen.queryByText("Selector Type")).not.toBeInTheDocument();
   });
 
-  it("applies className", () => {
-    const { container } = render(
-      <ChartOptionsPanel
-        chartType="bar"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-        className="custom-class"
-      />,
-    );
-    expect(container.firstChild).toHaveClass("custom-class");
-  });
-
-  it("renders each described option's description as visible text (#1283)", () => {
+  it("keeps each described option's description for screen readers (#1283)", () => {
     // Was: labels carried `cursor-help` + a dotted underline and the
     // description lived in a hover tooltip. A Label is not focusable, so that
     // content was pointer-only. It is now real text, linked by
     // aria-describedby — see chart-options-describedby.test.tsx.
     render(
-      <ChartOptionsPanel
-        chartType="bar"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
     );
-    expandAllCategories();
     const described = getChartOptions("bar").filter((o) => o.description);
     expect(described.length).toBeGreaterThan(0);
     for (const option of described) {
@@ -320,13 +261,8 @@ describe("ChartOptionsPanel", () => {
   it("does not render a HelpCircle icon — tooltip triggers on label text", () => {
     // The HelpCircle icon was removed; only the label itself triggers the tooltip
     const { container } = render(
-      <ChartOptionsPanel
-        chartType="bar"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
     );
-    expandAllCategories();
     // There should be no svg element with the lucide HelpCircle path inside the panel
     // Only Switch thumbs and other UI icons, no HelpCircle — check no icon has cursor-help
     const helpIcons = container.querySelectorAll("svg.cursor-help");
@@ -335,13 +271,8 @@ describe("ChartOptionsPanel", () => {
 
   it("no longer gates descriptions behind a hover affordance (#1283)", () => {
     const { container } = render(
-      <ChartOptionsPanel
-        chartType="bar"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
+      <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
     );
-    expandAllCategories();
     // The dotted underline advertised content the keyboard could never open.
     expect(container.querySelectorAll("label.cursor-help")).toHaveLength(0);
     expect(container.querySelectorAll("label.decoration-dotted")).toHaveLength(
@@ -351,14 +282,13 @@ describe("ChartOptionsPanel", () => {
 
   it("renders MultiSelect for column-multi-select type when columns are provided", () => {
     render(
-      <ChartOptionsPanel
+      <OptionRows
         chartType="table"
         settings={{ enableGrouping: true }}
         onSettingsChange={vi.fn()}
         columns={["country", "city", "population"]}
       />,
     );
-    expandAllCategories();
     // MultiSelect renders a combobox trigger with placeholder text
     expect(screen.getByText("Select columns…")).toBeInTheDocument();
   });
@@ -367,14 +297,13 @@ describe("ChartOptionsPanel", () => {
     // Exercises the csv-truthy branch (split/trim/filter) — only reached when
     // the option already has a value, which the empty-state tests don't cover.
     render(
-      <ChartOptionsPanel
+      <OptionRows
         chartType="table"
         settings={{ enableGrouping: true, groupBy: "country, city" }}
         onSettingsChange={vi.fn()}
         columns={["country", "city", "population"]}
       />,
     );
-    expandAllCategories();
     // The two saved columns render as selected chips inside the MultiSelect.
     expect(screen.getByText("country")).toBeInTheDocument();
     expect(screen.getByText("city")).toBeInTheDocument();
@@ -382,13 +311,12 @@ describe("ChartOptionsPanel", () => {
 
   it("renders text fallback for column-multi-select when no columns are provided", () => {
     render(
-      <ChartOptionsPanel
+      <OptionRows
         chartType="table"
         settings={{ enableGrouping: true }}
         onSettingsChange={vi.fn()}
       />,
     );
-    expandAllCategories();
     // Falls back to a text input when columns are not available
     const input = screen.getByPlaceholderText(
       "Run a preview query to select columns",
@@ -400,14 +328,13 @@ describe("ChartOptionsPanel", () => {
   it("calls onSettingsChange with comma-separated string when multi-select changes", () => {
     const onChange = vi.fn();
     render(
-      <ChartOptionsPanel
+      <OptionRows
         chartType="table"
         settings={{ enableGrouping: true, groupBy: "" }}
         onSettingsChange={onChange}
         columns={["country", "city", "population"]}
       />,
     );
-    expandAllCategories();
     // MultiSelect trigger shows placeholder when nothing selected
     const trigger = screen.getByText("Select columns…").closest("button")!;
     fireEvent.click(trigger);
@@ -427,7 +354,7 @@ describe("ChartOptionsPanel", () => {
   it("renders a multiline textarea for the markdown content option", () => {
     const onChange = vi.fn();
     render(
-      <ChartOptionsPanel
+      <OptionRows
         chartType="markdown"
         settings={{}}
         onSettingsChange={onChange}
@@ -438,7 +365,7 @@ describe("ChartOptionsPanel", () => {
     screen
       .queryAllByRole("button", { expanded: false })
       .forEach((btn) => fireEvent.click(btn));
-    const field = screen.getByLabelText("Markdown Content");
+    const field = screen.getByLabelText("Markdown content");
     expect(field.tagName).toBe("TEXTAREA");
 
     const multiline = "# Heading\n- item one\n- item two";
@@ -455,7 +382,7 @@ describe("ChartOptionsPanel", () => {
       extra: Record<string, unknown> = {},
     ) =>
       render(
-        <ChartOptionsPanel
+        <OptionRows
           chartType="parameter-select"
           settings={settings}
           onSettingsChange={onSettingsChange}
@@ -463,7 +390,7 @@ describe("ChartOptionsPanel", () => {
         />,
       );
 
-    it("shows Appearance first, open, with a radiogroup of named swatches", () => {
+    it("shows the Field group first, with a radiogroup of named swatches", () => {
       renderFilter({});
       const group = screen.getByRole("radiogroup", { name: "Field fill" });
       const names = within(group)
@@ -475,8 +402,9 @@ describe("ChartOptionsPanel", () => {
           .getAllByRole("radio")
           .map((r) => r.getAttribute("aria-label")),
       ).toEqual(["Default", "Azure", "Citrine", "Sage", "Ink"]);
-      const headings = screen.getAllByRole("button", { expanded: true });
-      expect(headings[0]).toHaveTextContent("Appearance");
+      expect(screen.getAllByRole("heading", { level: 3 })[0]).toHaveTextContent(
+        "Field",
+      );
     });
 
     it("marks the stored value checked, Default when nothing is stored", () => {
@@ -548,33 +476,105 @@ describe("ChartOptionsPanel", () => {
       ]);
     });
 
-    it("openCategories opens Behaviour beside Appearance on a filter", () => {
-      renderFilter({}, vi.fn(), {
-        openCategories: ["Appearance", "Behaviour"],
-      });
+    it("shows a filter's Field and Input groups together, none collapsed", () => {
+      renderFilter({});
       expect(screen.getByLabelText("Placeholder")).toBeInTheDocument();
+      expect(screen.getByText("Sync to URL")).toBeInTheDocument();
       expect(
         screen.getByRole("radiogroup", { name: "Field fill" }),
       ).toBeInTheDocument();
     });
 
-    it("without openCategories only the first group is open", () => {
-      renderFilter({});
-      expect(screen.queryByLabelText("Placeholder")).not.toBeInTheDocument();
-    });
-
-    it("a search match inside a collapsed group shows the field, not just the heading", () => {
-      renderFilter({});
-      fireEvent.change(screen.getByPlaceholderText("Search options..."), {
-        target: { value: "sync" },
-      });
-      expect(screen.getByText("Sync to URL")).toBeInTheDocument();
-    });
-
     it("hiddenCategories leaves a category out", () => {
-      renderFilter({}, vi.fn(), { hiddenCategories: ["Appearance"] });
-      expect(screen.queryByText("Appearance")).not.toBeInTheDocument();
+      renderFilter({}, vi.fn(), { hiddenCategories: ["Field"] });
+      expect(screen.queryByText("Field")).not.toBeInTheDocument();
       expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
     });
+  });
+
+  describe("rows sized to their values (#2388)", () => {
+    const rotation = () => screen.getByLabelText("Label rotation");
+
+    it.each([
+      ["axisLabelRotation", "Label rotation", -1],
+      ["barWidth", "Bar width", 0],
+    ])(
+      "shows a stored %s of %s as an empty Auto field and leaves it when saved untouched",
+      (key, label, auto) => {
+        const onChange = vi.fn();
+        render(
+          <OptionRows
+            chartType="bar"
+            settings={{ [key]: auto }}
+            onSettingsChange={onChange}
+          />,
+        );
+        const input = screen.getByLabelText(label);
+        expect(input).toHaveValue(null);
+        expect(input).toHaveAttribute("placeholder", "Auto");
+        expect(onChange).not.toHaveBeenCalled();
+      },
+    );
+
+    it("stores a typed value as a number, and an emptied field as the automatic value", () => {
+      const onChange = vi.fn();
+      render(
+        <OptionRows
+          chartType="bar"
+          settings={{ axisLabelRotation: 45 }}
+          onSettingsChange={onChange}
+        />,
+      );
+      fireEvent.change(rotation(), { target: { value: "30" } });
+      expect(onChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ axisLabelRotation: 30 }),
+      );
+      fireEvent.change(rotation(), { target: { value: "" } });
+      expect(onChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ axisLabelRotation: -1 }),
+      );
+    });
+
+    it("draws a two- or three-way choice as a segmented control storing the old values", () => {
+      const onChange = vi.fn();
+      render(
+        <OptionRows
+          chartType="bar"
+          settings={{}}
+          onSettingsChange={onChange}
+        />,
+      );
+      expect(screen.getAllByRole("radio", { name: "Vertical" })).toHaveLength(
+        1,
+      );
+      fireEvent.click(screen.getByRole("radio", { name: "Horizontal" }));
+      expect(onChange).toHaveBeenLastCalledWith({ orientation: "horizontal" });
+      fireEvent.click(screen.getByRole("radio", { name: "Stacked" }));
+      expect(onChange).toHaveBeenLastCalledWith({ stackMode: "stacked" });
+      fireEvent.click(screen.getByRole("radio", { name: "100%" }));
+      expect(onChange).toHaveBeenLastCalledWith({ stackMode: "percent" });
+    });
+
+    it("keeps a longer list as a dropdown", () => {
+      render(
+        <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
+      );
+      expect(
+        screen.getByRole("combobox", { name: "Palette" }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("drops the unit in parentheses and lowercases later words in a label", () => {
+    render(
+      <OptionRows
+        chartType="sankey"
+        settings={{}}
+        onSettingsChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Node width")).toBeInTheDocument();
+    expect(screen.getByText("Node gap")).toBeInTheDocument();
+    expect(screen.queryByText(/\(px\)/)).not.toBeInTheDocument();
   });
 });

@@ -6,7 +6,7 @@ export const radarOptions: ChartOptionDef[] = [
     label: "Shape",
     type: "select",
     default: "polygon",
-    category: "Style",
+    category: "Layout",
     description: "Outline shape of the radar grid.",
     options: [
       { label: "Polygon", value: "polygon" },
@@ -18,7 +18,7 @@ export const radarOptions: ChartOptionDef[] = [
     label: "Fill Area",
     type: "boolean",
     default: true,
-    category: "Style",
+    category: "Layout",
     description: "Fill the area enclosed by the data polygon.",
   },
   {
@@ -30,7 +30,7 @@ export const radarOptions: ChartOptionDef[] = [
     label: "Show Values on Points",
     type: "boolean",
     default: false,
-    category: "Labels",
+    category: "Data labels",
     description: "Display the numeric value at each data point on the radar.",
   },
 ];

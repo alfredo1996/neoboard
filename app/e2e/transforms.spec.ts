@@ -24,14 +24,18 @@ async function setupWidgetWithQuery(
   // fetch that re-renders the dialog, and clicking the second combobox during
   // it times out. Same order as heavy-widgets.spec.ts.
   if (opts.chartType) {
-    await dialog.getByRole("combobox").nth(1).click();
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
     await page
       .getByRole("option", { name: opts.chartType, exact: true })
       .click();
   }
 
   // Select Neo4j connection
-  await dialog.getByRole("combobox").nth(0).click();
+  await dialog
+    .getByRole("combobox", { name: "Connection", exact: true })
+    .click();
   await page.getByRole("option").first().click();
 
   // Wait for editor to stabilize after connection selection triggers schema fetch
@@ -101,7 +105,7 @@ test.describe("Data Transforms", () => {
     const dialog = await setupWidgetWithQuery(page);
 
     // Switch to Transform tab
-    await dialog.getByRole("tab", { name: "Transform" }).click();
+    await dialog.getByRole("tab", { name: "Data" }).click();
 
     // Should show empty state text + Add button
     await expect(
@@ -131,13 +135,13 @@ test.describe("Data Transforms", () => {
     const rows = preview.locator("tbody tr");
     await expect(rows).toHaveCount(4);
 
-    await dialog.getByRole("tab", { name: "Transform" }).click();
+    await dialog.getByRole("tab", { name: "Data" }).click();
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
     await expect(dialog.getByText("1. Filter")).toBeVisible();
 
     // Configure it: year > 2000. The default is `== ""`, which is why simply
     // adding a card — all this file did before — proves nothing.
-    const panel = dialog.getByRole("tabpanel");
+    const panel = dialog.locator("[data-group='Transform']");
     await pickByKey(page, panel.getByRole("combobox").first(), "y", "year");
     await pickByKey(page, panel.getByRole("combobox").nth(1), ">", ">");
     await panel.getByPlaceholder("value or param").fill("2000");
@@ -166,8 +170,8 @@ test.describe("Data Transforms", () => {
     const preview = getPreview(dialog);
     await expect(preview.locator("tbody tr")).toHaveCount(3);
 
-    await dialog.getByRole("tab", { name: "Transform" }).click();
-    const panel = dialog.getByRole("tabpanel");
+    await dialog.getByRole("tab", { name: "Data" }).click();
+    const panel = dialog.locator("[data-group='Transform']");
     // With no cards yet, the only combobox is the type picker next to Add.
     await panel.getByRole("combobox").first().click();
     await page.getByRole("option", { name: /^Calculated Column/ }).click();
@@ -193,8 +197,8 @@ test.describe("Data Transforms", () => {
       query: "UNWIND ['Ann', 'Bob'] AS name RETURN name, 1 AS n",
     });
 
-    await dialog.getByRole("tab", { name: "Transform" }).click();
-    const panel = dialog.getByRole("tabpanel");
+    await dialog.getByRole("tab", { name: "Data" }).click();
+    const panel = dialog.locator("[data-group='Transform']");
     await panel.getByRole("combobox").first().click();
     await page.getByRole("option", { name: /^Rename Columns/ }).click();
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
@@ -223,8 +227,8 @@ test.describe("Data Transforms", () => {
     const prices = preview.locator("tbody tr td:first-child");
     await expect(prices).toHaveText(["10", "20", "30"]);
 
-    await dialog.getByRole("tab", { name: "Transform" }).click();
-    const panel = dialog.getByRole("tabpanel");
+    await dialog.getByRole("tab", { name: "Data" }).click();
+    const panel = dialog.locator("[data-group='Transform']");
     const combos = panel.getByRole("combobox");
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
     await expect(dialog.getByText("1. Filter")).toBeVisible();
@@ -258,8 +262,8 @@ test.describe("Data Transforms", () => {
     const preview = getPreview(dialog);
     await expect(preview.locator("tbody tr")).toHaveCount(5);
 
-    await dialog.getByRole("tab", { name: "Transform" }).click();
-    const panel = dialog.getByRole("tabpanel");
+    await dialog.getByRole("tab", { name: "Data" }).click();
+    const panel = dialog.locator("[data-group='Transform']");
     const combos = panel.getByRole("combobox");
     const pick = (nth: number, key: string, expected: string) =>
       pickByKey(page, combos.nth(nth), key, expected);
@@ -286,7 +290,7 @@ test.describe("Data Transforms", () => {
     test.setTimeout(90_000);
     const dialog = await setupWidgetWithQuery(page);
 
-    await dialog.getByRole("tab", { name: "Transform" }).click();
+    await dialog.getByRole("tab", { name: "Data" }).click();
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
 
     // Filter card should appear with "1. Filter" badge
@@ -304,7 +308,7 @@ test.describe("Data Transforms", () => {
     test.setTimeout(90_000);
     const dialog = await setupWidgetWithQuery(page);
 
-    await dialog.getByRole("tab", { name: "Transform" }).click();
+    await dialog.getByRole("tab", { name: "Data" }).click();
 
     // Add two transforms
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
@@ -330,7 +334,7 @@ test.describe("Data Transforms", () => {
     const dialog = await setupWidgetWithQuery(page);
 
     // Add a filter transform
-    await dialog.getByRole("tab", { name: "Transform" }).click();
+    await dialog.getByRole("tab", { name: "Data" }).click();
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
     await expect(dialog.getByText("1. Filter")).toBeVisible();
 
@@ -353,7 +357,7 @@ test.describe("Data Transforms", () => {
     await expect(editDialog).toBeVisible({ timeout: 10_000 });
 
     // Switch to Transform tab — saved transform should be there
-    await editDialog.getByRole("tab", { name: "Transform" }).click();
+    await editDialog.getByRole("tab", { name: "Data" }).click();
     await expect(editDialog.getByText("1. Filter")).toBeVisible({
       timeout: 5_000,
     });
@@ -363,7 +367,7 @@ test.describe("Data Transforms", () => {
     test.setTimeout(90_000);
     const dialog = await setupWidgetWithQuery(page);
 
-    await dialog.getByRole("tab", { name: "Transform" }).click();
+    await dialog.getByRole("tab", { name: "Data" }).click();
 
     // Add a limit transform (reduces data)
     await dialog.getByRole("button", { name: "Add", exact: true }).click();

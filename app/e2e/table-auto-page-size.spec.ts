@@ -26,9 +26,13 @@ async function addTableWidget(page: Page, pageSize?: string) {
     .first()
     .click();
   const dialog = page.getByRole("dialog", { name: "Add Widget", exact: true });
-  await dialog.getByRole("combobox").nth(1).click();
+  await dialog
+    .getByRole("combobox", { name: "Chart Type", exact: true })
+    .click();
   await page.getByRole("option", { name: "Data Table", exact: true }).click();
-  await dialog.getByRole("combobox").nth(0).click();
+  await dialog
+    .getByRole("combobox", { name: "Connection", exact: true })
+    .click();
   await page
     .getByRole("option", { name: "Movies Graph (Neo4j) Neo4j", exact: true })
     .click();
@@ -46,10 +50,9 @@ async function addTableWidget(page: Page, pageSize?: string) {
   });
 
   await dialog.getByRole("tab", { name: "Style", exact: true }).click();
-  await dialog.getByRole("button", { name: "Pagination", exact: true }).click();
   const field = dialog.locator("#pageSize");
   await expect(field).toHaveValue("");
-  await expect(field).toHaveAttribute("placeholder", "Auto (fits the card)");
+  await expect(field).toHaveAttribute("placeholder", "Auto");
   if (pageSize) await field.fill(pageSize);
 
   await dialog.getByRole("button", { name: "Add Widget", exact: true }).click();

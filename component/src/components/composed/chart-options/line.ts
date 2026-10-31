@@ -13,7 +13,7 @@ export const lineOptions: ChartOptionDef[] = [
     label: "Smooth Curve",
     type: "boolean",
     default: false,
-    category: "Style",
+    category: "Lines",
     description:
       "Render lines as smooth Bézier curves instead of straight segments.",
   },
@@ -22,16 +22,17 @@ export const lineOptions: ChartOptionDef[] = [
     label: "Fill Area",
     type: "boolean",
     default: false,
-    category: "Style",
+    category: "Lines",
     description:
       "Fill the area beneath the line to emphasise volume over time.",
   },
   {
     key: "lineWidth",
-    label: "Line Width (px)",
+    label: "Line Width",
     type: "number",
     default: 2,
-    category: "Style",
+    category: "Lines",
+    unit: "px",
     description: "Stroke width of the line in pixels.",
   },
   {
@@ -39,7 +40,7 @@ export const lineOptions: ChartOptionDef[] = [
     label: "Stepped Line",
     type: "boolean",
     default: false,
-    category: "Style",
+    category: "Lines",
     description:
       "Draw the line as a step function — useful for discrete state changes.",
   },
@@ -48,7 +49,7 @@ export const lineOptions: ChartOptionDef[] = [
     label: "Show Data Points",
     type: "boolean",
     default: false,
-    category: "Style",
+    category: "Lines",
     description: "Draw a dot at each data point along the line.",
   },
   {
@@ -56,7 +57,7 @@ export const lineOptions: ChartOptionDef[] = [
     label: "Connect Nulls",
     type: "boolean",
     default: false,
-    category: "Style",
+    category: "Lines",
     description:
       "Draw a continuous line through missing (null) data points instead of breaking the line.",
   },
@@ -65,7 +66,7 @@ export const lineOptions: ChartOptionDef[] = [
     label: "Show End Labels",
     type: "boolean",
     default: false,
-    category: "Style",
+    category: "Data labels",
     description: "Show the series name as a label at the end of each line.",
   },
   SHARED_SHOW_GRID_LINES,
@@ -76,7 +77,8 @@ export const lineOptions: ChartOptionDef[] = [
     label: "Right Y-Axis Series",
     type: "text",
     default: "",
-    category: "Labels",
+    category: "Axes",
+    help: "Series names, comma-separated. Empty keeps one axis.",
     description:
       "Comma-separated series to render on a right-hand Y-axis. Empty means one axis.",
   },
@@ -85,7 +87,8 @@ export const lineOptions: ChartOptionDef[] = [
     label: "Right Y-Axis Label",
     type: "text",
     default: "",
-    category: "Labels",
+    category: "Axes",
+    help: "Applies only when Right Y-Axis Series is set.",
     description:
       "Custom label for the secondary Y-axis. Applies only when Right Y-Axis Series is non-empty.",
   },
@@ -97,6 +100,7 @@ export const lineOptions: ChartOptionDef[] = [
     type: "number",
     default: 1000,
     category: "Performance",
+    help: "Above this many points the line is sampled.",
     description:
       "Enable LTTB downsampling when data points exceed this count. Set to 0 to disable.",
   },

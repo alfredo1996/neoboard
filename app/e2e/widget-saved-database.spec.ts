@@ -398,9 +398,13 @@ test.describe("Widgets run on their saved database (#1824)", () => {
 
       await page.getByRole("button", { name: "Add Widget" }).first().click();
       const dialog = page.getByRole("dialog", { name: "Add Widget" });
-      await dialog.getByRole("combobox").nth(1).click();
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
       await page.getByRole("option", { name: "Form" }).click();
-      await dialog.getByRole("combobox").nth(0).click();
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
       await page.getByRole("option", { name: connectionName }).click();
       await typeInEditor(
         dialog,

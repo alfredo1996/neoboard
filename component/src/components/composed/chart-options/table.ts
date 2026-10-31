@@ -6,7 +6,7 @@ export const tableOptions: ChartOptionDef[] = [
     label: "Enable Sorting",
     type: "boolean",
     default: true,
-    category: "Features",
+    category: "Columns",
     description:
       "Allow clicking column headers to sort rows ascending or descending.",
   },
@@ -15,7 +15,7 @@ export const tableOptions: ChartOptionDef[] = [
     label: "Row Selection",
     type: "boolean",
     default: false,
-    category: "Features",
+    category: "Rows",
     description: "Allow selecting individual rows by clicking them.",
   },
   {
@@ -23,7 +23,7 @@ export const tableOptions: ChartOptionDef[] = [
     label: "Search Box",
     type: "boolean",
     default: false,
-    category: "Features",
+    category: "Rows",
     description: "A search box above the table, matching every visible column.",
   },
   {
@@ -31,7 +31,7 @@ export const tableOptions: ChartOptionDef[] = [
     label: "Column Resizing",
     type: "boolean",
     default: false,
-    category: "Features",
+    category: "Columns",
     description:
       "Allow drag-to-resize column borders. Double-click to auto-fit.",
   },
@@ -40,7 +40,7 @@ export const tableOptions: ChartOptionDef[] = [
     label: "Enable Pagination",
     type: "boolean",
     default: true,
-    category: "Pagination",
+    category: "Rows",
     description:
       "Show Previous / Next controls to page through large result sets.",
   },
@@ -50,8 +50,9 @@ export const tableOptions: ChartOptionDef[] = [
     type: "number",
     // No default: unset means Auto, rows fit the card (#2356).
     default: undefined,
-    placeholder: "Auto (fits the card)",
-    category: "Pagination",
+    placeholder: "Auto",
+    help: "Leave empty to fit the card.",
+    category: "Rows",
     description: "Rows per page. Leave empty to fit the card.",
   },
   {
@@ -59,7 +60,7 @@ export const tableOptions: ChartOptionDef[] = [
     label: "Empty Message",
     type: "text",
     default: "No results",
-    category: "Display",
+    category: "Rows",
     description: "Text displayed when the query returns no rows.",
   },
   {
@@ -67,7 +68,7 @@ export const tableOptions: ChartOptionDef[] = [
     label: "Number Format",
     type: "select",
     default: "auto",
-    category: "Display",
+    category: "Numbers",
     description:
       "Number format for all numeric cells. Percent scales a ratio: 0.12 renders as 12%.",
     options: [
@@ -83,7 +84,9 @@ export const tableOptions: ChartOptionDef[] = [
     label: "Decimal Places",
     type: "number",
     default: -1,
-    category: "Display",
+    category: "Numbers",
+    auto: -1,
+    help: "0 to 6.",
     description:
       "Decimal places for numeric cells (0-6). -1 is automatic: up to 2.",
   },

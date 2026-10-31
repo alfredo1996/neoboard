@@ -1,10 +1,11 @@
 import * as React from "react";
 import { getChartOptions } from "./chart-options-schema";
-import type { ChartOptionDef } from "./chart-options-schema";
+import type { ChartOptionDef, OptionGroup } from "./chart-options-schema";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Field } from "@/components/ui/field";
+import { FieldError } from "@/components/ui/field-error";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -13,21 +14,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, ChevronDown, ChevronRight } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MultiSelect } from "./multi-select";
+import { SettingRow } from "./setting-row";
+import type { SettingsGroup } from "./chart-settings-panel";
 
-export interface ChartOptionsPanelProps {
+export interface ChartOptionGroupsProps {
   chartType: string;
   settings: Record<string, unknown>;
   onSettingsChange: (settings: Record<string, unknown>) => void;
-  className?: string;
   /** Available column names from query results — used for column-multi-select fields. */
   columns?: string[];
-  /** Categories to leave out, for a state where they do not apply (#2368). */
-  hiddenCategories?: string[];
-  /** Categories that start open besides the first (#2368). */
-  openCategories?: string[];
+  /** Groups to leave out, for a state where they do not apply (#2368). */
+  hiddenCategories?: readonly OptionGroup[];
 }
 
 /**
@@ -38,16 +38,17 @@ function SwatchGroup({
   option,
   value,
   onChange,
+  labelId,
 }: Readonly<{
   option: ChartOptionDef;
   value: unknown;
   onChange: (key: string, value: unknown) => void;
+  labelId: string;
 }>) {
   const items = option.options ?? [];
   // A stored value that is not a preset reads as the default, like the filter does.
   const current = items.some((i) => i.value === value) ? value : option.default;
   const refs = React.useRef<(HTMLButtonElement | null)[]>([]);
-  const labelId = `${option.key}-label`;
   function onKeyDown(e: React.KeyboardEvent, index: number) {
     const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[
       e.key
@@ -59,365 +60,418 @@ function SwatchGroup({
     refs.current[next]?.focus();
   }
   return (
-    <div className="space-y-1.5">
-      <span id={labelId} className="text-sm font-medium leading-none">
-        {option.label}
-      </span>
-      <div
-        role="radiogroup"
-        aria-labelledby={labelId}
-        className="flex flex-wrap gap-1.5"
-      >
-        {items.map((item, i) => {
-          const checked = item.value === current;
-          return (
-            <button
-              key={item.value}
-              ref={(el) => {
-                refs.current[i] = el;
-              }}
-              type="button"
-              role="radio"
-              aria-checked={checked}
-              aria-label={item.label}
-              title={item.label}
-              tabIndex={checked ? 0 : -1}
-              onClick={() => onChange(option.key, item.value)}
-              onKeyDown={(e) => onKeyDown(e, i)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-sm border px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-                checked
-                  ? "border-ring bg-accent text-accent-foreground"
-                  : "border-input text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <span
-                aria-hidden="true"
-                className="h-3.5 w-3.5 rounded-sm border border-input"
-                style={{ background: `hsl(var(${item.token}))` }}
-              />
-              {item.label}
-              {/* Fixed slot, so the chip does not resize when the selection moves. */}
-              {checked ? (
-                <Check aria-hidden="true" className="h-3 w-3" />
-              ) : (
-                <span aria-hidden="true" className="h-3 w-3" />
-              )}
-            </button>
-          );
-        })}
-      </div>
+    <div
+      role="radiogroup"
+      aria-labelledby={labelId}
+      className="flex flex-wrap gap-1.5"
+    >
+      {items.map((item, i) => {
+        const checked = item.value === current;
+        return (
+          <button
+            key={item.value}
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            aria-label={item.label}
+            title={item.label}
+            tabIndex={checked ? 0 : -1}
+            onClick={() => onChange(option.key, item.value)}
+            onKeyDown={(e) => onKeyDown(e, i)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-sm border px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              checked
+                ? "border-ring bg-accent text-accent-foreground"
+                : "border-input text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className="h-3.5 w-3.5 rounded-sm border border-input"
+              style={{ background: `hsl(var(${item.token}))` }}
+            />
+            {item.label}
+            {/* Fixed slot, so the chip does not resize when the selection moves. */}
+            {checked ? (
+              <Check aria-hidden="true" className="h-3 w-3" />
+            ) : (
+              <span aria-hidden="true" className="h-3 w-3" />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-function OptionLabel({ option }: { option: ChartOptionDef }) {
-  // #1283 item 2b: the description used to live only in a tooltip on this
-  // Label. A Label is not focusable, so the tooltip's focus handlers could
-  // never fire — and the dotted underline advertised content the keyboard
-  // could not open. Render it as real text and let the control point at it
-  // with aria-describedby.
-  //
-  // #1549: this returned a bare Fragment, and the boolean case renders it
-  // straight inside `flex items-center justify-between`. The fragment
-  // flattened, so the description became a third flex child between the label
-  // and the Switch rather than sitting under the label. Both branches wrap so
-  // described and undescribed rows nest identically and do not jump when a
-  // description is added.
+/**
+ * "Show Grid Lines" reads "Show grid lines" in the editor, and a trailing
+ * "(JSON)" or "(px)" is the control's business, not the label's. Acronyms and
+ * single letters ("URL", "X", "N") keep their case.
+ */
+function labelOf(label: string) {
+  const open = label.indexOf("(");
+  const close = label.indexOf(")", open);
+  const bare =
+    open >= 0 && close > open
+      ? label.slice(0, open).trimEnd() + label.slice(close + 1)
+      : label;
+  return bare.replaceAll(/(?<=\s)[A-Z][a-z]+/g, (word) => word.toLowerCase());
+}
+
+/** An option value as field text: strings and numbers show, anything else is empty. */
+function asText(v: unknown) {
+  return typeof v === "string" || typeof v === "number" ? String(v) : "";
+}
+
+function NumberControl({
+  option,
+  value,
+  onChange,
+  id,
+  describedBy,
+}: Readonly<{
+  option: ChartOptionDef;
+  value: unknown;
+  onChange: (key: string, value: unknown) => void;
+  id: string;
+  describedBy?: string;
+}>) {
+  const raw = option.percent
+    ? asText(value).replace("%", "")
+    : (value ?? option.default);
+  // A stored `auto` value (0 or -1) and an unset one both read as empty.
+  let shown = "";
+  if (
+    raw !== option.auto &&
+    (typeof raw === "number" || typeof raw === "string")
+  )
+    shown = String(raw);
+  const fallback = option.auto === undefined ? option.placeholder : "Auto";
+  function write(text: string) {
+    if (option.percent)
+      return onChange(option.key, text === "" ? "" : `${text}%`);
+    // Number("") is 0, so an emptied field is not a typed 0 (#1292): it stores
+    // the option's automatic value, or unsets an option that has no stored one
+    // (#2356).
+    if (text === "") {
+      // No automatic value and no placeholder: the field has nothing to fall
+      // back to, so an emptied one leaves the option alone (#1292).
+      if (option.auto !== undefined || option.placeholder !== undefined)
+        onChange(option.key, option.auto);
+      return;
+    }
+    onChange(option.key, Number(text));
+  }
   return (
-    <div className="min-w-0 space-y-0.5">
-      <Label htmlFor={option.key} className="text-sm">
-        {option.label}
-      </Label>
-      {option.description && (
-        <p id={`${option.key}-desc`} className="text-xs text-muted-foreground">
-          {option.description}
+    <span className="inline-flex items-center gap-1.5 text-caption text-muted-foreground">
+      <Input
+        id={id}
+        type="number"
+        className="w-[84px]"
+        value={shown}
+        placeholder={fallback}
+        aria-describedby={describedBy}
+        onChange={(e) => write(e.target.value)}
+      />
+      {option.unit}
+    </span>
+  );
+}
+
+interface ControlProps {
+  readonly option: ChartOptionDef;
+  readonly value: unknown;
+  readonly set: (value: unknown) => void;
+  readonly id: string;
+  readonly labelId: string;
+  readonly describedBy?: string;
+}
+
+function SelectControl({
+  option,
+  value,
+  set,
+  id,
+  labelId,
+  describedBy,
+}: ControlProps) {
+  const current = asText(value ?? option.default);
+  if ((option.options?.length ?? 0) <= 3) {
+    return (
+      <SegmentedControl
+        aria-labelledby={labelId}
+        aria-describedby={describedBy}
+        value={current}
+        onValueChange={set}
+        options={(option.options ?? []).map((o) => ({
+          value: o.value,
+          label: o.label,
+        }))}
+      />
+    );
+  }
+  return (
+    <Select value={current} onValueChange={set}>
+      <SelectTrigger
+        id={id}
+        aria-labelledby={labelId}
+        aria-describedby={describedBy}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {option.options?.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function ColumnsControl({
+  option,
+  value,
+  set,
+  id,
+  labelId,
+  describedBy,
+  columns,
+}: ControlProps & { readonly columns?: string[] }) {
+  const csv = asText(value ?? option.default);
+  // Fall back to text input when columns are not yet available (no preview query)
+  if (!columns?.length) {
+    return (
+      <Input
+        id={id}
+        value={csv}
+        onChange={(e) => set(e.target.value)}
+        aria-describedby={describedBy}
+        placeholder="Run a preview query to select columns"
+      />
+    );
+  }
+  const selected = csv
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return (
+    <MultiSelect
+      aria-labelledby={labelId}
+      options={columns.map((col) => ({ value: col, label: col }))}
+      value={selected}
+      onChange={(vals) => set(vals.join(","))}
+      placeholder="Select columns…"
+      className="w-full"
+    />
+  );
+}
+
+function TextControl({
+  option,
+  value,
+  set,
+  id,
+  describedBy,
+}: Omit<ControlProps, "labelId">) {
+  const textValue = asText(value ?? option.default);
+  const validation = option.validate?.(textValue) ?? null;
+  const isError = validation?.level === "error";
+  const messageId = `${id}-help`;
+  const described =
+    [describedBy, validation ? messageId : undefined]
+      .filter(Boolean)
+      .join(" ") || undefined;
+  return (
+    <>
+      {option.multiline ? (
+        <Textarea
+          id={id}
+          rows={2}
+          className="font-mono text-xs"
+          value={textValue}
+          onChange={(e) => set(e.target.value)}
+          aria-describedby={described}
+        />
+      ) : (
+        <Input
+          id={id}
+          value={textValue}
+          onChange={(e) => set(e.target.value)}
+          placeholder="None"
+          aria-invalid={isError || undefined}
+          aria-describedby={described}
+        />
+      )}
+      {validation && isError && (
+        <FieldError id={messageId}>{validation.message}</FieldError>
+      )}
+      {/* A warning does not make the field invalid: it joins the help. */}
+      {validation && !isError && (
+        <p id={messageId} className="text-meta text-[hsl(var(--warning))]">
+          {validation.message}
         </p>
       )}
-    </div>
+    </>
   );
 }
 
 // No Field here carries "(optional)": the chart-options panel is exempt (owner, #2217, 2026-10-19).
-function OptionField({
+function OptionRow({
   option,
   value,
   onChange,
   columns,
-}: {
+}: Readonly<{
   option: ChartOptionDef;
   value: unknown;
   onChange: (key: string, value: unknown) => void;
   columns?: string[];
-}) {
-  switch (option.type) {
-    case "boolean":
-      return (
-        <div className="flex items-center justify-between gap-4">
-          <OptionLabel option={option} />
-          <Switch
-            stateLabel
-            className="shrink-0"
-            id={option.key}
-            aria-describedby={
-              option.description ? `${option.key}-desc` : undefined
-            }
-            checked={Boolean(value ?? option.default)}
-            onCheckedChange={(checked) => onChange(option.key, checked)}
-          />
-        </div>
-      );
+}>) {
+  const id = option.key;
+  const labelId = `${id}-label`;
+  const descId = `${id}-desc`;
+  const label = labelOf(option.label);
+  const set = (v: unknown) => onChange(option.key, v);
+  const control: ControlProps = {
+    option,
+    value,
+    set,
+    id,
+    labelId,
+    describedBy: option.description ? descId : undefined,
+  };
 
-    case "swatch":
-      return <SwatchGroup option={option} value={value} onChange={onChange} />;
-
-    case "select":
-      return (
-        <Field id={option.key} label={option.label} help={option.description}>
-          <Select
-            value={String(value ?? option.default)}
-            onValueChange={(v) => onChange(option.key, v)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {option.options?.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-      );
-
-    case "column-multi-select": {
-      // Fall back to text input when columns are not yet available (no preview query)
-      if (!columns?.length) {
-        return (
-          <Field id={option.key} label={option.label} help={option.description}>
-            <Input
-              value={String(value ?? option.default ?? "")}
-              onChange={(e) => onChange(option.key, e.target.value)}
-              placeholder="Run a preview query to select columns"
-            />
-          </Field>
-        );
-      }
-      const csv = String(value ?? option.default ?? "");
-      const selected = csv
-        ? csv
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : [];
-      const multiOptions = columns.map((col) => ({ value: col, label: col }));
-      return (
-        <Field id={option.key} label={option.label} help={option.description}>
-          <MultiSelect
-            options={multiOptions}
-            value={selected}
-            onChange={(vals) => onChange(option.key, vals.join(","))}
-            placeholder="Select columns…"
-            className="w-full"
-          />
-        </Field>
-      );
-    }
-
-    case "textarea":
-      // Multiline string options (e.g. markdown content) — a single-line
-      // Input strips newlines (#1049).
-      return (
-        <Field id={option.key} label={option.label} help={option.description}>
-          <Textarea
-            value={String(value ?? option.default ?? "")}
-            onChange={(e) => onChange(option.key, e.target.value)}
-            placeholder={option.label}
-            rows={8}
-            className="font-mono text-xs"
-          />
-        </Field>
-      );
-
-    case "text": {
-      const textValue = String(value ?? option.default ?? "");
-      const validation = option.validate?.(textValue) ?? null;
-      const isError = validation?.level === "error";
-      // A warning does not make the field invalid: it joins the help text,
-      // which the control's aria-describedby already points at (#1283 2b).
-      const help = validation && !isError && (
-        <>
-          {option.description}
-          <span className="block text-[hsl(var(--warning))]">
-            {validation.message}
-          </span>
-        </>
-      );
-      return (
-        <Field
-          id={option.key}
-          label={option.label}
-          help={help || option.description}
-          error={isError ? validation.message : undefined}
-        >
-          <Input
-            value={textValue}
-            onChange={(e) => onChange(option.key, e.target.value)}
-            placeholder={option.label}
-          />
-        </Field>
-      );
-    }
-
-    case "number": {
-      const current = value ?? option.default;
-      let shown = option.placeholder ? "" : "0";
-      if (typeof current === "number" || typeof current === "string")
-        shown = String(current);
-      return (
-        <Field id={option.key} label={option.label} help={option.description}>
-          <Input
-            type="number"
-            value={shown}
-            placeholder={option.placeholder}
-            onChange={(e) => {
-              // Number("") is 0 — clearing the field would silently
-              // commit 0 rather than leaving the option alone (#1292).
-              // An option with a placeholder is "auto" when empty, so
-              // clearing it unsets it instead (#2356).
-              if (e.target.value === "") {
-                if (option.placeholder) onChange(option.key, undefined);
-                return;
-              }
-              onChange(option.key, Number(e.target.value));
-            }}
-          />
-        </Field>
-      );
-    }
-
-    default:
-      return null;
+  if (option.type === "textarea") {
+    // Multiline string options (e.g. markdown content) — a single-line
+    // Input strips newlines (#1049). The label stacks above it.
+    return (
+      <Field id={id} label={label} help={option.help ?? option.description}>
+        <Textarea
+          value={asText(value ?? option.default)}
+          onChange={(e) => set(e.target.value)}
+          placeholder={option.label}
+          rows={16}
+          className="font-mono text-xs"
+        />
+      </Field>
+    );
   }
-}
 
-function CategorySection({
-  title,
-  defaultOpen = false,
-  forceOpen = false,
-  children,
-}: {
-  title: string;
-  defaultOpen?: boolean;
-  /** Searching shows every match, so a hit is never hidden behind a heading. */
-  forceOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  const [openState, setOpen] = React.useState(defaultOpen);
-  const open = openState || forceOpen;
+  let body: React.ReactNode = null;
+  if (option.type === "boolean") {
+    body = (
+      <Switch
+        stateLabel
+        id={id}
+        aria-describedby={control.describedBy}
+        checked={Boolean(value ?? option.default)}
+        onCheckedChange={set}
+      />
+    );
+  } else if (option.type === "swatch") {
+    body = (
+      <SwatchGroup
+        option={option}
+        value={value}
+        onChange={onChange}
+        labelId={labelId}
+      />
+    );
+  } else if (option.type === "select") {
+    body = <SelectControl {...control} />;
+  } else if (option.type === "column-multi-select") {
+    body = <ColumnsControl {...control} columns={columns} />;
+  } else if (option.type === "number" || option.percent) {
+    body = (
+      <NumberControl
+        option={option}
+        value={value ?? (option.percent ? option.default : undefined)}
+        onChange={onChange}
+        id={id}
+        describedBy={control.describedBy}
+      />
+    );
+  } else if (option.type === "text") {
+    body = <TextControl {...control} />;
+  }
+  if (body === null) return null;
+
   return (
-    <div className="space-y-3">
-      <button
-        type="button"
-        className="flex w-full items-center gap-1 text-xs font-medium uppercase text-muted-foreground tracking-wider hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-expanded={open}
-      >
-        {open ? (
-          <ChevronDown className="h-3 w-3 shrink-0" />
-        ) : (
-          <ChevronRight className="h-3 w-3 shrink-0" />
-        )}
-        {title}
-      </button>
-      {open && children}
-    </div>
+    <SettingRow
+      label={label}
+      htmlFor={id}
+      labelId={labelId}
+      help={option.help}
+      // A segmented control has a width of its own: it drops under its label
+      // when it does not fit. A lone switch sits level with the label.
+      wraps={option.type === "select" && (option.options?.length ?? 0) <= 3}
+      compact={option.type === "boolean"}
+    >
+      {body}
+      {option.description && (
+        <span id={descId} className="sr-only">
+          {option.description}
+        </span>
+      )}
+    </SettingRow>
   );
 }
 
-function ChartOptionsPanel({
+function matches(option: ChartOptionDef, term: string) {
+  return (
+    term === "" ||
+    option.label.toLowerCase().includes(term) ||
+    option.category.toLowerCase().includes(term) ||
+    option.key.toLowerCase().includes(term)
+  );
+}
+
+/**
+ * The rows of a chart's options as editor groups (#2388), one per `category`.
+ * The panel puts them in the fixed order and in their section; a group with no
+ * row left after the search renders null, so it has no heading.
+ */
+function chartOptionGroups({
   chartType,
   settings,
   onSettingsChange,
-  className,
   columns,
   hiddenCategories,
-  openCategories,
-}: ChartOptionsPanelProps) {
-  const [search, setSearch] = React.useState("");
-  const allOptions = getChartOptions(chartType);
-  const options = React.useMemo(
-    () => allOptions.filter((o) => !hiddenCategories?.includes(o.category)),
-    [allOptions, hiddenCategories],
+}: ChartOptionGroupsProps): SettingsGroup[] {
+  const options = getChartOptions(chartType).filter(
+    (o) => !hiddenCategories?.includes(o.category),
   );
-
-  const filteredOptions = React.useMemo(() => {
-    if (!search.trim()) return options;
-    const term = search.toLowerCase();
-    return options.filter(
-      (opt) =>
-        opt.label.toLowerCase().includes(term) ||
-        opt.category.toLowerCase().includes(term) ||
-        opt.key.toLowerCase().includes(term),
-    );
-  }, [options, search]);
-
-  const grouped = React.useMemo(() => {
-    const groups: Record<string, ChartOptionDef[]> = {};
-    for (const opt of filteredOptions) {
-      (groups[opt.category] ??= []).push(opt);
-    }
-    return groups;
-  }, [filteredOptions]);
-
   function handleChange(key: string, value: unknown) {
     const next = { ...settings, [key]: value };
     if (value === undefined) delete next[key];
     onSettingsChange(next);
   }
-
-  if (options.length === 0) {
-    return (
-      <p className={cn("text-sm text-muted-foreground py-2", className)}>
-        No configurable options for this chart type.
-      </p>
-    );
-  }
-
-  return (
-    <div className={cn("space-y-4", className)}>
-      {options.length > 4 && (
-        <Input
-          placeholder="Search options..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+  const names = [...new Set(options.map((o) => o.category))];
+  return names.map((name) => ({
+    name,
+    render: (search: string) => {
+      const term = search.toLowerCase();
+      const rows = options.filter(
+        (o) => o.category === name && matches(o, term),
+      );
+      if (rows.length === 0) return null;
+      return rows.map((opt) => (
+        <OptionRow
+          key={opt.key}
+          option={opt}
+          value={settings[opt.key]}
+          onChange={handleChange}
+          columns={columns}
         />
-      )}
-
-      <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
-        {Object.entries(grouped).map(([category, opts], index) => (
-          <CategorySection
-            key={category}
-            title={category}
-            defaultOpen={index === 0 || !!openCategories?.includes(category)}
-            forceOpen={search.trim() !== ""}
-          >
-            {opts.map((opt) => (
-              <OptionField
-                key={opt.key}
-                option={opt}
-                value={settings[opt.key]}
-                onChange={handleChange}
-                columns={columns}
-              />
-            ))}
-          </CategorySection>
-        ))}
-      </div>
-    </div>
-  );
+      ));
+    },
+  }));
 }
 
-export { ChartOptionsPanel };
+export { chartOptionGroups };

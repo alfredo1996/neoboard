@@ -6,8 +6,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Label,
-  Field,
+  SettingRow,
 } from "@neoboard/components";
 import { useConnectionDatabases } from "@/hooks/use-connection-databases";
 
@@ -25,31 +24,31 @@ export function DatabaseSelector({
   const { data, isLoading } = useConnectionDatabases(connectionId);
   const databases = data?.databases ?? [];
 
-  if (isLoading) {
+  if (isLoading || databases.length === 0) {
     return (
-      <div className="space-y-1.5">
-        <Label className="text-xs">Database</Label>
-        <p className="text-xs text-muted-foreground">Loading databases...</p>
-      </div>
-    );
-  }
-
-  if (databases.length === 0) {
-    return (
-      <div className="space-y-1.5">
-        <Label className="text-xs">Database</Label>
-        <p className="text-xs text-muted-foreground">No databases available</p>
-      </div>
+      <SettingRow label="Database">
+        <p className="pt-2.5 text-meta text-muted-foreground">
+          {isLoading ? "Loading databases..." : "No databases available"}
+        </p>
+      </SettingRow>
     );
   }
 
   return (
-    <Field label="Database" optional id="card-database">
+    <SettingRow
+      label={
+        <>
+          Database{" "}
+          <span className="font-normal text-muted-foreground">(optional)</span>
+        </>
+      }
+      htmlFor="card-database"
+    >
       <Select
         value={database || "__default__"}
         onValueChange={(v) => onDatabaseChange(v === "__default__" ? "" : v)}
       >
-        <SelectTrigger>
+        <SelectTrigger id="card-database">
           <SelectValue placeholder="Connection default" />
         </SelectTrigger>
         <SelectContent>
@@ -61,6 +60,6 @@ export function DatabaseSelector({
           ))}
         </SelectContent>
       </Select>
-    </Field>
+    </SettingRow>
   );
 }

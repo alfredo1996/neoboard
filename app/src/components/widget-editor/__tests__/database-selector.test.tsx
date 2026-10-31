@@ -16,7 +16,16 @@ vi.mock("@/hooks/use-connection-databases", () => ({
 let capturedOnValueChange: ((v: string) => void) | undefined;
 
 vi.mock("@neoboard/components", async () => ({
-  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
+  SettingRow: ({
+    label,
+    htmlFor,
+    children,
+  }: React.PropsWithChildren<{ label: React.ReactNode; htmlFor?: string }>) => (
+    <div>
+      <label htmlFor={htmlFor}>{label}</label>
+      {children}
+    </div>
+  ),
   Label: ({
     children,
     ...props

@@ -4,7 +4,16 @@ import { CHART_TYPES } from "@/plugins/chart-types";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 vi.mock("@neoboard/components", async () => ({
-  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
+  SettingRow: ({
+    label,
+    htmlFor,
+    children,
+  }: React.PropsWithChildren<{ label: string; htmlFor?: string }>) => (
+    <div>
+      <label htmlFor={htmlFor}>{label}</label>
+      {children}
+    </div>
+  ),
   Label: ({
     children,
     ...props
@@ -17,8 +26,10 @@ vi.mock("@neoboard/components", async () => ({
     options,
     placeholder,
     id,
+    "aria-label": ariaLabel,
   }: {
     id?: string;
+    "aria-label"?: string;
     value: string;
     onChange: (v: string) => void;
     options: { value: string; label: string; hint?: string }[];
@@ -26,6 +37,7 @@ vi.mock("@neoboard/components", async () => ({
   }) => (
     <select
       id={id}
+      aria-label={ariaLabel}
       data-testid={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -67,7 +79,8 @@ vi.mock("lucide-react", async (importOriginal) => {
 });
 
 import {
-  ChartTypeSelector,
+  ChartTypeSelect,
+  ConnectionSelect,
   getChartTypeMeta,
   chartTypeIcons,
 } from "../chart-type-selector";
@@ -101,73 +114,67 @@ const connections = [
 ];
 const chartTypes: ChartType[] = ["bar", "line", "pie", "table"];
 
-describe("ChartTypeSelector", () => {
-  it("renders chart type selector without connection when showConnection is false", () => {
+describe("ChartTypeSelect (the editor header)", () => {
+  function renderSelect(onChartTypeChange = vi.fn()) {
     render(
-      <ChartTypeSelector
-        connectionId=""
-        onConnectionChange={vi.fn()}
+      <ChartTypeSelect
         chartType="bar"
-        onChartTypeChange={vi.fn()}
+        onChartTypeChange={onChartTypeChange}
         compatibleChartTypes={chartTypes}
-        connections={connections}
-        showConnection={false}
       />,
     );
-    expect(screen.getByText("Chart Type")).toBeInTheDocument();
-    expect(screen.queryByText("Connection")).not.toBeInTheDocument();
+  }
+
+  it("is named Chart Type without a visible label beside it", () => {
+    renderSelect();
+    expect(
+      screen.getByRole("combobox", { name: "Chart Type" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("*")).not.toBeInTheDocument();
   });
 
-  it("renders both connection and chart type when showConnection is true", () => {
-    render(
-      <ChartTypeSelector
-        connectionId="c1"
-        onConnectionChange={vi.fn()}
-        chartType="bar"
-        onChartTypeChange={vi.fn()}
-        compatibleChartTypes={chartTypes}
-        connections={connections}
-        showConnection={true}
-      />,
-    );
-    expect(screen.getByText("Chart Type")).toBeInTheDocument();
-    expect(screen.getByText("Connection")).toBeInTheDocument();
+  it("offers the compatible chart types", () => {
+    renderSelect();
+    expect(screen.getByText("Bar")).toBeInTheDocument();
+    expect(screen.getByText("Line")).toBeInTheDocument();
+    expect(screen.getByText("Pie")).toBeInTheDocument();
+    expect(screen.getByText("Table")).toBeInTheDocument();
   });
 
-  it("names both pickers by their labels (#2217)", () => {
+  it("calls onChartTypeChange when the type changes", () => {
+    const onChartTypeChange = vi.fn();
+    renderSelect(onChartTypeChange);
+    fireEvent.change(screen.getByTestId("Select chart type..."), {
+      target: { value: "line" },
+    });
+    expect(onChartTypeChange).toHaveBeenCalledWith("line");
+  });
+});
+
+describe("ConnectionSelect (a row of the Query group)", () => {
+  it("is named by its label (#2217)", () => {
     render(
-      <ChartTypeSelector
+      <ConnectionSelect
         connectionId="c1"
         onConnectionChange={vi.fn()}
-        chartType="bar"
-        onChartTypeChange={vi.fn()}
-        compatibleChartTypes={chartTypes}
         connections={connections}
-        showConnection={true}
       />,
     );
     expect(
       screen.getByRole("combobox", { name: /Connection/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("combobox", { name: /Chart Type/ }),
     ).toBeInTheDocument();
   });
 
   // #1905: each entry read "Neo4j Local (neo4j)" — the raw type.
   it("names each connection's connector by its descriptor label", () => {
     render(
-      <ChartTypeSelector
+      <ConnectionSelect
         connectionId="c1"
         onConnectionChange={vi.fn()}
-        chartType="bar"
-        onChartTypeChange={vi.fn()}
-        compatibleChartTypes={chartTypes}
         connections={[
           ...connections,
           { id: "c3", name: "Legacy", type: "uninstalled" },
         ]}
-        showConnection={true}
       />,
     );
     const labels = Array.from(
@@ -182,75 +189,18 @@ describe("ChartTypeSelector", () => {
     ]);
   });
 
-  it("calls onChartTypeChange when chart type changes", () => {
-    const onChartTypeChange = vi.fn();
-    render(
-      <ChartTypeSelector
-        connectionId=""
-        onConnectionChange={vi.fn()}
-        chartType="bar"
-        onChartTypeChange={onChartTypeChange}
-        compatibleChartTypes={chartTypes}
-        connections={connections}
-        showConnection={false}
-      />,
-    );
-    fireEvent.change(screen.getByTestId("Select chart type..."), {
-      target: { value: "line" },
-    });
-    expect(onChartTypeChange).toHaveBeenCalledWith("line");
-  });
-
-  it("calls onConnectionChange when connection changes", () => {
+  it("calls onConnectionChange when the connection changes", () => {
     const onConnectionChange = vi.fn();
     render(
-      <ChartTypeSelector
+      <ConnectionSelect
         connectionId="c1"
         onConnectionChange={onConnectionChange}
-        chartType="bar"
-        onChartTypeChange={vi.fn()}
-        compatibleChartTypes={chartTypes}
         connections={connections}
-        showConnection={true}
       />,
     );
     fireEvent.change(screen.getByTestId("Select a connection..."), {
       target: { value: "c2" },
     });
     expect(onConnectionChange).toHaveBeenCalledWith("c2");
-  });
-
-  it("renders chart type options from compatibleChartTypes", () => {
-    render(
-      <ChartTypeSelector
-        connectionId=""
-        onConnectionChange={vi.fn()}
-        chartType="bar"
-        onChartTypeChange={vi.fn()}
-        compatibleChartTypes={chartTypes}
-        connections={connections}
-        showConnection={false}
-      />,
-    );
-    expect(screen.getByText("Bar")).toBeInTheDocument();
-    expect(screen.getByText("Line")).toBeInTheDocument();
-    expect(screen.getByText("Pie")).toBeInTheDocument();
-    expect(screen.getByText("Table")).toBeInTheDocument();
-  });
-
-  it("marks neither picker as required or optional: required is the default (#2217)", () => {
-    render(
-      <ChartTypeSelector
-        connectionId="c1"
-        onConnectionChange={vi.fn()}
-        chartType="bar"
-        onChartTypeChange={vi.fn()}
-        compatibleChartTypes={chartTypes}
-        connections={connections}
-        showConnection={true}
-      />,
-    );
-    expect(screen.queryByText("*")).not.toBeInTheDocument();
-    expect(screen.queryByText(/optional/)).not.toBeInTheDocument();
   });
 });

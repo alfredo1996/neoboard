@@ -14,6 +14,7 @@ import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import {
   Button,
   Label,
+  WidgetCard,
   LoadingOverlay,
   Tooltip,
   TooltipTrigger,
@@ -193,9 +194,7 @@ function renderChart(props: {
         })()
       ) : previewQuery.data || initialPreviewData ? (
         <div className="flex h-full flex-col">
-          {/* The dashboard card pads its content by 16px; a table sits 8px
-              into that (table-renderer's -mx-2), so the preview pads alike. */}
-          <div className="min-h-0 flex-1 px-4">
+          <div className="min-h-0 flex-1">
             <CardContainer
               widget={{
                 id: "preview",
@@ -319,9 +318,11 @@ export function WidgetPreviewPanel({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <Label className="mb-0">Preview</Label>
+    // The page ground with the widget as it will sit on the dashboard: in a
+    // real card, with the title as it will read there (#2388).
+    <div className="flex min-h-0 min-w-0 flex-col gap-2.5 border-l border-rule bg-page-ground px-5 py-3.5">
+      <div className="flex min-h-8 items-center justify-between">
+        <span className="text-caption font-medium">Preview</span>
         {!isParamSelect && !isForm && !isContentOnly && (
           <div className="flex items-center gap-2">
             {!waitingForParams && previewQuery.isError && (
@@ -344,6 +345,9 @@ export function WidgetPreviewPanel({
             <Button
               variant="secondary"
               size="sm"
+              // The one Run while the preview is on screen; the query toolbar
+              // takes the same title only while the editor hides it (#2388).
+              title="Run query (Ctrl+Enter / ⌘+Enter)"
               onClick={onRunPreview}
               disabled={isRunDisabled(
                 connectionId,
@@ -362,13 +366,15 @@ export function WidgetPreviewPanel({
         )}
       </div>
 
-      <div
-        ref={previewRef}
-        data-testid="widget-preview"
-        className="h-[500px] overflow-hidden border rounded-lg relative"
-      >
-        {renderPreviewContent()}
-      </div>
+      <WidgetCard title={title || undefined} className="min-h-0 flex-1">
+        <div
+          ref={previewRef}
+          data-testid="widget-preview"
+          className="relative h-full min-h-0 w-full overflow-auto"
+        >
+          {renderPreviewContent()}
+        </div>
+      </WidgetCard>
     </div>
   );
 }

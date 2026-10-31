@@ -51,7 +51,7 @@ export const myChartPlugin = defineChartPlugin({
       label: "Show Legend",
       type: "boolean",
       default: true,
-      category: "Labels",
+      category: "Legend",
       description: "Show the chart legend.",
     },
   ],
@@ -128,11 +128,18 @@ Options define what users can configure in the Chart Options panel:
 interface ChartOptionDef {
   key: string;          // settings key (e.g. "showLegend")
   label: string;        // UI label
-  type: "boolean" | "select" | "text" | "number" | "column-multi-select" | "swatch";
+  type: "boolean" | "select" | "text" | "textarea" | "number" | "swatch" | "column-multi-select";
   default: unknown;     // default value
-  category: string;     // group heading (e.g. "Layout", "Labels", "Style")
+  category: OptionGroup; // one of the fixed groups (e.g. "Layout", "Legend", "Data labels"); each belongs to Data, Style or Behavior
   options?: { label: string; value: string; token?: string }[];  // for "select" and "swatch" (token: the CSS variable a chip shows)
-  description?: string; // tooltip text
+  description?: string; // read aloud by screen readers; not drawn
+  help?: string;        // one line under the control, only where it adds a rule
+  unit?: string;        // written after a number field (px, %)
+  placeholder?: string; // number only: shown while the field is empty
+  auto?: number;        // number only: the stored value that means automatic, shown empty as "Auto"
+  percent?: boolean;    // stored as text with a % suffix ("30%"), edited as a number
+  multiline?: boolean;  // a small textarea instead of one line
+  validate?: (value: string) => { level: "error" | "warning"; message: string } | null; // text inputs: inline check
 }
 ```
 
@@ -258,7 +265,7 @@ stylingTargets?: { value: string; label: string }[];
 
 **What it controls.** Rule-based styling lets users set values like color or font weight based on data conditions (e.g. "if value > 100, color = red"). `stylingTargets` is the list of *what* a rule can set on this chart. Each entry becomes an option in the rule editor's "Target" dropdown.
 
-**How it maps to the chart-options-panel.** Targets are surfaced in the Advanced → Conditional Styling section of the Chart Settings panel (`component/src/components/composed/chart-settings-panel.tsx`). The plugin component is responsible for reading resolved rules from its `stylingRules` prop and applying the matched target value at render time.
+**How it maps to the chart-options-panel.** Targets are surfaced in the Style → Rules group of the Chart Settings panel (`component/src/components/composed/chart-settings-panel.tsx`). The plugin component is responsible for reading resolved rules from its `stylingRules` prop and applying the matched target value at render time.
 
 **Capabilities side-effect.** When `stylingTargets` is non-empty, `defineChartPlugin` flips `capabilities.supportsStyling` to `true` automatically. You only need to set the capability explicitly when you want to *disable* styling on a chart that does have targets (rare).
 
@@ -312,9 +319,9 @@ export const heatmapPlugin = defineChartPlugin({
   transform: (rows) => rows,
   capabilities: { supportsClickAction: true, isECharts: true, requiresQuery: true, supportsStyling: false },
   options: [
-    { key: "xField", label: "X Field", type: "text", default: "", category: "Data" },
-    { key: "yField", label: "Y Field", type: "text", default: "", category: "Data" },
-    { key: "valueField", label: "Value Field", type: "text", default: "", category: "Data" },
+    { key: "xField", label: "X Field", type: "text", default: "", category: "Axes" },
+    { key: "yField", label: "Y Field", type: "text", default: "", category: "Axes" },
+    { key: "valueField", label: "Value Field", type: "text", default: "", category: "Axes" },
   ],
 });
 ```

@@ -7,7 +7,7 @@ export const treemapOptions: ChartOptionDef[] = [
     label: "Show Values",
     type: "boolean",
     default: false,
-    category: "Labels",
+    category: "Data labels",
     description: "Display the numeric value inside each rectangle.",
   },
 ];

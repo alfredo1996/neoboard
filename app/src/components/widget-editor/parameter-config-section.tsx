@@ -24,7 +24,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Checkbox,
+  Switch,
   Textarea,
   Field,
 } from "@neoboard/components";
@@ -157,6 +157,8 @@ export interface ParameterConfigSectionProps {
   seedPreviewOptions: { value: string; label: string }[] | null;
   /** Editing a Widget Library template: no dashboard is open (#1951). */
   isLabMode?: boolean;
+  /** The Connection rows of a select filter: they sit before the Seed Query that needs them (#2388). */
+  connectionSlot?: React.ReactNode;
 }
 
 /**
@@ -183,6 +185,7 @@ export function ParameterConfigSection({
   seedQueryExecution,
   seedPreviewOptions,
   isLabMode = false,
+  connectionSlot,
 }: ParameterConfigSectionProps) {
   const paramUIType = useWidgetEditorStore((s) => s.paramUIType);
   const onParamUITypeChange = useWidgetEditorStore((s) => s.setParamUIType);
@@ -210,6 +213,19 @@ export function ParameterConfigSection({
   const parentHint = missingParentHint(parentParameterName, cascade, isLabMode);
   return (
     <div className="space-y-4" data-testid="param-config-section">
+      {/* Parameter Name opens the section: Save needs it (#2388) */}
+      <Field
+        label="Parameter Name"
+        id="param-widget-name"
+        help="Used to reference this parameter in widget queries"
+      >
+        <Input
+          value={paramWidgetName}
+          onChange={(e) => onParamWidgetNameChange(e.target.value)}
+          placeholder="e.g. country"
+        />
+      </Field>
+
       {/* Parameter Type dropdown */}
       <div className="space-y-1.5">
         <Label>Parameter Type</Label>
@@ -261,10 +277,10 @@ export function ParameterConfigSection({
       {paramUIType === "select" && (
         <>
           <div className="flex items-center gap-2">
-            <Checkbox
+            <Switch
               id="multi-select-toggle"
               checked={multiSelect}
-              onCheckedChange={(checked) => onMultiSelectChange(!!checked)}
+              onCheckedChange={onMultiSelectChange}
             />
             <Label htmlFor="multi-select-toggle" className="text-sm">
               Allow multiple selections
@@ -373,6 +389,8 @@ export function ParameterConfigSection({
         </div>
       )}
 
+      {paramUIType === "select" && connectionSlot}
+
       {/* Seed Query (select only — the sole option-backed type) */}
       {paramUIType === "select" && (
         <div className="space-y-1.5">
@@ -446,19 +464,6 @@ export function ParameterConfigSection({
           )}
         </div>
       )}
-
-      {/* Parameter Name */}
-      <Field
-        label="Parameter Name"
-        id="param-widget-name"
-        help="Used to reference this parameter in widget queries"
-      >
-        <Input
-          value={paramWidgetName}
-          onChange={(e) => onParamWidgetNameChange(e.target.value)}
-          placeholder="e.g. country"
-        />
-      </Field>
 
       {/* Reference hint */}
       {paramWidgetName && (

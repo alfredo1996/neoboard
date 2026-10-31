@@ -61,7 +61,7 @@ vi.mock("@neoboard/components", async () => ({
       {children}
     </button>
   ),
-  Checkbox: ({
+  Switch: ({
     id,
     checked,
     onCheckedChange,
@@ -72,6 +72,7 @@ vi.mock("@neoboard/components", async () => ({
   }) => (
     <input
       type="checkbox"
+      role="switch"
       id={id}
       checked={checked}
       onChange={(e) => onCheckedChange?.(e.target.checked)}
@@ -155,7 +156,6 @@ describe("FormFieldsEditor", () => {
 
   it("renders empty state", () => {
     render(<FormFieldsEditor />);
-    expect(screen.getByText("Form Fields")).toBeInTheDocument();
     expect(screen.getByText(/No fields yet/)).toBeInTheDocument();
   });
 

@@ -1,6 +1,6 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { ChartOptionsPanel } from "../chart-options-panel";
+import { OptionRows } from "./option-rows";
 
 // Same rationale as chart-options-panel.test.tsx: this is a heavy jsdom render.
 vi.setConfig({ testTimeout: 15000 });
@@ -11,15 +11,12 @@ beforeAll(() => {
 
 function renderIframe(sandbox: string) {
   render(
-    <ChartOptionsPanel
+    <OptionRows
       chartType="iframe"
       settings={{ sandbox }}
       onSettingsChange={vi.fn()}
     />,
   );
-  screen
-    .getAllByRole("button", { expanded: false })
-    .forEach((btn) => fireEvent.click(btn));
 }
 
 describe("#1413 — the Sandbox Policy field says what it discards", () => {
@@ -36,8 +33,6 @@ describe("#1413 — the Sandbox Policy field says what it discards", () => {
   it("shows nothing when every token is applied", () => {
     renderIframe("allow-scripts");
     expect(document.getElementById("sandbox")).not.toBeNull();
-    expect(document.getElementById("sandbox-help")).not.toHaveTextContent(
-      /is refused/,
-    );
+    expect(document.getElementById("sandbox-help")).toBeNull();
   });
 });

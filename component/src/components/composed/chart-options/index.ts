@@ -1,5 +1,5 @@
 /**
- * The live source of chart option definitions: `ChartOptionsPanel` reads them
+ * The live source of chart option definitions: `chartOptionGroups` reads them
  * from here via `chart-options-schema`.
  *
  * MIGRATION IN PROGRESS, not deprecated. This carried an `@deprecated` tag
@@ -9,7 +9,8 @@
  * until it lands, edit options here (#1549).
  */
 import type { ChartOptionDef } from "./shared";
-export type { ChartOptionDef } from "./shared";
+export type { ChartOptionDef, OptionGroup, OptionSection } from "./shared";
+export { OPTION_GROUPS } from "./shared";
 import {
   behaviorOptions,
   appearanceOptions,

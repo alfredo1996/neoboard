@@ -80,15 +80,20 @@ export {
 export {
   ChartSettingsPanel,
   type ChartSettingsPanelProps,
+  type SettingsGroup,
 } from "./chart-settings-panel";
 export {
-  ChartOptionsPanel,
-  type ChartOptionsPanelProps,
+  chartOptionGroups,
+  type ChartOptionGroupsProps,
 } from "./chart-options-panel";
+export { SettingRow, type SettingRowProps } from "./setting-row";
 export {
   getChartOptions,
   getDefaultChartSettings,
+  OPTION_GROUPS,
   type ChartOptionDef,
+  type OptionGroup,
+  type OptionSection,
 } from "./chart-options-schema";
 export {
   ColorScalePanel,
