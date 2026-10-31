@@ -90,8 +90,16 @@ function SwatchGroup({
           >
             <span
               aria-hidden="true"
-              className="h-3.5 w-3.5 rounded-sm border border-input"
-              style={{ background: `hsl(var(${item.token}))` }}
+              className={cn(
+                "h-3.5 w-3.5 rounded-sm border border-input",
+                // No colour to show: None is an empty, dashed chip.
+                !item.token && "border-dashed",
+              )}
+              style={
+                item.token
+                  ? { background: `hsl(var(${item.token}))` }
+                  : undefined
+              }
             />
             {item.label}
             {/* Fixed slot, so the chip does not resize when the selection moves. */}
@@ -292,8 +300,10 @@ function TextControl({
       {option.multiline ? (
         <Textarea
           id={id}
-          rows={2}
-          className="font-mono text-xs"
+          rows={option.maxLength ? 3 : 2}
+          className={option.maxLength ? "text-sm" : "font-mono text-xs"}
+          maxLength={option.maxLength}
+          placeholder={option.placeholder}
           value={textValue}
           onChange={(e) => set(e.target.value)}
           aria-describedby={described}
@@ -474,4 +484,68 @@ function chartOptionGroups({
   }));
 }
 
-export { chartOptionGroups };
+/** The Card group's rows (#2394): what the editor stores beside the title, not in chartOptions. */
+const CARD_OPTIONS: ChartOptionDef[] = [
+  {
+    key: "cardBackground",
+    label: "Background",
+    type: "swatch",
+    default: "default",
+    category: "Card",
+    options: [
+      { value: "default", label: "Default", token: "--card-plain" },
+      { value: "none", label: "None" },
+      { value: "azure", label: "Azure", token: "--param-fill-azure" },
+      { value: "citrine", label: "Citrine", token: "--param-fill-citrine" },
+      { value: "sage", label: "Sage", token: "--param-fill-sage" },
+      { value: "rose", label: "Rose", token: "--param-fill-rose" },
+    ],
+  },
+  {
+    key: "description",
+    label: "Description",
+    type: "text",
+    default: "",
+    category: "Card",
+    multiline: true,
+    maxLength: 200,
+    placeholder: "What this card shows",
+    help: "Shown as an info icon after the title. Filter parameters work here, as in the title.",
+  },
+];
+
+/**
+ * The Card group (#2394), first in Style. The editor draws it itself, as it
+ * does Caching, because its values live on the widget's settings and not in a
+ * chart's options. A chart has no Background row (`canTint` false).
+ */
+function cardOptionGroup({
+  canTint,
+  settings,
+  onChange,
+}: Readonly<{
+  canTint: boolean;
+  settings: Record<string, unknown>;
+  onChange: (key: string, value: unknown) => void;
+}>): SettingsGroup {
+  return {
+    name: "Card",
+    render: (search: string) => {
+      const term = search.toLowerCase();
+      const rows = CARD_OPTIONS.filter(
+        (o) => (canTint || o.key !== "cardBackground") && matches(o, term),
+      );
+      if (rows.length === 0) return null;
+      return rows.map((opt) => (
+        <OptionRow
+          key={opt.key}
+          option={opt}
+          value={settings[opt.key]}
+          onChange={onChange}
+        />
+      ));
+    },
+  };
+}
+
+export { chartOptionGroups, cardOptionGroup };

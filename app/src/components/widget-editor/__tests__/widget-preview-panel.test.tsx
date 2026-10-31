@@ -26,10 +26,17 @@ vi.mock("@neoboard/components", () => ({
   ),
   WidgetCard: ({
     title,
+    background,
+    description,
     children,
-  }: React.PropsWithChildren<{ title?: string }>) => (
-    <section data-testid="widget-card">
+  }: React.PropsWithChildren<{
+    title?: string;
+    background?: string;
+    description?: string;
+  }>) => (
+    <section data-testid="widget-card" data-background={background}>
       {title && <h3>{title}</h3>}
+      {description && <p data-testid="card-description">{description}</p>}
       {children}
     </section>
   ),
@@ -162,6 +169,21 @@ describe("WidgetPreviewPanel", () => {
     // The old fixed 500px box is gone: the card fills the dialog's height.
     expect(screen.getByTestId("widget-preview").className).not.toContain(
       "h-[500px]",
+    );
+  });
+
+  it("shows the card's background and description in the preview (#2394)", () => {
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({ cardBackground: "sage", description: "About it" })}
+      />,
+    );
+    expect(screen.getByTestId("widget-card")).toHaveAttribute(
+      "data-background",
+      "sage",
+    );
+    expect(screen.getByTestId("card-description")).toHaveTextContent(
+      "About it",
     );
   });
 

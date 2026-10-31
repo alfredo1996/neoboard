@@ -70,6 +70,7 @@ interface LightDef {
     supportsStyling?: boolean;
     isECharts?: boolean;
     requiresQuery?: boolean;
+    supportsCardBackground?: boolean;
   };
 }
 
@@ -99,7 +100,7 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
       { value: "backgroundColor", label: "Background Color" },
       { value: "textColor", label: "Text Color" },
     ],
-    capabilities: { supportsStyling: true },
+    capabilities: { supportsStyling: true, supportsCardBackground: true },
   },
   {
     type: "single-value",
@@ -111,6 +112,7 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
     capabilities: {
       supportsClickAction: false,
       isECharts: true,
+      supportsCardBackground: true,
       supportsStyling: true,
     },
   },
@@ -130,7 +132,11 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
   {
     type: "json",
     label: "JSON Viewer",
-    capabilities: { supportsClickAction: false, supportsStyling: false },
+    capabilities: {
+      supportsClickAction: false,
+      supportsStyling: false,
+      supportsCardBackground: true,
+    },
   },
   {
     type: "parameter-select",
@@ -138,6 +144,7 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
     capabilities: {
       supportsClickAction: false,
       supportsStyling: false,
+      supportsCardBackground: true,
       requiresQuery: false,
     },
   },
@@ -145,7 +152,11 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
     type: "form",
     label: "Form",
     requires: ["writes"],
-    capabilities: { supportsStyling: false, requiresQuery: false },
+    capabilities: {
+      supportsStyling: false,
+      requiresQuery: false,
+      supportsCardBackground: true,
+    },
   },
   {
     type: "markdown",
@@ -153,6 +164,7 @@ const LIGHTWEIGHT_DEFS: LightDef[] = [
     capabilities: {
       supportsClickAction: false,
       supportsStyling: false,
+      supportsCardBackground: true,
       requiresQuery: false,
     },
   },
@@ -252,6 +264,19 @@ export function validatePluginStubSync(): void {
         );
       }
       if (
+        stubCaps.supportsCardBackground !== undefined &&
+        stubCaps.supportsCardBackground !== realCaps.supportsCardBackground
+      ) {
+        console.warn(
+          '[plugin-sync] "' +
+            def.type +
+            '": stub says supportsCardBackground=' +
+            stubCaps.supportsCardBackground +
+            " but real plugin has " +
+            realCaps.supportsCardBackground,
+        );
+      }
+      if (
         stubCaps.supportsStyling !== undefined &&
         stubCaps.supportsStyling !== realCaps.supportsStyling
       ) {
@@ -291,6 +316,11 @@ export function chartSupportsClickAction(type: string): boolean {
  */
 export function chartSupportsStyling(type: string): boolean {
   return pluginRegistry.get(type)?.capabilities.supportsStyling ?? false;
+}
+
+/** Whether a card of this type can change its background (#2394). */
+export function chartSupportsCardBackground(type: string): boolean {
+  return pluginRegistry.get(type)?.capabilities.supportsCardBackground ?? false;
 }
 
 /**

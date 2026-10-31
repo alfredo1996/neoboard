@@ -1,4 +1,8 @@
 import { create } from "zustand";
+import {
+  parseCardBackground,
+  type CardBackground,
+} from "@neoboard/components/card-background";
 import type {
   DashboardWidget,
   DashboardLayoutV2,
@@ -68,6 +72,9 @@ export interface WidgetEditorState {
   connectionId: string;
   query: string;
   title: string;
+  /** The card's fill and its info text: settings beside the title (#2394). */
+  cardBackground: CardBackground;
+  description: string;
   templateId?: string;
   templateSyncedAt?: string;
 
@@ -131,6 +138,8 @@ export interface WidgetEditorState {
   setConnectionId: (id: string) => void;
   setQuery: (q: string) => void;
   setTitle: (t: string) => void;
+  setCardBackground: (b: CardBackground) => void;
+  setDescription: (d: string) => void;
   setDatabase: (v: string) => void;
   setAllowWrites: (v: boolean) => void;
   setChartOptions: (
@@ -279,6 +288,8 @@ function getInitialState() {
     connectionId: "",
     query: "",
     title: "",
+    cardBackground: "default" as CardBackground,
+    description: "",
     templateId: undefined as string | undefined,
     templateSyncedAt: undefined as string | undefined,
     database: "",
@@ -329,6 +340,8 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
   setAllowWrites: (v) => set({ allowWrites: v }),
   setQuery: (q) => set({ query: q }),
   setTitle: (t) => set({ title: t }),
+  setCardBackground: (b) => set({ cardBackground: b }),
+  setDescription: (d) => set({ description: d }),
   setChartOptions: (opts) =>
     set((s) => ({
       chartOptions: typeof opts === "function" ? opts(s.chartOptions) : opts,
@@ -430,6 +443,8 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
       connectionId: widget.connectionId,
       query: widget.query,
       title: (s.title as string) ?? "",
+      cardBackground: parseCardBackground(s.cardBackground),
+      description: typeof s.description === "string" ? s.description : "",
       templateId: widget.templateId,
       templateSyncedAt: widget.templateSyncedAt,
       chartOptions:

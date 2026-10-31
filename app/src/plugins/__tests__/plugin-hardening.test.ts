@@ -22,6 +22,7 @@ function makePlugin(
       supportsStyling: false,
       isECharts: false,
       requiresQuery: true,
+      supportsCardBackground: false,
     },
     ...overrides,
   };

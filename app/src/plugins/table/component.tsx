@@ -61,6 +61,7 @@ export const tablePlugin = defineChartPlugin({
   capabilities: {
     supportsClickAction: true,
     supportsStyling: true,
+    supportsCardBackground: true,
     isECharts: false,
     requiresQuery: true,
   },

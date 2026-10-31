@@ -1,6 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
+import type { CardBackground } from "@neoboard/components/card-background";
 import { AlertCircle, Play } from "lucide-react";
 import { CardContainer } from "../card-container";
 import { ParameterPreview } from "./parameter-preview";
@@ -36,6 +37,9 @@ type WidgetPreviewPanelProps = Readonly<{
   connectionId: string;
   query: string;
   title: string;
+  /** The card's fill, already gated by the chart type (#2394). */
+  cardBackground?: CardBackground;
+  description?: string;
   chartOptions: Record<string, unknown>;
   colorScales: Array<{ column: string; minColor: string; maxColor: string }>;
   transforms: Transform[];
@@ -254,6 +258,8 @@ export function WidgetPreviewPanel({
   connectionId,
   query,
   title,
+  cardBackground,
+  description,
   chartOptions,
   colorScales,
   transforms,
@@ -374,7 +380,12 @@ export function WidgetPreviewPanel({
         )}
       </div>
 
-      <WidgetCard title={title || undefined} className="min-h-0 flex-1">
+      <WidgetCard
+        title={title || undefined}
+        background={cardBackground}
+        description={description}
+        className="min-h-0 flex-1"
+      >
         <div
           ref={previewRef}
           data-testid="widget-preview"

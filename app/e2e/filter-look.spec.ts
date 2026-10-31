@@ -205,18 +205,18 @@ test("Appearance is offered for a select and hidden for a relative date", async 
     await seed(page.request, id, "date-relative");
     await page.goto(`/${id}/edit`);
     await expect(editingCrumb(page)).toBeVisible();
-    // A relative date has no field to fill or outline, and nothing else to
-    // style: the section is not offered at all.
-    dialog = await openEditor(page);
+    // A relative date has no field to fill or outline: its Style is the Card
+    // group alone (#2394), and the field rows are not offered.
+    dialog = await openStyleTab(page);
     await expect(
-      dialog.getByRole("tab", { name: "Behavior", exact: true }),
+      dialog.getByRole("textbox", { name: "Description", exact: true }),
     ).toBeVisible();
-    await expect(
-      dialog.getByRole("tab", { name: "Style", exact: true }),
-    ).toHaveCount(0);
     await expect(
       dialog.getByRole("radiogroup", { name: "Field fill", exact: true }),
     ).toHaveCount(0);
+    await expect(dialog.getByLabel("Placeholder", { exact: true })).toHaveCount(
+      0,
+    );
   } finally {
     await cleanup();
   }

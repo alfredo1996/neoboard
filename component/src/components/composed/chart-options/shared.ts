@@ -16,6 +16,8 @@ export const OPTION_GROUPS = {
   Fields: "data",
   Transform: "data",
   // Style
+  // Drawn by the editor, not by a chart: every widget has it (#2394)
+  Card: "style",
   Text: "style",
   Field: "style",
   "Submit button": "style",
@@ -75,6 +77,8 @@ export interface ChartOptionDef {
    * Kept to 90 characters; a ratchet test enforces it (#1549).
    */
   description?: string;
+  /** Only for type: "text": the field stops taking characters here. */
+  maxLength?: number;
   /** Only for type: "number": shown while the field is empty. */
   placeholder?: string;
   /** Unit written after a number field (px, %, min). */

@@ -1,7 +1,18 @@
 import * as React from "react";
-import { Ellipsis, GripVertical, Maximize2, RefreshCcw } from "lucide-react";
+import {
+  Ellipsis,
+  GripVertical,
+  Info,
+  Maximize2,
+  RefreshCcw,
+} from "lucide-react";
 import { Panel, PanelContent, PanelHeader } from "@/components/ui/panel";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useHoverNone } from "@/hooks/useHoverNone";
+import type { CardBackground } from "@/lib/card-background";
 
 export interface WidgetCardAction {
   label: string;
@@ -35,6 +47,13 @@ export interface WidgetCardAction {
 
 export interface WidgetCardProps {
   title?: string;
+  /** The card's fill. Unset or "default" renders the card as it always was. */
+  background?: CardBackground;
+  /**
+   * Plain text shown from an info icon after the title (#2394). Empty draws
+   * no icon. The caller substitutes any parameters.
+   */
+  description?: string;
   /**
    * Where the data comes from (connection, row count). The line is reserved
    * even when empty, so panels in a row align (#1246).
@@ -98,6 +117,7 @@ function headerLayout(p: {
   readonly touch: boolean;
   readonly hasActions: boolean;
   readonly title?: string;
+  readonly description?: string;
   readonly headerExtra?: React.ReactNode;
   readonly onRefresh?: unknown;
   readonly onFullscreen?: unknown;
@@ -123,7 +143,12 @@ function headerLayout(p: {
     hasMenu,
     reserved: controls * (BUTTON_PX + BAR_GAP_PX) + BAR_EDGE_PX,
     hasHeader: Boolean(
-      p.title || hasMenu || p.headerExtra || p.onRefresh || p.onFullscreen,
+      p.title ||
+      p.description?.trim() ||
+      hasMenu ||
+      p.headerExtra ||
+      p.onRefresh ||
+      p.onFullscreen,
     ),
   };
 }
@@ -142,6 +167,50 @@ function panelEdge(
     driven &&
       "border-ring shadow-[0_0_0_1px_hsl(var(--ring))] hover:border-ring focus-within:border-ring",
     !elevation && "shadow-none",
+  );
+}
+
+/**
+ * The info icon (#2394). A Popover, not a Tooltip: a tooltip is unreachable on
+ * touch. It opens on hover, keyboard focus and tap. 18 px high, so a header
+ * with the icon is as tall as one without and a row of cards stays aligned.
+ */
+function DescriptionInfo({ text }: { readonly text: string }) {
+  const [open, setOpen] = React.useState(false);
+  const button = React.useRef<HTMLButtonElement>(null);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
+        <button
+          ref={button}
+          type="button"
+          aria-label="About this card"
+          aria-expanded={open}
+          className="-ml-1 grid h-[18px] w-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onPointerEnter={(e) => e.pointerType !== "touch" && setOpen(true)}
+          onPointerLeave={() =>
+            document.activeElement !== button.current && setOpen(false)
+          }
+          onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+          onClick={() => setOpen(true)}
+        >
+          <Info aria-hidden="true" className="h-3.5 w-3.5" />
+        </button>
+      </PopoverAnchor>
+      <PopoverContent
+        align="start"
+        className="w-auto max-w-[260px] whitespace-pre-line px-2 py-1.5 text-xs leading-4"
+        // Focus stays on the icon: the text is not interactive.
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onInteractOutside={(e) => {
+          if (button.current?.contains(e.target as Node)) e.preventDefault();
+        }}
+      >
+        {text}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -242,6 +311,8 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
   (
     {
       title,
+      background = "default",
+      description,
       source,
       actions,
       mode = "view",
@@ -278,6 +349,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
       touch,
       hasActions,
       title,
+      description,
       headerExtra,
       onRefresh,
       onFullscreen,
@@ -292,6 +364,7 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
         ref={ref}
         data-title-font={titleFont}
         data-driven={driven ? "true" : undefined}
+        data-card-fill={background === "default" ? undefined : background}
         aria-busy={refreshing || undefined}
         className={cn(
           "group/panel relative flex h-full flex-col",
@@ -314,7 +387,11 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
               headerRule ? "border-rule" : "border-transparent",
               // Untitled, with nothing to say and its controls floating over
               // the body: no band of its own (#2232).
-              !title && !source && overlay && "p-0 border-b-0",
+              !title &&
+                !source &&
+                !description?.trim() &&
+                overlay &&
+                "p-0 border-b-0",
               headerClassName,
             )}
           >
@@ -359,6 +436,9 @@ const WidgetCard = React.forwardRef<HTMLDivElement, WidgetCardProps>(
                   >
                     {title}
                   </h3>
+                )}
+                {description?.trim() && (
+                  <DescriptionInfo text={description.trim()} />
                 )}
               </div>
               {/* Hidden at rest with opacity only, never display or

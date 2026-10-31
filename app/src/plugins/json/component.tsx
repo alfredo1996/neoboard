@@ -32,6 +32,7 @@ export const jsonPlugin = defineChartPlugin({
   capabilities: {
     supportsClickAction: false,
     supportsStyling: false,
+    supportsCardBackground: true,
     isECharts: false,
     requiresQuery: true,
   },

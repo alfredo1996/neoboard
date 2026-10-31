@@ -68,6 +68,7 @@ export const parameterSelectPlugin = defineChartPlugin({
   capabilities: {
     supportsClickAction: false,
     supportsStyling: false,
+    supportsCardBackground: true,
     isECharts: false,
     requiresQuery: false,
   },
