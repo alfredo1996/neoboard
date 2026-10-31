@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { ChartOptionsPanel } from "../chart-options-panel";
 
@@ -17,9 +17,6 @@ function renderIframe(sandbox: string) {
       onSettingsChange={vi.fn()}
     />,
   );
-  screen
-    .getAllByRole("button", { expanded: false })
-    .forEach((btn) => fireEvent.click(btn));
 }
 
 describe("#1413 — the Sandbox Policy field says what it discards", () => {
@@ -36,8 +33,6 @@ describe("#1413 — the Sandbox Policy field says what it discards", () => {
   it("shows nothing when every token is applied", () => {
     renderIframe("allow-scripts");
     expect(document.getElementById("sandbox")).not.toBeNull();
-    expect(document.getElementById("sandbox-help")).not.toHaveTextContent(
-      /is refused/,
-    );
+    expect(document.getElementById("sandbox-help")).toBeNull();
   });
 });

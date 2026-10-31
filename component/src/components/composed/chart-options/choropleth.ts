@@ -15,7 +15,7 @@ export const choroplethOptions: ChartOptionDef[] = [
     label: "Show Legend",
     type: "boolean",
     default: true,
-    category: "Style",
+    category: "Layout",
     description: "Show the color range legend.",
   },
   {
@@ -23,7 +23,7 @@ export const choroplethOptions: ChartOptionDef[] = [
     label: "Enable Zoom & Pan",
     type: "boolean",
     default: true,
-    category: "Style",
+    category: "Layout",
     description: "Allow zooming and panning the map.",
   },
   {
@@ -31,7 +31,7 @@ export const choroplethOptions: ChartOptionDef[] = [
     label: "Min Color",
     type: "text",
     default: CHOROPLETH_DEFAULT_MIN_COLOR,
-    category: "Style",
+    category: "Color",
     description: "Color for the lowest value. Dark mode inverts its lightness.",
   },
   {
@@ -39,7 +39,7 @@ export const choroplethOptions: ChartOptionDef[] = [
     label: "Max Color",
     type: "text",
     default: CHOROPLETH_DEFAULT_MAX_COLOR,
-    category: "Style",
+    category: "Color",
     description:
       "Color for the highest value. Dark mode inverts its lightness.",
   },

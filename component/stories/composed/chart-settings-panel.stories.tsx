@@ -1,17 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
+import { chartOptionGroups } from "@/components/composed/chart-options-panel";
 import { ChartSettingsPanel } from "@/components/composed/chart-settings-panel";
-import { FieldPicker } from "@/components/composed/field-picker";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import type { SettingsGroup } from "@/components/composed/chart-settings-panel";
+import { SettingRow } from "@/components/composed/setting-row";
 import { Input } from "@/components/ui/input";
+import type { OptionSection } from "@/components/composed/chart-options-schema";
 
 const meta = {
   title: "Composed/ChartSettingsPanel",
@@ -23,83 +17,62 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const fields = [
-  { name: "month", type: "string" as const },
-  { name: "revenue", type: "number" as const },
-  { name: "users", type: "number" as const },
-  { name: "orders", type: "number" as const },
-  { name: "createdAt", type: "date" as const },
-];
+/**
+ * The widget editor's side nav and pane (#2388). The sections never move, the
+ * active section's groups are jump links beneath them, and the pane is the one
+ * scroller. The real editor puts the preview in the third grid cell.
+ */
+function Editor({ chartType }: Readonly<{ chartType: string }>) {
+  const [section, setSection] = useState<OptionSection>("style");
+  const [settings, setSettings] = useState<Record<string, unknown>>({});
+  const groups: SettingsGroup[] =
+    chartType === "markdown"
+      ? []
+      : [
+          {
+            name: "Query",
+            render: () => (
+              <SettingRow label="Connection" htmlFor="story-connection">
+                <Input id="story-connection" defaultValue="Movies" />
+              </SettingRow>
+            ),
+          },
+          {
+            name: "Transform",
+            render: () => (
+              <SettingRow label="Add a step" htmlFor="story-step">
+                <Input id="story-step" defaultValue="Filter" />
+              </SettingRow>
+            ),
+          },
+        ];
+  groups.push(
+    ...chartOptionGroups({
+      chartType,
+      settings,
+      onSettingsChange: setSettings,
+      columns: ["region", "revenue"],
+    }),
+  );
+  return (
+    <div className="grid h-[520px] max-w-3xl grid-cols-[168px_minmax(0,1fr)] overflow-hidden rounded-md border border-rule">
+      <ChartSettingsPanel
+        groups={groups}
+        section={section}
+        onSectionChange={setSection}
+        searchable
+      />
+    </div>
+  );
+}
 
-export const Default: Story = {
-  // #1676: the Selects inside are not associated with their labels
-  parameters: { a11y: { test: "todo" } },
-  args: { dataTab: null, styleTab: null },
-  render: () => {
-    const [chartType, setChartType] = useState("bar");
-    const [selectedFields, setSelectedFields] = useState(["month", "revenue"]);
-    const [color, setColor] = useState("#3b82f6");
+export const Bar: Story = {
+  args: { groups: [], section: "style", onSectionChange: () => {} },
+  render: () => <Editor chartType="bar" />,
+};
 
-    return (
-      <div className="w-[320px] border rounded-lg p-4">
-        <ChartSettingsPanel
-          dataTab={
-            <div className="space-y-4">
-              <div>
-                <Label className="text-xs font-medium mb-2 block">
-                  Chart Type
-                </Label>
-                <Select value={chartType} onValueChange={setChartType}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bar">Bar</SelectItem>
-                    <SelectItem value="line">Line</SelectItem>
-                    <SelectItem value="pie">Pie</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs font-medium mb-2 block">Fields</Label>
-                <FieldPicker
-                  fields={fields}
-                  selected={selectedFields}
-                  onSelect={(f) => setSelectedFields([...selectedFields, f])}
-                  onRemove={(f) =>
-                    setSelectedFields(selectedFields.filter((s) => s !== f))
-                  }
-                />
-              </div>
-            </div>
-          }
-          styleTab={
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Primary Color</Label>
-                <Input
-                  type="color"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                  className="h-8 w-12 p-1"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="legend" className="text-xs">
-                  Show Legend
-                </Label>
-                <Switch id="legend" defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="grid" className="text-xs">
-                  Show Grid
-                </Label>
-                <Switch id="grid" defaultChecked />
-              </div>
-            </div>
-          }
-        />
-      </div>
-    );
-  },
+/** Markdown has Content and nothing else here: Data, Style and Behavior hide. */
+export const Markdown: Story = {
+  args: { groups: [], section: "content", onSectionChange: () => {} },
+  render: () => <Editor chartType="markdown" />,
 };

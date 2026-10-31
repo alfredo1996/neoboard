@@ -6,7 +6,7 @@ export const gaugeOptions: ChartOptionDef[] = [
     label: "Min Value",
     type: "number",
     default: 0,
-    category: "Range",
+    category: "Gauge",
     description: "Minimum value on the gauge scale.",
   },
   {
@@ -14,7 +14,7 @@ export const gaugeOptions: ChartOptionDef[] = [
     label: "Max Value",
     type: "number",
     default: 100,
-    category: "Range",
+    category: "Gauge",
     description: "Maximum value on the gauge scale.",
   },
   {
@@ -22,7 +22,7 @@ export const gaugeOptions: ChartOptionDef[] = [
     label: "Show Progress Arc",
     type: "boolean",
     default: true,
-    category: "Style",
+    category: "Gauge",
     description: "Fill the gauge arc to show progress toward the maximum.",
   },
   {
@@ -30,7 +30,7 @@ export const gaugeOptions: ChartOptionDef[] = [
     label: "Show Value Detail",
     type: "boolean",
     default: true,
-    category: "Labels",
+    category: "Data labels",
     description: "Show the numeric value and name below the gauge.",
   },
   {
@@ -38,7 +38,7 @@ export const gaugeOptions: ChartOptionDef[] = [
     label: "Start Angle (°)",
     type: "number",
     default: 180,
-    category: "Layout",
+    category: "Gauge",
     description: "Starting angle of the gauge arc in degrees (0 = 3 o'clock).",
   },
   {
@@ -46,7 +46,7 @@ export const gaugeOptions: ChartOptionDef[] = [
     label: "End Angle (°)",
     type: "number",
     default: 0,
-    category: "Layout",
+    category: "Gauge",
     description: "Ending angle of the gauge arc in degrees.",
   },
   {
@@ -54,7 +54,7 @@ export const gaugeOptions: ChartOptionDef[] = [
     label: "Prefix",
     type: "text",
     default: "",
-    category: "Labels",
+    category: "Data labels",
     description: "Text prepended to the value (e.g. '$', '€').",
   },
   {
@@ -62,15 +62,16 @@ export const gaugeOptions: ChartOptionDef[] = [
     label: "Suffix",
     type: "text",
     default: "",
-    category: "Labels",
+    category: "Data labels",
     description: "Text appended to the value (e.g. '%', ' items').",
   },
   {
     key: "thresholdZones",
-    label: "Threshold Zones (JSON)",
+    label: "Threshold Zones",
     type: "text",
     default: "",
-    category: "Style",
+    category: "Color",
+    multiline: true,
     description:
       'Colored zones on the arc: [{"value":30,"color":"#67e0e3"},{"value":70,"color":"#37a2da"}]',
   },

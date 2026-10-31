@@ -6,7 +6,7 @@ export const formOptions: ChartOptionDef[] = [
     label: "Submit Button Text",
     type: "text",
     default: "Submit",
-    category: "Form",
+    category: "Submit button",
     description: "Label for the form submit button.",
   },
   {
@@ -14,7 +14,7 @@ export const formOptions: ChartOptionDef[] = [
     label: "Success Message",
     type: "text",
     default: "Form submitted successfully",
-    category: "Form",
+    category: "After submit",
     description: "Message shown after a successful submission.",
   },
   {
@@ -22,7 +22,7 @@ export const formOptions: ChartOptionDef[] = [
     label: "Reset on Success",
     type: "boolean",
     default: true,
-    category: "Form",
+    category: "After submit",
     description: "Clear all form fields after a successful submission.",
   },
 ];

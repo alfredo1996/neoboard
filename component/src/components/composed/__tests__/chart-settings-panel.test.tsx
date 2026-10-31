@@ -1,119 +1,148 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { render, screen, fireEvent, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeAll } from "vitest";
+import { useState } from "react";
 import { ChartSettingsPanel } from "../chart-settings-panel";
+import type { SettingsGroup } from "../chart-settings-panel";
+import { chartOptionGroups } from "../chart-options-panel";
+import type { OptionSection } from "../chart-options-schema";
 
-describe("ChartSettingsPanel", () => {
-  it("renders data and style tabs", () => {
-    render(
-      <ChartSettingsPanel
-        dataTab={<div>Data content</div>}
-        styleTab={<div>Style content</div>}
-      />,
+vi.setConfig({ testTimeout: 15000 });
+
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+  Element.prototype.scrollTo = vi.fn();
+});
+
+const data: SettingsGroup[] = [
+  { name: "Query", render: () => <p>query box</p> },
+  { name: "Transform", render: () => <p>transform steps</p> },
+];
+
+function Harness({
+  chartType,
+  extra = [],
+  start = "data",
+}: Readonly<{
+  chartType: string;
+  extra?: SettingsGroup[];
+  start?: OptionSection;
+}>) {
+  const [section, setSection] = useState<OptionSection>(start);
+  const [settings, setSettings] = useState<Record<string, unknown>>({});
+  return (
+    <ChartSettingsPanel
+      searchable
+      section={section}
+      onSectionChange={setSection}
+      groups={[
+        ...extra,
+        ...chartOptionGroups({
+          chartType,
+          settings,
+          onSettingsChange: setSettings,
+        }),
+      ]}
+    />
+  );
+}
+
+const sectionNames = () =>
+  within(screen.getByRole("tablist", { name: "Editor sections" }))
+    .getAllByRole("tab")
+    .map((t) => t.textContent);
+
+describe("ChartSettingsPanel (#2388)", () => {
+  it("lists Data, Style and Behavior as vertical tabs that predict their contents", () => {
+    render(<Harness chartType="bar" extra={data} />);
+    expect(screen.getByRole("tablist")).toHaveAttribute(
+      "aria-orientation",
+      "vertical",
     );
-    expect(screen.getByRole("tab", { name: "Data" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Style" })).toBeInTheDocument();
+    expect(sectionNames()).toEqual(["Data", "Style", "Behavior"]);
+    expect(screen.getByText("query box")).toBeInTheDocument();
   });
 
-  it("shows data tab content by default", () => {
-    render(
-      <ChartSettingsPanel
-        dataTab={<div>Data content</div>}
-        styleTab={<div>Style content</div>}
-      />,
-    );
-    expect(screen.getByText("Data content")).toBeInTheDocument();
+  it("hides a section with nothing in it: a content widget has Content and nothing else", () => {
+    render(<Harness chartType="markdown" start="content" />);
+    expect(sectionNames()).toEqual(["Content"]);
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 
-  it("renders advanced tab when provided", () => {
-    render(
-      <ChartSettingsPanel
-        dataTab={<div>Data</div>}
-        styleTab={<div>Style</div>}
-        advancedTab={<div>Advanced</div>}
-      />,
+  it("falls back to the first section when the one on show is gone", () => {
+    render(<Harness chartType="markdown" extra={[]} start="style" />);
+    expect(screen.getByRole("tab", { name: "Content" })).toHaveAttribute(
+      "aria-selected",
+      "true",
     );
-    expect(screen.getByRole("tab", { name: "Advanced" })).toBeInTheDocument();
   });
 
-  it("does not render advanced tab when not provided", () => {
-    render(
-      <ChartSettingsPanel
-        dataTab={<div>Data</div>}
-        styleTab={<div>Style</div>}
-      />,
-    );
+  it("puts the jump links outside the tablist, and none for a single group", () => {
+    render(<Harness chartType="bar" extra={data} />);
+    const jumps = screen.getByRole("navigation", { name: "Jump to a group" });
     expect(
-      screen.queryByRole("tab", { name: "Advanced" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("applies custom className", () => {
-    const { container } = render(
-      <ChartSettingsPanel
-        dataTab={<div>Data</div>}
-        styleTab={<div>Style</div>}
-        className="my-panel"
-      />,
-    );
-    expect(container.firstChild).toHaveClass("my-panel");
-  });
-
-  it("renders transform tab when provided", () => {
-    render(
-      <ChartSettingsPanel
-        dataTab={<div>Data</div>}
-        styleTab={<div>Style</div>}
-        transformTab={<div>Transform content</div>}
-      />,
-    );
-    expect(screen.getByRole("tab", { name: "Transform" })).toBeInTheDocument();
-  });
-
-  it("does not render transform tab when not provided", () => {
-    render(
-      <ChartSettingsPanel
-        dataTab={<div>Data</div>}
-        styleTab={<div>Style</div>}
-      />,
-    );
+      screen.getByRole("tablist").contains(jumps),
+      "links inside the tablist fail axe",
+    ).toBe(false);
     expect(
-      screen.queryByRole("tab", { name: "Transform" }),
-    ).not.toBeInTheDocument();
+      within(jumps)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Query", "Transform"]);
   });
 
-  it("resets to defaultTab when resetKey changes", () => {
-    const { rerender } = render(
-      <ChartSettingsPanel
-        dataTab={<div>Data content</div>}
-        styleTab={<div>Style content</div>}
-        resetKey="bar"
-        defaultTab="data"
-      />,
-    );
-    // Initially data tab content is shown
-    expect(screen.getByText("Data content")).toBeInTheDocument();
-
-    // Re-render with a new resetKey — tabs should re-mount (key change)
-    rerender(
-      <ChartSettingsPanel
-        dataTab={<div>Data content v2</div>}
-        styleTab={<div>Style content v2</div>}
-        resetKey="line"
-        defaultTab="data"
-      />,
-    );
-    // The tabs reset — data tab should be active again
-    expect(screen.getByText("Data content v2")).toBeInTheDocument();
+  it("shows the active section's groups in the fixed order, as links too", () => {
+    render(<Harness chartType="bar" start="style" />);
+    const headings = screen
+      .getAllByRole("heading", { level: 3 })
+      .map((h) => h.textContent);
+    expect(headings).toEqual([
+      "Bars",
+      "Axes",
+      "Legend",
+      "Data labels",
+      "Color",
+      "Reference lines",
+    ]);
+    expect(
+      within(screen.getByRole("navigation", { name: "Jump to a group" }))
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(headings);
   });
 
-  it("uses defaultTab as initial active tab", () => {
+  it("a jump link scrolls the pane to its group", () => {
+    render(<Harness chartType="bar" start="style" />);
+    fireEvent.click(screen.getByRole("button", { name: "Legend" }));
+    expect(
+      screen.getByTestId("editor-pane").scrollTo,
+      "the pane scrolls, not the page",
+    ).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
+  });
+
+  it("searches Style only, and a miss says the rest is in Behavior", () => {
+    render(<Harness chartType="bar" start="style" />);
+    const search = screen.getByRole("textbox", { name: "Search options" });
+    fireEvent.change(search, { target: { value: "legend" } });
+    expect(
+      screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
+    ).toEqual(["Legend"]);
+    fireEvent.change(search, { target: { value: "refresh" } });
+    expect(screen.queryAllByRole("heading", { level: 3 })).toHaveLength(0);
+    expect(screen.getByText(/The rest is in Behavior/)).toBeInTheDocument();
+    // The section row stays: a search never hides a section.
+    expect(sectionNames()).toEqual(["Style", "Behavior"]);
+  });
+
+  it("joins groups of the same name under one heading", () => {
     render(
-      <ChartSettingsPanel
-        dataTab={<div>Data content</div>}
-        styleTab={<div>Style content</div>}
-        defaultTab="style"
+      <Harness
+        chartType="bar"
+        start="behavior"
+        extra={[{ name: "Refresh", render: () => <p>from the app</p> }]}
       />,
     );
-    expect(screen.getByText("Style content")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Refresh" })).toHaveLength(1);
+    expect(screen.getByText("from the app")).toBeInTheDocument();
+    expect(screen.getByLabelText("Refresh Button")).toBeInTheDocument();
   });
 });

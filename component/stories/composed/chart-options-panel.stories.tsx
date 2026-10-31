@@ -21,11 +21,9 @@ type Story = StoryObj<typeof meta>;
 function Panel({
   chartType,
   initial = {},
-  openCategories,
 }: {
   chartType: string;
   initial?: Record<string, unknown>;
-  openCategories?: string[];
 }) {
   const [settings, setSettings] = useState<Record<string, unknown>>(initial);
   return (
@@ -38,7 +36,6 @@ function Panel({
         // object, not a (key, value) pair.
         onSettingsChange={setSettings}
         columns={["region", "revenue", "units", "margin"]}
-        openCategories={openCategories}
       />
     </div>
   );
@@ -56,7 +53,7 @@ export const Table: Story = {
   render: () => <Panel chartType="table" />,
 };
 
-/** Both groups open, a radiogroup of named swatches with the checked one marked (#2368). */
+/** A radiogroup of named swatches with the checked one marked (#2368). */
 export const FilterAppearance: Story = {
   args: {
     chartType: "parameter-select",
@@ -67,7 +64,6 @@ export const FilterAppearance: Story = {
     <Panel
       chartType="parameter-select"
       initial={{ fieldFill: "azure", fieldBorder: "citrine" }}
-      openCategories={["Appearance", "Behaviour"]}
     />
   ),
 };

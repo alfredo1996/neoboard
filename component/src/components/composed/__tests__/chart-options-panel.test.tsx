@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { ChartOptionsPanel } from "../chart-options-panel";
-import { getChartOptions } from "../chart-options-schema";
+import { OPTION_GROUPS, getChartOptions } from "../chart-options-schema";
+import { CHART_TYPES_WITH_OPTIONS } from "../chart-options/index";
 
 // This panel renders every option for a chart type (+ category expansion), a
 // heavy jsdom render that intermittently exceeds the 5s default under parallel
@@ -13,13 +14,6 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
 
-/** Expand all collapsed category sections so their content is in the DOM. */
-function expandAllCategories() {
-  screen
-    .getAllByRole("button", { expanded: false })
-    .forEach((btn) => fireEvent.click(btn));
-}
-
 describe("ChartOptionsPanel", () => {
   it("renders options for bar chart", () => {
     render(
@@ -29,13 +23,12 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expandAllCategories();
     expect(screen.getByText("Orientation")).toBeInTheDocument();
-    expect(screen.getByText("Stack Mode")).toBeInTheDocument();
+    expect(screen.getByText("Stacking")).toBeInTheDocument();
     expect(screen.getByText("Show Values")).toBeInTheDocument();
     expect(screen.getByText("Show Legend")).toBeInTheDocument();
-    expect(screen.getByText("Bar Width (px, 0=auto)")).toBeInTheDocument();
-    expect(screen.getByText("Show Grid Lines")).toBeInTheDocument();
+    expect(screen.getByText("Bar Width")).toBeInTheDocument();
+    expect(screen.getByText("Grid Lines")).toBeInTheDocument();
   });
 
   it("shows empty message for unknown chart type", () => {
@@ -58,7 +51,6 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={onChange}
       />,
     );
-    expandAllCategories();
     const switchEl = screen.getByRole("switch", { name: "Show Values" });
     fireEvent.click(switchEl);
     expect(onChange).toHaveBeenCalledWith(
@@ -75,8 +67,7 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={onChange}
       />,
     );
-    expandAllCategories();
-    const input = screen.getByLabelText("X-Axis Label");
+    const input = screen.getByLabelText("X Axis Label");
     fireEvent.change(input, { target: { value: "Time" } });
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ xAxisLabel: "Time" }),
@@ -92,7 +83,6 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={onChange}
       />,
     );
-    expandAllCategories();
     const input = screen.getByLabelText("Page Size");
     fireEvent.change(input, { target: { value: "50" } });
     expect(onChange).toHaveBeenCalledWith(
@@ -109,7 +99,6 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={onChange}
       />,
     );
-    expandAllCategories();
     fireEvent.change(screen.getByLabelText("Page Size"), {
       target: { value: "" },
     });
@@ -127,7 +116,6 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={onChange}
       />,
     );
-    expandAllCategories();
     const input = screen.getByLabelText("Page Size");
     expect(input).toHaveAttribute("placeholder", "Auto (fits the card)");
     fireEvent.change(input, { target: { value: "" } });
@@ -143,7 +131,6 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expandAllCategories();
     expect(screen.getByLabelText("Page Size")).toHaveValue(null);
   });
 
@@ -159,7 +146,31 @@ describe("ChartOptionsPanel", () => {
     expect(screen.queryByText(/\(optional\)/)).not.toBeInTheDocument();
   });
 
-  it("groups options by category", () => {
+  it("renders a group's rows under its heading, groups in the fixed order for every chart (#2388)", () => {
+    const order = Object.keys(OPTION_GROUPS);
+    for (const type of CHART_TYPES_WITH_OPTIONS) {
+      const { unmount } = render(
+        <ChartOptionsPanel
+          chartType={type}
+          settings={{}}
+          onSettingsChange={vi.fn()}
+        />,
+      );
+      const headings = screen
+        .queryAllByRole("heading", { level: 3 })
+        .map((h) => h.textContent ?? "");
+      expect(headings, type).toEqual(
+        [...headings].sort((x, y) => order.indexOf(x) - order.indexOf(y)),
+      );
+      // No heading without a row under it.
+      for (const h of screen.queryAllByRole("heading", { level: 3 })) {
+        expect(
+          h.parentElement!.children.length,
+          `${type} ${h.textContent}`,
+        ).toBeGreaterThan(1);
+      }
+      unmount();
+    }
     render(
       <ChartOptionsPanel
         chartType="bar"
@@ -167,51 +178,19 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expect(screen.getByText("Layout")).toBeInTheDocument();
-    expect(screen.getByText("Labels")).toBeInTheDocument();
-  });
-
-  it("shows search input for chart types with many options", () => {
-    render(
-      <ChartOptionsPanel
-        chartType="map"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
-    );
     expect(
-      screen.getByPlaceholderText("Search options..."),
-    ).toBeInTheDocument();
-  });
-
-  it("does not show search input for chart types with few options", () => {
-    // markdown has a single option, below the threshold of 4
-    render(
-      <ChartOptionsPanel
-        chartType="markdown"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
-    );
-    expect(
-      screen.queryByPlaceholderText("Search options..."),
-    ).not.toBeInTheDocument();
-  });
-
-  it("filters options when searching", () => {
-    render(
-      <ChartOptionsPanel
-        chartType="map"
-        settings={{}}
-        onSettingsChange={vi.fn()}
-      />,
-    );
-    const searchInput = screen.getByPlaceholderText("Search options...");
-    fireEvent.change(searchInput, { target: { value: "zoom" } });
-    expect(screen.getByText("Default Zoom")).toBeInTheDocument();
-    expect(screen.getByText("Min Zoom")).toBeInTheDocument();
-    expect(screen.getByText("Max Zoom")).toBeInTheDocument();
-    expect(screen.queryByText("Tile Layer")).not.toBeInTheDocument();
+      screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent),
+    ).toEqual([
+      "Bars",
+      "Axes",
+      "Legend",
+      "Data labels",
+      "Color",
+      "Reference lines",
+      "Refresh",
+      "Caching",
+      "Interaction",
+    ]);
   });
 
   it("renders text inputs for the map tile layer and attribution (#1685)", () => {
@@ -270,7 +249,6 @@ describe("ChartOptionsPanel", () => {
         chartType="parameter-select"
         settings={{}}
         onSettingsChange={vi.fn()}
-        openCategories={["Appearance", "Behaviour"]}
       />,
     );
     expect(screen.getByLabelText("Placeholder")).toBeInTheDocument();
@@ -304,7 +282,6 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expandAllCategories();
     const described = getChartOptions("bar").filter((o) => o.description);
     expect(described.length).toBeGreaterThan(0);
     for (const option of described) {
@@ -326,7 +303,6 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expandAllCategories();
     // There should be no svg element with the lucide HelpCircle path inside the panel
     // Only Switch thumbs and other UI icons, no HelpCircle — check no icon has cursor-help
     const helpIcons = container.querySelectorAll("svg.cursor-help");
@@ -341,7 +317,6 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expandAllCategories();
     // The dotted underline advertised content the keyboard could never open.
     expect(container.querySelectorAll("label.cursor-help")).toHaveLength(0);
     expect(container.querySelectorAll("label.decoration-dotted")).toHaveLength(
@@ -358,7 +333,6 @@ describe("ChartOptionsPanel", () => {
         columns={["country", "city", "population"]}
       />,
     );
-    expandAllCategories();
     // MultiSelect renders a combobox trigger with placeholder text
     expect(screen.getByText("Select columns…")).toBeInTheDocument();
   });
@@ -374,7 +348,6 @@ describe("ChartOptionsPanel", () => {
         columns={["country", "city", "population"]}
       />,
     );
-    expandAllCategories();
     // The two saved columns render as selected chips inside the MultiSelect.
     expect(screen.getByText("country")).toBeInTheDocument();
     expect(screen.getByText("city")).toBeInTheDocument();
@@ -388,7 +361,6 @@ describe("ChartOptionsPanel", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expandAllCategories();
     // Falls back to a text input when columns are not available
     const input = screen.getByPlaceholderText(
       "Run a preview query to select columns",
@@ -407,7 +379,6 @@ describe("ChartOptionsPanel", () => {
         columns={["country", "city", "population"]}
       />,
     );
-    expandAllCategories();
     // MultiSelect trigger shows placeholder when nothing selected
     const trigger = screen.getByText("Select columns…").closest("button")!;
     fireEvent.click(trigger);
@@ -463,7 +434,7 @@ describe("ChartOptionsPanel", () => {
         />,
       );
 
-    it("shows Appearance first, open, with a radiogroup of named swatches", () => {
+    it("shows the Field group first, with a radiogroup of named swatches", () => {
       renderFilter({});
       const group = screen.getByRole("radiogroup", { name: "Field fill" });
       const names = within(group)
@@ -475,8 +446,9 @@ describe("ChartOptionsPanel", () => {
           .getAllByRole("radio")
           .map((r) => r.getAttribute("aria-label")),
       ).toEqual(["Default", "Azure", "Citrine", "Sage", "Ink"]);
-      const headings = screen.getAllByRole("button", { expanded: true });
-      expect(headings[0]).toHaveTextContent("Appearance");
+      expect(screen.getAllByRole("heading", { level: 3 })[0]).toHaveTextContent(
+        "Field",
+      );
     });
 
     it("marks the stored value checked, Default when nothing is stored", () => {
@@ -548,33 +520,96 @@ describe("ChartOptionsPanel", () => {
       ]);
     });
 
-    it("openCategories opens Behaviour beside Appearance on a filter", () => {
-      renderFilter({}, vi.fn(), {
-        openCategories: ["Appearance", "Behaviour"],
-      });
+    it("shows a filter's Field and Input groups together, none collapsed", () => {
+      renderFilter({});
       expect(screen.getByLabelText("Placeholder")).toBeInTheDocument();
+      expect(screen.getByText("Sync to URL")).toBeInTheDocument();
       expect(
         screen.getByRole("radiogroup", { name: "Field fill" }),
       ).toBeInTheDocument();
     });
 
-    it("without openCategories only the first group is open", () => {
-      renderFilter({});
-      expect(screen.queryByLabelText("Placeholder")).not.toBeInTheDocument();
-    });
-
-    it("a search match inside a collapsed group shows the field, not just the heading", () => {
-      renderFilter({});
-      fireEvent.change(screen.getByPlaceholderText("Search options..."), {
-        target: { value: "sync" },
-      });
-      expect(screen.getByText("Sync to URL")).toBeInTheDocument();
-    });
-
     it("hiddenCategories leaves a category out", () => {
-      renderFilter({}, vi.fn(), { hiddenCategories: ["Appearance"] });
-      expect(screen.queryByText("Appearance")).not.toBeInTheDocument();
+      renderFilter({}, vi.fn(), { hiddenCategories: ["Field"] });
+      expect(screen.queryByText("Field")).not.toBeInTheDocument();
       expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("rows sized to their values (#2388)", () => {
+    const rotation = () => screen.getByLabelText("Label Rotation");
+
+    it.each([
+      ["axisLabelRotation", "Label Rotation", -1],
+      ["barWidth", "Bar Width", 0],
+    ])(
+      "shows a stored %s of %s as an empty Auto field and leaves it when saved untouched",
+      (key, label, auto) => {
+        const onChange = vi.fn();
+        render(
+          <ChartOptionsPanel
+            chartType="bar"
+            settings={{ [key]: auto }}
+            onSettingsChange={onChange}
+          />,
+        );
+        const input = screen.getByLabelText(label);
+        expect(input).toHaveValue(null);
+        expect(input).toHaveAttribute("placeholder", "Auto");
+        expect(onChange).not.toHaveBeenCalled();
+      },
+    );
+
+    it("stores a typed value as a number, and an emptied field as the automatic value", () => {
+      const onChange = vi.fn();
+      render(
+        <ChartOptionsPanel
+          chartType="bar"
+          settings={{ axisLabelRotation: 45 }}
+          onSettingsChange={onChange}
+        />,
+      );
+      fireEvent.change(rotation(), { target: { value: "30" } });
+      expect(onChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ axisLabelRotation: 30 }),
+      );
+      fireEvent.change(rotation(), { target: { value: "" } });
+      expect(onChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ axisLabelRotation: -1 }),
+      );
+    });
+
+    it("draws a two- or three-way choice as a segmented control storing the old values", () => {
+      const onChange = vi.fn();
+      render(
+        <ChartOptionsPanel
+          chartType="bar"
+          settings={{}}
+          onSettingsChange={onChange}
+        />,
+      );
+      expect(screen.getAllByRole("radio", { name: "Vertical" })).toHaveLength(
+        1,
+      );
+      fireEvent.click(screen.getByRole("radio", { name: "Horizontal" }));
+      expect(onChange).toHaveBeenLastCalledWith({ orientation: "horizontal" });
+      fireEvent.click(screen.getByRole("radio", { name: "Stacked" }));
+      expect(onChange).toHaveBeenLastCalledWith({ stackMode: "stacked" });
+      fireEvent.click(screen.getByRole("radio", { name: "100%" }));
+      expect(onChange).toHaveBeenLastCalledWith({ stackMode: "percent" });
+    });
+
+    it("keeps a longer list as a dropdown", () => {
+      render(
+        <ChartOptionsPanel
+          chartType="bar"
+          settings={{}}
+          onSettingsChange={vi.fn()}
+        />,
+      );
+      expect(
+        screen.getByRole("combobox", { name: "Palette" }),
+      ).toBeInTheDocument();
     });
   });
 });

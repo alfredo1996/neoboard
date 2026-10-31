@@ -9,7 +9,8 @@
  * until it lands, edit options here (#1549).
  */
 import type { ChartOptionDef } from "./shared";
-export type { ChartOptionDef } from "./shared";
+export type { ChartOptionDef, OptionGroup, OptionSection } from "./shared";
+export { OPTION_GROUPS } from "./shared";
 import {
   behaviorOptions,
   appearanceOptions,

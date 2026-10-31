@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { ChartOptionsPanel } from "../chart-options-panel";
 import { getChartOptions } from "../chart-options-schema";
@@ -9,12 +9,6 @@ vi.setConfig({ testTimeout: 15000 });
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
-
-function expandAllCategories() {
-  screen
-    .getAllByRole("button", { expanded: false })
-    .forEach((btn) => fireEvent.click(btn));
-}
 
 /**
  * #1283 item 2b — an option's `description` was reachable only by hovering its
@@ -38,7 +32,6 @@ describe("#1283 item 2b — option descriptions reach assistive tech", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expandAllCategories();
 
     for (const option of described) {
       const control = document.getElementById(option.key);
@@ -64,7 +57,6 @@ describe("#1283 item 2b — option descriptions reach assistive tech", () => {
         onSettingsChange={vi.fn()}
       />,
     );
-    expandAllCategories();
 
     for (const option of plain) {
       const control = document.getElementById(option.key);

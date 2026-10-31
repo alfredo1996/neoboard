@@ -421,10 +421,10 @@ describe("chart-options-schema table widget enablePagination option", () => {
     expect(defaults.enablePagination).toBe(true);
   });
 
-  it("enablePagination option is in the Pagination category", () => {
+  it("enablePagination option is in the Rows group", () => {
     const opt = getChartOptions("table").find(
       (o) => o.key === "enablePagination",
     );
-    expect(opt?.category).toBe("Pagination");
+    expect(opt?.category).toBe("Rows");
   });
 });

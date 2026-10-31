@@ -13,7 +13,7 @@ export const barOptions: ChartOptionDef[] = [
     label: "Orientation",
     type: "select",
     default: "vertical",
-    category: "Layout",
+    category: "Bars",
     description:
       "Vertical bars grow upward; horizontal bars grow left-to-right.",
     options: [
@@ -23,33 +23,37 @@ export const barOptions: ChartOptionDef[] = [
   },
   {
     key: "stackMode",
-    label: "Stack Mode",
+    label: "Stacking",
     type: "select",
     default: "none",
-    category: "Layout",
+    category: "Bars",
     description:
       "How to arrange multiple series: side by side, stacked, or 100% stacked (percentage).",
     options: [
-      { label: "Normal (grouped)", value: "none" },
+      { label: "Grouped", value: "none" },
       { label: "Stacked", value: "stacked" },
-      { label: "100% Stacked", value: "percent" },
+      { label: "100%", value: "percent" },
     ],
   },
   {
     key: "barWidth",
-    label: "Bar Width (px, 0=auto)",
+    label: "Bar Width",
     type: "number",
     default: 0,
-    category: "Layout",
+    category: "Bars",
+    unit: "px",
+    auto: 0,
     description:
-      "Width of each bar in pixels. Set to 0 to let the chart auto-size.",
+      "Width of each bar in pixels. Leave empty to let the chart auto-size.",
   },
   {
     key: "barGap",
     label: "Bar Gap",
     type: "text",
     default: "30%",
-    category: "Layout",
+    category: "Bars",
+    unit: "%",
+    percent: true,
     description:
       "Gap between bar groups as a percentage of the bar width (e.g. '30%').",
   },
@@ -58,7 +62,7 @@ export const barOptions: ChartOptionDef[] = [
     label: "Show Values",
     type: "boolean",
     default: false,
-    category: "Labels",
+    category: "Data labels",
     description: "Display the numeric value as a label on each bar.",
   },
   SHARED_SHOW_LEGEND,
@@ -67,12 +71,15 @@ export const barOptions: ChartOptionDef[] = [
   SHARED_SHOW_GRID_LINES,
   {
     key: "axisLabelRotation",
-    label: "Axis Label Rotation (°)",
+    label: "Label Rotation",
     type: "number",
     default: -1,
-    category: "Labels",
+    category: "Axes",
+    unit: "°",
+    auto: -1,
+    help: "0 to 90. Auto keeps labels flat and cuts them to fit.",
     description:
-      "Axis label rotation, 0-90. Use -1 to rotate automatically when labels crowd.",
+      "Axis label rotation, 0-90. Empty keeps labels flat and cuts them to fit (#2226).",
   },
   SHARED_REFERENCE_LINES,
 ];

@@ -6,7 +6,7 @@ export const ganttOptions: ChartOptionDef[] = [
     label: "Show Today Line",
     type: "boolean",
     default: true,
-    category: "Style",
+    category: "Layout",
     description: "Display a vertical dashed line marking today's date.",
   },
   {
@@ -14,7 +14,7 @@ export const ganttOptions: ChartOptionDef[] = [
     label: "Show Progress",
     type: "boolean",
     default: false,
-    category: "Style",
+    category: "Layout",
     description:
       "Overlay a progress indicator inside each bar (requires a progress column returning 0–1).",
   },
@@ -23,7 +23,7 @@ export const ganttOptions: ChartOptionDef[] = [
     label: "Show Grid Lines",
     type: "boolean",
     default: true,
-    category: "Style",
+    category: "Axes",
     description: "Show vertical grid lines on the time axis.",
   },
   {
@@ -31,7 +31,7 @@ export const ganttOptions: ChartOptionDef[] = [
     label: "Bar Corner Radius",
     type: "number",
     default: 2,
-    category: "Style",
+    category: "Layout",
     description: "Corner radius for task bars (0 = square, 4+ = rounded).",
   },
   {
