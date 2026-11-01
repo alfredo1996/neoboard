@@ -130,9 +130,13 @@ function labelOf(label: string) {
   return bare.replaceAll(/(?<=\s)[A-Z][a-z]+/g, (word) => word.toLowerCase());
 }
 
-/** An option value as field text: strings and numbers show, anything else is empty. */
+/** An option value as field text: strings, numbers and booleans show, anything else is empty. */
 function asText(v: unknown) {
-  return typeof v === "string" || typeof v === "number" ? String(v) : "";
+  return typeof v === "string" ||
+    typeof v === "number" ||
+    typeof v === "boolean"
+    ? String(v)
+    : "";
 }
 
 function NumberControl({

@@ -46,7 +46,7 @@ describe("extractParamDefaults", () => {
     ]);
   });
 
-  it.each([undefined, null, ""])("treats %j as no default (#2380)", (v) => {
+  it.each([undefined, null, "", []])("treats %j as no default (#2380)", (v) => {
     const layout = makeLayout([
       {
         chartType: "parameter-select",
@@ -57,15 +57,18 @@ describe("extractParamDefaults", () => {
   });
 
   it("seeds a number-range default of 0 with its companions (#2380)", () => {
-    const seeds = expandParamDefaults([
+    const layout = makeLayout([
       {
-        name: "n",
-        value: 0,
-        type: "number-range",
-        widgetId: "w0",
-        rangeMin: 0,
+        chartType: "parameter-select",
+        chartOptions: {
+          parameterName: "n",
+          parameterType: "number-range",
+          defaultValue: 0,
+          rangeMin: 0,
+        },
       },
     ]);
+    const seeds = expandParamDefaults(extractParamDefaults(layout));
     expect(seeds.map((x) => x.value)).toEqual([[0, 0], 0, 0]);
   });
 

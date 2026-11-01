@@ -15,6 +15,17 @@ beforeAll(() => {
 });
 
 describe("OptionRows", () => {
+  it("shows an imported false default in the Default Value field (#2380)", () => {
+    render(
+      <OptionRows
+        chartType="parameter-select"
+        settings={{ defaultValue: false }}
+        onSettingsChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Default value")).toHaveValue("false");
+  });
+
   it("renders options for bar chart", () => {
     render(
       <OptionRows chartType="bar" settings={{}} onSettingsChange={vi.fn()} />,
