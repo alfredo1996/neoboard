@@ -215,9 +215,10 @@ jobs:
       - name: Scan image for vulnerabilities
         uses: aquasecurity/trivy-action@v0.36.0
         env:
-          # The image is not public until the package is, so Trivy needs the
-          # same credentials the push used rather than relying on it picking
-          # up the docker/login-action config.
+          # The package came back public on the first push, so the scan could
+          # pull anonymously. It still passes the credentials the push used, so
+          # it keeps working if the package is ever made private, and does not
+          # rely on picking up the docker/login-action config.
           TRIVY_USERNAME: ${{ github.actor }}
           TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         with:

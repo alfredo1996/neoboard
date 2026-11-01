@@ -6,9 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 NeoBoard versioning resets at **1.0.0**.
 
-> **On versions and tags.** 1.5.0 is the first version that is git-tagged and published, as a GitHub Release and a
-> `ghcr.io` container image. 1.0.0 to 1.4.0 were never tagged or published: each was a release branch consolidated
-> into `dev`, and the date beside it is the date of that consolidation.
+> **On versions and tags.** `v1.7.0-rc.1` is the first git tag and the first published `ghcr.io` container image.
+> 1.0.0 to 1.6.0 were never tagged or published: each was a release branch consolidated into `dev`, and the date
+> beside it is the date of that consolidation.
+
+## [1.7.0] — Unreleased — Redesign
+
+Gives NeoBoard one calm look from the sign-in page to the last chart: serif headings, a quieter palette, flat panels, 36px controls and the same page layout everywhere. The charts, the widget editor and every list page were redone on the same system (#2215, #2216, #2217, #2218, #2219, #2220, #2221, #2222, #2223, #2224, #2225, #2226, #2227, #2228, #2229, #2230, #2231, #2232). This release also carries the fixes found while it was tested, and two security fixes.
+
+### Added
+
+- **A new look for the components.** New fonts and colours (#2215). Buttons have no shadow and a danger style that is not a red slab (#2216). Every input is one field 36px high, with borders you can see and errors that say what to do (#2217), and a field reads as a place to type or choose, with a tinted fill (#2367). Checkbox, radio, switch, slider and the segmented control match (#2218). Status shows as a dot and a word and tags replace the pill badges (#2220). Tabs are underlined and scroll to the active one (#2221). Dialogs, menus, tooltips and toasts follow (#2223). Loading names what it loads, and empty states lose the big icon (#2224).
+- **Tables** have 36px rows, aligned and formatted numbers, and filters in the header menu (#2222).
+- **Widgets are cards**: a white card with an edge, a light shadow and a header rule, with every look available as a card option (#2219, #2247). A card can have a description, and cards that are not charts can change their background (#2394).
+- **Charts in the new theme**: a muted palette, a highlight rule and formatted numbers (#2226). Bar, line and donut (#2227), the table widget, single value and gauge (#2228), Sankey, sunburst and Gantt (#2231) are redrawn. Graph nodes are coloured and counted per label and named where they fit (#2229). Maps use greyscale tiles, clusters sized by count and 24px markers (#2230). The parameter selector, form, text, JSON and embedded page widgets match (#2232).
+- **A page kit** used by every page: the dashboard page has a header with breadcrumb and actions and filters written as sentences (#2225, #2252); the dashboards list shows stats, a filter line and rows (#2253); connections, users and the widget library list their items as rows (#2254); profile and API keys use settings sections (#2255); sign in, sign up, change password and the 404 page use the kit (#2256). Connection rows show each connection's address, without decrypting its config (#2265).
+- **Dashboard filters**: the Filters button is back in the header, with a capped list and one scrolling line of active filters (#2297). The bar can be hidden, and the menu lines values up and shows which rows are clickable (#2351). A filter shows which cards it drives, and a card that refetches keeps its result under a thin progress line (#2369). A filter widget can take its own field fill, border and width from preset colours (#2368).
+- **Edit mode** has a visible Cancel button to leave without saving (#2352).
+- **The widget editor** puts its options in stable, grouped tabs (#2388). A markdown widget has a Style section with text size and alignment (#2392).
+
+### Changed
+
+- The widget editor's query pane follows the theme instead of staying dark, and no longer leaves an empty band under the code (#2329).
+- A table pages by the height of its card again, and not by 10 for every table saved with the old default (#2356). A table widget's pager is no longer clipped at the bottom of its card (#2257).
+- A number-range selector gets a three-row minimum height so it is not clipped (#2374), and a parameter selector's field no longer sits on the card's bottom edge (#2357).
+
+### Fixed
+
+- **Dashboards.** The unsaved-changes warning now appears when you leave through the sidebar or the user menu, and Back no longer loops on it (#2325). A user without write permission no longer sees Edit on their own dashboard (#2313). A dashboard can no longer be shared with the same user twice (#2259). The demo's Chart Gallery sunburst uses the new palette and the Playground's time series are filled (#2331).
+- **Parameters.** A parameter whose default is `0` or `false` now applies it on first load, so its widgets stop waiting for a value (#2380). A NeoDash import keeps its filters' names, defaults and ranges (#2377).
+- **Widget editor.** Choosing the chart type or connection already shown no longer clears it, and a widget with no chart type can no longer be saved (#2326). The query editor has an accessible name (#2345).
+- **Charts.** The choropleth tooltip shows a region's name when it has no value (#2289); its custom colours no longer turn grey in dark mode and its lowest region no longer turns black (#2315); region names no longer print over each other with labels on (#2330) and stay readable on the darkest and lightest regions (#2341). Graph nodes carry no enlarged title; names show on hover, click or zoom (#2296). The graph inspector shows lists as lists, no longer hides keys behind long values and no longer lets the graph show through (#2349).
+- **Permissions.** A user without write permission can no longer share a dashboard they own (#2304). A creator can no longer import a dashboard onto a shared connection (#2327). A reader is no longer offered New connection, which the server refuses (#2328).
+- **Accessibility.** Settings tabs are buttons, so they cannot be opened in a new browser tab by mistake (#2268). The multi-select's remove buttons sit outside the trigger, so a screen reader can remove one value (#2275). The SSO provider dialog's two switches have names (#2276).
+
+### Security
+
+- A password in a connection URI's query string is refused, instead of being stored and shown to everyone who can see the connection (#2322).
+- `/api/health` no longer tells anonymous callers which secrets and settings are configured (#2332).
+- `next` moves to 16.4.3 and `zod` to 4.6.7, past two critical remote code execution advisories (#2398).
 
 ## [1.6.0] — Unreleased — Connector-agnostic core
 
@@ -174,7 +210,7 @@ Makes a connector the only place that knows what that connector is (#1893). A co
 - The CLI README and the connector guide no longer tell people to install `@neoboard/*` packages from npm. None is published and the scope is unclaimed, so following them would have run whatever its first registrant published. The CLI installs from a clone with `bash install.sh`, and a connector builds against the SDK from a NeoBoard checkout (#2191)
 - Single sign-on, dormant in this release, finds, links and creates users only in its own tenant, and refuses a disabled user before touching the account. It matched emails across tenants, created users in the default tenant, and overwrote a disabled user's role from the identity provider before refusing them (#2005, #2018)
 
-## [1.5.0] — First public release
+## [1.5.0] — Charts
 
 The first tagged and published release. Chart authoring, editing, rule-based styling and click actions, then a correctness pass on what charts, tables and connectors display, security hardening, and a documentation site built for GitHub Pages. `@neoboard/cli` keeps its own version and is not published with this tag.
 

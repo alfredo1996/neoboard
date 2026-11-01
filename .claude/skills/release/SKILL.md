@@ -36,9 +36,10 @@ Fast-forward `release/X.Y` into `dev`. `dev` → `main` is the owner's.
 2. **Rehearse a clean install:** in a fresh clone, run `bash install.sh`, then `neoboard demo`.
 3. **`vX.Y.Z`** on the consolidation commit.
 
+The first push leaves the ghcr package public, so a tag publishes the image to anyone.
+
 ## 5. Owner-only, after the first public tag
 
-- Make the ghcr package public.
 - Protect `main` and `dev`.
 - Turn on GitHub Pages, and set the `DOCS_DEPLOY` repo variable.
 - Turn on private vulnerability reporting, Dependabot alerts and secret scanning.
