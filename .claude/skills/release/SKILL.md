@@ -7,7 +7,7 @@ allowed-tools: Read, Edit, Bash(gh *), Bash(git *), Bash(npm *), Bash(npx *), Ba
 
 # Release — NeoBoard
 
-Every step that publishes something (a merge into `dev`, a tag, a package made public) needs the owner's explicit go in this session. $ARGUMENTS = the version, e.g. `1.6.0`.
+Every step that publishes something (a merge into `dev`, a tag) needs the owner's explicit go in this session. $ARGUMENTS = the version, e.g. `1.6.0`.
 
 ## 1. Ready?
 
