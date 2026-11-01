@@ -31,6 +31,47 @@ function makeLayout(
 }
 
 describe("extractParamDefaults", () => {
+  it.each([
+    [0, 0],
+    [false, false],
+  ])("keeps a default of %j (#2380)", (defaultValue, expected) => {
+    const layout = makeLayout([
+      {
+        chartType: "parameter-select",
+        chartOptions: { parameterName: "offset", defaultValue },
+      },
+    ]);
+    expect(extractParamDefaults(layout)).toEqual([
+      { name: "offset", value: expected, type: "select", widgetId: "w0" },
+    ]);
+  });
+
+  it.each([undefined, null, "", []])("treats %j as no default (#2380)", (v) => {
+    const layout = makeLayout([
+      {
+        chartType: "parameter-select",
+        chartOptions: { parameterName: "offset", defaultValue: v },
+      },
+    ]);
+    expect(extractParamDefaults(layout)).toEqual([]);
+  });
+
+  it("seeds a number-range default of 0 with its companions (#2380)", () => {
+    const layout = makeLayout([
+      {
+        chartType: "parameter-select",
+        chartOptions: {
+          parameterName: "n",
+          parameterType: "number-range",
+          defaultValue: 0,
+          rangeMin: 0,
+        },
+      },
+    ]);
+    const seeds = expandParamDefaults(extractParamDefaults(layout));
+    expect(seeds.map((x) => x.value)).toEqual([[0, 0], 0, 0]);
+  });
+
   it("returns empty for layout with no parameter widgets", () => {
     const layout = makeLayout([{ chartType: "bar" }, { chartType: "table" }]);
     expect(extractParamDefaults(layout)).toEqual([]);

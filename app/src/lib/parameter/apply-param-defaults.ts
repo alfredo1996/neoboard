@@ -1,4 +1,5 @@
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
+import { isParamUnset } from "@/lib/parameter/is-param-unset";
 import { decodeItem } from "@/lib/shared/url-params";
 import type { ParameterType } from "@/stores/parameter-store";
 
@@ -38,7 +39,8 @@ function readWidgetDefault(
   const opts = (widget.settings?.chartOptions ?? {}) as Record<string, unknown>;
   const name = opts.parameterName as string | undefined;
   const value = opts.defaultValue;
-  if (!name || !value) return null;
+  // 0 and false are real defaults; only absent, empty or [] means none (#2380).
+  if (!name || isParamUnset(value)) return null;
 
   const type = (opts.parameterType as ParameterType | undefined) ?? "select";
   if (type !== "number-range") {
