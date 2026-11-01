@@ -38,7 +38,9 @@ function readWidgetDefault(
   const opts = (widget.settings?.chartOptions ?? {}) as Record<string, unknown>;
   const name = opts.parameterName as string | undefined;
   const value = opts.defaultValue;
-  if (!name || !value) return null;
+  // 0 and false are real defaults; only absent or empty means none (#2380).
+  if (!name || value === undefined || value === null || value === "")
+    return null;
 
   const type = (opts.parameterType as ParameterType | undefined) ?? "select";
   if (type !== "number-range") {
