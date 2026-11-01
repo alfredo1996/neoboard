@@ -50,6 +50,12 @@ export interface ChartCapabilities {
   isECharts: boolean;
   /** Does this widget need a query to render? (e.g. markdown doesn't) */
   requiresQuery: boolean;
+  /**
+   * Can the card change its background (#2394)? Off for charts: their series
+   * colours are tuned for the card and the page ground, and a tint takes some
+   * under 3:1.
+   */
+  supportsCardBackground: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -141,6 +147,7 @@ const DEFAULT_CAPABILITIES: ChartCapabilities = {
   supportsStyling: false,
   isECharts: false,
   requiresQuery: true,
+  supportsCardBackground: false,
 };
 
 export function defineChartPlugin(config: ChartPluginConfig): ChartPlugin {

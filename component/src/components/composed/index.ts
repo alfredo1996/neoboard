@@ -84,6 +84,7 @@ export {
 } from "./chart-settings-panel";
 export {
   chartOptionGroups,
+  cardOptionGroup,
   type ChartOptionGroupsProps,
 } from "./chart-options-panel";
 export { SettingRow, type SettingRowProps } from "./setting-row";
@@ -168,3 +169,8 @@ export {
   type ColumnMappingOverlayProps,
   type ColumnMapping,
 } from "./column-mapping-overlay";
+export {
+  CARD_BACKGROUNDS,
+  parseCardBackground,
+  type CardBackground,
+} from "@/lib/card-background";

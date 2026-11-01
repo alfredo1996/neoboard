@@ -1,4 +1,11 @@
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  within,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { WidgetCard } from "../widget-card";
@@ -796,5 +803,173 @@ describe("WidgetCard", () => {
         "text-muted-foreground",
       );
     });
+  });
+});
+
+describe("WidgetCard background and description (#2394)", () => {
+  const popover = () =>
+    document.querySelector("[data-radix-popper-content-wrapper]");
+  const shown = () => waitFor(() => expect(popover()).toBeInTheDocument());
+  const panel = (c: HTMLElement) => c.firstElementChild as HTMLElement;
+
+  it("a default card has no data-card-fill; a background sets it", () => {
+    const { container, rerender } = render(<WidgetCard>x</WidgetCard>);
+    expect(panel(container)).not.toHaveAttribute("data-card-fill");
+    rerender(<WidgetCard background="default">x</WidgetCard>);
+    expect(panel(container)).not.toHaveAttribute("data-card-fill");
+    rerender(<WidgetCard background="rose">x</WidgetCard>);
+    expect(panel(container)).toHaveAttribute("data-card-fill", "rose");
+    rerender(<WidgetCard background="none">x</WidgetCard>);
+    expect(panel(container)).toHaveAttribute("data-card-fill", "none");
+  });
+
+  it("draws the info icon only with a description", () => {
+    const { rerender } = render(<WidgetCard title="Sales">x</WidgetCard>);
+    expect(
+      screen.queryByRole("button", { name: /About this card/ }),
+    ).not.toBeInTheDocument();
+    rerender(
+      <WidgetCard title="Sales" description="  ">
+        x
+      </WidgetCard>,
+    );
+    expect(
+      screen.queryByRole("button", { name: /About this card/ }),
+    ).not.toBeInTheDocument();
+    rerender(
+      <WidgetCard title="Sales" description="Gross, in dollars">
+        x
+      </WidgetCard>,
+    );
+    expect(
+      screen.getByRole("button", { name: /About this card/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the icon outside a truncating title, and it does not shrink", () => {
+    render(
+      <WidgetCard title="A very long title" description="About it">
+        x
+      </WidgetCard>,
+    );
+    const icon = screen.getByRole("button", { name: /About this card/ });
+    const title = screen.getByRole("heading");
+    expect(title).toHaveClass("truncate");
+    expect(title).not.toContainElement(icon);
+    expect(icon).toHaveClass("shrink-0");
+    expect(icon.parentElement).toBe(title.parentElement);
+  });
+
+  it("opens the text on keyboard focus and closes it on blur", async () => {
+    const user = userEvent.setup();
+    render(
+      <WidgetCard title="Sales" description="Gross, in dollars">
+        x
+      </WidgetCard>,
+    );
+    await user.tab();
+    const icon = screen.getByRole("button", { name: /About this card/ });
+    expect(icon).toHaveFocus();
+    await shown();
+    await user.tab();
+    await waitFor(() => expect(popover()).not.toBeInTheDocument());
+  });
+
+  it("opens on hover and on a tap", async () => {
+    const user = userEvent.setup();
+    render(
+      <WidgetCard title="Sales" description="Gross, in dollars">
+        x
+      </WidgetCard>,
+    );
+    const icon = screen.getByRole("button", { name: /About this card/ });
+    await user.hover(icon);
+    await shown();
+    await user.unhover(icon);
+    await waitFor(() => expect(popover()).not.toBeInTheDocument());
+    // A touch has no hover: the click alone must open it.
+    fireEvent.click(icon);
+    await shown();
+  });
+
+  it("a card with a description and no title keeps a header row with the icon", () => {
+    render(<WidgetCard description="About it">x</WidgetCard>);
+    const header = document.querySelector("[data-widget-header]");
+    expect(header).toBeInTheDocument();
+    expect(header).not.toHaveClass("p-0");
+    expect(
+      within(header as HTMLElement).getByRole("button", {
+        name: /About this card/,
+      }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("WidgetCard description icon, review round (#2394)", () => {
+  const about = () => screen.getByRole("button", { name: /About this card/ });
+
+  it("reserves the controls' room for the icon row whenever there is a description", () => {
+    const { rerender } = render(
+      <WidgetCard title="Sales" onRefresh={() => {}}>
+        x
+      </WidgetCard>,
+    );
+    const row = () => screen.getByRole("heading").parentElement as HTMLElement;
+    expect(row().style.paddingRight).toBe("");
+    rerender(
+      <WidgetCard title="Sales" description="About it" onRefresh={() => {}}>
+        x
+      </WidgetCard>,
+    );
+    expect(row().style.paddingRight).not.toBe("");
+  });
+
+  it("wraps an unbroken string inside the box", async () => {
+    render(
+      <WidgetCard title="Sales" description={"w".repeat(200)}>
+        x
+      </WidgetCard>,
+    );
+    fireEvent.click(about());
+    await waitFor(() =>
+      expect(
+        document.querySelector("[data-radix-popper-content-wrapper] > div"),
+      ).toHaveClass("break-words"),
+    );
+  });
+
+  it("gives a screen reader the text and the card's title", () => {
+    render(
+      <WidgetCard title="Sales" description="Gross, in dollars">
+        x
+      </WidgetCard>,
+    );
+    expect(about()).toHaveAccessibleDescription("Gross, in dollars");
+    expect(about()).toHaveAccessibleName("About this card: Sales");
+  });
+
+  it("keeps the text open while the pointer moves from the icon onto it, and closes after it leaves", () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <WidgetCard title="Sales" description="Gross, in dollars">
+          x
+        </WidgetCard>,
+      );
+      fireEvent.pointerEnter(about());
+      const text = () =>
+        document.querySelector("[data-radix-popper-content-wrapper]");
+      expect(text()).toBeInTheDocument();
+      fireEvent.pointerLeave(about());
+      act(() => vi.advanceTimersByTime(50));
+      fireEvent.pointerEnter(text()!.firstElementChild!);
+      act(() => vi.advanceTimersByTime(500));
+      expect(text()).toBeInTheDocument();
+      fireEvent.pointerLeave(text()!.firstElementChild!);
+      act(() => vi.advanceTimersByTime(500));
+      expect(text()).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

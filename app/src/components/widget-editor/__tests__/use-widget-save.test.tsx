@@ -44,6 +44,8 @@ function setStoreState(overrides: Record<string, unknown> = {}) {
     connectionId: "conn-1",
     query: "MATCH (n) RETURN n",
     title: "My Widget",
+    cardBackground: "default",
+    description: "",
     chartOptions: {},
     formFields: [],
     transforms: [],
@@ -122,6 +124,29 @@ describe("useBuildWidgetForSave", () => {
       const widget = result.current();
 
       expect(widget.settings?.title).toBeUndefined();
+    });
+
+    it("saves the card background and description beside the title, not in chartOptions (#2394)", () => {
+      setStoreState({
+        cardBackground: "citrine",
+        description: "  Gross, in dollars  ",
+        chartOptions: { stacked: true },
+      });
+      const { result } = renderHook(() => useBuildWidgetForSave(undefined));
+      const settings = result.current().settings;
+
+      expect(settings?.cardBackground).toBe("citrine");
+      expect(settings?.description).toBe("Gross, in dollars");
+      expect(settings?.chartOptions).toEqual({ stacked: true });
+    });
+
+    it("a default card and an empty description store nothing (#2394)", () => {
+      setStoreState({ cardBackground: "default", description: "   " });
+      const { result } = renderHook(() => useBuildWidgetForSave(undefined));
+      const settings = result.current().settings ?? {};
+
+      expect(settings.cardBackground).toBeUndefined();
+      expect(settings.description).toBeUndefined();
     });
 
     it("records query in history for regular chart types", () => {

@@ -127,6 +127,7 @@ export const singleValuePlugin = defineChartPlugin({
   capabilities: {
     supportsClickAction: false,
     supportsStyling: true,
+    supportsCardBackground: true,
     isECharts: true,
     requiresQuery: true,
   },

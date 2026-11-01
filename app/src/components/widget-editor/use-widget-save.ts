@@ -36,6 +36,8 @@ export function useBuildWidgetForSave(
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
   const query = useWidgetEditorStore((s) => s.query);
   const title = useWidgetEditorStore((s) => s.title);
+  const cardBackground = useWidgetEditorStore((s) => s.cardBackground);
+  const description = useWidgetEditorStore((s) => s.description);
   const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
   const formFields = useWidgetEditorStore((s) => s.formFields);
   const transforms = useWidgetEditorStore((s) => s.transforms);
@@ -117,6 +119,11 @@ export function useBuildWidgetForSave(
       settings: {
         ...(existingWidget?.settings ?? {}),
         title: title || undefined,
+        // Beside the title, not in chartOptions (#2394). A default card and an
+        // empty text store nothing, so an untouched widget saves as it did.
+        cardBackground:
+          cardBackground === "default" ? undefined : cardBackground,
+        description: description.trim() || undefined,
         chartOptions: resolvedChartOptions,
         formFields: isForm ? formFields : undefined,
         clickAction: skipSettings ? undefined : clickAction,
@@ -154,6 +161,8 @@ export function useBuildWidgetForSave(
     allowWrites,
     query,
     title,
+    cardBackground,
+    description,
     chartOptions,
     formFields,
     transforms,

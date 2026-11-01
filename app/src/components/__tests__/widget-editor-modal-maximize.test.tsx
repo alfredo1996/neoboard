@@ -213,6 +213,31 @@ vi.mock("@neoboard/components", async () => {
       </div>
     ),
     chartOptionGroups: () => [],
+    // The Card group, reduced to what the modal hands it (#2394).
+    cardOptionGroup: ({
+      canTint,
+      settings,
+      onChange,
+    }: {
+      canTint: boolean;
+      settings: Record<string, unknown>;
+      onChange: (key: string, value: unknown) => void;
+    }) => ({
+      name: "Card",
+      render: () => (
+        <div data-testid="card-group" data-tint={String(canTint)}>
+          <span data-testid="card-values">
+            {JSON.stringify([settings.cardBackground, settings.description])}
+          </span>
+          <button onClick={() => onChange("cardBackground", "rose")}>
+            pick rose
+          </button>
+          <button onClick={() => onChange("description", "About it")}>
+            type text
+          </button>
+        </div>
+      ),
+    }),
     getChartOptions: () => [],
     OPTION_GROUPS: {},
     ColorScalePanel: () => <div />,
@@ -1250,5 +1275,44 @@ describe("WidgetEditorModal — which groups each widget gets (#2388)", () => {
 
   it("write mode shows for a user who can write", () => {
     expect(groupsOf("bar", "add", true)).toContain("Write mode");
+  });
+});
+
+describe("WidgetEditorModal — the Card group (#2394)", () => {
+  function open(chartType: string) {
+    render(
+      <WidgetEditorModal
+        open
+        onOpenChange={vi.fn()}
+        mode="add"
+        connections={[]}
+        onSave={vi.fn()}
+      />,
+    );
+    act(() => useWidgetEditorStore.getState().setChartType(chartType));
+  }
+
+  it.each([
+    ["table", "true"],
+    ["markdown", "true"],
+    ["parameter-select", "true"],
+    ["bar", "false"],
+    ["iframe", "false"],
+  ])("%s: the Background row is offered: %s", (chartType, tint) => {
+    open(chartType);
+    expect(screen.getByTestId("card-group")).toHaveAttribute("data-tint", tint);
+  });
+
+  it("writes the background and description to the editor, beside the title", async () => {
+    open("table");
+    await userEvent.click(screen.getByRole("button", { name: "pick rose" }));
+    await userEvent.click(screen.getByRole("button", { name: "type text" }));
+    const s = useWidgetEditorStore.getState();
+    expect(s.cardBackground).toBe("rose");
+    expect(s.description).toBe("About it");
+    expect(s.chartOptions).not.toHaveProperty("cardBackground");
+    expect(screen.getByTestId("card-values")).toHaveTextContent(
+      '["rose","About it"]',
+    );
   });
 });

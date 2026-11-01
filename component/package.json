@@ -24,6 +24,7 @@
     "./numeric-cell": "./src/lib/numeric-cell.ts",
     "./cell-text": "./src/lib/cell-text.ts",
     "./humanize-param-name": "./src/lib/humanize-param-name.ts",
+    "./card-background": "./src/lib/card-background.ts",
     "./*": "./src/*"
   },
   "sideEffects": false,

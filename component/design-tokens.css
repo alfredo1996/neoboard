@@ -417,6 +417,54 @@ html {
   --input-hover: var(--param-border-ink);
 }
 
+/* Card background (#2394). WidgetCard sets data-card-fill on its Panel and the
+   rules below redefine --card for that subtree, as #2368 does for --field, so
+   the header's hover bar (bg-card) follows with no change. Azure and Sage reuse
+   --param-fill-*; Citrine and Rose have their own tokens because a whole card
+   of the field colour reads muddy in dark (owner, 2026-10-31). --card-plain is
+   the card colour that nothing overrides: a field on a tinted card stays plain
+   and its edge (--input) is darker, so it holds 3:1 on every tint. None uses
+   the page ground: --card-edge is an HSL triplet, so it cannot be transparent.
+   A filter's own data-field-* wrapper is a descendant, so its declaration is
+   nearer and still wins. The values
+   are the approved mock's; card-fill-tokens.test.ts holds the contrast. */
+:root {
+  --card-plain: 0 0% 100%;
+  --card-fill-input: 219 8% 52%;
+  --card-fill-input-hover: 218 9% 38%;
+  --card-fill-citrine: var(--param-fill-citrine);
+  --card-fill-rose: var(--param-fill-rose);
+}
+.dark {
+  --card-plain: 218 14.3% 11%;
+  --card-fill-input: 218 9% 50%;
+  --card-fill-input-hover: 218 9% 66%;
+  --card-fill-citrine: 38 22% 15.5%;
+  --card-fill-rose: 350 16% 16%;
+}
+[data-card-fill] {
+  --field: var(--card-plain);
+  --input: var(--card-fill-input);
+  --input-hover: var(--card-fill-input-hover);
+}
+[data-card-fill="azure"] {
+  --card: var(--param-fill-azure);
+}
+[data-card-fill="citrine"] {
+  --card: var(--card-fill-citrine);
+}
+[data-card-fill="sage"] {
+  --card: var(--param-fill-sage);
+}
+[data-card-fill="rose"] {
+  --card: var(--card-fill-rose);
+}
+[data-card-fill="none"] {
+  --card: var(--page-ground);
+  --card-edge: var(--page-ground);
+  --card-shadow: none;
+}
+
 /**
  * Global reduced-motion reset (#1458).
  *

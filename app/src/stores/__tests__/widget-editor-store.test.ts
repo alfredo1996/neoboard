@@ -816,3 +816,57 @@ describe("editorSnapshot (#2054)", () => {
     expect(editorSnapshot(getState())).toBe(before);
   });
 });
+
+describe("card options (#2394)", () => {
+  beforeEach(() => {
+    getState().resetForAdd();
+  });
+  const load = (settings: Record<string, unknown>) =>
+    getState().loadFromWidget({
+      id: "w1",
+      chartType: "table",
+      connectionId: "c",
+      query: "q",
+      settings,
+    });
+
+  it("starts as a default card with no description", () => {
+    expect(getState().cardBackground).toBe("default");
+    expect(getState().description).toBe("");
+  });
+
+  it("loads both keys from the widget's settings, beside the title", () => {
+    load({ title: "T", cardBackground: "rose", description: "About it" });
+    expect(getState().cardBackground).toBe("rose");
+    expect(getState().description).toBe("About it");
+  });
+
+  it.each([["hotpink"], [42], [null], [undefined]])(
+    "an unknown background (%s) reads as Default",
+    (bad) => {
+      load({ cardBackground: bad });
+      expect(getState().cardBackground).toBe("default");
+    },
+  );
+
+  it("a description that is not text reads as empty", () => {
+    load({ description: { a: 1 } });
+    expect(getState().description).toBe("");
+  });
+
+  it("a chart type change keeps both", () => {
+    load({ cardBackground: "azure", description: "About it" });
+    getState().setChartType("bar");
+    expect(getState().cardBackground).toBe("azure");
+    expect(getState().description).toBe("About it");
+  });
+
+  it("counts as an edit, so closing asks first", () => {
+    const before = editorSnapshot(getState());
+    getState().setCardBackground("sage");
+    expect(editorSnapshot(getState())).not.toBe(before);
+    const mid = editorSnapshot(getState());
+    getState().setDescription("x");
+    expect(editorSnapshot(getState())).not.toBe(mid);
+  });
+});

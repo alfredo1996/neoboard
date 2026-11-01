@@ -19,6 +19,7 @@ import { useFilterBarShown } from "@/hooks/use-filter-bar-shown";
 import { useFilterLit } from "@/hooks/use-filter-lit";
 import { useWidgetSourceLine } from "@/hooks/use-widget-source-line";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
+import { cardLook } from "@/lib/widget/card-look";
 import { paramLabel } from "@/lib/parameter/param-label";
 import { ConnectionNamesProvider } from "@/components/connection-names-context";
 import { buildExportData } from "@/lib/widget/card-utils";
@@ -117,6 +118,7 @@ function SourcedWidgetCard({
   // wait with them (#2369, owner 2026-10-30).
   const { shown, refreshing, report } = useRefreshHold({
     title,
+    description: props.description,
     source: (widget.chartType === "iframe" && iframeSourceLink(url)) || line,
   });
   return (
@@ -133,6 +135,7 @@ function SourcedWidgetCard({
       }
       title={shown.title}
       source={shown.source}
+      description={shown.description}
       refreshing={refreshing}
       driven={driven}
     >
@@ -149,9 +152,15 @@ function SourcedWidgetCard({
  */
 function FullscreenFrame({
   title,
+  description,
   children,
-}: Readonly<{ title: string; children: React.ReactNode }>) {
-  const { shown, refreshing, report } = useRefreshHold(title);
+}: Readonly<{
+  title: string;
+  /** Plain text under the title (#2394); the dialog is not a card, so no background. */
+  description?: string;
+  children: React.ReactNode;
+}>) {
+  const { shown, refreshing, report } = useRefreshHold({ title, description });
   return (
     <CardRefreshContext.Provider value={report}>
       {refreshing && (
@@ -161,7 +170,16 @@ function FullscreenFrame({
           className="refresh-line pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 rounded-t-lg"
         />
       )}
-      <DialogTitle className="text-lg font-semibold mb-2">{shown}</DialogTitle>
+      <DialogTitle
+        className={`text-lg font-semibold ${shown.description ? "mb-1" : "mb-2"}`}
+      >
+        {shown.title}
+      </DialogTitle>
+      {shown.description && (
+        <p className="mb-2 whitespace-pre-line text-sm text-muted-foreground">
+          {shown.description}
+        </p>
+      )}
       {children}
     </CardRefreshContext.Provider>
   );
@@ -528,6 +546,7 @@ export function DashboardContainer({
                     widget={widget}
                     connectionName={connectionNames?.[widget.connectionId]}
                     title={displayTitle(widget)}
+                    {...cardLook(widget, parameters, labelOf)}
                     className="h-full"
                     mode={editable ? "edit" : "view"}
                     actions={buildActions(widget)}
@@ -606,6 +625,11 @@ export function DashboardContainer({
         >
           <FullscreenFrame
             title={fullscreenWidget ? displayTitle(fullscreenWidget) : "Widget"}
+            description={
+              fullscreenWidget
+                ? cardLook(fullscreenWidget, parameters, labelOf).description
+                : undefined
+            }
           >
             <DialogDescription className="sr-only">
               This widget is shown at full size. Press Escape to return to the

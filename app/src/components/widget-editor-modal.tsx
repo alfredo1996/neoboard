@@ -33,6 +33,7 @@ import {
 
 import {
   chartOptionGroups,
+  cardOptionGroup,
   ChartSettingsPanel,
   getChartOptions,
   getDefaultChartSettings,
@@ -60,9 +61,11 @@ import {
   getSelectableChartTypes,
   chartSupportsClickAction,
   chartSupportsStyling,
+  chartSupportsCardBackground,
 } from "@/lib/plugin/chart-helpers";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import { useParameterValues } from "@/stores/parameter-store";
+import { parseCardBackground } from "@neoboard/components/card-background";
 import { cn } from "@/lib/utils";
 
 import {
@@ -192,6 +195,10 @@ export function WidgetEditorModal({
 
   // ── Store-backed state (formerly local useState) ──────────────────
   const title = useWidgetEditorStore((s) => s.title);
+  const cardBackground = useWidgetEditorStore((s) => s.cardBackground);
+  const setCardBackground = useWidgetEditorStore((s) => s.setCardBackground);
+  const description = useWidgetEditorStore((s) => s.description);
+  const setDescription = useWidgetEditorStore((s) => s.setDescription);
   const setTitle = useWidgetEditorStore((s) => s.setTitle);
   const clickActionEnabled = useWidgetEditorStore((s) => s.clickActionEnabled);
   const setClickActionEnabled = useWidgetEditorStore(
@@ -692,6 +699,7 @@ export function WidgetEditorModal({
   // hides a section with nothing in it.
   const hasQuery = !isContentOnly && !isParamSelect;
   const hasCaching = hasQuery && !isForm;
+  const canTint = chartSupportsCardBackground(chartType);
   const hasConnection =
     !isContentOnly && (!isParamSelect || paramUIType === "select");
   // Caching is drawn below as one choice; a relative-date filter has no field
@@ -829,6 +837,17 @@ export function WidgetEditorModal({
           },
         ]
       : []),
+    // Not a chart option: the fill and the info text are on the widget's
+    // settings, beside the title (#2394).
+    cardOptionGroup({
+      canTint,
+      settings: { cardBackground, description },
+      onChange: (key, value) => {
+        if (key === "cardBackground")
+          setCardBackground(parseCardBackground(value));
+        else setDescription(typeof value === "string" ? value : "");
+      },
+    }),
     ...chartOptionGroups({
       chartType,
       settings: chartOptions,
@@ -1047,6 +1066,8 @@ export function WidgetEditorModal({
                   connectionId={connectionId}
                   query={query}
                   title={title}
+                  cardBackground={canTint ? cardBackground : undefined}
+                  description={description}
                   chartOptions={chartOptions}
                   colorScales={colorScales}
                   transforms={transforms}

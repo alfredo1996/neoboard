@@ -43,6 +43,7 @@ export const formPlugin = defineChartPlugin({
   capabilities: {
     supportsClickAction: true,
     supportsStyling: false,
+    supportsCardBackground: true,
     isECharts: false,
     requiresQuery: false,
   },

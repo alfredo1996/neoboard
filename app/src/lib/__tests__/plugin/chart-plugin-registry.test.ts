@@ -43,6 +43,7 @@ describe("defineChartPlugin", () => {
     expect(plugin.capabilities.supportsStyling).toBe(false);
     expect(plugin.capabilities.requiresQuery).toBe(true);
     expect(plugin.capabilities.isECharts).toBe(false);
+    expect(plugin.capabilities.supportsCardBackground).toBe(false);
   });
 
   it("enables supportsStyling when stylingTargets is provided", () => {
@@ -59,6 +60,7 @@ describe("defineChartPlugin", () => {
         requiresQuery: false,
         supportsStyling: false,
         isECharts: false,
+        supportsCardBackground: false,
       },
     });
     expect(plugin.capabilities.supportsClickAction).toBe(false);

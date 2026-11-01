@@ -17,6 +17,15 @@ const meta = {
   tags: ["autodocs"],
   argTypes: {
     title: { control: "text" },
+    background: {
+      control: "select",
+      options: ["default", "none", "azure", "citrine", "sage", "rose"],
+      description: "The card's fill. None drops the edge and shadow too.",
+    },
+    description: {
+      control: "text",
+      description: "Plain text behind an info icon after the title.",
+    },
     source: { control: "text" },
     mode: {
       control: "inline-radio",
@@ -101,6 +110,39 @@ export const Refreshing: Story = {
 
 export const RefreshingDark: Story = {
   ...Refreshing,
+  globals: { theme: "dark" },
+};
+
+/** A tinted card (#2394): the fill, and plain fields with a darker edge on it. */
+export const Tinted: Story = {
+  args: { ...Playground.args, background: "citrine" },
+};
+
+export const TintedDark: Story = {
+  ...Tinted,
+  globals: { theme: "dark" },
+};
+
+/** None drops the fill, edge and shadow: the card sits flat on the page ground (#2394). */
+export const NoBackground: Story = {
+  args: { ...Playground.args, background: "none" },
+};
+
+export const NoBackgroundDark: Story = {
+  ...NoBackground,
+  globals: { theme: "dark" },
+};
+
+/** The info icon after the title; it opens on hover, focus and tap (#2394). */
+export const WithDescription: Story = {
+  args: {
+    ...Playground.args,
+    description: "Worldwide gross in US dollars, adjusted for inflation.",
+  },
+};
+
+export const WithDescriptionDark: Story = {
+  ...WithDescription,
   globals: { theme: "dark" },
 };
 

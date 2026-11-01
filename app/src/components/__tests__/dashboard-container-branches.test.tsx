@@ -13,6 +13,7 @@ import {
   fireEvent,
   act,
   waitFor,
+  within,
 } from "@testing-library/react";
 import {
   QueryClient,
@@ -43,9 +44,13 @@ vi.mock("@neoboard/components", async () => ({
     titleIcon,
     driven,
     refreshing,
+    description,
+    background,
   }: {
     children: React.ReactNode;
     title: string;
+    description?: string;
+    background?: string;
     titleIcon?: React.ReactNode;
     source?: string;
     driven?: boolean | string;
@@ -72,6 +77,8 @@ vi.mock("@neoboard/components", async () => ({
         data-testid="widget-card-inner"
         data-title={title}
         data-source={source}
+        data-description={description}
+        data-background={background}
         data-driven={driven ? String(driven) : undefined}
         data-refreshing={refreshing ? "true" : undefined}
       >
@@ -285,9 +292,12 @@ vi.mock("@/components/card-container", async () => {
 vi.mock("@/lib/widget/interpolate-title", () => ({
   interpolateTitle: (
     title: string,
-    _parameters: unknown,
+    parameters: Record<string, { value: unknown }> = {},
     labelOf?: (name: string) => string,
-  ) => title.replace(/\$param_(\w+)/g, (_m, n: string) => `[${labelOf?.(n)}]`),
+  ) =>
+    title.replace(/\$param_(\w+)/g, (_m, n: string) =>
+      parameters[n] ? String(parameters[n].value) : `[${labelOf?.(n)}]`,
+    ),
 }));
 
 const mockBuildExportData = vi.fn();
@@ -1665,6 +1675,91 @@ describe("DashboardContainer — a filter shows what it drives (#2369)", () => {
         "Films with Meg Ryan",
       );
       expect(dialog().querySelector("[data-refresh-line]")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("DashboardContainer — the description follows the body (#2394)", () => {
+  const described = (text: string, extra = {}) =>
+    makeWidget({
+      id: "d",
+      settings: { title: "Films", description: text, ...extra },
+    });
+  const open = (
+    page: ReturnType<typeof makePage>,
+    queryClient: QueryClient,
+  ) => (
+    <QueryClientProvider client={queryClient}>
+      <DashboardContainer page={page} refetchInterval={false} />
+    </QueryClientProvider>
+  );
+
+  const actor = (value: string) => {
+    parametersState.parameters = { actor: { field: "actor", value } };
+  };
+  beforeEach(() => actor("Tom"));
+  afterEach(() => {
+    parametersState.parameters = {};
+  });
+
+  it("holds the card's description with the old rows, then lets it catch up", () => {
+    const { queryClient, rerender } = renderWithProviders(
+      <DashboardContainer page={makePage([described("About $param_actor")])} />,
+    );
+    const inner = () => screen.getByTestId("widget-card-inner");
+    expect(inner().getAttribute("data-description")).toBe("About Tom");
+
+    mockCardRefreshing = true;
+    actor("Meg");
+    rerender(open(makePage([described("About $param_actor")]), queryClient));
+    expect(inner().getAttribute("data-description")).toBe("About Tom");
+
+    mockCardRefreshing = false;
+    actor("Meg");
+    rerender(open(makePage([described("About $param_actor")]), queryClient));
+    expect(inner().getAttribute("data-description")).toBe("About Meg");
+  });
+
+  it("the fullscreen dialog shows the description as plain text, with no card fill", () => {
+    renderWithProviders(
+      <DashboardContainer
+        page={makePage([described("About it", { cardBackground: "rose" })])}
+      />,
+    );
+    fireEvent.click(screen.getByText("Fullscreen").closest("button")!);
+    const dialog = screen.getByTestId("fullscreen-dialog");
+    expect(within(dialog).getByText("About it")).toBeInTheDocument();
+    expect(dialog.querySelector("[data-card-fill]")).toBeNull();
+  });
+
+  it("holds the fullscreen description with its title while the card refetches", () => {
+    vi.useFakeTimers();
+    try {
+      const { queryClient, rerender } = renderWithProviders(
+        <DashboardContainer
+          page={makePage([described("About $param_actor")])}
+        />,
+      );
+      act(() => {
+        fireEvent.click(screen.getByText("Fullscreen").closest("button")!);
+      });
+      act(() => {
+        vi.advanceTimersByTime(500); // the lazy body mounts, then its card reports
+      });
+      const dialog = () => screen.getByTestId("fullscreen-dialog");
+      expect(within(dialog()).getByText("About Tom")).toBeInTheDocument();
+
+      mockCardRefreshing = true;
+      actor("Meg");
+      rerender(open(makePage([described("About $param_actor")]), queryClient));
+      expect(within(dialog()).getByText("About Tom")).toBeInTheDocument();
+
+      mockCardRefreshing = false;
+      actor("Meg");
+      rerender(open(makePage([described("About $param_actor")]), queryClient));
+      expect(within(dialog()).getByText("About Meg")).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }

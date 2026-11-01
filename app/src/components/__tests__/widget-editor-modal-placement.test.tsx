@@ -46,7 +46,25 @@ vi.mock("../widget-editor/widget-preview-panel", () => ({
   WidgetPreviewPanel: () => <div />,
 }));
 vi.mock("../widget-editor/template-browser", () => ({
-  TemplateBrowser: () => <div />,
+  TemplateBrowser: ({ onApply }: { onApply: (t: unknown) => void }) => (
+    <button
+      type="button"
+      onClick={() =>
+        onApply({
+          id: "t1",
+          chartType: "table",
+          query: "SELECT 1",
+          connectionId: "c1",
+          settings: {
+            cardBackground: "rose",
+            description: "From the template",
+          },
+        })
+      }
+    >
+      Apply stub template
+    </button>
+  ),
 }));
 vi.mock("../widget-editor/transform-editor", () => ({
   TransformEditor: () => <div />,
@@ -69,7 +87,7 @@ const CONNECTION = {
 
 function renderEditor(
   widget: Partial<DashboardWidget> & { chartType: string },
-  props: { mode?: "edit" | "lab-create" } = {},
+  props: { mode?: "edit" | "lab-create" | "add" } = {},
 ) {
   const onSave = vi.fn();
   render(
@@ -220,5 +238,18 @@ describe("WidgetEditorModal — option placement through the real panel (#2388)"
     );
     expect(groupNames()).toEqual([]);
     expect(screen.getByText(/The rest is in Behavior/)).toBeInTheDocument();
+  });
+});
+
+describe("WidgetEditorModal — a template carries the card options (#2394)", () => {
+  it("applying a template loads its background and description", async () => {
+    renderEditor({ chartType: "table" }, { mode: "add" });
+    useWidgetEditorStore.getState().setDialogStep("templates");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Apply stub template" }),
+    );
+    const st = useWidgetEditorStore.getState();
+    expect(st.cardBackground).toBe("rose");
+    expect(st.description).toBe("From the template");
   });
 });
