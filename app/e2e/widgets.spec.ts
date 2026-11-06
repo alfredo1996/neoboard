@@ -870,19 +870,17 @@ test.describe("Unsaved edits in the widget editor (#2054)", () => {
     const dialog = page.getByRole("dialog", { name: "Edit Widget" });
     await dialog.getByRole("tab", { name: "Behavior" }).click();
     await dialog.getByLabel("Click action").click();
-    await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
-    const rules = page.getByRole("dialog", { name: "Action Rules" });
-    await rules.getByRole("button", { name: "Add Rule" }).click();
+    await dialog.getByRole("button", { name: "Add rule" }).click();
 
-    await rules.getByPlaceholder("param_name").click();
-    const suggestions = rules.getByRole("listbox");
+    await dialog.getByPlaceholder("name", { exact: true }).click();
+    const suggestions = dialog.getByRole("listbox");
     await expect(
       suggestions.getByRole("option", { name: "movie" }),
     ).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(suggestions).toBeHidden();
     await expect(page.getByRole("alertdialog")).toHaveCount(0);
-    await expect(rules).toBeVisible();
+    await expect(dialog).toBeVisible();
 
     // The next Escape is the editor's, and a rule was added.
     await page.keyboard.press("Escape");

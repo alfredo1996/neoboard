@@ -96,6 +96,15 @@ describe("useClickAction — deriveClickableColumns", () => {
     expect(cols).toEqual(["id", "name"]);
   });
 
+  it("treats a legacy empty clickableColumns as all columns", () => {
+    const clickAction: ClickAction = {
+      type: "set-parameter",
+      parameterMapping: { parameterName: "id", sourceField: "id" },
+      clickableColumns: [],
+    };
+    expect(deriveClickableColumns(clickAction)).toBeUndefined();
+  });
+
   it("returns undefined when no click action", () => {
     expect(deriveClickableColumns(undefined)).toBeUndefined();
   });

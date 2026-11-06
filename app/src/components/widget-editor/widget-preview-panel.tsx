@@ -10,7 +10,7 @@ import { isRunDisabled } from "./preview-run-state";
 import { markdownSettingsSchema } from "@/plugins/markdown/settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 import { PREVIEW_ROW_LIMIT } from "./use-auto-preview";
-import type { StylingConfig } from "@/lib/db/schema";
+import type { ClickAction, StylingConfig } from "@/lib/db/schema";
 import type { Transform } from "@/lib/query/data-transforms";
 import type { ParamUIType, DateSubType } from "@/stores/widget-editor-store";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
@@ -45,6 +45,8 @@ type WidgetPreviewPanelProps = Readonly<{
   transforms: Transform[];
   transformsEnabled: boolean;
   buildStylingConfig: () => StylingConfig | undefined;
+  /** The click action as it would be saved, so the preview marks its cells (#2406). */
+  buildClickAction?: () => ClickAction | undefined;
 
   isParamSelect: boolean;
   /** Editing a Widget Library template: no dashboard is open (#1951). */
@@ -163,6 +165,7 @@ function renderChart(props: {
   transforms: Transform[];
   transformsEnabled: boolean;
   buildStylingConfig: () => StylingConfig | undefined;
+  buildClickAction?: () => ClickAction | undefined;
   previewQuery: WidgetPreviewPanelProps["previewQuery"];
   initialPreviewData: PreviewData | undefined;
 }) {
@@ -176,6 +179,7 @@ function renderChart(props: {
     transforms,
     transformsEnabled,
     buildStylingConfig,
+    buildClickAction,
     previewQuery,
     initialPreviewData,
   } = props;
@@ -217,6 +221,7 @@ function renderChart(props: {
                   title: title || undefined,
                   chartOptions,
                   stylingConfig: buildStylingConfig(),
+                  clickAction: buildClickAction?.(),
                   conditionalFormatting: colorScales.length
                     ? { colorScales }
                     : undefined,
@@ -224,6 +229,7 @@ function renderChart(props: {
                   transformsEnabled,
                 },
               }}
+              inertClicks
               previewData={(previewQuery.data ?? initialPreviewData)!.data}
               previewResultId={
                 (previewQuery.data ?? initialPreviewData)!.resultId
@@ -265,6 +271,7 @@ export function WidgetPreviewPanel({
   transforms,
   transformsEnabled,
   buildStylingConfig,
+  buildClickAction,
   isParamSelect,
   isLabMode,
   isForm,
@@ -326,6 +333,7 @@ export function WidgetPreviewPanel({
       transforms,
       transformsEnabled,
       buildStylingConfig,
+      buildClickAction,
       previewQuery,
       initialPreviewData,
     });

@@ -312,9 +312,6 @@ vi.mock("../widget-editor/parameter-config-section", () => ({
     </div>
   ),
 }));
-vi.mock("../widget-editor/action-rules-editor", () => ({
-  ActionRulesEditor: () => <div />,
-}));
 vi.mock("../widget-editor/styling-rules-editor", () => ({
   StylingRulesEditor: () => <div />,
 }));
@@ -691,11 +688,10 @@ describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () 
     expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
   });
 
-  it("an edit in the rules step counts, and Keep editing stays on that step", async () => {
+  it("an edit to the click-action rules counts, and Keep editing keeps it", async () => {
     const onOpenChange = await openEditor();
     act(() => {
       const s = useWidgetEditorStore.getState();
-      s.setDialogStep("rules");
       s.setActionRules([
         {
           id: "r1",
@@ -712,7 +708,6 @@ describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () 
     await userEvent.click(screen.getByRole("button", { name: "Keep editing" }));
 
     expect(onOpenChange).not.toHaveBeenCalled();
-    expect(useWidgetEditorStore.getState().dialogStep).toBe("rules");
     expect(useWidgetEditorStore.getState().actionRules).toHaveLength(1);
   });
 

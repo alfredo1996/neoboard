@@ -809,7 +809,7 @@ describe("deriveClickableColumns", () => {
     expect(deriveClickableColumns(action)).toEqual(["name", "email"]);
   });
 
-  it("returns undefined when rules have no triggerColumn", () => {
+  it("returns [] (no cell clickable) when rules have no triggerColumn", () => {
     const action: ClickAction = {
       type: "set-parameter",
       rules: [
@@ -820,7 +820,7 @@ describe("deriveClickableColumns", () => {
         },
       ],
     };
-    expect(deriveClickableColumns(action)).toBeUndefined();
+    expect(deriveClickableColumns(action)).toEqual([]);
   });
 
   it("filters out rules without triggerColumn", () => {

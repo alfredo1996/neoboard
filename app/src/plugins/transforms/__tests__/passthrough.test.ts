@@ -9,7 +9,7 @@ import { transformToSankeyData } from "../../sankey/transform";
 
 /**
  * Ratchet (#1589). The click-action editor offers every RAW query column as a
- * Source Field (`action-rules-editor.tsx:182-200`, fed from
+ * Value from field (`interaction-section.tsx`, fed from
  * `widget-editor-modal.tsx:496`), but the click payload is built from the
  * TRANSFORMED item (`plugins/utils.ts:44-52`). A transform that rebuilds items
  * from only the fields it detects therefore makes the offered column resolve to

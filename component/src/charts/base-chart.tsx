@@ -33,7 +33,10 @@ import {
   CHART_FONT_FAMILY,
 } from "./theme";
 import { getPaletteColors } from "./palettes";
-import { legendIsolateAction } from "./chart-utils";
+import {
+  defaultCursorUnlessClickable,
+  legendIsolateAction,
+} from "./chart-utils";
 
 echarts.use([
   EBarChart,
@@ -281,6 +284,10 @@ function BaseChart({
         onClick(params as EChartsClickEvent),
       );
     }
+    // The marks do nothing on click without a handler, so no hand (#2406).
+    const detachCursor = onClick
+      ? null
+      : defaultCursorUnlessClickable(instance);
     if (onDataZoom) {
       instance.on("dataZoom", onDataZoom);
     }
@@ -295,6 +302,7 @@ function BaseChart({
     });
 
     return () => {
+      detachCursor?.();
       instance.off("click");
       instance.off("dataZoom");
       instance.off("legendselectchanged");

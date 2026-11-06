@@ -112,7 +112,7 @@ export interface TableRendererProps {
   data: unknown;
   settings?: Record<string, unknown>;
   onCellClick?: (info: { column: string; value: unknown }) => void;
-  /** Restrict which columns are clickable. Empty/undefined = all columns. */
+  /** Restrict which columns are clickable. Undefined = all columns; empty = none (the grid's rule). */
   clickableColumns?: string[];
   /** Rule-based styling rules */
   stylingRules?: StylingRule[];

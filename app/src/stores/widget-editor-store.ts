@@ -130,7 +130,7 @@ export interface WidgetEditorState {
   queryHistory: QueryHistoryEntry[];
 
   // ── UI state ────────────────────────────────────────────────────
-  dialogStep: "main" | "rules" | "styling-rules" | "templates";
+  dialogStep: "main" | "styling-rules" | "templates";
   connectorChanged: boolean;
 
   // ── Actions ─────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ export interface WidgetEditorState {
 
   setAvailableFields: (v: string[]) => void;
   setParameterSuggestions: (v: string[]) => void;
-  setDialogStep: (v: "main" | "rules" | "styling-rules" | "templates") => void;
+  setDialogStep: (v: "main" | "styling-rules" | "templates") => void;
   setConnectorChanged: (v: boolean) => void;
 
   // ── Query history ───────────────────────────────────────────────

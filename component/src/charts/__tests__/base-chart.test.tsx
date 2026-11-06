@@ -32,6 +32,7 @@ vi.mock("echarts/core", () => {
     off: mockOff,
     showLoading: mockShowLoading,
     hideLoading: mockHideLoading,
+    getZr: () => ({ on: vi.fn(), off: vi.fn(), setCursorStyle: vi.fn() }),
     clear: mockClear,
     dispatchAction: mockDispatch,
   }));

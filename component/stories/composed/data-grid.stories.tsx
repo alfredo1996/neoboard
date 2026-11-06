@@ -304,16 +304,41 @@ export const WithSearchBox: Story = {
   ),
 };
 
-export const WithCellClick: Story = {
-  args: {
-    columns: basicColumns,
-    data,
-    onCellClick: (info) => {
-      console.log("Cell clicked:", info);
-      alert(
-        `Clicked column "${info.column}" with value: ${JSON.stringify(info.value)}`,
-      );
-    },
+/**
+ * Action cells (#2406): the Link look. Title and Gross run a click action; they
+ * keep the cell's size and alignment, only the text is azure, underlined on
+ * hover and focus. Gross stays right-aligned under its header.
+ */
+export const WithClickableColumns: Story = {
+  render: () => (
+    <DataGrid
+      columns={filmColumns}
+      data={grossRows}
+      pageSize={10}
+      onCellClick={() => {}}
+      clickableColumns={["title", "gross"]}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const row = canvasElement.querySelector("tbody tr")!;
+    const cells = Array.from(row.querySelectorAll("td"));
+    expect(cells[0].querySelector("button")).not.toBeNull();
+    expect(cells[1].querySelector("button")).toBeNull();
+    const gross = cells[2];
+    expect(getComputedStyle(gross).textAlign).toBe("right");
+    // The text, not the button box: a full-width button is flush right while
+    // its text sits left.
+    const range = document.createRange();
+    range.selectNodeContents(gross.querySelector("button")!);
+    const cs = getComputedStyle(gross);
+    expect(
+      Math.abs(
+        gross.getBoundingClientRect().right -
+          parseFloat(cs.paddingRight) -
+          range.getBoundingClientRect().right,
+      ),
+      "the value sits at the cell's content edge",
+    ).toBeLessThan(1);
   },
 };
 

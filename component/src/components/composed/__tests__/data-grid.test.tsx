@@ -254,110 +254,106 @@ describe("DataGrid", () => {
     expect(onSelectionChange).toHaveBeenCalledWith([data[0]]);
   });
 
-  it("wraps clickable cells in a badge span when onCellClick is provided", () => {
-    const { container } = render(
-      <DataGrid columns={columns} data={data} onCellClick={() => {}} />,
-    );
-    const tbody = container.querySelector("tbody");
-    const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
-    expect(cells.length).toBeGreaterThan(0);
-    for (const cell of cells) {
-      // Clickable cell content is now a real <button> (#980)
-      const badge = cell.querySelector("button");
-      expect(badge).toBeTruthy();
-      expect(badge).toHaveClass("text-primary");
-      expect(badge).toHaveClass("rounded-md");
-    }
-  });
+  describe("action cells (#2406)", () => {
+    const tbodyCells = (c: HTMLElement) =>
+      Array.from(c.querySelector("tbody")?.querySelectorAll("td") ?? []);
 
-  it("does not wrap cells in a badge span when onCellClick is not provided", () => {
-    const { container } = render(<DataGrid columns={columns} data={data} />);
-    const tbody = container.querySelector("tbody");
-    const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
-    expect(cells.length).toBeGreaterThan(0);
-    for (const cell of cells) {
-      // No clickable button wrapper when onCellClick is absent (#980)
-      const badge = cell.querySelector("button.rounded-md");
-      expect(badge).toBeNull();
-    }
-  });
-
-  it("wraps only cells in clickableColumns with badge span", () => {
-    const { container } = render(
-      <DataGrid
-        columns={columns}
-        data={data}
-        onCellClick={() => {}}
-        clickableColumns={["name"]}
-      />,
-    );
-    const tbody = container.querySelector("tbody");
-    const rows = Array.from(tbody?.querySelectorAll("tr") ?? []);
-    for (const row of rows) {
-      const cells = Array.from(row.querySelectorAll("td"));
-      if (cells.length === 0) continue;
-      // First cell (name) content is a clickable button (#980)
-      const badge0 = cells[0].querySelector("button.rounded-md");
-      expect(badge0).toBeTruthy();
-      expect(badge0).toHaveClass("text-primary");
-      // Other cells have no clickable button
-      expect(cells[1].querySelector("button.rounded-md")).toBeNull();
-      expect(cells[2].querySelector("button.rounded-md")).toBeNull();
-    }
-  });
-
-  it("does not fire onCellClick for cells outside clickableColumns", async () => {
-    const user = userEvent.setup();
-    const onCellClick = vi.fn();
-    render(
-      <DataGrid
-        columns={columns}
-        data={data}
-        onCellClick={onCellClick}
-        clickableColumns={["name"]}
-      />,
-    );
-    // Click email cell — should NOT trigger handler
-    await user.click(screen.getByText("alice@example.com"));
-    expect(onCellClick).not.toHaveBeenCalled();
-    // Click name cell — should trigger handler
-    await user.click(screen.getByText("Alice"));
-    expect(onCellClick).toHaveBeenCalledWith({
-      column: "name",
-      value: "Alice",
+    it("renders the Link look: a button holding the value, azure text, no fill, no padding override", () => {
+      const { container } = render(
+        <DataGrid columns={columns} data={data} onCellClick={() => {}} />,
+      );
+      const cells = tbodyCells(container);
+      expect(cells.length).toBeGreaterThan(0);
+      for (const cell of cells) {
+        const button = cell.querySelector("button");
+        expect(button).toBeTruthy();
+        expect(button).toHaveClass("text-ring");
+        expect(button?.className).not.toMatch(/bg-primary/);
+        expect(cell).not.toHaveClass("p-0");
+      }
     });
-  });
 
-  it("wraps all cells with badge span when clickableColumns is empty", () => {
-    const { container } = render(
-      <DataGrid
-        columns={columns}
-        data={data}
-        onCellClick={() => {}}
-        clickableColumns={[]}
-      />,
-    );
-    const tbody = container.querySelector("tbody");
-    const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
-    expect(cells.length).toBeGreaterThan(0);
-    for (const cell of cells) {
-      const badge = cell.querySelector("button.rounded-md");
-      expect(badge).toBeTruthy();
-      expect(badge).toHaveClass("text-primary");
-    }
-  });
+    it("keeps text-right on an action cell in a numeric column", () => {
+      const cols: ColumnDef<TestRow, unknown>[] = [
+        { accessorKey: "id", header: "Id", meta: { numeric: true } },
+        { accessorKey: "name", header: "Name" },
+      ];
+      const { container } = render(
+        <DataGrid columns={cols} data={data} onCellClick={() => {}} />,
+      );
+      const cells = tbodyCells(container);
+      expect(cells[0]).toHaveClass("text-right");
+      expect(cells[1]).not.toHaveClass("text-right");
+      // The button must not impose its own alignment over the cell's.
+      expect(cells[0].querySelector("button")?.className).not.toMatch(
+        /text-(left|center)/,
+      );
+    });
 
-  it("wraps all cells with badge span when clickableColumns is undefined", () => {
-    const { container } = render(
-      <DataGrid columns={columns} data={data} onCellClick={() => {}} />,
-    );
-    const tbody = container.querySelector("tbody");
-    const cells = Array.from(tbody?.querySelectorAll("td") ?? []);
-    expect(cells.length).toBeGreaterThan(0);
-    for (const cell of cells) {
-      const badge = cell.querySelector("button.rounded-md");
-      expect(badge).toBeTruthy();
-    }
+    it("fires onCellClick with the column and value from the button", async () => {
+      const user = userEvent.setup();
+      const onCellClick = vi.fn();
+      render(
+        <DataGrid
+          columns={columns}
+          data={data}
+          onCellClick={onCellClick}
+          clickableColumns={["name"]}
+        />,
+      );
+      await user.click(screen.getByRole("button", { name: "Alice" }));
+      expect(onCellClick).toHaveBeenCalledWith({
+        column: "name",
+        value: "Alice",
+      });
+    });
+
+    it("makes only the cells in clickableColumns buttons", async () => {
+      const user = userEvent.setup();
+      const onCellClick = vi.fn();
+      const { container } = render(
+        <DataGrid
+          columns={columns}
+          data={data}
+          onCellClick={onCellClick}
+          clickableColumns={["name"]}
+        />,
+      );
+      for (const row of Array.from(container.querySelectorAll("tbody tr"))) {
+        const cells = Array.from(row.querySelectorAll("td"));
+        expect(cells[0].querySelector("button")).toBeTruthy();
+        expect(cells[1].querySelector("button")).toBeNull();
+        expect(cells[2].querySelector("button")).toBeNull();
+      }
+      await user.click(screen.getByText("alice@example.com"));
+      expect(onCellClick).not.toHaveBeenCalled();
+    });
+
+    it("makes no cell clickable when clickableColumns is empty", () => {
+      const { container } = render(
+        <DataGrid
+          columns={columns}
+          data={data}
+          onCellClick={() => {}}
+          clickableColumns={[]}
+        />,
+      );
+      expect(container.querySelectorAll("tbody button")).toHaveLength(0);
+    });
+
+    it("makes every data cell a button when clickableColumns is undefined", () => {
+      const { container } = render(
+        <DataGrid columns={columns} data={data} onCellClick={() => {}} />,
+      );
+      expect(container.querySelectorAll("tbody td button")).toHaveLength(
+        data.length * columns.length,
+      );
+    });
+
+    it("renders no buttons without onCellClick", () => {
+      const { container } = render(<DataGrid columns={columns} data={data} />);
+      expect(container.querySelectorAll("tbody button")).toHaveLength(0);
+    });
   });
 
   it("applies custom className", () => {
