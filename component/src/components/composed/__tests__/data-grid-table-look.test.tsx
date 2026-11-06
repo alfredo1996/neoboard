@@ -405,4 +405,46 @@ describe("fix round (#2222 review)", () => {
       expect(screen.getByText(t)).toBeInTheDocument();
     }
   });
+  describe("a year-like column not named year (#2408)", () => {
+    const bare = [
+      "released",
+      "born",
+      "decade",
+      "release_year",
+      "year_built",
+      "m.released",
+    ];
+    const separated = ["revenue", "yearly_total", "birthday_count"];
+    const one = (id: string, numberFormat?: "comma") => {
+      const { unmount } = render(
+        <DataGrid
+          columns={[{ id, accessorFn: (r: Dotted) => r[id], header: "H" }]}
+          data={[
+            { [id]: id === "revenue" || separated.includes(id) ? 1500 : 1992 },
+          ]}
+          numberFormat={numberFormat}
+        />,
+      );
+      return unmount;
+    };
+
+    it.each(
+      bare.flatMap(
+        (id) =>
+          [
+            [id, undefined],
+            [id, "comma"],
+          ] as const,
+      ),
+    )("prints %s bare and right-aligned under %s", (id, fmt) => {
+      one(id, fmt);
+      expect(cellOf("1992").className).toContain("text-right");
+      expect(screen.queryByText("1,992")).not.toBeInTheDocument();
+    });
+
+    it.each(separated)("still separates %s", (id) => {
+      one(id);
+      expect(screen.getByText("1,500")).toBeInTheDocument();
+    });
+  });
 });
