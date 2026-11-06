@@ -120,10 +120,9 @@ function RuleGroup({
     });
 
   return (
-    <div
-      role="group"
+    <fieldset
       aria-label={`Rule ${n}`}
-      className="grid gap-3 rounded-md border p-3"
+      className="grid min-w-0 gap-3 rounded-md border p-3"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="pt-1 text-body text-foreground-2 [&_b]:font-semibold [&_b]:text-foreground [&_code]:text-foreground">
@@ -204,7 +203,7 @@ function RuleGroup({
           )}
         </SettingRow>
       )}
-    </div>
+    </fieldset>
   );
 }
 
