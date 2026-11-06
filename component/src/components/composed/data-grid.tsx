@@ -296,7 +296,7 @@ export interface DataGridProps<TData> {
    */
   containerHeight?: number;
   onCellClick?: (info: { column: string; value: unknown }) => void;
-  /** Restrict which columns are clickable. Empty/undefined = all columns. */
+  /** Restrict which columns are clickable. Undefined = all columns; empty = none. */
   clickableColumns?: string[];
   onSelectionChange?: (selectedRows: TData[]) => void;
   /** Optional function to compute a row's inline style (e.g. background color from threshold). */
@@ -796,7 +796,7 @@ function DataGrid<TData>({
                     {row.getVisibleCells().map((cell) => {
                       const isDataCell = cell.column.id !== "select";
                       const isInClickableColumns =
-                        !clickableColumns?.length ||
+                        !clickableColumns ||
                         clickableColumns.includes(cell.column.id);
                       const cellClickable =
                         !isGrouped &&
@@ -872,10 +872,10 @@ function DataGrid<TData>({
                               typeof cell.getValue() === "number") &&
                               "tabular-nums",
                             numeric(cell.column) && "text-right",
-                            // Clickable cells: drop padding so the inner
-                            // button fills the whole cell, preserving the
-                            // full-cell click target (#980).
-                            cellClickable && "p-0",
+                            // Action cell: keeps its own padding and
+                            // alignment; the button's ::after covers it, so
+                            // the whole cell is still the target (#980).
+                            cellClickable && "relative",
                           )}
                           style={getCellStyle?.(
                             row.original as TData,
@@ -885,13 +885,17 @@ function DataGrid<TData>({
                           {cellClickable ? (
                             // Real <button> so the click action is keyboard-
                             // reachable and announced to assistive tech (#980).
-                            // w-full + cell padding makes it fill the cell, so
-                            // a click anywhere in the cell still activates it.
+                            // The ::after covers the (relative) cell, so a
+                            // click anywhere in it activates the button, and
+                            // the focus ring is drawn inset on that cover. The
+                            // underline also goes to the cell's own element:
+                            // an inline-block child (the truncating span)
+                            // does not inherit it.
                             // stopPropagation keeps the row handler from also
                             // firing.
                             <button
                               type="button"
-                              className="flex h-full w-full items-center rounded-md bg-primary/5 px-4 py-2 text-left text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                              className="cursor-pointer text-ring after:absolute after:inset-0 hover:underline focus-visible:underline [&:hover>*]:underline [&:focus-visible>*]:underline focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onCellClick({

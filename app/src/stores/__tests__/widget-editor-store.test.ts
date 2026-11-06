@@ -809,7 +809,7 @@ describe("editorSnapshot (#2054)", () => {
     useWidgetEditorStore.setState({
       availableFields: ["title"],
       parameterSuggestions: ["movie"],
-      dialogStep: "rules",
+      dialogStep: "styling-rules",
       connectorChanged: true,
       queryHistory: [{ query: "RETURN 1", savedAt: "2026-09-27" }],
     });

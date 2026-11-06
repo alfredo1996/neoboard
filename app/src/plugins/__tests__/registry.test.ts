@@ -13,6 +13,7 @@ vi.mock("@neoboard/components", () => ({
 import { pluginRegistry } from "../index";
 import { barPlugin } from "../bar";
 import { markdownPlugin } from "../markdown";
+import { formPlugin } from "../form";
 
 describe("global plugin registry (bootstrap)", () => {
   it("has markdown plugin registered on import", () => {
@@ -27,6 +28,10 @@ describe("global plugin registry (bootstrap)", () => {
     // label, so has("bar") passes even if index.ts drops barPlugin.
     expect(pluginRegistry.get("bar")).toBe(barPlugin);
     expect(pluginRegistry.get("markdown")).toBe(markdownPlugin);
+  });
+
+  it("the form plugin offers no click action: it never runs one (#2406)", () => {
+    expect(formPlugin.capabilities.supportsClickAction).toBe(false);
   });
 
   it("re-importing plugins/index.ts is idempotent", async () => {

@@ -16,6 +16,7 @@ import type {
   DashboardLayoutV2,
   WidgetTemplate,
   StylingConfig,
+  ClickAction,
 } from "@/lib/db/schema";
 import type { ConnectionListItem } from "@/hooks/use-connections";
 import {
@@ -76,7 +77,6 @@ import { useBuildWidgetForSave } from "./widget-editor/use-widget-save";
 import { QueryEditorPanel } from "./widget-editor/query-editor-panel";
 import { FormFieldsEditor } from "./widget-editor/form-fields-editor";
 import { ParameterConfigSection } from "./widget-editor/parameter-config-section";
-import { ActionRulesEditor } from "./widget-editor/action-rules-editor";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
 import {
   useWidgetEditorStore,
@@ -558,6 +558,12 @@ export function WidgetEditorModal({
     [],
   );
 
+  const buildClickAction = useCallback(
+    (): ClickAction | undefined =>
+      useWidgetEditorStore.getState().buildClickAction(layout),
+    [layout],
+  );
+
   const { handlePreview, saveStatus } = useAutoPreview({
     open,
     mode,
@@ -898,6 +904,10 @@ export function WidgetEditorModal({
             render: () => (
               <InteractionSection
                 clickActionCollisions={clickActionCollisions}
+                pages={(layout?.pages ?? []).map((p) => ({
+                  id: p.id,
+                  title: p.title,
+                }))}
               />
             ),
           },
@@ -969,14 +979,6 @@ export function WidgetEditorModal({
       >
         {dialogStep === "styling-rules" ? (
           <StylingRulesEditor onBack={() => setDialogStep("main")} />
-        ) : dialogStep === "rules" ? (
-          <ActionRulesEditor
-            onBack={() => setDialogStep("main")}
-            pages={(layout?.pages ?? []).map((p) => ({
-              id: p.id,
-              title: p.title,
-            }))}
-          />
         ) : null}
         {dialogStep === "templates" && (
           <TemplateBrowser
@@ -1073,6 +1075,7 @@ export function WidgetEditorModal({
                   transforms={transforms}
                   transformsEnabled={transformsEnabled}
                   buildStylingConfig={buildStylingConfig}
+                  buildClickAction={buildClickAction}
                   isParamSelect={isParamSelect}
                   isLabMode={isLabMode}
                   isForm={isForm}

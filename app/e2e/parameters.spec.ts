@@ -138,29 +138,25 @@ test.describe("Parameter selectors", () => {
     // Enable click action
     await dialog.getByLabel("Click action").click();
 
-    // "Manage Action Rules" button should appear
+    // The rules sit under the switch: "Add rule" appears, no separate screen
     await expect(
-      dialog.getByRole("button", { name: "Manage Action Rules" }),
+      dialog.getByRole("button", { name: "Add rule" }),
     ).toBeVisible();
+    await dialog.getByRole("button", { name: "Add rule" }).click();
 
-    // Open rules editor and add a rule
-    await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
-    const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
-    await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
-
-    // Action type selector should appear (defaults to "Set Parameter")
-    // Wait for accordion to expand after adding the rule.
-    // Verify form labels are visible — proves the accordion expanded and rule form rendered.
-    await expect(rulesDialog.getByText("Action Type")).toBeVisible({
+    // The rule group opens with "Then" (defaults to Set parameter)
+    const rule = dialog.getByRole("group", { name: "Rule 1" });
+    await expect(
+      rule.getByRole("radio", { name: "Set parameter" }),
+    ).toBeChecked({
       timeout: 5_000,
     });
-    // Parameter name input should appear
-    await expect(rulesDialog.getByText("Parameter Name")).toBeVisible();
-    // Source field — visible for bar charts
-    await expect(rulesDialog.getByText("Source Field")).toBeVisible();
+    // Parameter input should appear
+    await expect(rule.getByText("Parameter", { exact: true })).toBeVisible();
+    // "Value from" — visible for bar charts
+    await expect(rule.getByText("Value from", { exact: true })).toBeVisible();
 
-    // Go back and add the widget
-    await rulesDialog.getByRole("button", { name: "Done" }).click();
+    // Add the widget
     await dialog.getByRole("button", { name: "Add Widget" }).click();
     await expect(dialog).not.toBeVisible();
   });
@@ -514,14 +510,13 @@ test.describe("Click actions", () => {
       await dialog.getByRole("tab", { name: "Behavior" }).click();
       await dialog.getByLabel("Click action").click();
 
-      // Should show "Manage Action Rules" button
+      // Rules are inline: an "Add rule" button, and no rule yet
       await expect(
-        dialog.getByRole("button", { name: "Manage Action Rules" }),
+        dialog.getByRole("button", { name: "Add rule" }),
       ).toBeVisible();
-      // Should show "No action rules configured." text
       await expect(
-        dialog.getByText("No action rules configured."),
-      ).toBeVisible();
+        dialog.getByRole("group", { name: /^Rule \d+$/ }),
+      ).toHaveCount(0);
 
       await cancelAndDiscard(page, dialog);
     } finally {
@@ -570,38 +565,22 @@ test.describe("Click actions", () => {
       await dialog.getByRole("tab", { name: "Behavior" }).click();
       await dialog.getByLabel("Click action").click();
 
-      // Click "Manage Action Rules" to open the rules editor
-      await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
-      const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
-
-      // Should show the Action Rules heading
+      // Add a rule inline
+      await dialog.getByRole("button", { name: "Add rule" }).click();
+      const rule = dialog.getByRole("group", { name: "Rule 1" });
+      await expect(rule).toBeVisible();
+      // Then, defaulting to Set parameter
       await expect(
-        rulesDialog.getByRole("heading", { name: "Action Rules" }),
-      ).toBeVisible();
-      // Should show "No action rules yet" message
-      await expect(rulesDialog.getByText("No action rules yet")).toBeVisible();
+        rule.getByRole("radio", { name: "Set parameter" }),
+      ).toBeChecked({ timeout: 5_000 });
+      // Parameter
+      await expect(rule.getByText("Parameter", { exact: true })).toBeVisible();
+      // Value from (for bar chart, not table)
+      await expect(rule.getByText("Value from", { exact: true })).toBeVisible();
 
-      // Click "Add Rule"
-      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
-      // Should show "Rule 1"
-      await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
-      // Should show Action Type selector
-      await expect(rulesDialog.getByText("Action Type")).toBeVisible({
-        timeout: 5_000,
-      });
-      // Should show Parameter Name
-      await expect(rulesDialog.getByText("Parameter Name")).toBeVisible();
-      // Should show Source Field (for bar chart, not table)
-      await expect(rulesDialog.getByText("Source Field")).toBeVisible();
-
-      // Click "Done" to return to main dialog
-      await rulesDialog.getByRole("button", { name: "Done" }).click();
-      // Navigate back to Advanced tab (Done returns to Data tab)
-      await dialog.getByRole("tab", { name: "Behavior" }).click();
-      // Should show "1 action rule(s) configured."
-      await expect(
-        dialog.getByText("1 action rule(s) configured."),
-      ).toBeVisible();
+      // Delete it again
+      await rule.getByRole("button", { name: "Delete rule 1" }).click();
+      await expect(rule).toHaveCount(0);
 
       await cancelAndDiscard(page, dialog);
     } finally {
@@ -713,28 +692,22 @@ test.describe("Click actions", () => {
       await dialog.getByRole("tab", { name: "Behavior" }).click();
       await dialog.getByLabel("Click action").click();
 
-      // Open the action rules editor
-      await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
-      const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
-      await expect(
-        rulesDialog.getByRole("heading", { name: "Action Rules" }),
-      ).toBeVisible();
-
       // Add a rule
-      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
-      await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
+      await dialog.getByRole("button", { name: "Add rule" }).click();
+      const rule = dialog.getByRole("group", { name: "Rule 1" });
+      await expect(rule).toBeVisible();
 
-      // Should show "Trigger Column" selector for tables
-      await expect(rulesDialog.getByText("Trigger Column")).toBeVisible({
+      // Should show the "Column" selector for tables
+      await expect(rule.getByText("Column", { exact: true })).toBeVisible({
         timeout: 5_000,
       });
-      // Should show "Parameter Name" input
-      await expect(rulesDialog.getByText("Parameter Name")).toBeVisible();
-      // Source Field should NOT appear for table chart types
-      await expect(rulesDialog.getByText("Source Field")).not.toBeVisible();
+      // Should show the "Parameter" input
+      await expect(rule.getByText("Parameter", { exact: true })).toBeVisible();
+      // "Value from" should NOT appear for table chart types
+      await expect(rule.getByText("Value from", { exact: true })).toHaveCount(
+        0,
+      );
 
-      // Click Done and cancel
-      await rulesDialog.getByRole("button", { name: "Done" }).click();
       await cancelAndDiscard(page, dialog);
     } finally {
       await cleanup();
@@ -1101,15 +1074,13 @@ test.describe("Clickable columns restriction", () => {
       await expect(titleCell.first()).toBeVisible({ timeout: 30_000 });
 
       // Title cells expose a clickable button (#980 — keyboard reachable).
-      const titleButton = titleCell.first().locator("button.rounded-md");
+      const titleButton = titleCell.first().locator("button");
       await expect(titleButton).toBeVisible();
 
       // Released cells (year numbers) are NOT clickable — no button inside.
       // Find a released cell in the same row as "Apollo 13" — the year prints as 1,995 (#2222: only year, id and *_id columns print bare).
       const releasedCell = page.locator("td").filter({ hasText: "1,995" });
-      await expect(
-        releasedCell.first().locator("button.rounded-md"),
-      ).toHaveCount(0);
+      await expect(releasedCell.first().locator("button")).toHaveCount(0);
 
       // Click the released cell — should NOT set a parameter
       await releasedCell.first().click();
@@ -1118,6 +1089,60 @@ test.describe("Clickable columns restriction", () => {
       // Click the title cell — SHOULD set a parameter
       await titleCell.first().click();
       await expect(filterStrip(page)).toBeVisible({ timeout: 5_000 });
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("an action cell keeps the cell's size: same padding, no fill, azure text (#2406)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createRestrictedColumnsDashboard(
+      page.request,
+    );
+
+    try {
+      await page.goto(`/${id}`);
+      const row = page.locator("tbody tr").filter({ hasText: "Apollo 13" });
+      await expect(row.first()).toBeVisible({ timeout: 30_000 });
+      const [action, plain] = await row.first().locator("td").all();
+      const box = (td: typeof action) =>
+        td.evaluate((el) => {
+          const cs = getComputedStyle(el);
+          const btn = el.querySelector("button");
+          return {
+            padding: `${cs.paddingTop} ${cs.paddingRight} ${cs.paddingBottom} ${cs.paddingLeft}`,
+            height: el.getBoundingClientRect().height,
+            fill: btn ? getComputedStyle(btn).backgroundColor : null,
+            color: btn ? getComputedStyle(btn).color : null,
+            tdColor: cs.color,
+          };
+        });
+      // Underlined on hover: the decoration reaches the cell's own span.
+      await action.hover();
+      expect(
+        await action
+          .locator("button > *")
+          .first()
+          .evaluate((el) => getComputedStyle(el).textDecorationLine),
+      ).toBe("underline");
+      await page.mouse.move(0, 0);
+      await expect
+        .poll(() =>
+          action
+            .locator("button > *")
+            .first()
+            .evaluate((el) => getComputedStyle(el).textDecorationLine),
+        )
+        .toBe("none");
+      const a = await box(action);
+      const p = await box(plain);
+      expect(a.padding).toBe(p.padding);
+      expect(a.height).toBe(p.height);
+      expect(a.fill).toBe("rgba(0, 0, 0, 0)");
+      expect(a.color).not.toBe(a.tdColor);
     } finally {
       await cleanup();
     }
@@ -1214,11 +1239,11 @@ test.describe("Multi-rule click actions", () => {
       await expect(titleCell.first()).toBeVisible({ timeout: 15_000 });
 
       // Both title and released columns expose clickable buttons (#980)
-      const titleBadge = titleCell.first().locator("button.rounded-md");
+      const titleBadge = titleCell.first().locator("button");
       await expect(titleBadge).toBeVisible();
 
       const yearCell = page.locator("td").filter({ hasText: "1,995" });
-      await expect(yearCell.first().locator("button.rounded-md")).toBeVisible();
+      await expect(yearCell.first().locator("button")).toBeVisible();
 
       // Click title column — should set param_movie
       await titleCell.first().click();
@@ -1233,6 +1258,39 @@ test.describe("Multi-rule click actions", () => {
       // Click year column — should set param_year
       await yearCell.first().click();
       await expect(filterStrip(page)).toBeVisible({ timeout: 5_000 });
+    } finally {
+      await cleanup();
+    }
+  });
+
+  test("an action cell in a numeric column stays right-aligned under its header (#2406)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createMultiRuleDashboard(page.request);
+
+    try {
+      await page.goto(`/${id}`);
+      const yearCell = page
+        .locator("tbody td")
+        .filter({ hasText: "1,995" })
+        .first();
+      await expect(yearCell).toBeVisible({ timeout: 30_000 });
+      const gap = await yearCell.evaluate((td) => {
+        const cs = getComputedStyle(td);
+        const btn = td.querySelector("button")!.getBoundingClientRect();
+        return {
+          align: cs.textAlign,
+          // distance from the button's right edge to the cell's content edge
+          gap:
+            td.getBoundingClientRect().right -
+            parseFloat(cs.paddingRight) -
+            btn.right,
+        };
+      });
+      expect(gap.align).toBe("right");
+      expect(Math.abs(gap.gap)).toBeLessThan(1);
     } finally {
       await cleanup();
     }
@@ -2413,35 +2471,24 @@ test.describe("Action rules — multi-rule editor", () => {
       await dialog.getByRole("tab", { name: "Behavior" }).click();
       await dialog.getByLabel("Click action").click();
 
-      // Open action rules editor
-      await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
-      const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
+      // Add first rule inline — change to "Open page"
+      await dialog.getByRole("button", { name: "Add rule" }).click();
+      const rule1 = dialog.getByRole("group", { name: "Rule 1" });
+      await expect(rule1).toBeVisible();
 
-      // Add first rule — change to "Navigate to Page"
-      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
-      await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
+      await rule1.getByRole("radio", { name: "Open page" }).click();
 
-      // Change action type to Navigate to Page
-      await rulesDialog.getByLabel("Action Type").click();
-      await page.getByRole("option", { name: "Navigate to Page" }).click();
-
-      // Should show Target Page selector with Page 2
-      await expect(rulesDialog.getByText("Target Page")).toBeVisible({
+      // Should show the Page selector
+      await expect(rule1.getByRole("combobox", { name: "Page" })).toBeVisible({
         timeout: 5_000,
       });
 
-      // Add second rule — Set Parameter & Navigate
-      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
-      await expect(rulesDialog.getByText("Rule 2")).toBeVisible();
-
-      // Done
-      await rulesDialog.getByRole("button", { name: "Done" }).click();
-
-      // Verify rule count
-      await dialog.getByRole("tab", { name: "Behavior" }).click();
+      // Add second rule
+      await dialog.getByRole("button", { name: "Add rule" }).click();
+      await expect(dialog.getByRole("group", { name: "Rule 2" })).toBeVisible();
       await expect(
-        dialog.getByText("2 action rule(s) configured."),
-      ).toBeVisible();
+        dialog.getByRole("group", { name: /^Rule \d+$/ }),
+      ).toHaveCount(2);
 
       await cancelAndDiscard(page, dialog);
     } finally {
@@ -2489,29 +2536,21 @@ test.describe("Action rules — multi-rule editor", () => {
 
       await dialog.getByRole("tab", { name: "Behavior" }).click();
       await dialog.getByLabel("Click action").click();
-      await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
-
-      const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
 
       // Add 2 rules
-      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
-      await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
-      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
-      await expect(rulesDialog.getByText("Rule 2")).toBeVisible();
+      await dialog.getByRole("button", { name: "Add rule" }).click();
+      await expect(dialog.getByRole("group", { name: "Rule 1" })).toBeVisible();
+      await dialog.getByRole("button", { name: "Add rule" }).click();
+      await expect(dialog.getByRole("group", { name: "Rule 2" })).toBeVisible();
 
       // Delete Rule 1
-      await rulesDialog.getByRole("button", { name: "Delete rule 1" }).click();
+      await dialog.getByRole("button", { name: "Delete rule 1" }).click();
 
       // Should now show only 1 rule
-      await expect(rulesDialog.getByText("Rule 2")).not.toBeVisible();
-      await expect(rulesDialog.getByText("Rule 1")).toBeVisible();
-
-      // Done
-      await rulesDialog.getByRole("button", { name: "Done" }).click();
-      await dialog.getByRole("tab", { name: "Behavior" }).click();
       await expect(
-        dialog.getByText("1 action rule(s) configured."),
-      ).toBeVisible();
+        dialog.getByRole("group", { name: /^Rule \d+$/ }),
+      ).toHaveCount(1);
+      await expect(dialog.getByRole("group", { name: "Rule 1" })).toBeVisible();
 
       await cancelAndDiscard(page, dialog);
     } finally {
@@ -2567,19 +2606,19 @@ test.describe("Action rules — multi-rule editor", () => {
 
       await dialog.getByRole("tab", { name: "Behavior" }).click();
       await dialog.getByLabel("Click action").click();
-      await dialog.getByRole("button", { name: "Manage Action Rules" }).click();
 
-      const rulesDialog = page.getByRole("dialog", { name: "Action Rules" });
+      // Add a rule — table type should show "Column"
+      await dialog.getByRole("button", { name: "Add rule" }).click();
+      await expect(
+        dialog.getByRole("group", { name: "Rule 1" }).getByText("Column", {
+          exact: true,
+        }),
+      ).toBeVisible({ timeout: 5_000 });
+      // Value from should NOT appear for table type
+      await expect(dialog.getByText("Value from", { exact: true })).toHaveCount(
+        0,
+      );
 
-      // Add a rule — table type should show "Trigger Column"
-      await rulesDialog.getByRole("button", { name: "Add Rule" }).click();
-      await expect(rulesDialog.getByText("Trigger Column")).toBeVisible({
-        timeout: 5_000,
-      });
-      // Source Field should NOT appear for table type
-      await expect(rulesDialog.getByText("Source Field")).not.toBeVisible();
-
-      await rulesDialog.getByRole("button", { name: "Done" }).click();
       await cancelAndDiscard(page, dialog);
     } finally {
       await cleanup();

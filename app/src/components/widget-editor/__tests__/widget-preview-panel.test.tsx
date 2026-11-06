@@ -70,12 +70,16 @@ vi.mock("../../card-container", () => ({
   CardContainer: ({
     widget,
     previewConnectorType,
+    inertClicks,
   }: {
-    widget: { chartType: string };
+    widget: { chartType: string; settings?: { clickAction?: unknown } };
     previewConnectorType?: string;
+    inertClicks?: boolean;
   }) => (
     <div
       data-testid="card-container"
+      data-inert={String(!!inertClicks)}
+      data-click-action={JSON.stringify(widget.settings?.clickAction ?? null)}
       data-chart={widget.chartType}
       data-connector={previewConnectorType}
     >
@@ -315,6 +319,36 @@ describe("WidgetPreviewPanel", () => {
       />,
     );
     expect(screen.getByTestId("card-container")).toBeInTheDocument();
+  });
+
+  it("hands the preview card the saved click action, with clicks inert (#2406)", () => {
+    const clickAction = {
+      type: "set-parameter" as const,
+      rules: [
+        {
+          id: "r1",
+          type: "set-parameter" as const,
+          triggerColumn: "id",
+          parameterMapping: { parameterName: "order_id", sourceField: "id" },
+        },
+      ],
+    };
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({
+          buildClickAction: () => clickAction,
+          previewQuery: {
+            isPending: false,
+            isError: false,
+            error: null,
+            data: { data: [{ id: 1 }], resultId: "r1" },
+          },
+        })}
+      />,
+    );
+    const card = screen.getByTestId("card-container");
+    expect(JSON.parse(card.dataset.clickAction!)).toEqual(clickAction);
+    expect(card.dataset.inert).toBe("true");
   });
 
   // #2061: a graph preview finds its Expand query from the connector the

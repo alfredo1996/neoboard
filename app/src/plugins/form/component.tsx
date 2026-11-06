@@ -41,7 +41,7 @@ export const formPlugin = defineChartPlugin({
   options: getChartOptions("form"),
   settingsSchema: formSettingsSchema,
   capabilities: {
-    supportsClickAction: true,
+    supportsClickAction: false,
     supportsStyling: false,
     supportsCardBackground: true,
     isECharts: false,

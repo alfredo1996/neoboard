@@ -92,6 +92,39 @@ describe("BaseChart", () => {
     );
   });
 
+  describe("series cursor (#2406)", () => {
+    const seriesOf = () => mockSetOption.mock.calls.at(-1)?.[0].series;
+
+    it("is default on every series when there is no click handler", () => {
+      render(
+        <BaseChart options={{ series: [{ type: "bar" }, { type: "line" }] }} />,
+      );
+      expect(seriesOf()).toEqual([
+        { type: "bar", cursor: "default" },
+        { type: "line", cursor: "default" },
+      ]);
+    });
+
+    it("handles a single series object", () => {
+      render(<BaseChart options={{ series: { type: "pie" } }} />);
+      expect(seriesOf()).toEqual({ type: "pie", cursor: "default" });
+    });
+
+    it("leaves the series alone when there is a click handler", () => {
+      render(
+        <BaseChart options={{ series: [{ type: "bar" }] }} onClick={vi.fn()} />,
+      );
+      expect(seriesOf()).toEqual([{ type: "bar" }]);
+    });
+
+    it("keeps a cursor the series sets itself", () => {
+      render(
+        <BaseChart options={{ series: [{ type: "bar", cursor: "grab" }] }} />,
+      );
+      expect(seriesOf()).toEqual([{ type: "bar", cursor: "grab" }]);
+    });
+  });
+
   it("disposes chart on unmount", () => {
     const { unmount } = render(<BaseChart options={{}} />);
     unmount();

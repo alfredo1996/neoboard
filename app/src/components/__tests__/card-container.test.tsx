@@ -40,11 +40,12 @@ vi.mock("@/hooks/use-widget-query", () => ({
 }));
 
 let hasClickAction = false;
+const liveClick = vi.fn();
 let paramValuesNow: Record<string, unknown> = {};
 
 vi.mock("@/hooks/use-click-action", () => ({
   useClickAction: () => ({
-    handleChartClick: undefined,
+    handleChartClick: liveClick,
     hasClickAction,
     clickableColumns: [],
   }),
@@ -174,6 +175,42 @@ describe("CardContainer", () => {
     hasClickAction = false;
     paramValuesNow = {};
     vi.clearAllMocks();
+  });
+
+  describe("inert clicks (#2406)", () => {
+    const rows = [{ label: "Home", value: 1 }];
+    const clickOf = () =>
+      (
+        capturedChartProps.interaction as {
+          onChartClick?: (p: Record<string, unknown>) => void;
+        }
+      )?.onChartClick;
+
+    it("a live card hands the chart the click action's handler", () => {
+      hasClickAction = true;
+      renderWithProviders(
+        <CardContainer
+          widget={createWidget({ chartType: "bar" })}
+          previewData={rows}
+        />,
+      );
+      clickOf()?.({ label: "Home" });
+      expect(liveClick).toHaveBeenCalledWith({ label: "Home" });
+    });
+
+    it("an inert card still marks the action but never runs it", () => {
+      hasClickAction = true;
+      renderWithProviders(
+        <CardContainer
+          widget={createWidget({ chartType: "bar" })}
+          previewData={rows}
+          inertClicks
+        />,
+      );
+      expect(clickOf()).toBeTypeOf("function");
+      clickOf()?.({ label: "Home" });
+      expect(liveClick).not.toHaveBeenCalled();
+    });
   });
 
   describe("highlight (#2226)", () => {

@@ -213,8 +213,8 @@ export function deriveClickableColumns(
 ): string[] | undefined {
   if (!clickAction) return undefined;
   if (!clickAction.rules?.length) return clickAction.clickableColumns;
-  const cols = clickAction.rules
+  // A rule with no column makes no cell clickable: [] is "none", undefined "all".
+  return clickAction.rules
     .map((r) => r.triggerColumn)
     .filter((c): c is string => !!c);
-  return cols.length > 0 ? cols : undefined;
 }

@@ -104,7 +104,14 @@ interface CardContainerProps {
   currentPageId?: string;
   /** What the widget's connection can do (#2137). Unset: nothing ruled out. */
   connector?: ConnectorCapabilities;
+  /**
+   * The editor's preview shows which cells and marks run an action, but a click
+   * in it must set no parameter and open no page (#2406).
+   */
+  inertClicks?: boolean;
 }
+
+const noopClick = () => {};
 
 // extractColumnNames imported from @/lib/widget/card-utils
 
@@ -258,16 +265,19 @@ export function CardContainer({
   parameterSourceMap,
   currentPageId,
   connector,
+  inertClicks = false,
 }: Readonly<CardContainerProps>) {
   const onRefreshingChange = useContext(CardRefreshContext);
   const effectiveWidgetId = widgetIdSuffix
     ? `${widget.id}--${widgetIdSuffix}`
     : widget.id;
   const chartConfig = getChartConfig(widget.chartType);
-  const { handleChartClick, hasClickAction, clickableColumns } = useClickAction(
-    widget,
-    onNavigateToPage,
-  );
+  const {
+    handleChartClick: liveChartClick,
+    hasClickAction,
+    clickableColumns,
+  } = useClickAction(widget, onNavigateToPage);
+  const handleChartClick = inertClicks ? noopClick : liveChartClick;
   const ws = widget.settings ?? {};
 
   // Parameter-select, form, markdown, and iframe widgets are self-contained (no auto-query).
