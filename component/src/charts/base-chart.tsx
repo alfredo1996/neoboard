@@ -33,7 +33,10 @@ import {
   CHART_FONT_FAMILY,
 } from "./theme";
 import { getPaletteColors } from "./palettes";
-import { legendIsolateAction } from "./chart-utils";
+import {
+  defaultCursorUnlessClickable,
+  legendIsolateAction,
+} from "./chart-utils";
 
 echarts.use([
   EBarChart,
@@ -144,16 +147,6 @@ export function useChartFontReady(): boolean {
   return ready;
 }
 
-type SeriesOption = NonNullable<EChartsOption["series"]>;
-
-/** Gives each series the default cursor unless it already names one. */
-function withDefaultCursor(series: SeriesOption): SeriesOption {
-  const one = <T extends object>(s: T) => ({ cursor: "default", ...s });
-  return (
-    Array.isArray(series) ? series.map(one) : one(series)
-  ) as SeriesOption;
-}
-
 /**
  * Base chart wrapper that initializes ECharts, handles resizing,
  * theming, loading/error states, and event forwarding.
@@ -218,11 +211,6 @@ function BaseChart({
     const merged: EChartsOption = {
       color: resolvedColors,
       ...options,
-      // ECharts shows a hand over a series' marks by default. Without a click
-      // handler the marks do nothing, so the hand would lie (#2406).
-      ...(onClick || !options.series
-        ? {}
-        : { series: withDefaultCursor(options.series) }),
       // The 200ms fade on first render is CSS on the wrapper below (#2226);
       // ECharts' own grow-in and update tweens are off, so a refresh never
       // animates.
@@ -269,7 +257,6 @@ function BaseChart({
     dark,
     ariaDescription,
     fontReady,
-    onClick,
   ]);
 
   // Loading state
@@ -297,6 +284,10 @@ function BaseChart({
         onClick(params as EChartsClickEvent),
       );
     }
+    // The marks do nothing on click without a handler, so no hand (#2406).
+    const detachCursor = onClick
+      ? null
+      : defaultCursorUnlessClickable(instance);
     if (onDataZoom) {
       instance.on("dataZoom", onDataZoom);
     }
@@ -311,6 +302,7 @@ function BaseChart({
     });
 
     return () => {
+      detachCursor?.();
       instance.off("click");
       instance.off("dataZoom");
       instance.off("legendselectchanged");

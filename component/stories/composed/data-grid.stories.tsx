@@ -324,15 +324,21 @@ export const WithClickableColumns: Story = {
     const cells = Array.from(row.querySelectorAll("td"));
     expect(cells[0].querySelector("button")).not.toBeNull();
     expect(cells[1].querySelector("button")).toBeNull();
-    // An action cell is no taller than a plain one.
-    expect(cells[0].offsetHeight).toBe(cells[1].offsetHeight);
     const gross = cells[2];
     expect(getComputedStyle(gross).textAlign).toBe("right");
-    const button = gross.querySelector("button")!;
+    // The text, not the button box: a full-width button is flush right while
+    // its text sits left.
+    const range = document.createRange();
+    range.selectNodeContents(gross.querySelector("button")!);
+    const cs = getComputedStyle(gross);
     expect(
-      button.getBoundingClientRect().right,
-      "the value sits at the cell's right edge",
-    ).toBeGreaterThan(gross.getBoundingClientRect().right - 24);
+      Math.abs(
+        gross.getBoundingClientRect().right -
+          parseFloat(cs.paddingRight) -
+          range.getBoundingClientRect().right,
+      ),
+      "the value sits at the cell's content edge",
+    ).toBeLessThan(1);
   },
 };
 

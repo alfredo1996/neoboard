@@ -916,6 +916,50 @@ export function legendIsolateAction(
   return on === entries.length - 1 ? "legendInverseSelect" : null;
 }
 
+// any: ECharts and zrender type each event differently; handlers only pass through.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Handler = (e: any) => void;
+interface CursorChart {
+  on(name: string, h: Handler): unknown;
+  off(name: string, h: Handler): unknown;
+  getZr(): {
+    on(name: string, h: Handler): unknown;
+    off(name: string, h: Handler): unknown;
+    setCursorStyle(c: string): void;
+  };
+}
+
+/**
+ * A chart with no click action shows no hand (#2406). zrender gives every mark
+ * `cursor: pointer` and ECharts' `series.cursor` reaches only some of them
+ * (not lines, areas, labels, gauge pointers, map regions, sankey links), so
+ * this resets the cursor once, at the zrender layer. The hand stays where a
+ * click does act: legend items and treemap nodes (zoom, breadcrumb). A mark
+ * that names its own cursor, such as a slider handle, is left alone. Returns
+ * the detach function.
+ */
+export function defaultCursorUnlessClickable(chart: CursorChart): () => void {
+  const zr = chart.getZr();
+  let acts = false;
+  // ECharts dispatches its mouse events before zrender runs our handler below.
+  const onChartMove: Handler = (p: {
+    componentType?: string;
+    seriesType?: string;
+  }) => {
+    acts = p.componentType === "legend" || p.seriesType === "treemap";
+  };
+  const onZrMove: Handler = (e: { target?: { cursor?: string } }) => {
+    if (!acts && e.target?.cursor === "pointer") zr.setCursorStyle("default");
+    acts = false;
+  };
+  chart.on("mousemove", onChartMove);
+  zr.on("mousemove", onZrMove);
+  return () => {
+    chart.off("mousemove", onChartMove);
+    zr.off("mousemove", onZrMove);
+  };
+}
+
 /** A mark's name or a selected value, compared as text: 7 and "7" are one mark. */
 function markKey(v: unknown): string {
   return typeof v === "string" || typeof v === "number" ? String(v) : "";

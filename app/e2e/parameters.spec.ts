@@ -1279,14 +1279,18 @@ test.describe("Multi-rule click actions", () => {
       await expect(yearCell).toBeVisible({ timeout: 30_000 });
       const gap = await yearCell.evaluate((td) => {
         const cs = getComputedStyle(td);
-        const btn = td.querySelector("button")!.getBoundingClientRect();
+        // The text itself, not the button box: the old full-width button was
+        // flush right while its text sat left.
+        const range = document.createRange();
+        range.selectNodeContents(td.querySelector("button")!);
+        const text = range.getBoundingClientRect();
         return {
           align: cs.textAlign,
-          // distance from the button's right edge to the cell's content edge
+          // distance from the text's right edge to the cell's content edge
           gap:
             td.getBoundingClientRect().right -
             parseFloat(cs.paddingRight) -
-            btn.right,
+            text.right,
         };
       });
       expect(gap.align).toBe("right");

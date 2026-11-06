@@ -416,7 +416,7 @@ export interface ClickAction {
     sourceField: string;
   };
   targetPageId?: string;
-  /** Restrict which table columns are clickable. Empty/undefined = all columns. */
+  /** Restrict which table columns are clickable. Empty/undefined = all columns (legacy, no rules). */
   clickableColumns?: string[];
   /** Multi-rule support. When present, each rule is evaluated independently. */
   rules?: ClickActionRule[];

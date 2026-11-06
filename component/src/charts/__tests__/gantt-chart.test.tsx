@@ -28,6 +28,7 @@ vi.mock("echarts/core", () => {
     off: vi.fn(),
     showLoading: vi.fn(),
     hideLoading: vi.fn(),
+    getZr: () => ({ on: vi.fn(), off: vi.fn(), setCursorStyle: vi.fn() }),
   }));
   const registerTheme = vi.fn();
   // The tooltip formatter runs echarts.format.encodeHTML on the task name.

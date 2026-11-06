@@ -62,7 +62,7 @@ export function ruleSentence(
   );
   const set = (
     <>
-      sets {name ? <code>${name}</code> : "a parameter"} to its{" "}
+      sets {name ? <code>$param_{name}</code> : "a parameter"} to its{" "}
       {!isTable && source ? <b>{source}</b> : "value"}
     </>
   );
@@ -169,18 +169,14 @@ function RuleGroup({
       </SettingRow>
       {setsParameter(rule.type) && (
         <SettingRow label="Parameter" htmlFor={`rule-${rule.id}-param`}>
-          <span className="flex w-full items-center gap-1.5">
-            <span aria-hidden className="font-mono text-muted-foreground">
-              $
-            </span>
-            <CreatableCombobox
-              id={`rule-${rule.id}-param`}
-              suggestions={parameterSuggestions}
-              value={mapping?.parameterName ?? ""}
-              onChange={(v) => setMapping({ parameterName: v })}
-              placeholder="name"
-            />
-          </span>
+          <CreatableCombobox
+            id={`rule-${rule.id}-param`}
+            className="w-full"
+            suggestions={parameterSuggestions}
+            value={mapping?.parameterName ?? ""}
+            onChange={(v) => setMapping({ parameterName: v })}
+            placeholder="name"
+          />
         </SettingRow>
       )}
       {opensPage(rule.type) && (

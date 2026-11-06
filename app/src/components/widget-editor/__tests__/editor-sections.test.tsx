@@ -172,7 +172,7 @@ describe("Interaction, Rules and Write mode rows", () => {
     expect(
       screen.getByRole("group", { name: "Rule 1" }).querySelector("p"),
     ).toHaveTextContent(
-      "Clicking a cell in customer sets $customer to its value and opens Customer.",
+      "Clicking a cell in customer sets $param_customer to its value and opens Customer.",
     );
   });
 
