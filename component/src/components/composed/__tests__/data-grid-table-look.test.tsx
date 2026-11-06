@@ -411,21 +411,32 @@ describe("fix round (#2222 review)", () => {
       "born",
       "decade",
       "release_year",
-      "year_built",
+      "birth_year",
+      "fiscal_year",
       "m.released",
     ];
-    const separated = ["revenue", "yearly_total", "birthday_count"];
+    const separated = [
+      "revenue",
+      "yearly_total",
+      "birthday_count",
+      "unreleased_count",
+      "newborn_total",
+      "decades_count",
+      "revenue_per_year",
+      "sales_last_year",
+      "cost_this_year",
+      "next_year",
+      "year_total",
+      "year_built",
+    ];
     const one = (id: string, numberFormat?: "comma") => {
-      const { unmount } = render(
+      render(
         <DataGrid
           columns={[{ id, accessorFn: (r: Dotted) => r[id], header: "H" }]}
-          data={[
-            { [id]: id === "revenue" || separated.includes(id) ? 1500 : 1992 },
-          ]}
+          data={[{ [id]: separated.includes(id) ? 1500 : 1992 }]}
           numberFormat={numberFormat}
         />,
       );
-      return unmount;
     };
 
     it.each(
