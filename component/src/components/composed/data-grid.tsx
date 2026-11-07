@@ -154,7 +154,11 @@ function SelectRowCell<TData>({ row }: Readonly<CellContext<TData, unknown>>) {
  * A rule on the column's name, the same for every connector (#2222).
  */
 const WHOLE_NUMBER = /^-?\d+$/;
-const LABEL_COLUMN = /^(year|id)$|_id$/i;
+// Matches: year, id, released, born, decade; *_id; *_year, except a rate or
+// relative period (per_year, this_year, last_year, next_year), which is an amount.
+// ponytail: a rule on the name; camelCase is not covered, a per-column format is the upgrade.
+const LABEL_COLUMN =
+  /^(year|id|released|born|decade)$|_id$|(?<!(^|_)(per|this|last|next))_year$/i;
 /** A column named `m.year` or `p.customer_id` is judged by the part after the last dot. */
 const isLabelColumn = (columnId: string) =>
   LABEL_COLUMN.test(columnId.slice(columnId.lastIndexOf(".") + 1));

@@ -572,6 +572,24 @@ test.describe("Widget Showcase seed dashboard", () => {
     });
   });
 
+  test("a released column prints its year without a thousands separator (#2408)", async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await page.getByRole("tab", { name: "Simple Charts", exact: true }).click();
+    const movies = page
+      .getByTestId("widget-card")
+      .filter({ has: page.getByText("All Movies", { exact: true }) });
+    await expect(
+      movies.getByRole("cell", { name: /^\d{4}$/, exact: true }).first(),
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(
+      movies.getByRole("cell", { name: /^\d,\d{3}$/, exact: true }),
+    ).toHaveCount(0);
+  });
+
   test("should render widgets on the Simple Charts page", async ({ page }) => {
     test.setTimeout(60_000);
 
