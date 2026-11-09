@@ -54,6 +54,23 @@ describe("proxy", () => {
       expect(matchesRoute("/favicon.ico")).toBe(false);
     });
 
+    it.each([
+      "/og-image.svg",
+      "/logo.svg",
+      "/site.webmanifest",
+      "/robots.txt",
+      "/icons/apple-touch-icon.png",
+    ])("excludes the public file %s so a signed-out client gets it", (path) => {
+      expect(matchesRoute(path)).toBe(false);
+    });
+
+    it.each(["/api/connections", "/dashboards/svg", "/login"])(
+      "still matches %s",
+      (path) => {
+        expect(matchesRoute(path)).toBe(true);
+      },
+    );
+
     it("includes page routes", () => {
       expect(matchesRoute("/")).toBe(true);
       expect(matchesRoute("/connections")).toBe(true);
