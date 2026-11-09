@@ -320,7 +320,7 @@ describe("runDoctor preflight (#2057)", () => {
     );
     expect(check?.status).toBe("fail");
     expect(check?.message).toBe(
-      "Port 7687 (Neo4j Bolt) is in use. Run `neoboard config set ports.neo4j_bolt 7688`, or stop the other process.",
+      'Port 7687 (Neo4j Bolt) is in use. Run `neoboard config set ports.neo4j_bolt 7688` (or set it under "ports" in .neoboard.local, which wins), or stop the other process.',
     );
   });
 
@@ -391,7 +391,11 @@ describe("runDoctor preflight (#2057)", () => {
   it("does not suggest a port another service is configured on", async () => {
     vi.mocked(readProjectConfig).mockReturnValueOnce({
       ports: { app: 3000, postgres: 5432, neo4j_http: 7686, neo4j_bolt: 7687 },
-      postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
+      postgres: {
+        user: "neoboard",
+        password: "neoboard",
+        database: "neoboard",
+      },
       neo4j: { user: "neo4j", password: "neoboard123" },
       seed: { script: "s", neo4j_cypher: "c" },
     });

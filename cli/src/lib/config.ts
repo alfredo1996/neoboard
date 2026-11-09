@@ -17,6 +17,8 @@ export interface ProjectConfig {
 
 export interface LocalConfig {
   mode: "docker" | "local";
+  /** Machine-specific port overrides, laid over the tracked config (#2413). */
+  ports?: Partial<ProjectConfig["ports"]>;
 }
 
 // Project root detection
@@ -178,7 +180,8 @@ const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
 const DEFAULT_LOCAL_CONFIG: LocalConfig = { mode: "docker" };
 
 // Read/write functions
-export function readProjectConfig(): ProjectConfig {
+/** The tracked file alone, for the callers that write it back. */
+export function readTrackedConfig(): ProjectConfig {
   if (!existsSync(paths.projectConfig)) return DEFAULT_PROJECT_CONFIG;
   try {
     return JSON.parse(readFileSync(paths.projectConfig, "utf-8"));
@@ -187,10 +190,34 @@ export function readProjectConfig(): ProjectConfig {
   }
 }
 
+/** The tracked config with `.neoboard.local` ports laid over it (#2413). */
+export function readProjectConfig(): ProjectConfig {
+  const tracked = readTrackedConfig();
+  return {
+    ...tracked,
+    ports: { ...tracked.ports, ...validPorts(readLocalConfig().ports) },
+  };
+}
+
+// Only integers in 1-65535 override; config set enforces the same on the tracked file.
+export function validPorts(
+  ports: LocalConfig["ports"] = {},
+): Partial<ProjectConfig["ports"]> {
+  return Object.fromEntries(
+    Object.entries(ports).filter(
+      ([, v]) =>
+        Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 65535,
+    ),
+  );
+}
+
 export function readLocalConfig(): LocalConfig {
   if (!existsSync(paths.localConfig)) return DEFAULT_LOCAL_CONFIG;
   try {
-    return JSON.parse(readFileSync(paths.localConfig, "utf-8"));
+    return {
+      ...DEFAULT_LOCAL_CONFIG,
+      ...JSON.parse(readFileSync(paths.localConfig, "utf-8")),
+    };
   } catch {
     return DEFAULT_LOCAL_CONFIG;
   }
@@ -201,7 +228,9 @@ export function writeProjectConfig(config: ProjectConfig): void {
 }
 
 export function writeLocalConfig(config: LocalConfig): void {
-  writeFileSync(paths.localConfig, JSON.stringify(config, null, 2) + "\n");
+  // Keep ports already in the file: init rewrites the mode, not the override.
+  const merged = { ports: readLocalConfig().ports, ...config };
+  writeFileSync(paths.localConfig, JSON.stringify(merged, null, 2) + "\n");
 }
 
 export function getMode(): "docker" | "local" {

@@ -137,7 +137,8 @@ async function checkStackPort(
     status: binding ? "fail" : "warn",
     message:
       `${result.name} is in use. Run \`neoboard config set ports.${key} ` +
-      `${free}\`, or stop the other process.`,
+      `${free}\` (or set it under "ports" in .neoboard.local, which wins), ` +
+      `or stop the other process.`,
   };
 }
 

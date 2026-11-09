@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { run } from "../lib/exec.js";
 import {
   paths,
-  readProjectConfig,
+  readTrackedConfig,
   writeProjectConfig,
   writeLocalConfig,
 } from "../lib/config.js";
@@ -17,8 +17,7 @@ export async function runInit(opts?: {
   if (existsSync(paths.projectConfig)) {
     info("neoboard.config.json already exists — skipping config generation.");
   } else {
-    const config = readProjectConfig(); // returns defaults
-    writeProjectConfig(config);
+    writeProjectConfig(readTrackedConfig()); // defaults; never the local port override
     success("Created neoboard.config.json");
   }
 

@@ -1,9 +1,12 @@
 import {
   readProjectConfig,
+  readLocalConfig,
+  readTrackedConfig,
+  validPorts,
   writeProjectConfig,
   paths,
 } from "../lib/config.js";
-import { info, success, error as logError } from "../lib/output.js";
+import { info, success, warn, error as logError } from "../lib/output.js";
 import type { ProjectConfig } from "../lib/config.js";
 
 type FlatKey =
@@ -67,10 +70,12 @@ const VALID_KEYS: FlatKey[] = [
 
 export function runConfigList(): void {
   const config = readProjectConfig();
+  const localPorts = validPorts(readLocalConfig().ports);
   info(`Config: ${paths.projectConfig}\n`);
   for (const key of VALID_KEYS) {
     const value = getNestedValue(config, key);
-    info(`  ${key} = ${value}`);
+    const local = key.startsWith("ports.") && key.slice(6) in localPorts;
+    info(`  ${key} = ${value}${local ? "  (from .neoboard.local)" : ""}`);
   }
 }
 
@@ -95,7 +100,15 @@ export function runConfigSet(key: string, value: string): void {
     process.exitCode = 1;
     return;
   }
-  const config = readProjectConfig();
+  const localPorts = validPorts(readLocalConfig().ports);
+  const portKey = key.replace("ports.", "") as keyof typeof localPorts;
+  if (key.startsWith("ports.") && localPorts[portKey] !== undefined) {
+    warn(
+      `${key} is overridden in .neoboard.local (${localPorts[portKey]}); edit that file instead.`,
+    );
+    return;
+  }
+  const config = readTrackedConfig(); // never write a local override into the tracked file
   const updated = setNestedValue(config, key as FlatKey, value);
   writeProjectConfig(updated);
   success(`Set ${key} = ${getNestedValue(updated, key as FlatKey)}`);

@@ -72,6 +72,12 @@ Run the command from the error, which suggests the next free port, then run `neo
 }
 ```
 
+To keep a port change on this machine only, without touching the tracked `neoboard.config.json`, put it under `ports` in `.neoboard.local` (gitignored). It wins over the tracked file, and `neoboard config set` refuses to change a port that file overrides:
+
+```json
+{ "mode": "docker", "ports": { "neo4j_bolt": 7688 } }
+```
+
 Neither `.env.local` nor `docker-compose.yml` is rewritten. In Docker mode, the compose files read these ports from the CLI each time you run `neoboard setup` or `neoboard start`, so you don't need to edit any file. In local mode, `neoboard dev` and migrations use the new ports, but an existing `app/.env.local` is left as it is: change the port in `DATABASE_URL` and `NEXTAUTH_URL` by hand. Don't use `neoboard env --regenerate` for this: it also replaces `ENCRYPTION_KEY`, which makes stored connector credentials unrecoverable. A local install that has no `app/.env.local` yet will generate one with the configured ports.
 
 ### Docker on Apple Silicon (M1/M2/M3)

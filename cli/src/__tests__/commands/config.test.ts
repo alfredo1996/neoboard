@@ -7,12 +7,15 @@ const mockConfig = {
   seed: { script: "scripts/seed.mjs", neo4j_cypher: "init.cypher" },
 };
 
-vi.mock("../../lib/config.js", () => ({
+vi.mock("../../lib/config.js", async (importOriginal) => ({
   assertCheckout: vi.fn(),
   paths: { projectConfig: "/project/neoboard.config.json" },
   readProjectConfig: vi.fn(() => ({ ...mockConfig })),
+  readTrackedConfig: vi.fn(() => ({ ...mockConfig })),
+  readLocalConfig: vi.fn(() => ({ mode: "docker" })),
   writeProjectConfig: vi.fn(),
   getMode: vi.fn(() => "local"),
+  validPorts: (await importOriginal<typeof import("../../lib/config.js")>()).validPorts,
 }));
 
 vi.mock("../../lib/output.js", () => ({
@@ -24,6 +27,7 @@ vi.mock("../../lib/output.js", () => ({
 
 import {
   readProjectConfig,
+  readLocalConfig,
   writeProjectConfig,
   getMode,
 } from "../../lib/config.js";
@@ -42,6 +46,72 @@ beforeEach(() => {
   mockReadProjectConfig.mockReturnValue({ ...mockConfig });
   process.exitCode = 0;
 });
+
+describe("local ports override (#2413)", () => {
+  it("list names a port that comes from the local file", () => {
+    vi.mocked(readLocalConfig).mockReturnValueOnce({
+      mode: "docker",
+      ports: { neo4j_bolt: 7688 },
+    });
+    runConfigList();
+    const calls = vi.mocked(info).mock.calls.map((c) => String(c[0]));
+    expect(calls.some((l) => /neo4j_bolt.*\.neoboard\.local/.test(l))).toBe(
+      true,
+    );
+  });
+
+  it("set writes onto the tracked file, not the effective config", () => {
+    mockReadProjectConfig.mockReturnValue({
+      ...mockConfig,
+      ports: { ...mockConfig.ports, neo4j_bolt: 7688 },
+    });
+    runConfigSet("ports.app", "3001");
+    expect(mockWriteProjectConfig.mock.calls[0][0].ports).toEqual({
+      ...mockConfig.ports,
+      app: 3001,
+    });
+  });
+});
+
+describe("config set on a port overridden in .neoboard.local (#2413)", () => {
+  it("warns and writes nothing", () => {
+    vi.mocked(readLocalConfig).mockReturnValueOnce({
+      mode: "docker",
+      ports: { neo4j_bolt: 7688 },
+    });
+    runConfigSet("ports.neo4j_bolt", "7689");
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining(".neoboard.local"),
+    );
+    expect(mockWriteProjectConfig).not.toHaveBeenCalled();
+    expect(success).not.toHaveBeenCalled();
+  });
+});
+
+describe.each([["null", null], ["a string", "7688"], ["out of range", 70000]])(
+  "an invalid local port (%s) is not an override (#2413)",
+  (_name, bad) => {
+    const invalid = () =>
+      vi.mocked(readLocalConfig).mockReturnValueOnce({
+        mode: "docker",
+        ports: { neo4j_bolt: bad } as never,
+      });
+
+    it("list shows no marker", () => {
+      invalid();
+      runConfigList();
+      const calls = vi.mocked(info).mock.calls.map((c) => String(c[0]));
+      expect(calls.some((l) => l.includes(".neoboard.local"))).toBe(false);
+    });
+
+    it("set writes the tracked file", () => {
+      invalid();
+      runConfigSet("ports.neo4j_bolt", "7689");
+      expect(mockWriteProjectConfig).toHaveBeenCalled();
+      expect(warn).not.toHaveBeenCalled();
+    });
+  },
+);
 
 describe("runConfigList", () => {
   it("prints all valid keys with their values", () => {
@@ -111,7 +181,9 @@ describe("runConfigSet", () => {
     runConfigSet("ports.app", "4000");
     expect(warn).not.toHaveBeenCalled();
     expect(mockWriteProjectConfig).toHaveBeenCalledWith(
-      expect.objectContaining({ ports: expect.objectContaining({ app: 4000 }) }),
+      expect.objectContaining({
+        ports: expect.objectContaining({ app: 4000 }),
+      }),
     );
   });
 
