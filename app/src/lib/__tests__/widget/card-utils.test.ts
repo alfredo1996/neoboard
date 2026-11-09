@@ -82,41 +82,15 @@ describe("resolveStylingConfig", () => {
 // buildExportData
 // ---------------------------------------------------------------------------
 describe("buildExportData", () => {
-  it("returns empty array for non-array rawData", () => {
-    expect(buildExportData("not-array", [])).toEqual([]);
-    expect(buildExportData(null, [])).toEqual([]);
-    expect(buildExportData(undefined, [])).toEqual([]);
+  it("returns empty array for non-array or empty rawData", () => {
+    expect(buildExportData("not-array")).toEqual([]);
+    expect(buildExportData(null)).toEqual([]);
+    expect(buildExportData(undefined)).toEqual([]);
+    expect(buildExportData([])).toEqual([]);
   });
 
-  it("returns empty array for empty array", () => {
-    expect(buildExportData([], [])).toEqual([]);
-  });
-
-  it("returns rawData as-is when no transforms", () => {
+  it("returns rawData as-is", () => {
     const data = [{ a: 1 }, { a: 2 }];
-    expect(buildExportData(data, [])).toBe(data);
-  });
-
-  it("applies transform pipeline", () => {
-    const data = [
-      { name: "Alice", score: 90 },
-      { name: "Bob", score: 40 },
-      { name: "Carol", score: 70 },
-    ];
-    const result = buildExportData(data, [
-      { type: "sort", column: "score", direction: "desc" },
-    ]);
-    expect(result[0].name).toBe("Alice");
-    expect(result[1].name).toBe("Carol");
-    expect(result[2].name).toBe("Bob");
-  });
-
-  it("exports an expression missing an operand as a null column (#2095)", () => {
-    expect(
-      buildExportData(
-        [{ price: 10 }],
-        [{ type: "calculatedColumn", name: "x", expression: "price -5" }],
-      ),
-    ).toEqual([{ price: 10, x: null }]);
+    expect(buildExportData(data)).toBe(data);
   });
 });

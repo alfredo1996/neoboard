@@ -48,8 +48,6 @@ function setStoreState(overrides: Record<string, unknown> = {}) {
     description: "",
     chartOptions: {},
     formFields: [],
-    transforms: [],
-    transformsEnabled: false,
     enableCache: false,
     cacheTtlMinutes: 5,
     colorScales: [],
@@ -318,7 +316,7 @@ describe("useBuildWidgetForSave", () => {
       expect(addToQueryHistory).not.toHaveBeenCalled();
     });
 
-    it("skips clickAction, stylingConfig, conditionalFormatting, cache, transforms", () => {
+    it("skips clickAction, stylingConfig, conditionalFormatting, cache", () => {
       const buildClickAction = vi.fn(() => ({ rules: [] }));
       const buildStylingConfig = vi.fn(() => ({ enabled: true, rules: [] }));
       setStoreState({
@@ -326,7 +324,6 @@ describe("useBuildWidgetForSave", () => {
         buildClickAction,
         buildStylingConfig,
         enableCache: true,
-        transforms: [{ id: "t1" }],
         colorScales: [{ id: "cs1" }],
       });
       const { result } = renderHook(() => useBuildWidgetForSave(undefined));
@@ -336,7 +333,6 @@ describe("useBuildWidgetForSave", () => {
       expect(widget.settings?.stylingConfig).toBeUndefined();
       expect(widget.settings?.conditionalFormatting).toBeUndefined();
       expect(widget.settings?.enableCache).toBeUndefined();
-      expect(widget.settings?.transforms).toBeUndefined();
     });
   });
 
@@ -493,30 +489,6 @@ describe("useBuildWidgetForSave", () => {
 
       expect(widget.settings?.enableCache).toBe(true);
       expect(widget.settings?.cacheTtlMinutes).toBe(10);
-    });
-  });
-
-  // ── Transforms ───────────────────────────────────────────────────
-
-  describe("transforms", () => {
-    it("includes transforms when non-empty", () => {
-      setStoreState({
-        transforms: [{ id: "t1", type: "sort" }],
-        transformsEnabled: true,
-      });
-      const { result } = renderHook(() => useBuildWidgetForSave(undefined));
-      const widget = result.current();
-
-      expect(widget.settings?.transforms).toEqual([{ id: "t1", type: "sort" }]);
-      expect(widget.settings?.transformsEnabled).toBe(true);
-    });
-
-    it("omits transforms when empty", () => {
-      setStoreState({ transforms: [] });
-      const { result } = renderHook(() => useBuildWidgetForSave(undefined));
-      const widget = result.current();
-
-      expect(widget.settings?.transforms).toBeUndefined();
     });
   });
 

@@ -1,9 +1,8 @@
 /**
  * A preview re-run (the debounced auto-preview firing after Run) starts a
  * fresh mutation whose `data` is undefined until it settles. The widget editor
- * derives its column pickers from that data, so the Transform tab unmounted
- * under an open dropdown mid-run — transforms.spec.ts "a configured filter
- * actually filters the preview" failed with "element was detached from the DOM".
+ * derives its column pickers from that data, so a tab of the editor unmounted
+ * under an open dropdown mid-run, and the e2e failed with "element was detached from the DOM".
  */
 import { describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";

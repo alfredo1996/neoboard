@@ -854,22 +854,14 @@
             "id": "tab-table-transform",
             "chartType": "table",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id)::int AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name HAVING SUM(o.total) >= $param_tab_table_min_max ORDER BY total_spend DESC LIMIT $param_tab_table_limit_max",
+            "query": "SELECT * FROM (SELECT c.name AS customer, c.city, r.name AS region, SUM(o.total)::float AS total_spend, COUNT(o.id)::int AS orders FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id JOIN neoboard_demo_public.regions r ON r.id = c.region_id GROUP BY c.id, c.name, c.city, r.name HAVING SUM(o.total) >= $param_tab_table_min_max ORDER BY total_spend DESC, c.id LIMIT $param_tab_table_limit_max) top_customers WHERE orders >= 3 ORDER BY total_spend DESC",
             "settings": {
-              "title": "Same data — client-side filter transform (orders >= 3)",
+              "title": "Same data — filtered in the query (orders >= 3)",
               "chartOptions": {
                 "enableSorting": true,
                 "enablePagination": true,
                 "enableColumnResizing": true
-              },
-              "transforms": [
-                {
-                  "type": "filter",
-                  "column": "orders",
-                  "operator": ">=",
-                  "value": 3
-                }
-              ]
+              }
             }
           },
           {

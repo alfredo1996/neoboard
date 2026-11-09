@@ -150,7 +150,6 @@ flowchart LR
 | - _dirty flag     |     | - chartOptions       |     | - per-dashboard  |
 | - CRUD operations |     | - clickActions       |     |   isolation      |
 +-------------------+     | - stylingRules       |     +------------------+
-                          | - transforms         |
 +-------------------+     +---------------------+     +------------------+
 | Connection Store  |                                  | Schema Store     |
 | (Zustand)         |     +---------------------+     | (Zustand)        |
@@ -191,7 +190,7 @@ app/src/
 │   ├── db/                 # Drizzle ORM client + schema
 │   ├── parameter/          # Collect, format, apply defaults
 │   ├── plugin/             # Chart registry, helpers
-│   ├── query/              # Executor, hash, cache, params, transforms
+│   ├── query/              # Executor, hash, cache, params
 │   ├── shared/             # Date utils, normalize, parse, URL params
 │   └── widget/             # Utils, actions, click, form fields
 └── proxy.ts                # Edge middleware (auth guard)

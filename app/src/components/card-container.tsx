@@ -23,8 +23,6 @@ import {
 } from "@/stores/parameter-store";
 import { interpolateTitle } from "@/lib/widget/interpolate-title";
 import { scrollAndHighlight } from "@/lib/widget/scroll-to-widget";
-import { applyTransforms } from "@/lib/query/data-transforms";
-import type { Transform } from "@/lib/query/data-transforms";
 import {
   extractColumnNames,
   resolveStylingConfig,
@@ -292,16 +290,6 @@ export function CardContainer({
     [ws.chartOptions],
   );
 
-  // Client-side transforms pipeline (applied post-query, pre-render)
-  const transformsEnabled = widget.settings?.transformsEnabled !== false;
-  const dataTransforms = useMemo(
-    () =>
-      transformsEnabled
-        ? ((widget.settings?.transforms ?? []) as Transform[])
-        : [],
-    [widget.settings?.transforms, transformsEnabled],
-  );
-
   const { staleTime, gcTime } = useMemo(
     () => resolveWidgetCacheOptions(widget.settings),
     [widget.settings],
@@ -471,21 +459,6 @@ export function CardContainer({
       mappedData = previewData;
       transformError = "Data transform failed — showing raw data";
     }
-    // Skip transforms for graph charts — their data shape is incompatible with tabular transforms
-    let transformedData: unknown = mappedData;
-    if (dataTransforms.length && widget.chartType !== "graph") {
-      try {
-        transformedData = applyTransforms(
-          mappedData as Record<string, unknown>[],
-          dataTransforms,
-          allParamValues,
-        );
-      } catch (err) {
-        console.error("Data transform failed:", err);
-        transformedData = mappedData;
-        transformError = "Data transform failed — showing raw data";
-      }
-    }
     const availableColumns = extractColumnNames(previewData);
     return (
       <div className="h-full w-full flex flex-col">
@@ -497,7 +470,7 @@ export function CardContainer({
         <div className="flex-1 min-h-0">
           <ChartRenderer
             type={chartConfig.type}
-            data={transformedData}
+            data={mappedData}
             settings={chartOptions}
             styling={{
               rules: resolvedStylingConfig?.rules,
@@ -510,7 +483,7 @@ export function CardContainer({
                     onChartClick: handleChartClick,
                     clickableColumns,
                     highlighted: highlightedNames(
-                      transformedData,
+                      mappedData,
                       ws,
                       allParamValues,
                     ),
@@ -889,20 +862,6 @@ export function CardContainer({
     mappedData = rawData;
     liveTransformError = "Data transform failed — showing raw data";
   }
-  let transformedData: unknown = mappedData;
-  if (dataTransforms.length) {
-    try {
-      transformedData = applyTransforms(
-        mappedData as Record<string, unknown>[],
-        dataTransforms,
-        allParamValues,
-      );
-    } catch (err) {
-      console.error("Data transform failed:", err);
-      transformedData = mappedData;
-      liveTransformError = "Data transform failed — showing raw data";
-    }
-  }
   const availableColumns = extractColumnNames(rawData);
 
   return (
@@ -927,7 +886,7 @@ export function CardContainer({
           // graph layout reset as they did behind the skeleton (#2369).
           key={widgetQuery.data.resultId}
           type={chartConfig.type}
-          data={transformedData}
+          data={mappedData}
           settings={chartOptions}
           styling={{
             rules: resolvedStylingConfig?.rules,
@@ -939,11 +898,7 @@ export function CardContainer({
               ? {
                   onChartClick: handleChartClick,
                   clickableColumns,
-                  highlighted: highlightedNames(
-                    transformedData,
-                    ws,
-                    allParamValues,
-                  ),
+                  highlighted: highlightedNames(mappedData, ws, allParamValues),
                 }
               : undefined
           }

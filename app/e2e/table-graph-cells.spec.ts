@@ -10,8 +10,6 @@ import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
  *
  * #2070 — an object column filtered and sorted on the raw value, so a title
  * typed into its filter matched nothing. It now filters on the cell's text.
- *
- * #2102 — a Transforms filter read the same cell as "[object Object]".
  */
 
 /** A dashboard with one table widget on the seeded movie graph. */
@@ -19,7 +17,6 @@ async function tableDashboard(
   page: Page,
   query: string,
   chartOptions: Record<string, unknown>,
-  settings: Record<string, unknown> = {},
 ) {
   const dashboard = await createTestDashboard(
     page.request,
@@ -42,7 +39,6 @@ async function tableDashboard(
                 settings: {
                   title: "Graph cells",
                   chartOptions: { enablePagination: false, ...chartOptions },
-                  ...settings,
                 },
               },
             ],
@@ -158,38 +154,6 @@ test.describe("Table widget — graph cells (#2050, #2070)", () => {
       await page.getByLabel("Filter m").fill("Cloud Atlas");
       await expect(rows).toHaveCount(1);
       await expect(rows.first()).toContainText('title: "Cloud Atlas"');
-    } finally {
-      await cleanup();
-    }
-  });
-
-  test("a Transforms filter on a node column keeps that title's row only (#2102)", async ({
-    page,
-  }) => {
-    test.setTimeout(90_000);
-    const { id, cleanup } = await tableDashboard(
-      page,
-      "MATCH (m:Movie) WHERE m.title IN ['Cloud Atlas', 'The Matrix', 'Top Gun'] " +
-        "RETURN m ORDER BY m.title",
-      {},
-      {
-        transforms: [
-          {
-            type: "filter",
-            column: "m",
-            operator: "contains",
-            value: "Top Gun",
-          },
-        ],
-      },
-    );
-
-    try {
-      await page.goto(`/${id}`);
-      const rows = page.getByTestId("widget-card").locator("tbody tr");
-      // Before: the filter read "[object Object]" and kept no row.
-      await expect(rows).toHaveCount(1, { timeout: 20_000 });
-      await expect(rows.first()).toContainText('title: "Top Gun"');
     } finally {
       await cleanup();
     }

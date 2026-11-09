@@ -1036,9 +1036,7 @@ describe("DashboardContainer — CSV export reads the card's cached result", () 
 
     fireEvent.click(screen.getByTestId("action-csv"));
 
-    expect(mockBuildExportData).toHaveBeenCalledWith([{ region: "all" }], [], {
-      foo: "bar",
-    });
+    expect(mockBuildExportData).toHaveBeenCalledWith([{ region: "all" }]);
   });
 
   it("exports the current parameter's rows, not an older cached variant", async () => {

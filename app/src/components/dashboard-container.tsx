@@ -338,7 +338,6 @@ export function DashboardContainer({
   const parameters = useParameterStore((s) => s.parameters);
   const clearParameter = useParameterStore((s) => s.clearParameter);
   const clearAll = useParameterStore((s) => s.clearAll);
-  const allParamValues = useParameterValues();
   const [barShown] = useFilterBarShown();
   const stripFilters = useMemo(() => {
     // The selector may sit on another page: the workspace switches to it.
@@ -373,13 +372,7 @@ export function DashboardContainer({
 
   function exportWidgetCsv(widget: DashboardWidget) {
     const cached = getShownWidgetQueryData(queryClient, widget, parameters);
-    const transforms = (widget.settings?.transforms ??
-      []) as import("@/lib/query/data-transforms").Transform[];
-    const exportData = buildExportData(
-      cached?.data,
-      transforms,
-      allParamValues,
-    );
+    const exportData = buildExportData(cached?.data);
     if (exportData.length === 0) return;
     const csv = buildCsvString(exportData);
     const title = (widget.settings?.title as string) || widget.chartType;

@@ -1,7 +1,5 @@
 import type { StylingConfig } from "@/lib/db/schema";
 import { migrateColorThresholds } from "@/lib/dashboard/migrate-color-thresholds";
-import { applyTransforms } from "@/lib/query/data-transforms";
-import type { Transform } from "@/lib/query/data-transforms";
 
 /**
  * Extract column names from raw query result data.
@@ -30,19 +28,10 @@ export function resolveStylingConfig(
 }
 
 /**
- * Build export-ready data by applying transforms to raw query results.
+ * Build export-ready data from raw query results.
  * Returns empty array if data is not valid.
  */
-export function buildExportData(
-  rawData: unknown,
-  transforms: Transform[],
-  paramValues?: Record<string, unknown>,
-): Record<string, unknown>[] {
+export function buildExportData(rawData: unknown): Record<string, unknown>[] {
   if (!Array.isArray(rawData) || rawData.length === 0) return [];
-  if (transforms.length === 0) return rawData as Record<string, unknown>[];
-  return applyTransforms(
-    rawData as Record<string, unknown>[],
-    transforms,
-    paramValues,
-  );
+  return rawData as Record<string, unknown>[];
 }

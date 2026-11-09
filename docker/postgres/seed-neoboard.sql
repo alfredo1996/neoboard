@@ -107,23 +107,23 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
        ]}
      ]}'::jsonb);
 
--- dash-004: Transform Playground — demonstrates all transform types with pre-configured pipelines
+-- dash-004: Transform Playground — filter, sort, group, calculated column, rename and limit, each done in the query
 INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "isPublic", "updated_by", "layoutJson") VALUES
-    ('dash-004', 'user-alice-001', 'default', 'Transform Playground', 'Test data transforms: filter, sort, groupBy, calculatedColumn, rename, limit — with live preview.', true, 'user-alice-001',
+    ('dash-004', 'user-alice-001', 'default', 'Transform Playground', 'Filter, sort, group, calculated column, rename and limit, each done in the query.', true, 'user-alice-001',
      '{"version":2,"pages":[
        {"id":"page-filter","title":"Filter & Sort","widgets":[
-         {"id":"tf1","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN m.title AS movie, count(p) AS cast_size ORDER BY cast_size DESC LIMIT 20","settings":{"title":"Top Movies — filter cast_size > 3","transforms":[{"type":"filter","column":"cast_size","operator":">","value":3}]}},
-         {"id":"tf2","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies ORDER BY movies DESC LIMIT 30","settings":{"title":"Actors sorted by movies desc + limit 10","chartOptions":{"enableSorting":true},"transforms":[{"type":"sort","column":"movies","direction":"desc"},{"type":"limit","count":10}]}},
-         {"id":"tf3","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) RETURN m.released AS year, count(*) AS count ORDER BY year","settings":{"title":"Movies by Year — only 1990s (filter year >= 1990, year < 2000)","transforms":[{"type":"filter","column":"year","operator":">=","value":1990},{"type":"filter","column":"year","operator":"<","value":2000}]}}
+         {"id":"tf1","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH m.title AS movie, count(p) AS cast_size WHERE cast_size > 3 RETURN movie, cast_size ORDER BY cast_size DESC, movie LIMIT 20","settings":{"title":"Top Movies — cast_size > 3"}},
+         {"id":"tf2","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies ORDER BY movies DESC, actor LIMIT 10","settings":{"title":"Actors sorted by movies desc + limit 10","chartOptions":{"enableSorting":true}}},
+         {"id":"tf3","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (m:Movie) WHERE m.released >= 1990 AND m.released < 2000 RETURN m.released AS year, count(*) AS count ORDER BY year","settings":{"title":"Movies by Year — only 1990s (year >= 1990, year < 2000)"}}
        ],"gridLayout":[
          {"i":"tf1","x":0,"y":0,"w":6,"h":4},
          {"i":"tf2","x":6,"y":0,"w":6,"h":5},
          {"i":"tf3","x":0,"y":5,"w":8,"h":4}
        ]},
        {"id":"page-agg","title":"GroupBy & Calculated","widgets":[
-         {"id":"tf4","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS role, p.name AS person, m.released AS year","settings":{"title":"Group by role — count + avg year","chartOptions":{"enableSorting":true},"transforms":[{"type":"groupBy","column":"role","aggregations":[{"column":"person","fn":"count"},{"column":"year","fn":"avg"}]}]}},
-         {"id":"tf5","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies ORDER BY movies DESC LIMIT 20","settings":{"title":"Calculated: movies × 10 = score","chartOptions":{"enableSorting":true},"transforms":[{"type":"calculatedColumn","name":"score","expression":"movies * 10"}]}},
-         {"id":"tf6","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies ORDER BY movies DESC LIMIT 15","settings":{"title":"Rename → filter → limit pipeline","transforms":[{"type":"renameColumns","mapping":{"actor":"Star","movies":"Films"}},{"type":"filter","column":"Films","operator":">=","value":3},{"type":"limit","count":5}]}}
+         {"id":"tf4","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS role, count(p.name) AS person_count, avg(m.released) AS year_avg","settings":{"title":"Group by role — count + avg year","chartOptions":{"enableSorting":true}}},
+         {"id":"tf5","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies, movies * 10 AS score ORDER BY movies DESC, actor LIMIT 20","settings":{"title":"Calculated: movies × 10 = score","chartOptions":{"enableSorting":true}}},
+         {"id":"tf6","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies WHERE movies >= 3 RETURN actor AS Star, movies AS Films ORDER BY movies DESC, actor LIMIT 5","settings":{"title":"Rename → filter → limit pipeline"}}
        ],"gridLayout":[
          {"i":"tf4","x":0,"y":0,"w":6,"h":5},
          {"i":"tf5","x":6,"y":0,"w":6,"h":5},

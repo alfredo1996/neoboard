@@ -82,7 +82,6 @@ import {
   useWidgetEditorStore,
   editorSnapshot,
 } from "@/stores/widget-editor-store";
-import { TransformEditor } from "./widget-editor/transform-editor";
 import { DatabaseSelector } from "./widget-editor/database-selector";
 import { TemplateBrowser } from "./widget-editor/template-browser";
 import { useAutoPreview } from "./widget-editor/use-auto-preview";
@@ -186,12 +185,6 @@ export function WidgetEditorModal({
   const dateSub = useWidgetEditorStore((s) => s.dateSub);
   const multiSelect = useWidgetEditorStore((s) => s.multiSelect);
   const paramWidgetName = useWidgetEditorStore((s) => s.paramWidgetName);
-  const transforms = useWidgetEditorStore((s) => s.transforms);
-  const setTransforms = useWidgetEditorStore((s) => s.setTransforms);
-  const transformsEnabled = useWidgetEditorStore((s) => s.transformsEnabled);
-  const setTransformsEnabled = useWidgetEditorStore(
-    (s) => s.setTransformsEnabled,
-  );
 
   // ── Store-backed state (formerly local useState) ──────────────────
   const title = useWidgetEditorStore((s) => s.title);
@@ -594,20 +587,6 @@ export function WidgetEditorModal({
     return [];
   }, [settledPreview, initialPreviewData]);
 
-  // First row of query results — used for column pipeline simulation in TransformEditor
-  const sampleRow = useMemo(() => {
-    const src = settledPreview?.data ?? initialPreviewData?.data;
-    if (
-      Array.isArray(src) &&
-      src.length > 0 &&
-      typeof src[0] === "object" &&
-      src[0] !== null
-    ) {
-      return src[0] as Record<string, unknown>;
-    }
-    return undefined;
-  }, [settledPreview, initialPreviewData]);
-
   // Push derived data to the store so sub-editors can access it via selectors.
   // These are computed in the modal but not directly settable by sub-editors.
   useLayoutEffect(() => {
@@ -824,24 +803,6 @@ export function WidgetEditorModal({
       : []),
     ...(isForm
       ? [{ name: "Fields" as const, render: () => <FormFieldsEditor /> }]
-      : []),
-    ...(hasQuery && !isForm
-      ? [
-          {
-            name: "Transform" as const,
-            render: () => (
-              <TransformEditor
-                transforms={transforms}
-                onChange={setTransforms}
-                columns={availableFields}
-                sampleRow={sampleRow}
-                parameterSuggestions={parameterSuggestions}
-                enabled={transformsEnabled}
-                onEnabledChange={setTransformsEnabled}
-              />
-            ),
-          },
-        ]
       : []),
     // Not a chart option: the fill and the info text are on the widget's
     // settings, beside the title (#2394).
@@ -1072,8 +1033,6 @@ export function WidgetEditorModal({
                   description={description}
                   chartOptions={chartOptions}
                   colorScales={colorScales}
-                  transforms={transforms}
-                  transformsEnabled={transformsEnabled}
                   buildStylingConfig={buildStylingConfig}
                   buildClickAction={buildClickAction}
                   isParamSelect={isParamSelect}

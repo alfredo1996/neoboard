@@ -38,7 +38,7 @@ export const SHOWCASES = [
   {
     key: "transformations",
     label: "Transformations",
-    description: "Before/after side-by-side for each supported transform.",
+    description: "Before/after side-by-side for filter, sort, group, calculated column, rename and limit, each done in the query.",
     jsonPath: join(__dirname, "transformations.json"),
   },
   {
