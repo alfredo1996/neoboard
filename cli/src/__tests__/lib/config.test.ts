@@ -10,6 +10,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import {
   findProjectRoot,
   readProjectConfig,
+  readTrackedConfig,
   readLocalConfig,
   writeLocalConfig,
   _setRootForTesting,
@@ -107,6 +108,45 @@ describe("readProjectConfig", () => {
   });
 });
 
+describe("readProjectConfig with a local ports override (#2413)", () => {
+  const tracked = JSON.stringify({
+    ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
+    postgres: { user: "u", password: "p", database: "d" },
+    neo4j: { user: "n", password: "s" },
+    seed: { script: "s.mjs", neo4j_cypher: "i.cypher" },
+  });
+  const withLocal = (local: string) => {
+    _setRootForTesting("/project");
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockImplementation((p) =>
+      String(p).endsWith(".neoboard.local") ? local : tracked,
+    );
+  };
+
+  it("lays local ports over the tracked ones, leaving the rest", () => {
+    withLocal(JSON.stringify({ mode: "docker", ports: { neo4j_bolt: 7688 } }));
+    expect(readProjectConfig().ports).toEqual({
+      app: 3000,
+      postgres: 5432,
+      neo4j_http: 7474,
+      neo4j_bolt: 7688,
+    });
+  });
+
+  it.each([
+    ["no ports key", JSON.stringify({ mode: "docker" })],
+    ["a malformed file", "not json"],
+  ])("returns the tracked ports with %s", (_n, local) => {
+    withLocal(local);
+    expect(readProjectConfig().ports.neo4j_bolt).toBe(7687);
+  });
+
+  it("readTrackedConfig ignores the local file", () => {
+    withLocal(JSON.stringify({ ports: { neo4j_bolt: 7688 } }));
+    expect(readTrackedConfig().ports.neo4j_bolt).toBe(7687);
+  });
+});
+
 describe("readLocalConfig", () => {
   beforeEach(() => {
     _setRootForTesting("/project");
@@ -133,6 +173,20 @@ describe("writeLocalConfig", () => {
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       expect.stringContaining(".neoboard.local"),
       JSON.stringify({ mode: "local" }, null, 2) + "\n",
+    );
+  });
+
+  it("keeps the ports already in the local file (#2413)", () => {
+    _setRootForTesting("/project");
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      JSON.stringify({ mode: "docker", ports: { neo4j_bolt: 7688 } }),
+    );
+    writeLocalConfig({ mode: "local" });
+    expect(mockWriteFileSync).toHaveBeenCalledWith(
+      expect.stringContaining(".neoboard.local"),
+      JSON.stringify({ ports: { neo4j_bolt: 7688 }, mode: "local" }, null, 2) +
+        "\n",
     );
   });
 });

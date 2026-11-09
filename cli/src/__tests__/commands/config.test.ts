@@ -11,6 +11,8 @@ vi.mock("../../lib/config.js", () => ({
   assertCheckout: vi.fn(),
   paths: { projectConfig: "/project/neoboard.config.json" },
   readProjectConfig: vi.fn(() => ({ ...mockConfig })),
+  readTrackedConfig: vi.fn(() => ({ ...mockConfig })),
+  readLocalConfig: vi.fn(() => ({ mode: "docker" })),
   writeProjectConfig: vi.fn(),
   getMode: vi.fn(() => "local"),
 }));
@@ -24,6 +26,7 @@ vi.mock("../../lib/output.js", () => ({
 
 import {
   readProjectConfig,
+  readLocalConfig,
   writeProjectConfig,
   getMode,
 } from "../../lib/config.js";
@@ -41,6 +44,32 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockReadProjectConfig.mockReturnValue({ ...mockConfig });
   process.exitCode = 0;
+});
+
+describe("local ports override (#2413)", () => {
+  it("list names a port that comes from the local file", () => {
+    vi.mocked(readLocalConfig).mockReturnValueOnce({
+      mode: "docker",
+      ports: { neo4j_bolt: 7688 },
+    });
+    runConfigList();
+    const calls = vi.mocked(info).mock.calls.map((c) => String(c[0]));
+    expect(calls.some((l) => /neo4j_bolt.*\.neoboard\.local/.test(l))).toBe(
+      true,
+    );
+  });
+
+  it("set writes onto the tracked file, not the effective config", () => {
+    mockReadProjectConfig.mockReturnValue({
+      ...mockConfig,
+      ports: { ...mockConfig.ports, neo4j_bolt: 7688 },
+    });
+    runConfigSet("ports.app", "3001");
+    expect(mockWriteProjectConfig.mock.calls[0][0].ports).toEqual({
+      ...mockConfig.ports,
+      app: 3001,
+    });
+  });
 });
 
 describe("runConfigList", () => {

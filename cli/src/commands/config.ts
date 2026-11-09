@@ -1,5 +1,7 @@
 import {
   readProjectConfig,
+  readLocalConfig,
+  readTrackedConfig,
   writeProjectConfig,
   paths,
 } from "../lib/config.js";
@@ -67,10 +69,12 @@ const VALID_KEYS: FlatKey[] = [
 
 export function runConfigList(): void {
   const config = readProjectConfig();
+  const localPorts = readLocalConfig().ports ?? {};
   info(`Config: ${paths.projectConfig}\n`);
   for (const key of VALID_KEYS) {
     const value = getNestedValue(config, key);
-    info(`  ${key} = ${value}`);
+    const local = key.startsWith("ports.") && key.slice(6) in localPorts;
+    info(`  ${key} = ${value}${local ? "  (from .neoboard.local)" : ""}`);
   }
 }
 
@@ -95,7 +99,7 @@ export function runConfigSet(key: string, value: string): void {
     process.exitCode = 1;
     return;
   }
-  const config = readProjectConfig();
+  const config = readTrackedConfig(); // never write a local override into the tracked file
   const updated = setNestedValue(config, key as FlatKey, value);
   writeProjectConfig(updated);
   success(`Set ${key} = ${getNestedValue(updated, key as FlatKey)}`);

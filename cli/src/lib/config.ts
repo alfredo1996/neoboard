@@ -17,6 +17,8 @@ export interface ProjectConfig {
 
 export interface LocalConfig {
   mode: "docker" | "local";
+  /** Machine-specific port overrides, laid over the tracked config (#2413). */
+  ports?: Partial<ProjectConfig["ports"]>;
 }
 
 // Project root detection
@@ -178,13 +180,23 @@ const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
 const DEFAULT_LOCAL_CONFIG: LocalConfig = { mode: "docker" };
 
 // Read/write functions
-export function readProjectConfig(): ProjectConfig {
+/** The tracked file alone, for the one caller that writes it back. */
+export function readTrackedConfig(): ProjectConfig {
   if (!existsSync(paths.projectConfig)) return DEFAULT_PROJECT_CONFIG;
   try {
     return JSON.parse(readFileSync(paths.projectConfig, "utf-8"));
   } catch {
     return DEFAULT_PROJECT_CONFIG;
   }
+}
+
+/** The tracked config with `.neoboard.local` ports laid over it (#2413). */
+export function readProjectConfig(): ProjectConfig {
+  const tracked = readTrackedConfig();
+  return {
+    ...tracked,
+    ports: { ...tracked.ports, ...readLocalConfig().ports },
+  };
 }
 
 export function readLocalConfig(): LocalConfig {
@@ -201,7 +213,9 @@ export function writeProjectConfig(config: ProjectConfig): void {
 }
 
 export function writeLocalConfig(config: LocalConfig): void {
-  writeFileSync(paths.localConfig, JSON.stringify(config, null, 2) + "\n");
+  // Keep ports already in the file: init rewrites the mode, not the override.
+  const merged = { ports: readLocalConfig().ports, ...config };
+  writeFileSync(paths.localConfig, JSON.stringify(merged, null, 2) + "\n");
 }
 
 export function getMode(): "docker" | "local" {
