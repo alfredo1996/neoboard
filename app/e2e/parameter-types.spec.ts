@@ -517,8 +517,12 @@ test.describe("Parameter widget types", () => {
         await expect(cell).toBeVisible({ timeout: 30_000 });
         await cell.click();
 
-        // The chips sit beside the combobox button, in its wrapper.
-        const field = page.getByRole("combobox").first().locator("..");
+        // The innermost element holding the "Pick" title and its combobox.
+        const field = page
+          .locator("div")
+          .filter({ has: page.getByText("Pick", { exact: true }) })
+          .filter({ has: page.getByRole("combobox") })
+          .last();
         await expect(field).toContainText(shown, { timeout: 10_000 });
         await expect(field).not.toContainText("Select values");
       } finally {

@@ -31,6 +31,7 @@ import {
   buildSeedExtraParams,
   seedFiltersOnServer,
 } from "@/components/parameters/use-seed-query-options";
+import { isParamUnset } from "@/lib/parameter/is-param-unset";
 import { buildFormParams } from "@/lib/widget/form-field-def";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import { seedQueriesOf } from "@/lib/widget/seed-queries";
@@ -236,11 +237,9 @@ function FieldInput({
 
     case "multi-select": {
       const rawValues = value;
-      const multiValues: string[] = Array.isArray(rawValues)
-        ? (rawValues as unknown[]).map(String)
-        : rawValues
-          ? [String(rawValues)]
-          : [];
+      const multiValues: string[] = isParamUnset(rawValues)
+        ? []
+        : [rawValues].flat().map(String);
       return (
         <ParamMultiSelector
           {...label}
