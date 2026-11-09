@@ -195,7 +195,7 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     } else if (ArrayBuffer.isView(value) && !(value instanceof DataView)) {
       // A `bytes` property arrives as an Int8Array; for…in would give one key
       // per byte. Same `\x…` hex text PostgreSQL's bytea gets (#2354).
-      return "\\x".concat(
+      return String.raw`\x`.concat(
         Buffer.from(value.buffer, value.byteOffset, value.byteLength).toString(
           "hex",
         ),
