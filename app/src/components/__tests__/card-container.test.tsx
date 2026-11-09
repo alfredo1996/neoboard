@@ -131,10 +131,6 @@ vi.mock("@neoboard/components", () => ({
   ),
 }));
 
-vi.mock("@/lib/query/data-transforms", () => ({
-  applyTransforms: (data: unknown) => data,
-}));
-
 vi.mock("@/lib/widget/card-utils", () => ({
   extractColumnNames: () => [],
   resolveStylingConfig: () => undefined,

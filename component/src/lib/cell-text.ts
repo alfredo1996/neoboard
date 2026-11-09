@@ -1,6 +1,6 @@
 /**
- * The text a result cell shows. The table renders it, and the transforms and
- * styling rules filter, sort, group and match on it, so an object cell reads
+ * The text a result cell shows. The table renders it, and the styling rules
+ * match on it, so an object cell reads
  * the same everywhere and never as "[object Object]" (#2050, #2102).
  */
 import {

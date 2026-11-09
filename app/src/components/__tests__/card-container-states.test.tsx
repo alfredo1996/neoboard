@@ -77,7 +77,12 @@ vi.mock("next/dynamic", () => ({
 
 // Mock chart-renderer to avoid pulling chart deps
 vi.mock("@/components/chart-renderer", () => ({
-  ChartRenderer: () => <div data-testid="chart-renderer" />,
+  ChartRenderer: ({ data }: { data?: unknown }) => (
+    <div
+      data-testid="chart-renderer"
+      data-rows={Array.isArray(data) ? data.length : undefined}
+    />
+  ),
 }));
 
 // Mock hooks
@@ -111,10 +116,6 @@ vi.mock("@/lib/widget/card-utils", () => ({
 
 vi.mock("@/lib/widget/scroll-to-widget", () => ({
   scrollAndHighlight: () => false,
-}));
-
-vi.mock("@/lib/query/data-transforms", () => ({
-  applyTransforms: (d: unknown) => d,
 }));
 
 // `chart-helpers` registers *lightweight stub* plugins when the full plugin
@@ -846,6 +847,34 @@ describe("CardContainer", () => {
       render(<CardContainer widget={makeWidget()} previewData={[]} />);
 
       expect(transformCalls).toEqual([]);
+    });
+
+    it("renders every row of a widget saved with legacy settings.transforms (#2423)", () => {
+      mockUseWidgetQuery.mockReturnValue({
+        isPending: false,
+        fetchStatus: "idle",
+        isError: false,
+        data: {
+          data: [
+            { name: "a", value: 1 },
+            { name: "b", value: 2 },
+          ],
+          columns: ["name", "value"],
+        },
+        missingParams: [],
+      });
+
+      render(
+        <CardContainer
+          widget={makeWidget({
+            settings: { transforms: [{ type: "limit", count: 1 }] },
+          })}
+        />,
+      );
+
+      expect(
+        screen.getByTestId("chart-renderer").getAttribute("data-rows"),
+      ).toBe("2");
     });
 
     it("announces the empty state to assistive technology", () => {

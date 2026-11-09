@@ -1,7 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { Transform } from "@/lib/query/data-transforms";
 
 vi.mock("@neoboard/components", () => ({
   Button: ({
@@ -109,8 +108,6 @@ function makeProps(
     title: "My widget",
     chartOptions: {},
     colorScales: [],
-    transforms: [] as Transform[],
-    transformsEnabled: true,
     buildStylingConfig: () => undefined,
     isParamSelect: false,
     isForm: false,

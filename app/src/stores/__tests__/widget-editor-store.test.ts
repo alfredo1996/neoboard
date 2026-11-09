@@ -340,18 +340,14 @@ describe("widget-editor-store", () => {
   });
 
   describe("clearQueryState", () => {
-    it("clears query, availableFields, and transforms", () => {
+    it("clears query and availableFields", () => {
       getState().setQuery("MATCH (n) RETURN n");
       getState().setAvailableFields(["name", "age"]);
-      getState().setTransforms([
-        { type: "sort", column: "name", direction: "asc" },
-      ]);
 
       getState().clearQueryState();
 
       expect(getState().query).toBe("");
       expect(getState().availableFields).toEqual([]);
-      expect(getState().transforms).toEqual([]);
     });
 
     it("does not reset connectionId or chartType", () => {
@@ -565,24 +561,6 @@ describe("widget-editor-store", () => {
 
       expect(getState().enableCache).toBe(false);
       expect(getState().cacheTtlMinutes).toBe(10);
-    });
-  });
-
-  describe("loadFromWidget — transforms", () => {
-    it("loads transforms and transformsEnabled", () => {
-      const transforms = [
-        { type: "sort" as const, column: "name", direction: "asc" as const },
-      ];
-      getState().loadFromWidget({
-        id: "w1",
-        chartType: "table",
-        connectionId: "c1",
-        query: "q",
-        settings: { transforms, transformsEnabled: false },
-      });
-
-      expect(getState().transforms).toEqual(transforms);
-      expect(getState().transformsEnabled).toBe(false);
     });
   });
 

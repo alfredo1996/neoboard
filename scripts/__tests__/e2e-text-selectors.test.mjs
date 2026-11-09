@@ -154,7 +154,6 @@ const BASELINE = {
   "table-grouping.spec.ts": { role: 2 },
   "table-pager-fit.spec.ts": { role: 1 },
   "theme.spec.ts": { role: 12 },
-  "transforms.spec.ts": { role: 20, text: 13 },
   "users.spec.ts": { role: 38, text: 4 },
   "view-share-saved-query-text.spec.ts": { role: 1 },
   "widget-cards.spec.ts": { role: 5 },

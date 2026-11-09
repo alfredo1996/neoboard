@@ -11,7 +11,6 @@ import { markdownSettingsSchema } from "@/plugins/markdown/settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
 import { PREVIEW_ROW_LIMIT } from "./use-auto-preview";
 import type { ClickAction, StylingConfig } from "@/lib/db/schema";
-import type { Transform } from "@/lib/query/data-transforms";
 import type { ParamUIType, DateSubType } from "@/stores/widget-editor-store";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import {
@@ -42,8 +41,6 @@ type WidgetPreviewPanelProps = Readonly<{
   description?: string;
   chartOptions: Record<string, unknown>;
   colorScales: Array<{ column: string; minColor: string; maxColor: string }>;
-  transforms: Transform[];
-  transformsEnabled: boolean;
   buildStylingConfig: () => StylingConfig | undefined;
   /** The click action as it would be saved, so the preview marks its cells (#2406). */
   buildClickAction?: () => ClickAction | undefined;
@@ -162,8 +159,6 @@ function renderChart(props: {
   title: string;
   chartOptions: Record<string, unknown>;
   colorScales: Array<{ column: string; minColor: string; maxColor: string }>;
-  transforms: Transform[];
-  transformsEnabled: boolean;
   buildStylingConfig: () => StylingConfig | undefined;
   buildClickAction?: () => ClickAction | undefined;
   previewQuery: WidgetPreviewPanelProps["previewQuery"];
@@ -176,8 +171,6 @@ function renderChart(props: {
     title,
     chartOptions,
     colorScales,
-    transforms,
-    transformsEnabled,
     buildStylingConfig,
     buildClickAction,
     previewQuery,
@@ -225,8 +218,6 @@ function renderChart(props: {
                   conditionalFormatting: colorScales.length
                     ? { colorScales }
                     : undefined,
-                  transforms: transforms.length ? transforms : undefined,
-                  transformsEnabled,
                 },
               }}
               inertClicks
@@ -268,8 +259,6 @@ export function WidgetPreviewPanel({
   description,
   chartOptions,
   colorScales,
-  transforms,
-  transformsEnabled,
   buildStylingConfig,
   buildClickAction,
   isParamSelect,
@@ -330,8 +319,6 @@ export function WidgetPreviewPanel({
       title,
       chartOptions,
       colorScales,
-      transforms,
-      transformsEnabled,
       buildStylingConfig,
       buildClickAction,
       previewQuery,

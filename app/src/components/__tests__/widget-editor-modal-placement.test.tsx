@@ -66,9 +66,6 @@ vi.mock("../widget-editor/template-browser", () => ({
     </button>
   ),
 }));
-vi.mock("../widget-editor/transform-editor", () => ({
-  TransformEditor: () => <div />,
-}));
 
 const { WidgetEditorModal } = await import("../widget-editor-modal");
 

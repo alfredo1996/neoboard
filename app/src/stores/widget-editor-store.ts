@@ -19,7 +19,6 @@ import {
   getChartDefaults,
 } from "@/lib/plugin/chart-helpers";
 import { migrateColorThresholds } from "@/lib/dashboard/migrate-color-thresholds";
-import type { Transform } from "@/lib/query/data-transforms";
 import { stableStringify } from "@/lib/stable-stringify";
 
 // ParamUIType/DateSubType are string unions — define locally to avoid importing
@@ -113,10 +112,6 @@ export interface WidgetEditorState {
   formFields: FormFieldDef[];
   refreshWidgetIds: string[];
 
-  // ── Data transforms ───────────────────────────────────────────
-  transforms: Transform[];
-  transformsEnabled: boolean;
-
   // ── Lab mode ────────────────────────────────────────────────────
   labName: string;
   labDescription: string;
@@ -169,8 +164,6 @@ export interface WidgetEditorState {
 
   setFormFields: (v: FormFieldDef[]) => void;
   setRefreshWidgetIds: (v: string[]) => void;
-  setTransforms: (v: Transform[]) => void;
-  setTransformsEnabled: (v: boolean) => void;
 
   setLabName: (v: string) => void;
   setLabDescription: (v: string) => void;
@@ -313,8 +306,6 @@ function getInitialState() {
     paramWidgetName: "",
     formFields: [] as FormFieldDef[],
     refreshWidgetIds: [] as string[],
-    transforms: [] as Transform[],
-    transformsEnabled: true,
     labName: "",
     labDescription: "",
     labTagsInput: "",
@@ -368,8 +359,6 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
 
   setFormFields: (v) => set({ formFields: v }),
   setRefreshWidgetIds: (v) => set({ refreshWidgetIds: v }),
-  setTransforms: (v) => set({ transforms: v }),
-  setTransformsEnabled: (v) => set({ transformsEnabled: v }),
 
   setLabName: (v) => set({ labName: v }),
   setLabDescription: (v) => set({ labDescription: v }),
@@ -396,8 +385,7 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
   },
 
   resetForAdd: () => set(getInitialState()),
-  clearQueryState: () =>
-    set({ query: "", availableFields: [], transforms: [] }),
+  clearQueryState: () => set({ query: "", availableFields: [] }),
 
   loadFromWidget: (widget) => {
     const s = widget.settings ?? {};
@@ -471,8 +459,6 @@ export const useWidgetEditorStore = create<WidgetEditorState>((set, get) => ({
       paramWidgetName,
       formFields: (s.formFields as FormFieldDef[] | undefined) ?? [],
       refreshWidgetIds: (opts.refreshWidgetIds as string[] | undefined) ?? [],
-      transforms: (s.transforms as Transform[] | undefined) ?? [],
-      transformsEnabled: s.transformsEnabled !== false,
       queryHistory: (s.queryHistory as QueryHistoryEntry[] | undefined) ?? [],
       dialogStep: "main",
       connectorChanged: false,

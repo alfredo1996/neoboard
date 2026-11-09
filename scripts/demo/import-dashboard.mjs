@@ -194,15 +194,6 @@ const KNOWN_CLICK_ACTION_TYPES = new Set([
   "set-parameter-and-navigate",
 ]);
 
-const KNOWN_TRANSFORM_TYPES = new Set([
-  "filter",
-  "sort",
-  "groupBy",
-  "calculatedColumn",
-  "renameColumns",
-  "limit",
-]);
-
 function validateWidgetsSemantics(layout, filePath) {
   const errors = [];
   for (const page of layout.pages) {
@@ -217,16 +208,6 @@ function validateWidgetsSemantics(layout, filePath) {
         errors.push(
           `${filePath}: widget "${widget.id}" has unknown clickAction.type "${clickAction.type}"`,
         );
-      }
-      const transforms = widget.settings?.transforms ?? [];
-      if (Array.isArray(transforms)) {
-        for (const t of transforms) {
-          if (!KNOWN_TRANSFORM_TYPES.has(t.type)) {
-            errors.push(
-              `${filePath}: widget "${widget.id}" has unknown transform type "${t.type}"`,
-            );
-          }
-        }
       }
     }
   }

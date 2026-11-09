@@ -108,6 +108,20 @@ test.describe("Widget editor layout (#2388)", () => {
     await expect(tablist.getByRole("tab")).toHaveText(["Content", "Style"]);
   });
 
+  test("a query widget's Data section has no Transform step (#2423)", async ({
+    page,
+  }) => {
+    const dialog = await openAdd(page);
+    await pickType(page, dialog, "Data Table");
+    await dialog.getByRole("tab", { name: "Data", exact: true }).click();
+    // The Transform step was a third heading in this panel, after the query.
+    await expect(
+      dialog
+        .getByRole("tabpanel", { name: "Data", exact: true })
+        .getByRole("heading"),
+    ).toHaveText(["Query"]);
+  });
+
   test("a jump link brings its group into view, and the pane is the only scroller", async ({
     page,
   }) => {

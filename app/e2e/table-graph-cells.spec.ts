@@ -10,8 +10,6 @@ import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
  *
  * #2070 — an object column filtered and sorted on the raw value, so a title
  * typed into its filter matched nothing. It now filters on the cell's text.
- *
- * #2102 — a Transforms filter read the same cell as "[object Object]".
  */
 
 /** A dashboard with one table widget on the seeded movie graph. */
@@ -19,7 +17,7 @@ async function tableDashboard(
   page: Page,
   query: string,
   chartOptions: Record<string, unknown>,
-  settings: Record<string, unknown> = {},
+  extraSettings: Record<string, unknown> = {},
 ) {
   const dashboard = await createTestDashboard(
     page.request,
@@ -41,8 +39,8 @@ async function tableDashboard(
                 query,
                 settings: {
                   title: "Graph cells",
+                  ...extraSettings,
                   chartOptions: { enablePagination: false, ...chartOptions },
-                  ...settings,
                 },
               },
             ],
@@ -163,33 +161,28 @@ test.describe("Table widget — graph cells (#2050, #2070)", () => {
     }
   });
 
-  test("a Transforms filter on a node column keeps that title's row only (#2102)", async ({
+  // #2423 — the Transform step is gone; a widget saved with transforms shows
+  // its raw rows instead of the transformed ones.
+  test("a widget saved with legacy transforms still shows all its rows (#2423)", async ({
     page,
   }) => {
     test.setTimeout(90_000);
     const { id, cleanup } = await tableDashboard(
       page,
-      "MATCH (m:Movie) WHERE m.title IN ['Cloud Atlas', 'The Matrix', 'Top Gun'] " +
-        "RETURN m ORDER BY m.title",
+      "MATCH (m:Movie) WHERE m.title IN ['Cloud Atlas', 'The Matrix', 'The Matrix Reloaded'] " +
+        "RETURN m.title AS title ORDER BY title",
       {},
       {
-        transforms: [
-          {
-            type: "filter",
-            column: "m",
-            operator: "contains",
-            value: "Top Gun",
-          },
-        ],
+        transformsEnabled: true,
+        transforms: [{ type: "limit", count: 1 }],
       },
     );
 
     try {
       await page.goto(`/${id}`);
-      const rows = page.getByTestId("widget-card").locator("tbody tr");
-      // Before: the filter read "[object Object]" and kept no row.
-      await expect(rows).toHaveCount(1, { timeout: 20_000 });
-      await expect(rows.first()).toContainText('title: "Top Gun"');
+      await expect(
+        page.getByTestId("widget-card").locator("tbody tr"),
+      ).toHaveCount(3, { timeout: 20_000 });
     } finally {
       await cleanup();
     }

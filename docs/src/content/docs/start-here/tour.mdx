@@ -69,7 +69,7 @@ The dashboard list opens on the seven showcases:
 | **Movie Highlights** | Cypher on Neo4j and SQL on PostgreSQL on one page, filtered by one actor: a co-star network, the actor's films, KPIs, top actors, where the movies were filmed, releases per year and top reviews. | Neo4j, PostgreSQL |
 | **Chart Gallery** | One page per chart type, from bar to choropleth map. | Neo4j, PostgreSQL |
 | **Click Actions** | Clicking a chart to set a parameter, jump to another page, or both. | PostgreSQL |
-| **Transformations** | Before and after, side by side, for each transform: filter, sort, groupBy, calculatedColumn, renameColumns and limit. | PostgreSQL |
+| **Transformations** | Before and after, side by side, for filter, sort, group, calculated column, rename and limit, each written in the query. | PostgreSQL |
 | **Rule-Based Styling** | One page per stylable chart, each coloured by two or three threshold rules. | PostgreSQL |
 | **Chart Playground** | Every chart, with parameter selectors as knobs for its options. | Neo4j, PostgreSQL |
 | **Chart Reference** | One page per chart type, with its customization options demonstrated. | Neo4j, PostgreSQL |
@@ -86,7 +86,7 @@ Click **Edit** in the dashboard toolbar. Every widget now has a **Widget actions
 
 ![The Edit Widget dialog for the top-actors bar chart](/screenshots/tour/edit-widget.png)
 
-The chart type and title sit along the top. **Data** holds the connection, the query and the transforms; **Style** holds how it looks, and **Behavior** holds what it does, including the click action that sets `actor`. The preview on the right redraws when you click **Run**. Change `LIMIT 10` to `LIMIT 5`, run it, click **Save Changes**, then **Save** in the toolbar. To undo your experiments later, see [Reset the showcases](#reset-the-showcases).
+The chart type and title sit along the top. **Data** holds the connection and the query; **Style** holds how it looks, and **Behavior** holds what it does, including the click action that sets `actor`. The preview on the right redraws when you click **Run**. Change `LIMIT 10` to `LIMIT 5`, run it, click **Save Changes**, then **Save** in the toolbar. To undo your experiments later, see [Reset the showcases](#reset-the-showcases).
 
 ## 5. Add a parameter
 

@@ -40,8 +40,6 @@ export function useBuildWidgetForSave(
   const description = useWidgetEditorStore((s) => s.description);
   const chartOptions = useWidgetEditorStore((s) => s.chartOptions);
   const formFields = useWidgetEditorStore((s) => s.formFields);
-  const transforms = useWidgetEditorStore((s) => s.transforms);
-  const transformsEnabled = useWidgetEditorStore((s) => s.transformsEnabled);
   const enableCache = useWidgetEditorStore((s) => s.enableCache);
   const cacheTtlMinutes = useWidgetEditorStore((s) => s.cacheTtlMinutes);
   const colorScales = useWidgetEditorStore((s) => s.colorScales);
@@ -135,12 +133,6 @@ export function useBuildWidgetForSave(
             : undefined,
         enableCache: skipSettings ? undefined : enableCache,
         cacheTtlMinutes: skipSettings ? undefined : cacheTtlMinutes,
-        transforms: skipSettings
-          ? undefined
-          : transforms.length
-            ? transforms
-            : undefined,
-        transformsEnabled: skipSettings ? undefined : transformsEnabled,
         queryHistory:
           isParamSelect || isContentOnly
             ? undefined
@@ -165,8 +157,6 @@ export function useBuildWidgetForSave(
     description,
     chartOptions,
     formFields,
-    transforms,
-    transformsEnabled,
     enableCache,
     cacheTtlMinutes,
     colorScales,

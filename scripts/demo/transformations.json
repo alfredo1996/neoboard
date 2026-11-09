@@ -26,7 +26,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Transform: `filter`\n\nDrops rows that don't match an operator/value (or parameter-driven value). The raw query returns everything; the transformed widget applies the predicate client-side.\n\n**Config shown:** `{ type: 'filter', column: 'total', operator: '>=', value: 300 }`\n\n**Operators supported:** `=`, `!=`, `>`, `<`, `>=`, `<=`, `contains`, `not_contains`, `starts_with`, `ends_with`, `is_null`, `is_not_null`, `between`."
+                "content": "## SQL: `WHERE`\n\nDrops rows that don't match a predicate. The raw query returns everything; the filtered widget applies the predicate in the query itself.\n\n**Shown:** `WHERE total >= 300` over the first 100 orders."
               }
             }
           },
@@ -48,22 +48,14 @@
             "id": "f-transformed",
             "chartType": "table",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT o.id, o.status, o.total::float AS total, c.name AS customer FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.id LIMIT 100",
+            "query": "SELECT * FROM (SELECT o.id, o.status, o.total::float AS total, c.name AS customer FROM neoboard_demo_public.orders o JOIN neoboard_demo_public.customers c ON c.id = o.customer_id ORDER BY o.id LIMIT 100) first_100 WHERE total >= 300 ORDER BY id",
             "settings": {
               "title": "After filter: total ≥ 300",
               "chartOptions": {
                 "enableSorting": true,
                 "enablePagination": true,
                 "pageSize": 8
-              },
-              "transforms": [
-                {
-                  "type": "filter",
-                  "column": "total",
-                  "operator": ">=",
-                  "value": 300
-                }
-              ]
+              }
             }
           }
         ],
@@ -85,7 +77,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Transform: `sort`\n\nReorders rows by a column, `asc` or `desc`. Useful when the widget's chart type cares about row order (line charts, stacked bars) and you don't want to rely on the query's `ORDER BY`.\n\n**Config shown:** `{ type: 'sort', column: 'total_spend', direction: 'desc' }`"
+                "content": "## SQL: `ORDER BY`\n\nReorders rows by a column, `ASC` or `DESC`. The database sorts the full result, so the order is right whatever the row cap.\n\n**Shown:** `ORDER BY total_spend DESC`."
               }
             }
           },
@@ -107,17 +99,14 @@
             "id": "s-transformed",
             "chartType": "table",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT c.name AS customer, c.city, SUM(o.total)::float AS total_spend FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id GROUP BY c.id, c.name, c.city",
+            "query": "SELECT c.name AS customer, c.city, SUM(o.total)::float AS total_spend FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id GROUP BY c.id, c.name, c.city ORDER BY total_spend DESC, c.id",
             "settings": {
               "title": "After sort: total_spend desc",
               "chartOptions": {
                 "enableSorting": true,
                 "enablePagination": true,
                 "pageSize": 8
-              },
-              "transforms": [
-                { "type": "sort", "column": "total_spend", "direction": "desc" }
-              ]
+              }
             }
           }
         ],
@@ -139,7 +128,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Transform: `groupBy`\n\nGroups rows by a column and applies aggregations. Lets you aggregate client-side without rewriting the query — useful when the raw data feeds multiple widgets that want different aggregations.\n\n**Config shown:**\n\n```json\n{\n  \"type\": \"groupBy\",\n  \"column\": \"status\",\n  \"aggregations\": [\n    { \"column\": \"id\", \"fn\": \"count\" },\n    { \"column\": \"total\", \"fn\": \"sum\" },\n    { \"column\": \"total\", \"fn\": \"avg\" },\n    { \"column\": \"total\", \"fn\": \"min\" },\n    { \"column\": \"total\", \"fn\": \"max\" }\n  ]\n}\n```\n\n**Aggregation functions:** `count`, `sum`, `avg`, `min`, `max`."
+                "content": "## SQL: `GROUP BY`\n\nGroups rows by a column and aggregates each group in the database, so a total is never a partial sum of a capped result.\n\n**Shown:**\n\n```sql\nSELECT status,\n       COUNT(id), SUM(total), AVG(total), MIN(total), MAX(total)\nFROM orders\nGROUP BY status\n```\n\n**Aggregation functions:** `COUNT`, `SUM`, `AVG`, `MIN`, `MAX`."
               }
             }
           },
@@ -161,25 +150,12 @@
             "id": "g-transformed",
             "chartType": "table",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT id, status, total::float AS total FROM neoboard_demo_public.orders ORDER BY id LIMIT 200",
+            "query": "SELECT status, COUNT(id)::int AS id_count, SUM(total)::float AS total_sum, AVG(total)::float AS total_avg, MIN(total)::float AS total_min, MAX(total)::float AS total_max FROM (SELECT id, status, total FROM neoboard_demo_public.orders ORDER BY id LIMIT 200) first_200 GROUP BY status ORDER BY MIN(id)",
             "settings": {
               "title": "After groupBy status — count + sum/avg/min/max of total",
               "chartOptions": {
                 "enableSorting": true
-              },
-              "transforms": [
-                {
-                  "type": "groupBy",
-                  "column": "status",
-                  "aggregations": [
-                    { "column": "id", "fn": "count" },
-                    { "column": "total", "fn": "sum" },
-                    { "column": "total", "fn": "avg" },
-                    { "column": "total", "fn": "min" },
-                    { "column": "total", "fn": "max" }
-                  ]
-                }
-              ]
+              }
             }
           }
         ],
@@ -201,7 +177,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Transform: `calculatedColumn`\n\nAdds a new column computed from an expression over existing columns. Avoids re-running the query when a derived metric is needed.\n\n**Config shown:** `{ type: 'calculatedColumn', name: 'margin', expression: 'price - cost' }`\n\nExpressions support numeric operators (`+`, `-`, `*`, `/`) and reference column names directly."
+                "content": "## SQL: a computed column\n\nAdds a column computed from an expression over existing columns.\n\n**Shown:** `(price - cost) AS margin`\n\nAny SQL expression works, not only `+`, `-`, `*` and `/`."
               }
             }
           },
@@ -223,21 +199,14 @@
             "id": "c-transformed",
             "chartType": "table",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.id, p.name AS product, p.price::float AS price, p.cost::float AS cost FROM neoboard_demo_public.products p ORDER BY p.price DESC",
+            "query": "SELECT p.id, p.name AS product, p.price::float AS price, p.cost::float AS cost, (p.price - p.cost)::float AS margin FROM neoboard_demo_public.products p ORDER BY p.price DESC, p.id",
             "settings": {
               "title": "After calculatedColumn: margin = price − cost",
               "chartOptions": {
                 "enableSorting": true,
                 "enablePagination": true,
                 "pageSize": 8
-              },
-              "transforms": [
-                {
-                  "type": "calculatedColumn",
-                  "name": "margin",
-                  "expression": "price - cost"
-                }
-              ]
+              }
             }
           }
         ],
@@ -259,7 +228,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Transform: `renameColumns`\n\nRenames columns without rewriting the query. Useful for humanizing technical column names in tables, or aligning column names to what a chart type expects (`name` / `value` for pie, `source` / `target` / `value` for sankey).\n\n**Config shown:** `{ type: 'renameColumns', mapping: { name: 'Product', price: 'Price ($)', cost: 'Cost ($)' } }`"
+                "content": "## SQL: `AS`\n\nRenames columns in the query. Useful for humanizing technical column names in tables, or aligning column names to what a chart type expects (`name` / `value` for pie, `source` / `target` / `value` for sankey).\n\n**Shown:** `name AS \"Product\", price AS \"Price ($)\", cost AS \"Cost ($)\"`"
               }
             }
           },
@@ -281,24 +250,14 @@
             "id": "r-transformed",
             "chartType": "table",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT p.name, p.price::float AS price, p.cost::float AS cost FROM neoboard_demo_public.products p ORDER BY p.price DESC LIMIT 30",
+            "query": "SELECT p.name AS \"Product\", p.price::float AS \"Price ($)\", p.cost::float AS \"Cost ($)\" FROM neoboard_demo_public.products p ORDER BY p.price DESC, p.id LIMIT 30",
             "settings": {
               "title": "After renameColumns",
               "chartOptions": {
                 "enableSorting": true,
                 "enablePagination": true,
                 "pageSize": 8
-              },
-              "transforms": [
-                {
-                  "type": "renameColumns",
-                  "mapping": {
-                    "name": "Product",
-                    "price": "Price ($)",
-                    "cost": "Cost ($)"
-                  }
-                }
-              ]
+              }
             }
           }
         ],
@@ -320,7 +279,7 @@
             "settings": {
               "title": "",
               "chartOptions": {
-                "content": "## Transform: `limit`\n\nCaps the row count post-query. Most commonly chained **after** `sort` so you get \"top N by …\".\n\n**Config shown:**\n\n```json\n{ \"transforms\": [\n  { \"type\": \"sort\",  \"column\": \"total_spend\", \"direction\": \"desc\" },\n  { \"type\": \"limit\", \"count\": 5 }\n]}\n```"
+                "content": "## SQL: `ORDER BY` + `LIMIT`\n\nCaps the row count in the database. Most commonly paired with `ORDER BY` so you get \"top N by …\".\n\n**Shown:**\n\n```sql\nORDER BY total_spend DESC\nLIMIT 5\n```"
               }
             }
           },
@@ -342,7 +301,7 @@
             "id": "l-transformed",
             "chartType": "bar",
             "connectionId": "conn_postgres_read",
-            "query": "SELECT c.name AS customer, SUM(o.total)::float AS total_spend FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id GROUP BY c.id, c.name",
+            "query": "SELECT c.name AS customer, SUM(o.total)::float AS total_spend FROM neoboard_demo_public.customers c JOIN neoboard_demo_public.orders o ON o.customer_id = c.id GROUP BY c.id, c.name ORDER BY total_spend DESC, c.id LIMIT 5",
             "settings": {
               "title": "After sort desc + limit 5 — top 5 spenders",
               "chartOptions": {
@@ -350,15 +309,7 @@
                 "orientation": "horizontal",
                 "showValues": true,
                 "showLegend": false
-              },
-              "transforms": [
-                {
-                  "type": "sort",
-                  "column": "total_spend",
-                  "direction": "desc"
-                },
-                { "type": "limit", "count": 5 }
-              ]
+              }
             }
           }
         ],

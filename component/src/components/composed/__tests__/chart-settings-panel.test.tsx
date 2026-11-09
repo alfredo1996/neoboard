@@ -15,7 +15,7 @@ beforeAll(() => {
 
 const data: SettingsGroup[] = [
   { name: "Query", render: () => <p>query box</p> },
-  { name: "Transform", render: () => <p>transform steps</p> },
+  { name: "Fields", render: () => <p>field list</p> },
 ];
 
 function Harness({
@@ -87,7 +87,7 @@ describe("ChartSettingsPanel (#2388)", () => {
       within(jumps)
         .getAllByRole("button")
         .map((b) => b.textContent),
-    ).toEqual(["Query", "Transform"]);
+    ).toEqual(["Query", "Fields"]);
   });
 
   it("shows the active section's groups in the fixed order, as links too", () => {

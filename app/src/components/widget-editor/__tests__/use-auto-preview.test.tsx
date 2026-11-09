@@ -361,7 +361,7 @@ describe("useAutoPreview", () => {
   // ── Duplicate auto-runs (#1762) ──────────────────────────────────
   //
   // The preview is a mutation: a run empties its data until the result lands,
-  // and the Transform tab unmounts its controls while it is empty. An auto-run
+  // and the Data section unmounts its controls while it is empty. An auto-run
   // of the query that just ran re-opened that window for nothing.
 
   describe("duplicate auto-runs (#1762)", () => {

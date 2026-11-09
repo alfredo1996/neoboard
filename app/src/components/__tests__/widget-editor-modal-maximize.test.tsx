@@ -315,9 +315,6 @@ vi.mock("../widget-editor/parameter-config-section", () => ({
 vi.mock("../widget-editor/styling-rules-editor", () => ({
   StylingRulesEditor: () => <div />,
 }));
-vi.mock("../widget-editor/transform-editor", () => ({
-  TransformEditor: () => <div />,
-}));
 vi.mock("../widget-editor/database-selector", () => ({
   DatabaseSelector: ({ database }: { database?: string }) => (
     <div data-testid="database-selector" data-database={database} />
@@ -786,7 +783,7 @@ describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () 
 // alone, and the chart-type effect then put the options back to the type's
 // defaults whenever the store's last chart type was another one; its save
 // wrote all of that over the template. Use in Dashboard dropped the styling
-// rules, click action and transforms too.
+// rules and click action too (transforms were part of #2076; #2423 removed them).
 describe("WidgetEditorModal — a template opens as it was saved (#2076)", () => {
   const SETTINGS = {
     title: "Sales by region",
@@ -805,7 +802,6 @@ describe("WidgetEditorModal — a template opens as it was saved (#2076)", () =>
         },
       ],
     },
-    transforms: [{ type: "sort", column: "value", direction: "desc" }],
     conditionalFormatting: {
       colorScales: [
         { column: "value", minColor: "#ffffff", maxColor: "#000000" },
@@ -876,7 +872,6 @@ describe("WidgetEditorModal — a template opens as it was saved (#2076)", () =>
     expect(s.stylingRules).toEqual(SETTINGS.stylingConfig.rules);
     expect(s.clickActionEnabled).toBe(true);
     expect(s.actionRules).toEqual(SETTINGS.clickAction.rules);
-    expect(s.transforms).toEqual(SETTINGS.transforms);
     expect(s.colorScales).toEqual(SETTINGS.conditionalFormatting.colorScales);
   }
 
@@ -894,7 +889,7 @@ describe("WidgetEditorModal — a template opens as it was saved (#2076)", () =>
     );
   });
 
-  it("Edit Template opens with its styling rules, click action, transforms and color scales", async () => {
+  it("Edit Template opens with its styling rules, click action and color scales", async () => {
     await openEditor();
     expectTemplateLoaded();
     const s = useWidgetEditorStore.getState();
@@ -916,7 +911,6 @@ describe("WidgetEditorModal — a template opens as it was saved (#2076)", () =>
     expect(payload.settings).toEqual({
       ...SETTINGS,
       cacheTtlMinutes: 5,
-      transformsEnabled: true,
     });
   });
 
@@ -940,24 +934,22 @@ describe("WidgetEditorModal — a template opens as it was saved (#2076)", () =>
     );
   });
 
-  it("Edit Template saves the caching and transforms toggles the user changed", async () => {
+  it("Edit Template saves the caching toggle the user changed", async () => {
     await openEditor({
       template: {
         ...TEMPLATE,
-        settings: { ...SETTINGS, enableCache: false, transformsEnabled: false },
+        settings: { ...SETTINGS, enableCache: false },
       },
     });
     act(() => {
       const s = useWidgetEditorStore.getState();
       s.setEnableCache(true);
-      s.setTransformsEnabled(true);
     });
     await userEvent.click(
       screen.getByRole("button", { name: "Save Template" }),
     );
     expect(updateTemplate.mock.calls[0][0].settings).toMatchObject({
       enableCache: true,
-      transformsEnabled: true,
     });
   });
 
@@ -996,7 +988,7 @@ describe("WidgetEditorModal — a template opens as it was saved (#2076)", () =>
     },
   );
 
-  it("Use in Dashboard applies the template's styling rules, click action, transforms and color scales", async () => {
+  it("Use in Dashboard applies the template's styling rules, click action and color scales", async () => {
     await openEditor({
       mode: "add",
       template: undefined,
@@ -1230,14 +1222,13 @@ describe("WidgetEditorModal — which groups each widget gets (#2388)", () => {
   it.each([
     [
       "bar",
-      ["Query", "Transform", "Rules", "Caching", "Interaction"],
-      ["Fields", "Filter", "After submit", "Write mode"],
+      ["Query", "Rules", "Caching", "Interaction"],
+      ["Transform", "Fields", "Filter", "After submit", "Write mode"],
     ],
     ["markdown", [], ["Query", "Transform", "Caching", "Interaction", "Rules"]],
     [
       "form",
       ["Query", "Fields", "After submit"],
-      // Saving discards a form's transforms, so it is not offered one.
       ["Transform", "Caching", "Interaction", "Rules", "Filter"],
     ],
     [
