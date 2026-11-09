@@ -462,6 +462,71 @@ test.describe("Parameter widget types", () => {
     }
   });
 
+  // #2396 — a click action stores a scalar; 0 and false must show as selected.
+  for (const [col, shown] of [
+    ["n", "0"],
+    ["b", "false"],
+  ] as const) {
+    test(`a click action setting ${shown} shows it selected in a multi-select (#2396)`, async ({
+      page,
+    }) => {
+      const { id, cleanup } = await createParamDashboard(
+        page.request,
+        `param-multi-falsy ${uid()}`,
+        {
+          widgets: [
+            {
+              id: "p-multi",
+              chartType: "parameter-select",
+              connectionId: "conn-neo4j-001",
+              query: "",
+              settings: {
+                title: "Pick",
+                chartOptions: {
+                  parameterType: "multi-select",
+                  parameterName: "pick",
+                  seedQuery: "RETURN 'x' AS value",
+                },
+              },
+            },
+            {
+              id: "t-click",
+              chartType: "table",
+              connectionId: "conn-neo4j-001",
+              query: "RETURN 0 AS n, false AS b",
+              settings: {
+                title: "Source",
+                clickAction: {
+                  type: "set-parameter",
+                  parameterMapping: { parameterName: "pick", sourceField: "" },
+                  clickableColumns: [col],
+                },
+              },
+            },
+          ],
+          gridLayout: [
+            { i: "p-multi", x: 0, y: 0, w: 4, h: 4 },
+            { i: "t-click", x: 4, y: 0, w: 6, h: 6 },
+          ],
+        },
+      );
+
+      try {
+        await page.goto(`/${id}`);
+        const cell = page.getByRole("cell", { name: shown, exact: true });
+        await expect(cell).toBeVisible({ timeout: 30_000 });
+        await cell.click();
+
+        // The chips sit beside the combobox button, in its wrapper.
+        const field = page.getByRole("combobox").first().locator("..");
+        await expect(field).toContainText(shown, { timeout: 10_000 });
+        await expect(field).not.toContainText("Select values");
+      } finally {
+        await cleanup();
+      }
+    });
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // 6b. searchable select — typing the visible label keeps its option (#1411)
   //     The realistic seed shape: an opaque id as the value, a name as the

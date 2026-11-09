@@ -111,6 +111,16 @@ beforeEach(() => {
   multiProps.length = 0;
 });
 
+/** #2396 — a click action stores a scalar; 0 and false are values, not "unset". */
+describe("ParamMultiSelect — scalar falsy values (#2396)", () => {
+  it.each([
+    [0, ["0"]],
+    [false, ["false"]],
+  ])("a scalar %j is shown as %j", (value, expected) => {
+    expect(renderWidget(makeActions(value)).values).toEqual(expected);
+  });
+});
+
 /** #1678 — same contract as ParamSelect: a rejected seed query is not "no rows". */
 describe("ParamMultiSelect — seed query error (#1678)", () => {
   it("names the connector instead of rendering an empty multi-select", () => {
@@ -167,9 +177,8 @@ describe("ParamMultiSelect — reading the stored value", () => {
   it.each([
     ["null", null],
     ["undefined", undefined],
-    ["0", 0],
     ["empty string", ""],
-  ] as const)("treats a falsy stored value (%s) as no selection", (_l, v) => {
+  ] as const)("treats an unset stored value (%s) as no selection", (_l, v) => {
     const props = renderWidget(makeActions(v));
     expect(props.values).toEqual([]);
   });
