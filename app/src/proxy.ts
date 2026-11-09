@@ -67,8 +67,14 @@ function httpsRedirect(req: NextRequest): NextResponse | null {
   // (0.0.0.0 in the image), which made every request look local (#2400).
   // `||`: an empty Host header falls back too.
   const requestHost = req.headers.get("host") || req.nextUrl.host;
-  // URL.hostname keeps the brackets of an IPv6 literal.
-  const hostname = new URL(`http://${requestHost}`).hostname;
+  // URL.hostname keeps the brackets of an IPv6 literal. The Host header is
+  // client-controlled: an unparseable one falls back to the bound host.
+  let hostname = req.nextUrl.hostname;
+  try {
+    hostname = new URL(`http://${requestHost}`).hostname;
+  } catch {
+    // keep the fallback
+  }
   const host = hostname.replace(/^\[|\]$/g, "");
   const isLocal =
     host === "localhost" ||

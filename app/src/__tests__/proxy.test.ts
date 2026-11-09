@@ -400,6 +400,9 @@ describe("proxy", () => {
       ["[::1]:3000", 200],
       ["", 200],
       ["app.example.com:8080", 301],
+      // Unparseable Host: falls back to the bound 0.0.0.0, which is local.
+      ["a b", 200],
+      ["[::1", 200],
     ])("uses the Host header: %s -> %i", async (host, status) => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("FORCE_HTTPS", "");
