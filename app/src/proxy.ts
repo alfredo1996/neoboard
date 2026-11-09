@@ -181,8 +181,8 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   // Static files in app/public/ (OG image, logo, manifest) are fetched by signed-out
-  // clients: link unfurlers, the manifest fetch, the login page. Skip them by extension.
+  // clients: link unfurlers, the manifest fetch, the login page. Skip root-level files by extension (never /api/).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpe?g|gif|webp|ico|webmanifest|txt)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|[^/]+\\.(?:svg|webmanifest)$).*)",
   ],
 };

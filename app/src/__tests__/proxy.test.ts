@@ -54,17 +54,16 @@ describe("proxy", () => {
       expect(matchesRoute("/favicon.ico")).toBe(false);
     });
 
-    it.each([
-      "/og-image.svg",
-      "/logo.svg",
-      "/site.webmanifest",
-      "/robots.txt",
-      "/icons/apple-touch-icon.png",
-    ])("excludes the public file %s so a signed-out client gets it", (path) => {
-      expect(matchesRoute(path)).toBe(false);
-    });
+    it.each(["/og-image.svg", "/logo.svg", "/site.webmanifest"])(
+      "excludes the public file %s so a signed-out client gets it",
+      (path) => {
+        expect(matchesRoute(path)).toBe(false);
+      },
+    );
 
-    it.each(["/api/connections", "/dashboards/svg", "/login"])(
+    // The exclusion is for root-level files only: an /api/ path keeps the proxy's
+    // 401 envelope, #993 gate and HTTPS redirect whatever its last segment ends in.
+    it.each(["/dashboards/svg", "/api/x.txt", "/api/dashboards/abc.svg"])(
       "still matches %s",
       (path) => {
         expect(matchesRoute(path)).toBe(true);
