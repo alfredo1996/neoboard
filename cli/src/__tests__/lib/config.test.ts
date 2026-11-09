@@ -89,7 +89,12 @@ describe("readProjectConfig", () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(
       JSON.stringify({
-        ports: { app: 4000, postgres: 5433, neo4j_http: 7475, neo4j_bolt: 7688 },
+        ports: {
+          app: 4000,
+          postgres: 5433,
+          neo4j_http: 7475,
+          neo4j_bolt: 7688,
+        },
         postgres: { user: "custom", password: "pass", database: "mydb" },
         neo4j: { user: "admin", password: "secret" },
         seed: { script: "seed.mjs", neo4j_cypher: "init.cypher" },
@@ -125,12 +130,19 @@ describe("readProjectConfig with a local ports override (#2413)", () => {
 
   it("lays local ports over the tracked ones, leaving the rest", () => {
     withLocal(JSON.stringify({ mode: "docker", ports: { neo4j_bolt: 7688 } }));
-    expect(readProjectConfig().ports).toEqual({
-      app: 3000,
-      postgres: 5432,
-      neo4j_http: 7474,
-      neo4j_bolt: 7688,
+    expect(readProjectConfig()).toEqual({
+      ...JSON.parse(tracked),
+      ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7688 },
     });
+  });
+
+  it.each([
+    ["a string", "7688"],
+    ["null", null],
+    ["out of range", 70000],
+  ])("skips a local port that is %s", (_n, bad) => {
+    withLocal(JSON.stringify({ ports: { neo4j_bolt: bad } }));
+    expect(readProjectConfig().ports.neo4j_bolt).toBe(7687);
   });
 
   it.each([
@@ -158,6 +170,12 @@ describe("readLocalConfig", () => {
     expect(config.mode).toBe("docker");
   });
 
+  it("defaults the mode for a file that holds only ports", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(JSON.stringify({ ports: { app: 3001 } }));
+    expect(readLocalConfig()).toEqual({ mode: "docker", ports: { app: 3001 } });
+  });
+
   it("parses local config from file", () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(JSON.stringify({ mode: "local" }));
@@ -169,6 +187,7 @@ describe("readLocalConfig", () => {
 describe("writeLocalConfig", () => {
   it("writes config as formatted json", () => {
     _setRootForTesting("/project");
+    mockExistsSync.mockReturnValue(false);
     writeLocalConfig({ mode: "local" });
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       expect.stringContaining(".neoboard.local"),

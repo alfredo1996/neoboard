@@ -105,7 +105,7 @@ describe.skipIf(SKIP).each(["127.0.0.1", "0.0.0.0"])(
         expect(out).toMatch(
           new RegExp(
             String.raw`Port ${portOf(busy)} \(Neo4j Bolt\) is in use\. Run ` +
-              String.raw`\`neoboard config set ports\.neo4j_bolt \d+\`, or stop the other process\.`,
+              String.raw`\`neoboard config set ports\.neo4j_bolt \d+\` \(or set it under "ports" in \.neoboard\.local, which wins\), or stop the other process\.`,
           ),
         );
         expect(existsSync(join(root, "docker", ".env"))).toBe(false);

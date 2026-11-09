@@ -18,7 +18,7 @@ vi.mock("../../lib/config.js", () => ({
     connectionDir: "/project/connection",
     projectConfig: "/project/neoboard.config.json",
   },
-  readProjectConfig: vi.fn(() => ({
+  readTrackedConfig: vi.fn(() => ({
     ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
     postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
     neo4j: { user: "neo4j", password: "neoboard123" },

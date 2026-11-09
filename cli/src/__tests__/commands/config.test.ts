@@ -72,6 +72,21 @@ describe("local ports override (#2413)", () => {
   });
 });
 
+describe("config set on a port overridden in .neoboard.local (#2413)", () => {
+  it("warns and writes nothing", () => {
+    vi.mocked(readLocalConfig).mockReturnValueOnce({
+      mode: "docker",
+      ports: { neo4j_bolt: 7688 },
+    });
+    runConfigSet("ports.neo4j_bolt", "7689");
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining(".neoboard.local"),
+    );
+    expect(mockWriteProjectConfig).not.toHaveBeenCalled();
+    expect(success).not.toHaveBeenCalled();
+  });
+});
+
 describe("runConfigList", () => {
   it("prints all valid keys with their values", () => {
     runConfigList();
@@ -140,7 +155,9 @@ describe("runConfigSet", () => {
     runConfigSet("ports.app", "4000");
     expect(warn).not.toHaveBeenCalled();
     expect(mockWriteProjectConfig).toHaveBeenCalledWith(
-      expect.objectContaining({ ports: expect.objectContaining({ app: 4000 }) }),
+      expect.objectContaining({
+        ports: expect.objectContaining({ app: 4000 }),
+      }),
     );
   });
 

@@ -180,7 +180,7 @@ const DEFAULT_PROJECT_CONFIG: ProjectConfig = {
 const DEFAULT_LOCAL_CONFIG: LocalConfig = { mode: "docker" };
 
 // Read/write functions
-/** The tracked file alone, for the one caller that writes it back. */
+/** The tracked file alone, for the callers that write it back. */
 export function readTrackedConfig(): ProjectConfig {
   if (!existsSync(paths.projectConfig)) return DEFAULT_PROJECT_CONFIG;
   try {
@@ -195,14 +195,28 @@ export function readProjectConfig(): ProjectConfig {
   const tracked = readTrackedConfig();
   return {
     ...tracked,
-    ports: { ...tracked.ports, ...readLocalConfig().ports },
+    ports: { ...tracked.ports, ...validLocalPorts() },
   };
+}
+
+// Only integers in 1-65535 override; config set enforces the same on the tracked file.
+function validLocalPorts(): Partial<ProjectConfig["ports"]> {
+  const ports = readLocalConfig().ports ?? {};
+  return Object.fromEntries(
+    Object.entries(ports).filter(
+      ([, v]) =>
+        Number.isInteger(v) && (v as number) >= 1 && (v as number) <= 65535,
+    ),
+  );
 }
 
 export function readLocalConfig(): LocalConfig {
   if (!existsSync(paths.localConfig)) return DEFAULT_LOCAL_CONFIG;
   try {
-    return JSON.parse(readFileSync(paths.localConfig, "utf-8"));
+    return {
+      ...DEFAULT_LOCAL_CONFIG,
+      ...JSON.parse(readFileSync(paths.localConfig, "utf-8")),
+    };
   } catch {
     return DEFAULT_LOCAL_CONFIG;
   }
