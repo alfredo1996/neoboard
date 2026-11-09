@@ -2,6 +2,7 @@ import {
   readProjectConfig,
   readLocalConfig,
   readTrackedConfig,
+  validPorts,
   writeProjectConfig,
   paths,
 } from "../lib/config.js";
@@ -69,7 +70,7 @@ const VALID_KEYS: FlatKey[] = [
 
 export function runConfigList(): void {
   const config = readProjectConfig();
-  const localPorts = readLocalConfig().ports ?? {};
+  const localPorts = validPorts(readLocalConfig().ports);
   info(`Config: ${paths.projectConfig}\n`);
   for (const key of VALID_KEYS) {
     const value = getNestedValue(config, key);
@@ -99,7 +100,7 @@ export function runConfigSet(key: string, value: string): void {
     process.exitCode = 1;
     return;
   }
-  const localPorts = readLocalConfig().ports ?? {};
+  const localPorts = validPorts(readLocalConfig().ports);
   const portKey = key.replace("ports.", "") as keyof typeof localPorts;
   if (key.startsWith("ports.") && localPorts[portKey] !== undefined) {
     warn(

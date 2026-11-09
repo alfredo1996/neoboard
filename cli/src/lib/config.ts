@@ -195,13 +195,14 @@ export function readProjectConfig(): ProjectConfig {
   const tracked = readTrackedConfig();
   return {
     ...tracked,
-    ports: { ...tracked.ports, ...validLocalPorts() },
+    ports: { ...tracked.ports, ...validPorts(readLocalConfig().ports) },
   };
 }
 
 // Only integers in 1-65535 override; config set enforces the same on the tracked file.
-function validLocalPorts(): Partial<ProjectConfig["ports"]> {
-  const ports = readLocalConfig().ports ?? {};
+export function validPorts(
+  ports: LocalConfig["ports"] = {},
+): Partial<ProjectConfig["ports"]> {
   return Object.fromEntries(
     Object.entries(ports).filter(
       ([, v]) =>
