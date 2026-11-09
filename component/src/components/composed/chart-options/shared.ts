@@ -14,7 +14,6 @@ export const OPTION_GROUPS = {
   Filter: "data",
   Query: "data",
   Fields: "data",
-  Transform: "data",
   // Style
   // Drawn by the editor, not by a chart: every widget has it (#2394)
   Card: "style",

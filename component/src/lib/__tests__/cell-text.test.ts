@@ -1,6 +1,6 @@
 /**
- * formatCell — the text a table cell shows, which the table, the transforms
- * and the styling rules all read (#2050, #2102). Moved here from
+ * formatCell — the text a table cell shows, which the table and the styling
+ * rules both read (#2050, #2102). Moved here from
  * table-renderer.test.tsx with the formatter itself.
  */
 import { describe, it, expect } from "vitest";

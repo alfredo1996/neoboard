@@ -121,7 +121,7 @@ INSERT INTO "dashboard" ("id", "userId", "tenant_id", "name", "description", "is
          {"i":"tf3","x":0,"y":5,"w":8,"h":4}
        ]},
        {"id":"page-agg","title":"GroupBy & Calculated","widgets":[
-         {"id":"tf4","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS role, count(p.name) AS person_count, avg(m.released) AS year_avg","settings":{"title":"Group by role — count + avg year","chartOptions":{"enableSorting":true}}},
+         {"id":"tf4","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[r]->(m:Movie) RETURN type(r) AS role, count(p.name) AS person_count, avg(m.released) AS year_avg ORDER BY role","settings":{"title":"Group by role — count + avg year","chartOptions":{"enableSorting":true}}},
          {"id":"tf5","chartType":"table","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies RETURN actor, movies, movies * 10 AS score ORDER BY movies DESC, actor LIMIT 20","settings":{"title":"Calculated: movies × 10 = score","chartOptions":{"enableSorting":true}}},
          {"id":"tf6","chartType":"bar","connectionId":"conn-neo4j-001","query":"MATCH (p:Person)-[:ACTED_IN]->(m:Movie) WITH p.name AS actor, count(m) AS movies WHERE movies >= 3 RETURN actor AS Star, movies AS Films ORDER BY movies DESC, actor LIMIT 5","settings":{"title":"Rename → filter → limit pipeline"}}
        ],"gridLayout":[

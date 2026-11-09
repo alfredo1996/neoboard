@@ -17,6 +17,7 @@ async function tableDashboard(
   page: Page,
   query: string,
   chartOptions: Record<string, unknown>,
+  extraSettings: Record<string, unknown> = {},
 ) {
   const dashboard = await createTestDashboard(
     page.request,
@@ -38,6 +39,7 @@ async function tableDashboard(
                 query,
                 settings: {
                   title: "Graph cells",
+                  ...extraSettings,
                   chartOptions: { enablePagination: false, ...chartOptions },
                 },
               },
@@ -154,6 +156,33 @@ test.describe("Table widget — graph cells (#2050, #2070)", () => {
       await page.getByLabel("Filter m").fill("Cloud Atlas");
       await expect(rows).toHaveCount(1);
       await expect(rows.first()).toContainText('title: "Cloud Atlas"');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  // #2423 — the Transform step is gone; a widget saved with transforms shows
+  // its raw rows instead of the transformed ones.
+  test("a widget saved with legacy transforms still shows all its rows (#2423)", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    const { id, cleanup } = await tableDashboard(
+      page,
+      "MATCH (m:Movie) WHERE m.title IN ['Cloud Atlas', 'The Matrix', 'The Matrix Reloaded'] " +
+        "RETURN m.title AS title ORDER BY title",
+      {},
+      {
+        transformsEnabled: true,
+        transforms: [{ type: "limit", count: 1 }],
+      },
+    );
+
+    try {
+      await page.goto(`/${id}`);
+      await expect(
+        page.getByTestId("widget-card").locator("tbody tr"),
+      ).toHaveCount(3, { timeout: 20_000 });
     } finally {
       await cleanup();
     }

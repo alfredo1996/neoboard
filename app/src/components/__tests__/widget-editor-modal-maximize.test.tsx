@@ -783,7 +783,7 @@ describe("WidgetEditorModal — asks before dropping unsaved edits (#2054)", () 
 // alone, and the chart-type effect then put the options back to the type's
 // defaults whenever the store's last chart type was another one; its save
 // wrote all of that over the template. Use in Dashboard dropped the styling
-// rules, click action and transforms too.
+// rules and click action too (transforms were part of #2076; #2423 removed them).
 describe("WidgetEditorModal — a template opens as it was saved (#2076)", () => {
   const SETTINGS = {
     title: "Sales by region",
@@ -889,7 +889,7 @@ describe("WidgetEditorModal — a template opens as it was saved (#2076)", () =>
     );
   });
 
-  it("Edit Template opens with its styling rules, click action, transforms and color scales", async () => {
+  it("Edit Template opens with its styling rules, click action and color scales", async () => {
     await openEditor();
     expectTemplateLoaded();
     const s = useWidgetEditorStore.getState();
@@ -988,7 +988,7 @@ describe("WidgetEditorModal — a template opens as it was saved (#2076)", () =>
     },
   );
 
-  it("Use in Dashboard applies the template's styling rules, click action, transforms and color scales", async () => {
+  it("Use in Dashboard applies the template's styling rules, click action and color scales", async () => {
     await openEditor({
       mode: "add",
       template: undefined,

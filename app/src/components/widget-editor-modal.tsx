@@ -395,7 +395,7 @@ export function WidgetEditorModal({
       : undefined,
   );
 
-  // The whole template, styling rules, click action and transforms included
+  // The whole template, styling rules, click action included
   // (#2076), on the connection already chosen or one the template can use.
   function applyTemplate(t: WidgetTemplate) {
     const current = useWidgetEditorStore.getState();

@@ -47,10 +47,10 @@ function Editor({
             ),
           },
           {
-            name: "Transform",
+            name: "Fields",
             render: () => (
-              <SettingRow label="Add a step" htmlFor="story-step">
-                <Input id="story-step" defaultValue="Filter" />
+              <SettingRow label="Field" htmlFor="story-step">
+                <Input id="story-step" defaultValue="name" />
               </SettingRow>
             ),
           },

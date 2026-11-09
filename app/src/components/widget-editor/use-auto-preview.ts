@@ -88,7 +88,7 @@ export function useAutoPreview({
   );
 
   // What the last run sent. The preview is a mutation, so every run empties its
-  // data until the result lands, and the Transform tab unmounts its controls
+  // data until the result lands, and the Data section unmounts its controls
   // while it is empty — an auto-run of what just ran re-opened that window for
   // nothing (#1762). Auto-runs skip a repeat; a manual Run always runs.
   const lastRunRef = useRef<string | null>(null);
