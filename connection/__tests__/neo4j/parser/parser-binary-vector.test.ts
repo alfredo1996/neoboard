@@ -31,6 +31,12 @@ describe("Neo4jRecordParser - bytes and vectors (#2354)", () => {
     ["FLOAT64", new Float64Array([0.1, 0.2]), [0.1, 0.2]],
     ["INT8", new Int8Array([1, -2]), [1, -2]],
     ["INT64", new BigInt64Array([1n, 2n]), [1, 2]],
+    [
+      "INT64 unsafe",
+      new BigInt64Array([9223372036854775807n]),
+      ["9223372036854775807"],
+    ],
+    ["FLOAT32 inexact", new Float32Array([0.1]), [Math.fround(0.1)]],
   ])("a %s Vector becomes a plain list", (_n, typed, expected) => {
     expect(parse(neo4j.vector(typed as any))).toEqual(expected);
   });

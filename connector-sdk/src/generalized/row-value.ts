@@ -22,6 +22,7 @@
  * | local time          | `HH:mm:ss[.f…]`                                        |
  * | duration / interval | ISO-8601 duration — see {@link toIsoDuration}          |
  * | graph value         | {@link GraphNode}, {@link GraphRelationship}, {@link GraphPath} — tagged with `$type` |
+ * | binary              | `\x` + lowercase hex, like PostgreSQL bytea           |
  * | list                | array of row values                                    |
  * | map / document      | plain object of row values                             |
  *
