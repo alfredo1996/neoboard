@@ -67,7 +67,10 @@ export async function proxy(req: NextRequest) {
     process.env.NODE_ENV === "production" &&
     process.env.FORCE_HTTPS?.toLowerCase() !== "false"
   ) {
-    const host = req.nextUrl.hostname;
+    // The host the client asked for. nextUrl carries the server's bound host
+    // (0.0.0.0 in the image), which made every request look local (#2400).
+    const requestHost = req.headers.get("host") ?? req.nextUrl.host;
+    const host = new URL(`http://${requestHost}`).hostname;
     const isLocal =
       host === "localhost" ||
       host === "127.0.0.1" ||
@@ -80,6 +83,8 @@ export async function proxy(req: NextRequest) {
     if (!isLocal && proto !== "https") {
       const httpsUrl = new URL(req.nextUrl.toString());
       httpsUrl.protocol = "https:";
+      httpsUrl.port = ""; // the bound port is not the public one
+      httpsUrl.host = requestHost;
       return NextResponse.redirect(httpsUrl, 301);
     }
   }

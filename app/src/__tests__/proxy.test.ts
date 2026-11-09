@@ -392,5 +392,25 @@ describe("proxy", () => {
         "https://example.com/dashboard?tab=overview&id=42",
       );
     });
+    // #2400: Next reports the bound host (0.0.0.0) in nextUrl, not the Host header.
+    it.each([
+      ["app.example.com", 301],
+      ["localhost:3000", 200],
+      ["192.168.1.5:3000", 200],
+    ])("uses the Host header: %s -> %i", async (host, status) => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("FORCE_HTTPS", "");
+      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      const res = await proxy(
+        makeFullRequest("http://0.0.0.0:3000/login", {
+          host,
+          "x-forwarded-proto": "http",
+        }),
+      );
+      expect(res.status).toBe(status);
+      expect(res.headers.get("location")).toBe(
+        status === 301 ? "https://app.example.com/login" : null,
+      );
+    });
   });
 });
