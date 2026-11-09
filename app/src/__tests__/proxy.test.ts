@@ -397,6 +397,9 @@ describe("proxy", () => {
       ["app.example.com", 301],
       ["localhost:3000", 200],
       ["192.168.1.5:3000", 200],
+      ["[::1]:3000", 200],
+      ["", 200],
+      ["app.example.com:8080", 301],
     ])("uses the Host header: %s -> %i", async (host, status) => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("FORCE_HTTPS", "");
@@ -412,5 +415,20 @@ describe("proxy", () => {
         status === 301 ? "https://app.example.com/login" : null,
       );
     });
+    it.each(["https", "HTTPS", "https, http"])(
+      "does not redirect when x-forwarded-proto is %s",
+      async (proto) => {
+        vi.stubEnv("NODE_ENV", "production");
+        vi.stubEnv("FORCE_HTTPS", "");
+        mockGetToken.mockResolvedValue({ sub: "user-1" });
+        const res = await proxy(
+          makeFullRequest("http://0.0.0.0:3000/login", {
+            host: "app.example.com",
+            "x-forwarded-proto": proto,
+          }),
+        );
+        expect(res.status).toBe(200);
+      },
+    );
   });
 });

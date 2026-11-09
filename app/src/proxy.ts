@@ -55,6 +55,39 @@ function usesSecureSessionCookie(req: NextRequest): boolean {
   );
 }
 
+/** HTTPS redirect (production only); null when the request needs none. */
+function httpsRedirect(req: NextRequest): NextResponse | null {
+  if (
+    process.env.NODE_ENV !== "production" ||
+    process.env.FORCE_HTTPS?.toLowerCase() === "false"
+  ) {
+    return null;
+  }
+  // The host the client asked for. nextUrl carries the server's bound host
+  // (0.0.0.0 in the image), which made every request look local (#2400).
+  // `||`: an empty Host header falls back too.
+  const requestHost = req.headers.get("host") || req.nextUrl.host;
+  // URL.hostname keeps the brackets of an IPv6 literal.
+  const hostname = new URL(`http://${requestHost}`).hostname;
+  const host = hostname.replace(/^\[|\]$/g, "");
+  const isLocal =
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "0.0.0.0" ||
+    host === "::1" ||
+    host.startsWith("192.168.") ||
+    host.startsWith("10.") ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+  // Same test as usesSecureSessionCookie and Next: a proxy chain may send a list.
+  const proto = req.headers.get("x-forwarded-proto")?.toLowerCase();
+  if (isLocal || proto?.includes("https")) return null;
+  const httpsUrl = new URL(req.nextUrl.toString());
+  httpsUrl.protocol = "https:";
+  httpsUrl.port = ""; // neither the bound nor the client's http port is the https one
+  httpsUrl.hostname = hostname;
+  return NextResponse.redirect(httpsUrl, 301);
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const requestId = ensureRequestId(req);
@@ -62,32 +95,8 @@ export async function proxy(req: NextRequest) {
   // headers — route handlers read it via `headers().get("x-request-id")`.
   req.headers.set("x-request-id", requestId);
 
-  // --- HTTPS redirect (production only) ---
-  if (
-    process.env.NODE_ENV === "production" &&
-    process.env.FORCE_HTTPS?.toLowerCase() !== "false"
-  ) {
-    // The host the client asked for. nextUrl carries the server's bound host
-    // (0.0.0.0 in the image), which made every request look local (#2400).
-    const requestHost = req.headers.get("host") ?? req.nextUrl.host;
-    const host = new URL(`http://${requestHost}`).hostname;
-    const isLocal =
-      host === "localhost" ||
-      host === "127.0.0.1" ||
-      host === "0.0.0.0" ||
-      host === "::1" ||
-      host.startsWith("192.168.") ||
-      host.startsWith("10.") ||
-      /^172\.(1[6-9]|2\d|3[01])\./.test(host);
-    const proto = req.headers.get("x-forwarded-proto");
-    if (!isLocal && proto !== "https") {
-      const httpsUrl = new URL(req.nextUrl.toString());
-      httpsUrl.protocol = "https:";
-      httpsUrl.port = ""; // the bound port is not the public one
-      httpsUrl.host = requestHost;
-      return NextResponse.redirect(httpsUrl, 301);
-    }
-  }
+  const redirect = httpsRedirect(req);
+  if (redirect) return redirect;
 
   const isPublic =
     publicExact.has(pathname) ||
