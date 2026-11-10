@@ -396,6 +396,49 @@ describe("WidgetPreviewPanel", () => {
     expect(screen.queryByText("Query failed")).toBeNull();
   });
 
+  const done = { data: { data: [] }, resultId: "r" };
+  it.each([
+    [
+      "the live result has a duration",
+      { ...done, serverDurationMs: 118 },
+      undefined,
+      "Preview shows up to 25 rows · 118 ms",
+    ],
+    [
+      "the live result has none",
+      done,
+      undefined,
+      "Preview shows up to 25 rows",
+    ],
+    [
+      "the live duration is null",
+      { ...done, serverDurationMs: null as unknown as number },
+      undefined,
+      "Preview shows up to 25 rows",
+    ],
+    [
+      "only the saved snapshot has one",
+      undefined,
+      { ...done, serverDurationMs: 90 },
+      "Preview shows up to 25 rows",
+    ],
+  ])("footer when %s (#2435)", (_name, live, saved, expected) => {
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({
+          previewQuery: {
+            isPending: false,
+            isError: false,
+            error: null,
+            data: live,
+          },
+          initialPreviewData: saved,
+        })}
+      />,
+    );
+    expect(screen.getByText(/^Preview shows up to/).textContent).toBe(expected);
+  });
+
   it("shows error state when preview query fails and no data", () => {
     render(
       <WidgetPreviewPanel

@@ -34,7 +34,7 @@ describe("use-query-execution", () => {
       const responseBody = {
         data: { data: [{ n: "node1" }], fields: ["n"] },
         error: null,
-        meta: { resultId: "r-123" },
+        meta: { resultId: "r-123", serverDurationMs: 118 },
       };
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         mockResponse(responseBody),
@@ -47,6 +47,7 @@ describe("use-query-execution", () => {
         data: [{ n: "node1" }],
         fields: ["n"],
         resultId: "r-123",
+        serverDurationMs: 118,
       });
       expect(globalThis.fetch).toHaveBeenCalledWith("/api/query", {
         method: "POST",
