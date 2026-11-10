@@ -1,6 +1,7 @@
 "use client";
 
 import { ParamMultiSelector } from "@neoboard/components";
+import { isParamUnset } from "@/lib/parameter/is-param-unset";
 import {
   rawValueOf,
   useTypedSelection,
@@ -31,11 +32,10 @@ export function ParamMultiSelect({
 }: ParamMultiSelectProps) {
   useTypedSelection(actions, seed.options);
   const rawValues = actions.currentEntry?.value;
-  const multiValues: string[] = Array.isArray(rawValues)
-    ? (rawValues as unknown[]).map(String)
-    : rawValues
-      ? [String(rawValues)]
-      : [];
+  // A click action stores a scalar; 0 and false are values (#2396).
+  const multiValues: string[] = isParamUnset(rawValues)
+    ? []
+    : [rawValues].flat().map(String);
 
   if (seed.error) {
     return <SeedQueryError error={seed.error} onRetry={seed.refetch} />;

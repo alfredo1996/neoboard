@@ -386,6 +386,23 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
     expect(screen.getByTestId("param-multi-tags")).toBeDefined();
   });
 
+  // #2396: a click action stores a scalar; 0 and false are values, not unset.
+  it.each([
+    [0, ["0"]],
+    [false, ["false"]],
+  ])("a stored scalar %j seeds a multi-select as %j", (value, expected) => {
+    externalParams = { pick: value };
+    renderForm([
+      makeField({
+        id: "f1",
+        parameterName: "pick",
+        parameterType: "multi-select",
+      }),
+    ]);
+    const last = paramMultiProps[paramMultiProps.length - 1];
+    expect(last.values).toEqual(expected);
+  });
+
   it("renders DatePickerParameter for parameterType='date'", () => {
     renderForm([
       makeField({

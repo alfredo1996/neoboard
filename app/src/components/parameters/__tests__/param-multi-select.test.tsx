@@ -167,11 +167,18 @@ describe("ParamMultiSelect — reading the stored value", () => {
   it.each([
     ["null", null],
     ["undefined", undefined],
-    ["0", 0],
     ["empty string", ""],
-  ] as const)("treats a falsy stored value (%s) as no selection", (_l, v) => {
+  ] as const)("treats an unset stored value (%s) as no selection", (_l, v) => {
     const props = renderWidget(makeActions(v));
     expect(props.values).toEqual([]);
+  });
+
+  // #2396 — a click action stores a scalar; 0 and false are values, not unset.
+  it.each([
+    [0, ["0"]],
+    [false, ["false"]],
+  ])("shows a stored scalar %j as %j", (v, expected) => {
+    expect(renderWidget(makeActions(v)).values).toEqual(expected);
   });
 });
 
