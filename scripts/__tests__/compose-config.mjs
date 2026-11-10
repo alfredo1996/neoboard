@@ -1,9 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // Shared by the compose tests. Not a test file: the glob wants *.test.mjs.
-export const ROOT = new URL("../..", import.meta.url).pathname.replace(
+export const ROOT = fileURLToPath(new URL("../..", import.meta.url)).replace(
   /\/$/,
   "",
 );
