@@ -18,6 +18,7 @@ import {
   Duration,
   PathSegment,
   Point,
+  isVector,
 } from "neo4j-driver";
 
 /**
@@ -184,6 +185,21 @@ export class Neo4jRecordParser extends NeodashRecordParser {
       return this.parseGraphObject(value);
     } else if (Array.isArray(value)) {
       return value.map((item) => this.__neo4jToNative(item));
+    } else if (isVector(value)) {
+      // A driver Vector wraps a typed array; as a plain object it came out as
+      // {_type, _typedArray: {0:…}} (#2354). A plain list of numbers instead.
+      return Array.from(
+        value.asTypedArray() as ArrayLike<number | bigint>,
+        (n) => this.__neo4jToNative(n),
+      );
+    } else if (ArrayBuffer.isView(value) && !(value instanceof DataView)) {
+      // A `bytes` property arrives as an Int8Array; for…in would give one key
+      // per byte. Same `\x…` hex text PostgreSQL's bytea gets (#2354).
+      return String.raw`\x`.concat(
+        Buffer.from(value.buffer, value.byteOffset, value.byteLength).toString(
+          "hex",
+        ),
+      );
     } else if (typeof value === "object") {
       return this.neo4jConvertPlainObject(value);
     }

@@ -237,4 +237,21 @@ describe("Neo4jRecordParser - Primitive Parsing", () => {
     // Check that the 'null' key in the result is actually null
     expect(parsed![0]["null"]).toBe(null);
   });
+  test("should return a bytes parameter as \\x hex (#2354)", async () => {
+    const connection = new Neo4jConnectionModule(getNeo4jAuth());
+    let result: NeodashRecord[] | undefined;
+    await connection.runQuery(
+      { query: "RETURN $b AS b", params: { b: new Int8Array([1, 2, -1]) } },
+      {
+        onSuccess: (r: NeodashRecord[]) => {
+          result = r;
+        },
+        onFail: (error) => {
+          throw error;
+        },
+      },
+      NEO4J_TEST_CONNECTION_CONFIG,
+    );
+    expect(result![0]["b"]).toBe("\\x0102ff");
+  });
 });
