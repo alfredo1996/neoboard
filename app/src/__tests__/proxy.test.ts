@@ -392,5 +392,46 @@ describe("proxy", () => {
         "https://example.com/dashboard?tab=overview&id=42",
       );
     });
+    // #2400: Next reports the bound host (0.0.0.0) in nextUrl, not the Host header.
+    it.each([
+      ["app.example.com", 301],
+      ["localhost:3000", 200],
+      ["192.168.1.5:3000", 200],
+      ["[::1]:3000", 200],
+      ["", 200],
+      ["app.example.com:8080", 301],
+      // Unparseable Host: falls back to the bound 0.0.0.0, which is local.
+      ["a b", 200],
+      ["[::1", 200],
+    ])("uses the Host header: %s -> %i", async (host, status) => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("FORCE_HTTPS", "");
+      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      const res = await proxy(
+        makeFullRequest("http://0.0.0.0:3000/login", {
+          host,
+          "x-forwarded-proto": "http",
+        }),
+      );
+      expect(res.status).toBe(status);
+      expect(res.headers.get("location")).toBe(
+        status === 301 ? "https://app.example.com/login" : null,
+      );
+    });
+    it.each(["https", "HTTPS", "https, http"])(
+      "does not redirect when x-forwarded-proto is %s",
+      async (proto) => {
+        vi.stubEnv("NODE_ENV", "production");
+        vi.stubEnv("FORCE_HTTPS", "");
+        mockGetToken.mockResolvedValue({ sub: "user-1" });
+        const res = await proxy(
+          makeFullRequest("http://0.0.0.0:3000/login", {
+            host: "app.example.com",
+            "x-forwarded-proto": proto,
+          }),
+        );
+        expect(res.status).toBe(200);
+      },
+    );
   });
 });
