@@ -197,11 +197,7 @@ function FormStep({
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      noValidate
-      className="flex min-h-0 flex-col overflow-hidden"
-    >
+    <form onSubmit={handleSubmit} noValidate className="flex min-h-0 flex-col">
       {isEdit ? (
         <Header
           title={`Edit ${target.name}`}
