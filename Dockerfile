@@ -102,6 +102,6 @@ ENV MIGRATIONS_DIR=/app/app/drizzle/migrations
 # 10s — don't flap during startup (#931; matches what compose files used to
 # override).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
 
 CMD ["node", "app/server.js"]
