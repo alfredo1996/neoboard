@@ -254,6 +254,15 @@ describe("ConnectionDialog — edit", () => {
     ).toBeNull();
   });
 
+  it("does not clip its footer: the form must not be overflow-hidden (#2434)", () => {
+    open(target);
+    // DialogFooter reaches 20px past the form with negative margins; an
+    // overflow-hidden form cuts the buttons and the footer rule.
+    expect(byId("edit-name").closest("form")).not.toHaveClass(
+      "overflow-hidden",
+    );
+  });
+
   it("sends no secret it was not given: the server keeps the stored ones", async () => {
     updateMutate.mockResolvedValue({ id: "c1" });
     open(target);

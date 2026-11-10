@@ -40,6 +40,37 @@ test.describe("Connection Advanced Settings", () => {
     await expect(dialog.locator("#conn-statement-timeout")).not.toBeVisible();
   });
 
+  test("the dialog footer is not clipped: Save and the footer rule are hit-testable (#2434)", async ({
+    page,
+  }) => {
+    await page
+      .getByRole("button", { name: "New connection", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByTestId("pick-neo4j").click();
+    await dialog.getByText("Advanced Settings", { exact: true }).click();
+    await expect(dialog.locator("#conn-max-pool-size")).toBeVisible();
+
+    // Bounding boxes cannot see clipping; ask the browser what is under a point.
+    const hits = await page.evaluate(() => {
+      const dlg = document.querySelector('[role="dialog"]') as HTMLElement;
+      const save = [...dlg.querySelectorAll("button")].find((b) =>
+        b.textContent?.trim().startsWith("Create"),
+      ) as HTMLElement;
+      const footer = save.parentElement as HTMLElement;
+      const s = save.getBoundingClientRect();
+      const f = footer.getBoundingClientRect();
+      const d = dlg.getBoundingClientRect();
+      const atSave = document.elementFromPoint(s.left + 4, s.bottom - 2);
+      const atRule = document.elementFromPoint(d.left + 4, f.top + 0.5);
+      return {
+        saveHit: !!atSave && save.contains(atSave),
+        ruleHit: atRule === footer,
+      };
+    });
+    expect(hits).toEqual({ saveHit: true, ruleHit: true });
+  });
+
   test("should expand and show PostgreSQL-specific advanced fields", async ({
     page,
   }) => {
