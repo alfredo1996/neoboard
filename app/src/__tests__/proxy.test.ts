@@ -54,6 +54,15 @@ describe("proxy", () => {
       expect(matchesRoute("/favicon.ico")).toBe(false);
     });
 
+    // Public files stay matched so the HTTPS redirect and x-request-id still
+    // apply; proxy() itself lets them past the auth gate.
+    it.each(["/og-image.svg", "/logo.svg", "/site.webmanifest"])(
+      "still matches the public file %s",
+      (path) => {
+        expect(matchesRoute(path)).toBe(true);
+      },
+    );
+
     it("includes page routes", () => {
       expect(matchesRoute("/")).toBe(true);
       expect(matchesRoute("/connections")).toBe(true);
@@ -116,6 +125,38 @@ describe("proxy", () => {
       const res = await proxy(makeRequest("/api/health/internal"));
       expect(res.status).toBe(401);
     });
+  });
+
+  describe("root-level public files", () => {
+    it.each(["/og-image.svg", "/logo.svg", "/site.webmanifest"])(
+      "lets a signed-out GET of %s through with a request id",
+      async (path) => {
+        const res = await proxy(makeRequest(path));
+        expect(res.status).toBe(200);
+        expect(res.headers.get("location")).toBeNull();
+        expect(res.headers.get("x-request-id")).toBeTruthy();
+      },
+    );
+
+    it("still redirects a public file to HTTPS in production", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("FORCE_HTTPS", "");
+      const res = await proxy({
+        nextUrl: new URL("http://example.com/logo.svg"),
+        method: "GET",
+        headers: new Headers({ "x-forwarded-proto": "http" }),
+      } as unknown as NextRequest);
+      expect(res.status).toBe(301);
+      expect(res.headers.get("location")).toBe("https://example.com/logo.svg");
+    });
+
+    it.each(["/api/x.txt", "/api/dashboards/abc.svg", "/dashboards/svg"])(
+      "keeps %s behind auth",
+      async (path) => {
+        const res = await proxy(makeRequest(path));
+        expect(res.status).not.toBe(200);
+      },
+    );
   });
 
   describe("unauthenticated requests", () => {
