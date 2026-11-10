@@ -19,6 +19,14 @@ const publicExact = new Set([
 ]);
 
 /**
+ * Root-level files in app/public/ (OG image, logo, manifest) are fetched by
+ * signed-out clients: link unfurlers, the manifest fetch, the login page (#2401).
+ * They stay matched so the HTTPS redirect and request id apply; only the auth
+ * gate is skipped. Root-level only, so /api/ paths never qualify.
+ */
+const publicFile = /^\/[^/]+\.(?:svg|webmanifest)$/;
+
+/**
  * Ensure every request carries an `x-request-id` header so downstream
  * code (audit logs, route handlers) can correlate log entries back to
  * a single request. If the caller already supplied one we trust it —
@@ -106,6 +114,7 @@ export async function proxy(req: NextRequest) {
 
   const isPublic =
     publicExact.has(pathname) ||
+    publicFile.test(pathname) ||
     publicPrefixes.some((p) => pathname.startsWith(p));
   if (isPublic) {
     return withRequestId(
@@ -180,9 +189,5 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Static files in app/public/ (OG image, logo, manifest) are fetched by signed-out
-  // clients: link unfurlers, the manifest fetch, the login page. Skip root-level files by extension (never /api/).
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|[^/]+\\.(?:svg|webmanifest)$).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
