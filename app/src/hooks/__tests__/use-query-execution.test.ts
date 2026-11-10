@@ -34,7 +34,7 @@ describe("use-query-execution", () => {
       const responseBody = {
         data: { data: [{ n: "node1" }], fields: ["n"] },
         error: null,
-        meta: { resultId: "r-123" },
+        meta: { resultId: "r-123", serverDurationMs: 118 },
       };
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         mockResponse(responseBody),
@@ -47,27 +47,13 @@ describe("use-query-execution", () => {
         data: [{ n: "node1" }],
         fields: ["n"],
         resultId: "r-123",
+        serverDurationMs: 118,
       });
       expect(globalThis.fetch).toHaveBeenCalledWith("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
-    });
-
-    it("keeps the server's execution time from the response meta (#2435)", async () => {
-      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        mockResponse({
-          data: { data: [], fields: [] },
-          error: null,
-          meta: { resultId: "r", serverDurationMs: 118 },
-        }),
-      );
-      const config = useQueryExecution() as unknown as {
-        mutationFn: (i: unknown) => Promise<{ serverDurationMs?: number }>;
-      };
-      const result = await config.mutationFn({ connectionId: "c", query: "q" });
-      expect(result.serverDurationMs).toBe(118);
     });
 
     it("works without params", async () => {

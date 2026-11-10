@@ -237,8 +237,8 @@ function renderChart(props: {
               the full result (#1043, #1896). */}
           <p className="shrink-0 border-t px-2 py-1 text-[11px] text-muted-foreground">
             Preview shows up to {PREVIEW_ROW_LIMIT} rows
-            {previewQuery.data?.serverDurationMs !== undefined &&
-              ` · ${Math.round(previewQuery.data.serverDurationMs)} ms`}
+            {Number.isFinite(previewQuery.data?.serverDurationMs) &&
+              ` · ${Math.round(previewQuery.data?.serverDurationMs ?? 0)} ms`}
           </p>
         </div>
       ) : connectionId && query.trim() && !previewQuery.isError ? (

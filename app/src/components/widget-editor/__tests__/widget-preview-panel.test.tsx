@@ -411,6 +411,12 @@ describe("WidgetPreviewPanel", () => {
       "Preview shows up to 25 rows",
     ],
     [
+      "the live duration is null",
+      { ...done, serverDurationMs: null as unknown as number },
+      undefined,
+      "Preview shows up to 25 rows",
+    ],
+    [
       "only the saved snapshot has one",
       undefined,
       { ...done, serverDurationMs: 90 },
