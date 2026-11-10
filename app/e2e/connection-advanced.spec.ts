@@ -43,10 +43,12 @@ test.describe("Connection Advanced Settings", () => {
   test("the dialog footer is not clipped: Save and the footer rule are hit-testable (#2434)", async ({
     page,
   }) => {
-    await page.getByRole("button", { name: "New connection" }).click();
+    await page
+      .getByRole("button", { name: "New connection", exact: true })
+      .click();
     const dialog = page.getByRole("dialog");
     await dialog.getByTestId("pick-neo4j").click();
-    await dialog.getByText("Advanced Settings").click();
+    await dialog.getByText("Advanced Settings", { exact: true }).click();
     await expect(dialog.locator("#conn-max-pool-size")).toBeVisible();
 
     // Bounding boxes cannot see clipping; ask the browser what is under a point.
