@@ -55,6 +55,21 @@ describe("use-query-execution", () => {
       });
     });
 
+    it("keeps the server's execution time from the response meta (#2435)", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse({
+          data: { data: [], fields: [] },
+          error: null,
+          meta: { resultId: "r", serverDurationMs: 118 },
+        }),
+      );
+      const config = useQueryExecution() as unknown as {
+        mutationFn: (i: unknown) => Promise<{ serverDurationMs?: number }>;
+      };
+      const result = await config.mutationFn({ connectionId: "c", query: "q" });
+      expect(result.serverDurationMs).toBe(118);
+    });
+
     it("works without params", async () => {
       const input = {
         connectionId: "c2",

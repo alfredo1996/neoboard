@@ -19,6 +19,8 @@ interface QueryResult {
   resultId: string;
   /** The connector that ran the query (#2061). */
   connectorType?: string;
+  /** Server-side execution time in ms (#2435). */
+  serverDurationMs?: number;
 }
 
 export function useQueryExecution() {
