@@ -1,5 +1,6 @@
 "use client";
 
+import { limitedFetch } from "@/lib/query/limited-fetch";
 import { isParamUnset } from "@/lib/parameter/is-param-unset";
 import { useMemo, useState } from "react";
 import {
@@ -337,7 +338,7 @@ export function useWidgetQuery(
     queryKey: widgetQueryKey(mergedInput, options?.staleTime),
     queryFn: async ({ signal }) => {
       const fetchStart = performance.now();
-      const res = await fetch("/api/query", {
+      const res = await limitedFetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Leaving a dashboard must free its requests: six hung on a dead

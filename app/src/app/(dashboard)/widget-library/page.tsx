@@ -1,5 +1,6 @@
 "use client";
 
+import { limitedFetch } from "@/lib/query/limited-fetch";
 import { returnFocus } from "@/lib/return-focus";
 import { useState, useMemo, useRef, type MouseEventHandler } from "react";
 import { useRouter } from "next/navigation";
@@ -196,7 +197,7 @@ export default function WidgetLibraryPage() {
     if (!template.connectionId || !template.query) return;
     setTestingTemplateId(template.id);
     try {
-      const res = await fetch("/api/query", {
+      const res = await limitedFetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

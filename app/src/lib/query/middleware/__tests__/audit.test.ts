@@ -55,13 +55,11 @@ describe("auditMiddleware", () => {
   });
 
   it("logs query_executed on success with the full audit shape", async () => {
-    const core = vi.fn(
-      async (): Promise<QueryResult> => ({
-        data: [{ name: "Alice" }, { name: "Bob" }],
-        truncated: false,
-        rowLimit: 5000,
-      }),
-    );
+    const core = vi.fn(async (): Promise<QueryResult> => ({
+      data: [{ name: "Alice" }, { name: "Bob" }],
+      truncated: false,
+      rowLimit: 5000,
+    }));
     const ctx = makeContext();
     const result = await auditMiddleware(ctx, () => core());
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { limitedFetch } from "@/lib/query/limited-fetch";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { unwrapFullResponse } from "@/lib/api/api-client";
 import {
@@ -223,7 +224,7 @@ export function GraphExplorationWrapper({
   const fetchNeighbors = useCallback(
     async (node: GraphNode): Promise<FetchNeighborsResult> => {
       if (!expansion) return { nodes: [], edges: [] };
-      const res = await fetch("/api/query", {
+      const res = await limitedFetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

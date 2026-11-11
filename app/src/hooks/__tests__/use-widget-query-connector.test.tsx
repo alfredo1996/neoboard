@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-query";
 import type { QueryObserverOptions } from "@tanstack/react-query";
 import React from "react";
+import { limitedFetch } from "@/lib/query/limited-fetch";
 import { useWidgetQuery } from "../use-widget-query";
 import { useSeedQuery } from "../use-seed-query";
 import {
@@ -24,6 +25,12 @@ import {
   ConnectorUnavailableError,
 } from "@/lib/api/api-client";
 import { useConnectionStatusStore } from "@/stores/connection-status-store";
+
+vi.mock("@/lib/query/limited-fetch", async (orig) => {
+  const m = await orig<typeof import("@/lib/query/limited-fetch")>();
+  return { ...m, limitedFetch: vi.fn(m.limitedFetch) };
+});
+const limitedFetchSpy = vi.mocked(limitedFetch);
 
 function envelopeResponse(status: number, body: unknown): Response {
   return {
@@ -180,17 +187,25 @@ describe("useWidgetQuery request body", () => {
  */
 describe("useWidgetQuery cancellation (#1888)", () => {
   it("aborts the in-flight request when the widget unmounts", async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockImplementation(() => new Promise<Response>(() => {}));
+    limitedFetchSpy.mockClear();
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          // Like real fetch: settle on abort, so the limiter's slot is freed.
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("aborted", "AbortError")),
+          );
+        }),
+    );
 
     const { unmount } = renderHook(
       () => useWidgetQuery({ connectionId: "slow", query: "SELECT 1" }),
       { wrapper },
     );
-    await waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce());
+    await waitFor(() => expect(limitedFetchSpy).toHaveBeenCalledOnce());
 
-    const signal = fetchSpy.mock.calls[0][1]?.signal;
+    // Through the limiter, with TanStack's signal.
+    const signal = limitedFetchSpy.mock.calls[0][1]?.signal;
     expect(signal).toBeInstanceOf(AbortSignal);
     expect(signal?.aborted).toBe(false);
 
