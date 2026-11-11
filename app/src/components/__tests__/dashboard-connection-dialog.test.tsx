@@ -40,6 +40,8 @@ vi.mock("@/hooks/use-connectors", () => ({
 
 vi.mock("@neoboard/components", async () => ({
   Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
+  controlSizes: (await import("@neoboard/components/ui")).controlSizes,
+  fieldBaseClasses: (await import("@neoboard/components/ui")).fieldBaseClasses,
   Alert: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
   AlertDescription: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
@@ -244,6 +246,14 @@ describe("DashboardConnectionDialog — target picker", () => {
     expect(options).not.toContain("Postgres Prod (Relational Store)");
     expect(options.join()).not.toMatch(/\((neo4j|postgresql)\)/);
     expect(options.join()).not.toContain("Neo4j Prod");
+  });
+
+  it("gives the target select the field fill (#2383)", () => {
+    renderDialog();
+    pickSource("neo-1");
+    expect(document.getElementById("reassign-dashboard-target")).toHaveClass(
+      "bg-field",
+    );
   });
 
   // The original connector type is unrecoverable after an import that skipped

@@ -58,6 +58,8 @@ import {
   AlertDescription,
   useToast,
   Field,
+  controlSizes,
+  fieldBaseClasses,
 } from "@neoboard/components";
 import { List, ListRow, PageHeader } from "@neoboard/components/kit";
 import {
@@ -485,7 +487,7 @@ export default function ConnectionsPage() {
                   <Field label="Target connection" id="reassign-target">
                     <select
                       id="reassign-target"
-                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                      className={`${fieldBaseClasses} ${controlSizes.default}`}
                       value={reassignChoice}
                       onChange={(e) => setReassignChoice(e.target.value)}
                     >

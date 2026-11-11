@@ -596,6 +596,16 @@ describe("GraphChart", () => {
     });
   });
 
+  it("gives the caption selector the field fill (#2383)", async () => {
+    render(<GraphChart nodes={labeledNodes} edges={labeledEdges} />);
+    fireEvent.click(screen.getByTestId("label-settings-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("caption-select-Person")).toHaveClass(
+        "bg-field",
+      );
+    });
+  });
+
   it("lists property keys as options in the caption selector", async () => {
     render(<GraphChart nodes={labeledNodes} edges={labeledEdges} />);
     fireEvent.click(screen.getByTestId("label-settings-button"));
