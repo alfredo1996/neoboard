@@ -221,7 +221,7 @@ describe("DashboardEditToolbar", () => {
     expect(onCancel).toHaveBeenCalledOnce();
   });
 
-  it("keeps Add page and Add Widget named when icon-only, and hides the hints below xl", () => {
+  it("keeps Add page and Add Widget named when icon-only, and hides the hints below 2xl", () => {
     render(<DashboardEditToolbar {...editProps} onAddPage={vi.fn()} />);
     for (const name of ["Add page", "Add Widget"]) {
       expect(screen.getByRole("button", { name })).toHaveAttribute(
@@ -234,7 +234,7 @@ describe("DashboardEditToolbar", () => {
       expect(label?.className).toMatch(/\bhidden xl:inline\b/);
     }
     for (const kbd of document.querySelectorAll("kbd")) {
-      expect(kbd.parentElement?.className).toMatch(/\bxl:contents\b/);
+      expect(kbd.parentElement?.className).toMatch(/\b2xl:contents\b/);
     }
   });
 
