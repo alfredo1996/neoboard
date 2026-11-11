@@ -26,6 +26,36 @@ function cardFor(page: Page, name: string): Locator {
     .filter({ has: page.getByRole("button", actions(name)) });
 }
 
+/**
+ * Record the id of every connection the page creates (#2363). The ids are
+ * deleted in afterEach, which runs on a test timeout too, unlike a `finally`
+ * (the test's own 30s budget covers a long status wait).
+ */
+function trackCreated(page: Page, ids: Promise<string | null>[]) {
+  page.on("response", (res) => {
+    if (res.request().method() !== "POST" || !res.ok()) return;
+    if (new URL(res.url()).pathname !== "/api/connections") return;
+    ids.push(
+      res
+        .json()
+        .then((body: { data?: { id?: string } }) => body.data?.id ?? null)
+        .catch(() => null),
+    );
+  });
+}
+
+/** Delete the tracked connections by id; one already gone (404) is fine. */
+async function removeTracked(page: Page, ids: Promise<string | null>[]) {
+  for (const id of await Promise.all(ids)) {
+    if (!id) continue;
+    const del = await page.request.delete(`/api/connections/${id}?force=true`);
+    expect(
+      del.ok() || del.status() === 404,
+      `cleanup of connection ${id} failed: ${del.status()}`,
+    ).toBe(true);
+  }
+}
+
 /** A card's status badge — not the toast region, which is also role=status. */
 function badgeOf(card: Locator): Locator {
   return card.locator('output[aria-label^="Connection status"]');
@@ -60,9 +90,16 @@ async function arrivalRunOver(page: Page) {
 }
 
 test.describe("Connections", () => {
-  test.beforeEach(async ({ authPage, sidebarPage }) => {
+  let created: Promise<string | null>[] = [];
+  test.beforeEach(async ({ page, authPage, sidebarPage }) => {
+    created = [];
+    trackCreated(page, created);
     await authPage.login(ALICE.email, ALICE.password);
     await sidebarPage.navigateTo("Connections");
+  });
+
+  test.afterEach(async ({ page }) => {
+    await removeTracked(page, created);
   });
 
   /**
@@ -203,18 +240,10 @@ test.describe("Connections", () => {
     await dialog.locator("#conn-password").fill("neoboard123");
     await dialog.getByRole("button", { name: "Create", exact: true }).click();
 
-    try {
-      await expect(
-        page.getByText("bolt://address-e2e.invalid:7687", { exact: true }),
-      ).toBeVisible();
-      await expect(page.getByText("zzz", { exact: true })).toHaveCount(0);
-    } finally {
-      const list = await page.request.get("/api/connections?limit=200");
-      const { data } = await list.json();
-      const row = data.find((c: { name: string }) => c.name === name);
-      if (row)
-        await page.request.delete(`/api/connections/${row.id}?force=true`);
-    }
+    await expect(
+      page.getByText("bolt://address-e2e.invalid:7687", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("zzz", { exact: true })).toHaveCount(0);
   });
 
   test("should create a new Neo4j connection", async ({ page }) => {
