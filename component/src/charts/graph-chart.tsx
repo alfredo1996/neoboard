@@ -28,6 +28,8 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
+import { fieldBaseClasses } from "@/components/ui/control-sizes";
+import { cn } from "@/lib/utils";
 import { useDarkMode } from "./base-chart";
 import { HASTINGS_LIGHT, HASTINGS_DARK } from "./theme";
 import { toNvlColor } from "./nvl-color";
@@ -908,7 +910,10 @@ function GraphChartInner({
                             return next;
                           });
                         }}
-                        className="mt-0.5 w-full h-7 cursor-pointer rounded border bg-background px-2 text-xs outline-none"
+                        className={cn(
+                          fieldBaseClasses,
+                          "mt-0.5 h-7 cursor-pointer px-2 text-xs",
+                        )}
                         aria-label={`Caption property for ${lbl}`}
                         data-testid={`caption-select-${lbl}`}
                       >

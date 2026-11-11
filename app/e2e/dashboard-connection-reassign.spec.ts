@@ -221,6 +221,73 @@ test.describe("Per-dashboard connection reassignment", () => {
   });
 
   // ── #1377: import that skipped a connection, fixed in bulk ────────────
+  for (const theme of ["light", "dark"] as const) {
+    test(`the reassign target select is painted with --field in ${theme} (#2383)`, async ({
+      authPage,
+      page,
+    }) => {
+      test.setTimeout(90_000);
+      await page.addInitScript(
+        (t) => localStorage.setItem("neoboard-theme", t),
+        theme,
+      );
+      await authPage.login(ALICE.email, ALICE.password);
+      const name = `Reassign Field ${uid()}`;
+      // A second connection of the source's type, so the target select renders.
+      const createConn = await page.request.post("/api/connections", {
+        data: {
+          name: `Field Target ${uid()}`,
+          type: "neo4j",
+          config: {
+            uri: TEST_NEO4J_BOLT_URL,
+            username: "neo4j",
+            password: "neoboard123",
+          },
+        },
+      });
+      expect(createConn.status()).toBe(201);
+      const targetConnId = (await createConn.json()).data.id as string;
+      const res = await page.request.post("/api/dashboards/import", {
+        data: {
+          payload: exportPayload(name),
+          connectionMapping: { conn_0: SEEDED_NEO4J },
+        },
+      });
+      expect(res.status()).toBe(201);
+      const id = (await res.json()).data.id as string;
+      try {
+        await page.goto("/");
+        await openCardMenu(page, name);
+        await page
+          .getByRole("menuitem", { name: "Change connection…", exact: true })
+          .click({ timeout: 10_000 });
+        const dialog = page.getByRole("dialog", {
+          name: "Change connection",
+          exact: true,
+        });
+        await expect(dialog).toBeVisible({ timeout: 10_000 });
+        await dialog.locator(`#reassign-source-${SEEDED_NEO4J}`).click();
+        const select = dialog.locator("#reassign-dashboard-target");
+        await expect(select).toBeVisible();
+        await expect(page.locator("html")).toHaveClass(
+          theme === "dark" ? /dark/ : /^((?!dark).)*$/,
+        );
+        const seen = await select.evaluate((el) => {
+          const probe = document.createElement("div");
+          probe.style.background = "hsl(var(--field))";
+          document.body.append(probe);
+          const field = getComputedStyle(probe).backgroundColor;
+          probe.remove();
+          return { select: getComputedStyle(el).backgroundColor, field };
+        });
+        expect(seen.select).toBe(seen.field);
+      } finally {
+        await page.request.delete(`/api/dashboards/${id}`);
+        await page.request.delete(`/api/connections/${targetConnId}`);
+      }
+    });
+  }
+
   test("fills in widgets left without a connection straight from the import dialog", async ({
     authPage,
     page,

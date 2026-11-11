@@ -4,7 +4,12 @@ export { Input, type InputProps } from "./input";
 export { Label } from "./label";
 export { FieldError, type FieldErrorProps } from "./field-error";
 export { Field, useFieldControl, type FieldProps } from "./field";
-export { controlSizes, textareaSizes, type ControlSize } from "./control-sizes";
+export {
+  controlSizes,
+  fieldBaseClasses,
+  textareaSizes,
+  type ControlSize,
+} from "./control-sizes";
 export {
   Panel,
   PanelHeader,

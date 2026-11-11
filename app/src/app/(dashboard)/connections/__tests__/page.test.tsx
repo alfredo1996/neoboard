@@ -137,8 +137,12 @@ vi.mock("@neoboard/components", async () => {
       {children}
     </button>
   );
+  const { controlSizes, fieldBaseClasses } =
+    await import("@neoboard/components/ui");
   return {
     Field: FieldStub,
+    controlSizes,
+    fieldBaseClasses,
     Button,
     LoadingButton: Button,
     Input: ({ id, placeholder }: { id?: string; placeholder?: string }) => (
@@ -895,6 +899,18 @@ describe("ConnectionsPage — re-assign names the connector by its label (#1905)
 
     expect(dialog).toHaveTextContent("Pick another Acme Sheets connection");
     expect(dialog).not.toHaveTextContent("acme-sheets");
+  });
+
+  it("gives the target select the field fill (#2383)", () => {
+    mockConnections = [
+      ...rows(1, { name: "source", type: "acme-sheets" }),
+      { ...rows(1)[0], id: "c2", name: "target", type: "acme-sheets" },
+    ];
+    openReassign();
+    expect(document.getElementById("reassign-target")).toHaveClass(
+      "bg-field",
+      "border-input",
+    );
   });
 
   it("says so by label when there is none to move to", () => {

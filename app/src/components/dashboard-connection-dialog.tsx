@@ -15,6 +15,8 @@ import {
   RadioGroup,
   RadioGroupItem,
   Field,
+  controlSizes,
+  fieldBaseClasses,
 } from "@neoboard/components";
 import {
   useDashboard,
@@ -236,7 +238,7 @@ export function DashboardConnectionDialog({
               ) : (
                 <select
                   id="reassign-dashboard-target"
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                  className={`${fieldBaseClasses} ${controlSizes.default}`}
                   value={target}
                   onChange={(e) => setTarget(e.target.value)}
                 >
