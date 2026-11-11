@@ -103,8 +103,8 @@ export function DashboardEditToolbar({
               onClick={onAddPage}
               aria-label="Add page"
             >
-              <FilePlus className="h-4 w-4 lg:mr-2" />
-              <span className="hidden lg:inline">Add page</span>
+              <FilePlus className="h-4 w-4 xl:mr-2" />
+              <span className="hidden xl:inline">Add page</span>
             </Button>
           )}
           <Button
@@ -114,10 +114,10 @@ export function DashboardEditToolbar({
             title="Add widget (Cmd+Shift+N)"
             aria-label="Add Widget"
           >
-            <Plus className="h-4 w-4 lg:mr-2" />
-            {/* Icon-only below lg and no hints below xl: the actions must not wrap the header taller (#2352). */}
-            <span className="hidden lg:inline">Add Widget</span>
-            <span className="hidden xl:contents">
+            <Plus className="h-4 w-4 xl:mr-2" />
+            {/* Icon-only and without hints below xl: the actions must not wrap the header taller (#2352, #2366). */}
+            <span className="hidden xl:inline">Add Widget</span>
+            <span className="hidden 2xl:contents">
               <ShortcutHint combo="Cmd+Shift+N" />
             </span>
           </Button>
@@ -129,7 +129,7 @@ export function DashboardEditToolbar({
             title="Leave without saving (Cmd+E)"
           >
             <span>Cancel</span>
-            <span className="hidden xl:contents">
+            <span className="hidden 2xl:contents">
               <ShortcutHint combo="Cmd+E" />
             </span>
           </Button>
@@ -142,7 +142,7 @@ export function DashboardEditToolbar({
           >
             <Save className="mr-2 h-4 w-4" />
             Save
-            <span className="hidden xl:contents">
+            <span className="hidden 2xl:contents">
               <ShortcutHint combo="Cmd+S" />
             </span>
           </LoadingButton>

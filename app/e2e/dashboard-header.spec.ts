@@ -18,6 +18,7 @@ const LONG_NAME =
 async function seed(
   request: import("@playwright/test").APIRequestContext,
   pages: number,
+  withFilter = false,
 ) {
   const { id, cleanup } = await createTestDashboard(
     request,
@@ -27,6 +28,23 @@ async function seed(
     id: `p${p}`,
     title: `Page ${p + 1}`,
     widgets: [
+      ...(withFilter && p === 0
+        ? [
+            {
+              id: "flt",
+              chartType: "parameter-select",
+              connectionId: "",
+              query: "",
+              settings: {
+                title: "Filter",
+                chartOptions: {
+                  parameterName: "flt",
+                  parameterType: "text",
+                },
+              },
+            },
+          ]
+        : []),
       {
         id: `p${p}w0`,
         chartType: "markdown",
@@ -35,7 +53,10 @@ async function seed(
         settings: { title: "Notes", chartOptions: { content: "## Notes" } },
       },
     ],
-    gridLayout: [{ i: `p${p}w0`, x: 0, y: 0, w: 12, h: 5 }],
+    gridLayout: [
+      ...(withFilter && p === 0 ? [{ i: "flt", x: 0, y: 5, w: 6, h: 2 }] : []),
+      { i: `p${p}w0`, x: 0, y: 0, w: 12, h: 5 },
+    ],
   }));
   const res = await request.put(`/api/dashboards/${id}`, {
     data: { layoutJson: { version: 2, pages: layoutPages } },
@@ -60,20 +81,30 @@ const geometry = (page: import("@playwright/test").Page) =>
   });
 
 for (const width of [1280, 1024, 834, 768]) {
-  for (const pages of [1, 2]) {
-    test(`header height and grid position match in view and edit: ${width}px, ${pages} page(s)`, async ({
+  for (const [pages, withFilter] of [
+    [1, false],
+    [2, false],
+    [1, true],
+    [2, true],
+  ] as const) {
+    const suffix = withFilter ? ", with filters" : "";
+    test(`header height and grid position match in view and edit: ${width}px, ${pages} page(s)${suffix}`, async ({
       authPage,
       page,
     }) => {
       test.setTimeout(90_000);
       await page.setViewportSize({ width, height: 1024 });
       await authPage.login(ALICE.email, ALICE.password);
-      const { id, cleanup } = await seed(page.request, pages);
+      const { id, cleanup } = await seed(page.request, pages, withFilter);
       try {
         await page.goto(`/${id}`);
         await expect(page.getByText("Notes").first()).toBeVisible({
           timeout: 15_000,
         });
+        const filters = page.getByRole("button", {
+          name: /^Filters/,
+        });
+        if (withFilter) await expect(filters).toBeVisible();
         const view = await geometry(page);
 
         await page.getByRole("button", { name: "Edit", exact: true }).click();
@@ -81,6 +112,7 @@ for (const width of [1280, 1024, 834, 768]) {
         await expect(
           page.getByRole("button", { name: "Drag to reorder" }).first(),
         ).toBeVisible({ timeout: 15_000 });
+        if (withFilter) await expect(filters).toBeVisible();
         const edit = await geometry(page);
 
         expect(view).not.toBeNull();
@@ -91,7 +123,7 @@ for (const width of [1280, 1024, 834, 768]) {
         expect(edit!.height).toBeCloseTo(view!.height, 0);
         expect(edit!.gridGap).toBeCloseTo(view!.gridGap, 0);
         console.log(
-          `HEADER ${width}px ${pages}p view=${view!.height} edit=${edit!.height}`,
+          `HEADER ${width}px ${pages}p${suffix} view=${view!.height} edit=${edit!.height}`,
         );
       } finally {
         await cleanup();
