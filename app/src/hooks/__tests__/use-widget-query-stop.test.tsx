@@ -122,4 +122,55 @@ describe("useWidgetQuery stop (#2446)", () => {
 
     await waitFor(() => expect(result.current.b.stopped).toBe(true));
   });
+
+  it("stopping a Retry after a failure still lands in stopped", async () => {
+    let calls = 0;
+    const f = hangingFetch();
+    vi.spyOn(globalThis, "fetch").mockImplementation(((
+      u: unknown,
+      init?: RequestInit,
+    ) => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: "boom" }), { status: 400 }),
+        );
+      }
+      return f.fn(u, init);
+    }) as never);
+    const { result } = renderHook(() => useWidgetQuery(input()), { wrapper });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    act(() => {
+      result.current.refetch().catch(() => undefined);
+    });
+    await waitFor(() => expect(f.fn).toHaveBeenCalledTimes(1));
+    act(() => {
+      result.current.stop();
+    });
+
+    await waitFor(() => expect(result.current.stopped).toBe(true));
+    expect(result.current.isError).toBe(false);
+  });
+
+  it("stopping one card leaves a card whose params only extend an array alone", async () => {
+    const f = hangingFetch();
+    vi.spyOn(globalThis, "fetch").mockImplementation(f.fn as never);
+    const { result } = renderHook(
+      () => ({
+        a: useWidgetQuery({ ...input(), params: { ids: [1] } }),
+        b: useWidgetQuery({ ...input(), params: { ids: [1, 2] } }),
+      }),
+      { wrapper },
+    );
+    await waitFor(() => expect(f.fn).toHaveBeenCalledTimes(2));
+
+    act(() => {
+      result.current.a.stop();
+    });
+
+    await waitFor(() => expect(result.current.a.stopped).toBe(true));
+    expect(f.signals[1].aborted).toBe(false);
+    expect(result.current.b.stopped).toBe(false);
+  });
 });

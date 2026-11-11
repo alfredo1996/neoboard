@@ -414,7 +414,17 @@ export function useWidgetQuery(
   const stopped =
     enabled && queryResult.isPending && queryResult.fetchStatus === "idle";
   /** Aborts the in-flight request (its signal) and leaves no result. */
-  const stop = () => queryClient.cancelQueries({ queryKey });
+  const stop = async () => {
+    // exact: a key is matched by prefix otherwise, so params {ids:[1]} would
+    // also stop a card whose params are {ids:[1,2]}.
+    await queryClient.cancelQueries({ queryKey, exact: true });
+    // Cancelling a Retry reverts to the error it started from; a stop always
+    // lands in the same pending-and-idle state, for every card on the key.
+    queryClient
+      .getQueryCache()
+      .find({ queryKey, exact: true })
+      ?.setState({ status: "pending", error: null });
+  };
 
   const missingParams = useMemo(
     () =>
