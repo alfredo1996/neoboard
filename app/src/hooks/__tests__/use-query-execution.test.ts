@@ -4,7 +4,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react")>()),
   useRef: (current: unknown) => ({ current }),
+  useEffect: (effect: () => unknown) => {
+    unmounts.push(effect() as () => void);
+  },
 }));
+const unmounts: Array<() => void> = vi.hoisted(() => []);
 
 // Mock React Query -- we're testing the fetch logic, not the React wiring
 vi.mock("@tanstack/react-query", () => ({
@@ -61,6 +65,22 @@ describe("use-query-execution", () => {
         body: JSON.stringify(input),
         signal: expect.any(AbortSignal),
       });
+    });
+
+    it("aborts a running run when the component unmounts (#2444)", async () => {
+      let signal: AbortSignal | undefined;
+      vi.spyOn(globalThis, "fetch").mockImplementationOnce((_u, init) => {
+        signal = init?.signal ?? undefined;
+        return new Promise(() => {});
+      });
+      const config = useQueryExecution() as unknown as {
+        mutationFn: (i: unknown) => Promise<unknown>;
+      };
+      void config.mutationFn({ connectionId: "c1", query: "q" });
+      await vi.waitFor(() => expect(signal).toBeDefined());
+      expect(signal?.aborted).toBe(false);
+      unmounts.at(-1)?.();
+      expect(signal?.aborted).toBe(true);
     });
 
     it("aborts its previous run when a new run starts (#2444)", async () => {

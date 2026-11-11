@@ -2,7 +2,7 @@
 
 import { limitedFetch } from "@/lib/query/limited-fetch";
 import { useMutation } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { unwrapFullResponse } from "@/lib/api/api-client";
 
 interface QueryInput {
@@ -31,6 +31,8 @@ export function useQueryExecution() {
   // A new run replaces the one before it: the server stops the old query
   // instead of finishing a result nobody will read (#2444).
   const previous = useRef<AbortController | undefined>(undefined);
+  // Closing the editor abandons a running preview the same way.
+  useEffect(() => () => previous.current?.abort(), []);
   return useMutation<QueryResult, Error, QueryInput>({
     mutationFn: async (input) => {
       previous.current?.abort();

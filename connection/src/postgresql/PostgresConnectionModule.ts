@@ -146,6 +146,9 @@ export class PostgresConnectionModule extends ConnectionModule {
     let client: PoolClient | undefined;
     let releaseErrorGuard: (() => void) | undefined;
     let stopWatching: (() => void) | undefined;
+    // Reads only: a write that was sent runs to its end (#2444).
+    const isReadOnly = config.accessMode !== "WRITE";
+    const signal = isReadOnly ? config.signal : undefined;
 
     try {
       // The app sends named parameters to every connector; node-pg binds
@@ -156,12 +159,12 @@ export class PostgresConnectionModule extends ConnectionModule {
       // any other key present (#1516).
       const { text, values } = toPositionalParams(query, params);
 
+      // Already gone: no connection, no cancel, no statement.
+      if (signal?.aborted) throw ABORTED();
+
       client = await pool.connect();
       releaseErrorGuard = attachClientErrorGuard(client);
 
-      // Reads only: a write that was sent runs to its end (#2444).
-      const isReadOnly = config.accessMode !== "WRITE";
-      const signal = isReadOnly ? config.signal : undefined;
       const cancelTag = `neoboard-${randomUUID()}`;
       stopWatching = cancelBackendOnAbort(pool, client, signal, cancelTag);
 
@@ -202,7 +205,7 @@ export class PostgresConnectionModule extends ConnectionModule {
       let fields: FieldDef[] | undefined;
       let affectedRowCount: number | undefined;
 
-      // A cancel sent before the statement starts finds nothing to cancel.
+      // Aborted while connecting: a cancel sent now finds nothing to cancel.
       if (signal?.aborted) throw ABORTED();
 
       if (isReadOnly) {
@@ -285,10 +288,9 @@ export class PostgresConnectionModule extends ConnectionModule {
 
       // Wrap raw error into normalized ConnectorError. The 57014 of our own
       // cancel is the abort, not a timeout.
-      const wrapped =
-        config.signal?.aborted && config.accessMode !== "WRITE"
-          ? ABORTED()
-          : wrapError(error, classifyPostgresError);
+      const wrapped = signal?.aborted
+        ? ABORTED()
+        : wrapError(error, classifyPostgresError);
       callbacks.setStatus?.(
         wrapped.type === ConnectorErrorType.TIMEOUT
           ? QueryStatus.TIMED_OUT

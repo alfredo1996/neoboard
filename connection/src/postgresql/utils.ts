@@ -98,6 +98,8 @@ export async function runBoundedQuery<
  * backend still carries `tag` (set LOCAL in the query's transaction), so one
  * that arrives late cannot hit whatever query reuses the client next.
  *
+ * A signal that is already aborted never fires: the caller checks it first.
+ *
  * ponytail: a cancel that lands between two statements of the transaction is
  * lost; the caller checks `signal.aborted` before the statement that matters.
  */
@@ -112,7 +114,7 @@ export function cancelBackendOnAbort(
   const onAbort = () => {
     const canceller = new Client(pool.options);
     canceller.on("error", () => {});
-    canceller
+    void canceller
       .connect()
       .then(() =>
         canceller.query(
@@ -123,10 +125,6 @@ export function cancelBackendOnAbort(
       .catch(() => {})
       .finally(() => canceller.end().catch(() => {}));
   };
-  if (signal.aborted) {
-    onAbort();
-    return () => {};
-  }
   signal.addEventListener("abort", onAbort, { once: true });
   return () => signal.removeEventListener("abort", onAbort);
 }

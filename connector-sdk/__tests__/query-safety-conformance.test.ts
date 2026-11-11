@@ -82,7 +82,7 @@ const caseNamed = (module: ConnectionModule, needle: string) => {
 const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ i }));
 
 describe("query-safety conformance harness", () => {
-  it("registers exactly the five documented cases", () => {
+  it("registers exactly the six documented cases", () => {
     // A case-count guard: deleting one left both connector suites green at
     // two tests each, with nothing to say a rule had stopped being checked.
     const names = buildConformanceCases(() => fakeModule({}), setup).map(
@@ -93,6 +93,7 @@ describe("query-safety conformance harness", () => {
       "caps results at rowLimit and flags truncation (MAX_ROWS+1)",
       "honors the driver-level timeout",
       "bounds a slow query when timeout is unset",
+      "stops a running read when its signal aborts",
       "does not report a throwing onSuccess as a query failure",
     ]);
   });
@@ -118,6 +119,38 @@ describe("query-safety conformance harness", () => {
       expect(seen).toEqual([
         { query: setup.queries.manyRows, params: { param_rows: count } },
       ]);
+    });
+  });
+
+  describe("cancellation (#2444)", () => {
+    const withSignal = (honour: boolean): ConnectionModule =>
+      ({
+        runQuery: async (
+          _q: QueryParams,
+          callbacks: QueryCallback<unknown>,
+          config: ConnectionConfig,
+        ) => {
+          if (!honour) {
+            callbacks.onSuccess?.([]);
+            return;
+          }
+          await new Promise<void>((resolve) =>
+            config.signal?.addEventListener("abort", () => {
+              callbacks.onFail?.(new Error("aborted") as never);
+              resolve();
+            }),
+          );
+        },
+      }) as unknown as ConnectionModule;
+
+    it("rejects a connector that ignores the signal", async () => {
+      const c = caseNamed(withSignal(false), "signal aborts");
+      await expect(c.run()).rejects.toThrow(/cancel violation/);
+    });
+
+    it("passes a connector that fails its query when the signal aborts", async () => {
+      const c = caseNamed(withSignal(true), "signal aborts");
+      await expect(c.run()).resolves.toBeUndefined();
     });
   });
 

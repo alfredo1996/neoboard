@@ -135,7 +135,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
     // the server terminates the query. The read then rejects and settles.
     const signal = isWrite ? undefined : config.signal;
     const closeOnAbort = () => {
-      session.close().catch(() => {});
+      void session.close().catch(() => {});
     };
     signal?.addEventListener("abort", closeOnAbort, { once: true });
     try {

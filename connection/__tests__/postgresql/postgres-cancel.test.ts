@@ -69,10 +69,12 @@ describe("PostgreSQL cancellation (#2444)", () => {
   test("a signal already aborted never starts the statement", async () => {
     const controller = new AbortController();
     controller.abort();
-    const startedAt = Date.now();
+    const connect = jest.spyOn(connection.getPool()!, "connect");
     const { done, outcome } = run("READ", controller.signal);
     await done;
-    expect(Date.now() - startedAt).toBeLessThan(2000);
+    // No pool client, so no BEGIN, no SET, no statement and no cancel.
+    expect(connect).not.toHaveBeenCalled();
+    connect.mockRestore();
     expect(outcome.error).toBeDefined();
   }, 20000);
 
