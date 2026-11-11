@@ -602,6 +602,7 @@ describe("GraphChart", () => {
     await waitFor(() => {
       expect(screen.getByTestId("caption-select-Person")).toHaveClass(
         "bg-field",
+        "border-input",
       );
     });
   });

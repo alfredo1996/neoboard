@@ -38,66 +38,70 @@ vi.mock("@/hooks/use-connectors", () => ({
   }),
 }));
 
-vi.mock("@neoboard/components", async () => ({
-  Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
-  controlSizes: (await import("@neoboard/components/ui")).controlSizes,
-  fieldBaseClasses: (await import("@neoboard/components/ui")).fieldBaseClasses,
-  Alert: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
-  AlertDescription: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  Button: ({
-    children,
-    ...p
-  }: React.PropsWithChildren<Record<string, unknown>>) => (
-    <button {...p}>{children}</button>
-  ),
-  Dialog: ({ children, open }: React.PropsWithChildren<{ open: boolean }>) =>
-    open ? <div>{children}</div> : null,
-  DialogContent: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  DialogFooter: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  DialogHeader: ({ children }: React.PropsWithChildren) => (
-    <div>{children}</div>
-  ),
-  DialogTitle: ({ children }: React.PropsWithChildren) => <h2>{children}</h2>,
-  DialogDescription: ({ children }: React.PropsWithChildren) => (
-    <p>{children}</p>
-  ),
-  Label: ({
-    children,
-    ...p
-  }: React.PropsWithChildren<Record<string, unknown>>) => (
-    <label {...p}>{children}</label>
-  ),
-  LoadingButton: ({
-    children,
-    ...p
-  }: React.PropsWithChildren<Record<string, unknown>>) => (
-    <button {...p}>{children}</button>
-  ),
-  // Minimal radio stand-in: a real <input type="radio"> per item so the test
-  // drives selection the way a user does.
-  RadioGroup: ({
-    children,
-    onValueChange,
-  }: React.PropsWithChildren<{ onValueChange: (v: string) => void }>) => (
-    <div
-      data-testid="source-group"
-      onChange={(e) =>
-        onValueChange((e.target as HTMLInputElement).value ?? "")
-      }
-    >
-      {children}
-    </div>
-  ),
-  RadioGroupItem: ({ value, id }: { value: string; id: string }) => (
-    <input type="radio" name="source" value={value} id={id} />
-  ),
-}));
+vi.mock("@neoboard/components", async () => {
+  const { controlSizes, fieldBaseClasses } =
+    await import("@neoboard/components/ui");
+  return {
+    Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
+    controlSizes,
+    fieldBaseClasses,
+    Alert: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+    AlertDescription: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    Button: ({
+      children,
+      ...p
+    }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <button {...p}>{children}</button>
+    ),
+    Dialog: ({ children, open }: React.PropsWithChildren<{ open: boolean }>) =>
+      open ? <div>{children}</div> : null,
+    DialogContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    DialogFooter: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    DialogHeader: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    DialogTitle: ({ children }: React.PropsWithChildren) => <h2>{children}</h2>,
+    DialogDescription: ({ children }: React.PropsWithChildren) => (
+      <p>{children}</p>
+    ),
+    Label: ({
+      children,
+      ...p
+    }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <label {...p}>{children}</label>
+    ),
+    LoadingButton: ({
+      children,
+      ...p
+    }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <button {...p}>{children}</button>
+    ),
+    // Minimal radio stand-in: a real <input type="radio"> per item so the test
+    // drives selection the way a user does.
+    RadioGroup: ({
+      children,
+      onValueChange,
+    }: React.PropsWithChildren<{ onValueChange: (v: string) => void }>) => (
+      <div
+        data-testid="source-group"
+        onChange={(e) =>
+          onValueChange((e.target as HTMLInputElement).value ?? "")
+        }
+      >
+        {children}
+      </div>
+    ),
+    RadioGroupItem: ({ value, id }: { value: string; id: string }) => (
+      <input type="radio" name="source" value={value} id={id} />
+    ),
+  };
+});
 
 import { DashboardConnectionDialog } from "../dashboard-connection-dialog";
 
@@ -253,6 +257,7 @@ describe("DashboardConnectionDialog — target picker", () => {
     pickSource("neo-1");
     expect(document.getElementById("reassign-dashboard-target")).toHaveClass(
       "bg-field",
+      "border-input",
     );
   });
 
