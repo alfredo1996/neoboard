@@ -388,7 +388,10 @@ describe("Equal Earth keeps its shape in any box (#2230)", () => {
       />,
     );
     await waitFor(
-      () => expect(lastOptionWith("series")?.visualMap?.max).toBe(80),
+      () =>
+        expect(lastOptionWith("series")?.visualMap?.max).toBeGreaterThanOrEqual(
+          80,
+        ),
       { timeout: 15_000 },
     );
   }, 20_000);
@@ -536,6 +539,35 @@ describe("label contrast on the region's own fill (#2341)", () => {
       DARK_RAMP[2].toLowerCase(),
     );
   }, 20_000);
+
+  it.each([
+    ["one row", [{ name: "Italy", value: 5 }]],
+    [
+      "equal values",
+      [
+        { name: "Italy", value: 5 },
+        { name: "France", value: 5 },
+      ],
+    ],
+    ["all zeros", [{ name: "Italy", value: 0 }]],
+  ])(
+    "%s: the ramp domain is not degenerate, so no-data regions fall outside it (#2365)",
+    async (_label, rows) => {
+      render(<ChoroplethChart data={rows} />);
+      await waitFor(() => expect(lastOptionWith("visualMap")).toBeDefined(), {
+        timeout: 15_000,
+      });
+      const vm = lastOptionWith("visualMap").visualMap;
+      const v = rows[0].value;
+      // min === max makes ECharts' linearMap return 0.5 for every input, no-data
+      // included. The measured value must stay the midpoint, the legend text real.
+      expect(vm.min).toBeLessThan(v);
+      expect(vm.max).toBeGreaterThan(v);
+      expect((vm.min + vm.max) / 2).toBe(v);
+      expect(vm.text).toEqual([String(v), String(v)]);
+    },
+    20_000,
+  );
 
   it("a NaN value is treated as no data and does not throw", async () => {
     render(

@@ -211,8 +211,12 @@ function ChoroplethChart({
         left: 8,
         bottom: 4,
         orient: "horizontal",
-        min: minVal,
-        max: maxVal,
+        // A constant domain makes ECharts' linearMap return 0.5 for every
+        // input, no-data regions included, so they would take the middle
+        // stop instead of areaColor (#2365). Widen it symmetrically: the
+        // measured value stays the midpoint and no-data falls out of range.
+        min: maxVal === minVal ? minVal - (Math.abs(minVal) || 1) / 2 : minVal,
+        max: maxVal === minVal ? maxVal + (Math.abs(maxVal) || 1) / 2 : maxVal,
         calculable: false,
         inRange: {
           // Interpolated end-to-end so every band lies on the ramp between
