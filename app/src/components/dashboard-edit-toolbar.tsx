@@ -103,8 +103,8 @@ export function DashboardEditToolbar({
               onClick={onAddPage}
               aria-label="Add page"
             >
-              <FilePlus className="h-4 w-4 lg:mr-2" />
-              <span className="hidden lg:inline">Add page</span>
+              <FilePlus className="h-4 w-4 xl:mr-2" />
+              <span className="hidden xl:inline">Add page</span>
             </Button>
           )}
           <Button
@@ -114,9 +114,9 @@ export function DashboardEditToolbar({
             title="Add widget (Cmd+Shift+N)"
             aria-label="Add Widget"
           >
-            <Plus className="h-4 w-4 lg:mr-2" />
-            {/* Icon-only below lg and no hints below xl: the actions must not wrap the header taller (#2352). */}
-            <span className="hidden lg:inline">Add Widget</span>
+            <Plus className="h-4 w-4 xl:mr-2" />
+            {/* Icon-only below xl and no hints below xl: the actions must not wrap the header taller (#2352). */}
+            <span className="hidden xl:inline">Add Widget</span>
             <span className="hidden xl:contents">
               <ShortcutHint combo="Cmd+Shift+N" />
             </span>

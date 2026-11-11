@@ -229,6 +229,10 @@ describe("DashboardEditToolbar", () => {
         name,
       );
     }
+    for (const name of ["Add page", "Add Widget"]) {
+      const label = screen.getByRole("button", { name }).querySelector("span");
+      expect(label?.className).toMatch(/\bhidden xl:inline\b/);
+    }
     for (const kbd of document.querySelectorAll("kbd")) {
       expect(kbd.parentElement?.className).toMatch(/\bxl:contents\b/);
     }
