@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { limitedFetch } from "@/lib/query/limited-fetch";
 import { hashKey, useQuery } from "@tanstack/react-query";
 import type { QueryKey } from "@tanstack/react-query";
 import { unwrapFullResponse } from "@/lib/api/api-client";
@@ -66,7 +67,7 @@ export function useSeedQuery(
   const { data, isLoading, error, refetch } = useQuery<SeedQueryData>({
     queryKey,
     queryFn: async ({ signal }) => {
-      const res = await fetch("/api/query", {
+      const res = await limitedFetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal,
