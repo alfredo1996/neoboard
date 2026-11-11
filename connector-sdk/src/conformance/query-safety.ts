@@ -13,7 +13,9 @@
  *  - named parameters (the row-limit query is bound by name, as the app
  *    sends every parameter — a connector that drops it returns no rows)
  *
- *  - cancellation (a read whose `signal` aborts settles at once, #2444)
+ *  - cancellation (a read whose `signal` aborts settles at once, #2444; the
+ *    statement is also gone from the database when the connector supplies
+ *    `isQueryActive`, otherwise the case is callback-level only)
  *
  * Leak detection ("no leaked cursor after a timed-out query") isn't
  * covered here: it is connector-specific. Connectors that can observe it assert it in their own
@@ -45,6 +47,22 @@ export interface ConformanceQueries {
   manyRows: string;
   /** A query guaranteed to run longer than a short (sub-second) timeout. */
   slow: QueryParams;
+  /**
+   * The query the cancellation case aborts (#2444). It must keep running far
+   * longer than the 300 ms the harness waits before aborting, e.g. a 30 s
+   * sleep. Optional: it falls back to `slow`, which then has to outlast that
+   * wait too.
+   */
+  cancellable?: QueryParams;
+  /**
+   * Resolves true while the `cancellable` statement is still running on the
+   * database (`pg_stat_activity`, `SHOW TRANSACTIONS`, ...). When supplied,
+   * the cancellation case also fails a connector that reported failure at
+   * once but left the statement running. Without it the case only proves the
+   * callback and the elapsed time, so assert the database side in your own
+   * test.
+   */
+  isQueryActive?: () => Promise<boolean>;
 }
 
 export interface ConformanceSetup {
@@ -225,12 +243,16 @@ export function buildConformanceCases(
         const timer = setTimeout(() => controller.abort(), 300);
         let captured: Captured;
         try {
-          captured = await execute(getModule(), setup.queries.slow, {
-            ...base,
-            accessMode: "READ",
-            timeout: 30_000,
-            signal: controller.signal,
-          });
+          captured = await execute(
+            getModule(),
+            setup.queries.cancellable ?? setup.queries.slow,
+            {
+              ...base,
+              accessMode: "READ",
+              timeout: 30_000,
+              signal: controller.signal,
+            },
+          );
         } finally {
           clearTimeout(timer);
         }
@@ -241,6 +263,20 @@ export function buildConformanceCases(
               captured.error === undefined ? "no failure" : "a failure"
             }; expected a failure within 2.5 s`,
           );
+        }
+        const { isQueryActive } = setup.queries;
+        if (isQueryActive) {
+          // The statement may need a moment to unwind after the failure.
+          let active = await isQueryActive();
+          for (let i = 0; active && i < 20; i++) {
+            await new Promise((r) => setTimeout(r, 100));
+            active = await isQueryActive();
+          }
+          if (active) {
+            throw new Error(
+              "cancel violation: the aborted statement is still running on the database 2 s after the abort",
+            );
+          }
         }
       },
     },

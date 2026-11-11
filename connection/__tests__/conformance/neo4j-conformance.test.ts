@@ -22,6 +22,21 @@ describe("Neo4j query-safety conformance (#1122)", () => {
         query:
           "UNWIND range(1, 1000000) AS a UNWIND range(1, 1000000) AS b RETURN count(*)",
       },
+      cancellable: {
+        query:
+          "UNWIND range(1, 1000000) AS a UNWIND range(1, 1000000) AS b RETURN count(*) // conformance-cancel",
+      },
+      isQueryActive: async () => {
+        const session = connection.getDriver().session({ database: "system" });
+        try {
+          const res = await session.run(
+            "SHOW TRANSACTIONS YIELD currentQuery WHERE currentQuery CONTAINS 'conformance-cancel' AND NOT currentQuery STARTS WITH 'SHOW' RETURN count(*) AS n",
+          );
+          return res.records[0].get("n").toNumber() > 0;
+        } finally {
+          await session.close();
+        }
+      },
     },
   };
 

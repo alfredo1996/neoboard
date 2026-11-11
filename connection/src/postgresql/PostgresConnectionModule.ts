@@ -187,10 +187,12 @@ export class PostgresConnectionModule extends ConnectionModule {
       );
       // The tag names THIS transaction on the backend, so a late cancel can
       // never hit the next query that reuses the client (#2444).
-      await client.query(
-        `SET LOCAL statement_timeout = '${timeoutMs}'` +
-          (signal ? `; SET LOCAL application_name = '${cancelTag}'` : ""),
-      );
+      await client.query(`SET LOCAL statement_timeout = '${timeoutMs}'`);
+      if (signal) {
+        await client.query("SELECT set_config('application_name', $1, true)", [
+          cancelTag,
+        ]);
+      }
 
       // Both paths stream through a server-side cursor so a huge result set
       // never buffers in memory; each pulls at most rowLimit + 1 rows for the

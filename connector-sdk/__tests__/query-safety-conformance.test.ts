@@ -152,6 +152,48 @@ describe("query-safety conformance harness", () => {
       const c = caseNamed(withSignal(true), "signal aborts");
       await expect(c.run()).resolves.toBeUndefined();
     });
+
+    const caseWith = (
+      module: ConnectionModule,
+      extra: Record<string, unknown>,
+    ) =>
+      buildConformanceCases(() => module, {
+        ...setup,
+        queries: { ...setup.queries, ...extra },
+      }).find((c) => c.name.includes("signal aborts"))!;
+
+    it("runs the dedicated cancellable query, not slow, when one is given", async () => {
+      const seen: string[] = [];
+      const module = {
+        runQuery: async (
+          q: QueryParams,
+          cb: QueryCallback<unknown>,
+          cfg: ConnectionConfig,
+        ) => {
+          seen.push(q.query);
+          cfg.signal?.addEventListener("abort", () =>
+            cb.onFail?.(new Error("aborted") as never),
+          );
+          await new Promise((r) => setTimeout(r, 400));
+        },
+      } as unknown as ConnectionModule;
+      await caseWith(module, { cancellable: { query: "LONG" } }).run();
+      expect(seen).toEqual(["LONG"]);
+    });
+
+    it("rejects a connector that fails fast but leaves the statement running", async () => {
+      const c = caseWith(withSignal(true), {
+        isQueryActive: async () => true,
+      });
+      await expect(c.run()).rejects.toThrow(/still running on the database/);
+    });
+
+    it("passes a connector whose statement is gone from the database", async () => {
+      const c = caseWith(withSignal(true), {
+        isQueryActive: async () => false,
+      });
+      await expect(c.run()).resolves.toBeUndefined();
+    });
   });
 
   describe("onSuccess isolation (#1642)", () => {

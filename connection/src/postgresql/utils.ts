@@ -88,6 +88,9 @@ export async function runBoundedQuery<
   }
 }
 
+/** Bound on the cancel connection's connect and its one query. */
+const CANCEL_TIMEOUT_MS = 5000;
+
 /**
  * Cancels the statement running on `client`'s backend when `signal` aborts
  * (#2444): `pg_cancel_backend(pid)` sent over a short-lived client of its own.
@@ -112,7 +115,14 @@ export function cancelBackendOnAbort(
   const pid = (client as unknown as { processID?: number }).processID;
   if (!signal || typeof pid !== "number") return () => {};
   const onAbort = () => {
-    const canceller = new Client(pool.options);
+    // The driver ends a stalled cancel; the client is closed either way.
+    const canceller = new Client({
+      ...pool.options,
+      // pg keeps the password non-enumerable, so a spread drops it.
+      password: pool.options.password,
+      query_timeout: CANCEL_TIMEOUT_MS,
+      connectionTimeoutMillis: CANCEL_TIMEOUT_MS,
+    });
     canceller.on("error", () => {});
     void canceller
       .connect()

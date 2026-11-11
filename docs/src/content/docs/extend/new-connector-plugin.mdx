@@ -646,6 +646,11 @@ describe("MyDB query-safety conformance", () => {
       manyRows: "SELECT * FROM series(1, $param_rows)",
       // Runs longer than the 250 ms timeout the harness configures.
       slow: { query: "SELECT sleep(5)" },
+      // Aborted 300 ms in by the cancellation case, so it must run far longer.
+      cancellable: { query: "SELECT sleep(30)" },
+      // Optional but recommended: true while that statement still runs on the
+      // database. Without it the case proves only the callback and the timing.
+      isQueryActive: async () => (await countRunning("sleep(30)")) > 0,
     },
   };
 
@@ -663,8 +668,10 @@ The cases, and what each one fails on:
 | caps results at rowLimit and flags truncation (MAX_ROWS+1) | `onSuccess` gets anything other than an array of exactly `rowLimit` rows — which is also what dropping the named parameter looks like — or `COMPLETE_TRUNCATED` is never set |
 | honors the driver-level timeout                            | a slow query neither fails nor reports `TIMED_OUT` within the configured timeout                                                                                             |
 | bounds a slow query when timeout is unset                  | `config.timeout` is unset — what NeoBoard sends for an ordinary query — and the slow query runs past the default timeout                                                     |
-| stops a running read when its signal aborts                | a read whose signal aborts 300 ms in has not failed within 2.5 s                                                                                                             |
+| stops a running read when its signal aborts                | a read whose signal aborts 300 ms in has not failed within 2.5 s, or (when `isQueryActive` is supplied) its statement is still running 2 s later                             |
 | does not report a throwing onSuccess as a query failure    | a throwing `onSuccess` reaches `onFail` or sets `ERROR`, or `runQuery` rejects with anything but the caller's own error                                                      |
+
+`cancellable` and `isQueryActive` are optional: without `cancellable` the cancellation case aborts `slow`, which then has to outlast 300 ms; without `isQueryActive` the case is callback-level only, so assert the database side in your own test (`countRunning` above stands for your own lookup of running statements).
 
 The built-in connectors run the same cases against Neo4j and PostgreSQL containers in `connection/__tests__/conformance/` — copy their queries if your database speaks Cypher or SQL.
 

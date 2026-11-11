@@ -556,3 +556,33 @@ describe("PostgresConnectionModule — a write's status (#1965)", () => {
     expect(statuses.at(-1)).toBe(QueryStatus.COMPLETE);
   });
 });
+
+// #2444: the cancel tag reaches the backend as a bound value, never as SQL text.
+describe("PostgresConnectionModule — cancel tag is bound, not interpolated (#2444)", () => {
+  it("sends application_name through set_config with a parameter", async () => {
+    const mod = makeModule();
+    const calls: { q: string; values?: unknown[] }[] = [];
+    const client = {
+      query: jest.fn((q: string, values?: unknown[]): Promise<any> => {
+        calls.push({ q, values });
+        return Promise.resolve({ rows: [], fields: [], rowCount: 0 });
+      }),
+      release: jest.fn(),
+      on: jest.fn(),
+      removeListener: jest.fn(),
+    };
+    const pool = { connect: jest.fn().mockResolvedValue(client) };
+    jest.spyOn(mod.authModule, "getPool").mockReturnValue(pool as any);
+
+    await mod.runQuery(
+      { query: "SELECT 1", params: {} },
+      { onSuccess: jest.fn(), onFail: jest.fn() } as any,
+      CONFIG({ signal: new AbortController().signal }),
+    );
+
+    expect(calls.some((c) => c.q.includes("application_name ="))).toBe(false);
+    const tagCall = calls.find((c) => c.q.includes("set_config"));
+    expect(tagCall?.q).toContain("'application_name', $1, true");
+    expect(tagCall?.values).toEqual([expect.stringMatching(/^neoboard-/)]);
+  });
+});
