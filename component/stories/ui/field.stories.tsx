@@ -105,3 +105,59 @@ export const ComboboxField: Story = {
     ),
   },
 };
+
+const LONG_LABEL =
+  "PostgreSQL Ecommerce PostgreSQL Ecommerce PostgreSQL Ecommerce (demo, read)";
+
+// #2370: a long selected label must ellipsize inside its column, not push the
+// control under the one beside it. Needs real layout, so it is a play test.
+export const LongValueStaysInColumn: Story = {
+  decorators: [
+    (Story) => (
+      <div className="w-[640px]">
+        <Story />
+      </div>
+    ),
+  ],
+  render: () => (
+    <div className="grid grid-cols-2 gap-4" data-testid="grid">
+      <Field label="Connection">
+        <Combobox
+          className="w-full"
+          value="a"
+          options={[{ value: "a", label: LONG_LABEL }]}
+        />
+      </Field>
+      <Field label="Chart type">
+        <Input placeholder="Bar" />
+      </Field>
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const trigger = within(canvasElement).getByRole("combobox");
+    const column = within(canvasElement)
+      .getByTestId("grid")
+      .firstElementChild!.getBoundingClientRect();
+    const box = trigger.getBoundingClientRect();
+    if (box.right > column.right + 0.5) {
+      throw new Error(
+        `trigger overflows its column by ${box.right - column.right}px`,
+      );
+    }
+    const chevron = trigger.querySelector("svg")!.getBoundingClientRect();
+    if (chevron.right > box.right + 0.5) {
+      throw new Error("chevron is pushed outside the trigger");
+    }
+    // The text itself must sit in a truncating element: text directly inside a
+    // flex container is clipped without an ellipsis.
+    const label = trigger.querySelector<HTMLElement>("span > span.truncate");
+    if (!label) throw new Error("selected label has no truncating element");
+    if (label.scrollWidth <= label.clientWidth) {
+      throw new Error("long label is not ellipsized");
+    }
+    const labelBox = label.getBoundingClientRect();
+    if (labelBox.right > column.right + 0.5) {
+      throw new Error("label runs outside its column");
+    }
+  },
+};
