@@ -5,6 +5,7 @@ import { isParamUnset } from "@/lib/parameter/is-param-unset";
 import { useMemo, useState } from "react";
 import {
   useQuery,
+  useQueryClient,
   type PlaceholderDataFunction,
   type QueryClient,
 } from "@tanstack/react-query";
@@ -334,8 +335,16 @@ export function useWidgetQuery(
   const [waited, setWaited] = useState(false);
   if (!enabled && !waited) setWaited(true);
 
+  const queryClient = useQueryClient();
+  const queryKey = widgetQueryKey(mergedInput, options?.staleTime);
+  const keyId = JSON.stringify(queryKey);
+  // The key whose run was stopped (#2446). TanStack's cancelQueries reverts to
+  // the previous state, so "stopped" is remembered here until that key runs
+  // again; a parameter change is another key.
+  const [stoppedKey, setStoppedKey] = useState<string | null>(null);
+
   const queryResult = useQuery<QueryResult, Error>({
-    queryKey: widgetQueryKey(mergedInput, options?.staleTime),
+    queryKey,
     queryFn: async ({ signal }) => {
       const fetchStart = performance.now();
       const res = await limitedFetch("/api/query", {
@@ -405,6 +414,16 @@ export function useWidgetQuery(
     setWaited(false);
   }
 
+  if (stoppedKey !== null && queryResult.fetchStatus === "fetching") {
+    setStoppedKey(null);
+  }
+  const stopped = stoppedKey === keyId;
+  /** Aborts the in-flight request (its signal) and leaves no result. */
+  const stop = () => {
+    setStoppedKey(keyId);
+    queryClient.cancelQueries({ queryKey }).catch(() => undefined);
+  };
+
   const missingParams = useMemo(
     () =>
       mergedInput?.query
@@ -413,5 +432,5 @@ export function useWidgetQuery(
     [mergedInput, allParameters],
   );
 
-  return { ...queryResult, missingParams };
+  return { ...queryResult, missingParams, stopped, stop };
 }

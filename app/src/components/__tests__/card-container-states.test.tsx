@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 
 /* ---------- mocks (must be declared before imports) ---------- */
@@ -1226,5 +1226,49 @@ describe("CardContainer - loading line (#2224)", () => {
     });
     rerender(<CardContainer widget={makeWidget({})} />);
     expect(container.querySelector("[aria-busy]")).toBeNull();
+  });
+});
+
+describe("CardContainer - Stop on a slow card (#2446)", () => {
+  const loading = (over: Record<string, unknown> = {}) => ({
+    isPending: true,
+    fetchStatus: "fetching",
+    isError: false,
+    data: undefined,
+    missingParams: [],
+    stopped: false,
+    stop: vi.fn(),
+    refetch: vi.fn(),
+    ...over,
+  });
+
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("offers no Stop before 5 s and a Stop after, which calls the hook's stop", () => {
+    const state = loading();
+    mockUseWidgetQuery.mockReturnValue(state);
+    render(<CardContainer widget={makeWidget()} />);
+
+    act(() => vi.advanceTimersByTime(4999));
+    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+
+    act(() => vi.advanceTimersByTime(1));
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    expect(state.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the stopped state with Run again, which refetches", () => {
+    const state = loading({ fetchStatus: "idle", stopped: true });
+    mockUseWidgetQuery.mockReturnValue(state);
+    render(<CardContainer widget={makeWidget()} />);
+
+    expect(screen.getByText("Stopped")).toBeDefined();
+    expect(
+      screen.getByText("The query was stopped before it finished."),
+    ).toBeDefined();
+    expect(screen.queryByTestId("chart-renderer")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Run again" }));
+    expect(state.refetch).toHaveBeenCalledTimes(1);
   });
 });
