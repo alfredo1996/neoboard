@@ -327,6 +327,7 @@ describe("queue refusals are logged (#2438)", () => {
     resetSchedulerRegistry();
     vi.restoreAllMocks();
   });
+  afterEach(() => vi.restoreAllMocks());
 
   it.each([
     [

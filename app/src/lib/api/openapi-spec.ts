@@ -2291,6 +2291,11 @@ const SPEC = {
                 description:
                   "The type of the connector that ran the query, as `GET /api/connectors` lists it. The graph chart reads that connector's `graphExpansion` from it.",
               },
+              schedulerWaitMs: {
+                type: "integer",
+                description:
+                  "Part of serverDurationMs spent waiting for a slot in the connection queue; absent when no scheduler ran.",
+              },
               serverDurationMs: {
                 type: "integer",
                 description:
@@ -2330,6 +2335,11 @@ const SPEC = {
             type: "object",
             required: ["serverDurationMs", "rowLimit"],
             properties: {
+              schedulerWaitMs: {
+                type: "integer",
+                description:
+                  "Part of serverDurationMs spent waiting for a slot in the connection queue; absent when no scheduler ran.",
+              },
               serverDurationMs: {
                 type: "integer",
                 description:

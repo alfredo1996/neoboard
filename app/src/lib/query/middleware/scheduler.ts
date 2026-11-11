@@ -1,11 +1,14 @@
 import { queryLogger } from "@/lib/logger";
-import { isQueueRejected, isQueueTimeout } from "@/lib/query/scheduler";
+import {
+  isQueueRejected,
+  isQueueTimeout,
+  type QueryPriority,
+} from "@/lib/query/scheduler";
 import { getScheduler } from "@/lib/query/scheduler-registry";
 import type {
   QueryMiddlewareFn,
   QueryResult,
 } from "@/lib/query/pipeline-types";
-import type { QueryPriority } from "@/lib/query/scheduler";
 
 /**
  * Built-in query middleware that routes every query through the
