@@ -169,4 +169,20 @@ describe("auditMiddleware", () => {
     await auditMiddleware(makeContext(), core);
     expect(logged[0].obj.schedulerWaitMs).toBeUndefined();
   });
+
+  it("adds totalMs = wait + execution to both lines, and the wait to the failure (#2438)", async () => {
+    const ok = makeContext({ metadata: { schedulerWaitMs: 280 } });
+    await auditMiddleware(ok, async () => ({ data: [] }));
+    const bad = makeContext({ metadata: { schedulerWaitMs: 280 } });
+    await expect(
+      auditMiddleware(bad, async () => {
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
+    for (const { obj } of logged) {
+      expect(obj.schedulerWaitMs).toBe(280);
+      expect(obj.totalMs).toBe(280 + (obj.durationMs as number));
+    }
+    expect(logged).toHaveLength(2);
+  });
 });

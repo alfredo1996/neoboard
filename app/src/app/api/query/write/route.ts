@@ -229,6 +229,7 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     // when true (#1965).
     return apiSuccess(result.data, 200, {
       serverDurationMs,
+      schedulerWaitMs: ctx.metadata.schedulerWaitMs,
       rowLimit: result.rowLimit,
       ...(result.truncated ? { truncated: true } : {}),
     });

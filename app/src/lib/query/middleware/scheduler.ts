@@ -1,3 +1,5 @@
+import { queryLogger } from "@/lib/logger";
+import { isQueueRejected, isQueueTimeout } from "@/lib/query/scheduler";
 import { getScheduler } from "@/lib/query/scheduler-registry";
 import type {
   QueryMiddlewareFn,
@@ -65,18 +67,48 @@ export async function withSchedulerSlot<T>(
   }
 }
 
-export const schedulerMiddleware: QueryMiddlewareFn = (
+export const schedulerMiddleware: QueryMiddlewareFn = async (
   ctx,
   next,
-): Promise<QueryResult> =>
-  withSchedulerSlot(
-    {
-      connectionId: ctx.connectionId,
-      userId: ctx.userId,
-      priority: resolvePriority(ctx.metadata.priority),
-    },
-    (waitMs) => {
-      ctx.metadata.schedulerWaitMs = waitMs;
-      return next();
-    },
-  );
+): Promise<QueryResult> => {
+  const enqueuedAt = Date.now();
+  try {
+    return await withSchedulerSlot(
+      {
+        connectionId: ctx.connectionId,
+        userId: ctx.userId,
+        priority: resolvePriority(ctx.metadata.priority),
+      },
+      (waitMs) => {
+        ctx.metadata.schedulerWaitMs = waitMs;
+        return next();
+      },
+    );
+  } catch (err) {
+    // A refusal never reaches the audit middleware (it sits inside this one),
+    // so it writes its own query_failed line (#2438).
+    if (isQueueTimeout(err) || isQueueRejected(err)) {
+      const waited = Date.now() - enqueuedAt;
+      queryLogger.warn(
+        {
+          event: "query_failed",
+          status: "error",
+          userId: ctx.userId,
+          tenantId: ctx.tenantId,
+          connectionId: ctx.connectionId,
+          connectionType: ctx.connectionType,
+          accessMode: ctx.accessMode,
+          query: ctx.query,
+          priority: resolvePriority(ctx.metadata.priority),
+          schedulerWaitMs: waited,
+          totalMs: waited,
+          requestId: ctx.metadata.requestId,
+          err,
+          errorCode: err.name,
+        },
+        "query_failed",
+      );
+    }
+    throw err;
+  }
+};

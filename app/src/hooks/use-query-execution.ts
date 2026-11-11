@@ -22,6 +22,8 @@ interface QueryResult {
   connectorType?: string;
   /** Server-side execution time in ms (#2435). */
   serverDurationMs?: number;
+  /** Part of it spent waiting in the connection's queue (#2438). */
+  schedulerWaitMs?: number;
 }
 
 export function useQueryExecution() {

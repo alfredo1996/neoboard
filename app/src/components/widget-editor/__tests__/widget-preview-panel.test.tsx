@@ -405,6 +405,18 @@ describe("WidgetPreviewPanel", () => {
       "Preview shows up to 25 rows · 118 ms",
     ],
     [
+      "the query waited in the queue (#2438)",
+      { ...done, serverDurationMs: 294, schedulerWaitMs: 280 },
+      undefined,
+      "Preview shows up to 25 rows · 294 ms, 280 queued",
+    ],
+    [
+      "the wait is 0 (#2438)",
+      { ...done, serverDurationMs: 294, schedulerWaitMs: 0 },
+      undefined,
+      "Preview shows up to 25 rows · 294 ms",
+    ],
+    [
       "the live result has none",
       done,
       undefined,

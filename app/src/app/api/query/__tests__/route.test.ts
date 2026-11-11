@@ -403,6 +403,38 @@ describe("POST /api/query", () => {
     expect((await res.json()).meta.connectorType).toBe("postgresql");
   });
 
+  it("returns the queue wait the pipeline recorded in the response meta (#2438)", async () => {
+    const { extensions } = await import("@/lib/extensions");
+    extensions.queryMiddleware.register({
+      id: "test:wait",
+      middleware: (ctx, next) => {
+        ctx.metadata.schedulerWaitMs = 280;
+        return next();
+      },
+    });
+    try {
+      mockRequireSession.mockResolvedValue(defaultSession);
+      mockDb.select.mockReturnValueOnce(
+        drizzleSelectChain([
+          {
+            id: "c1",
+            type: "postgresql",
+            configEncrypted: "enc",
+            userId: "user-1",
+          },
+        ]),
+      );
+      mockDecryptJson.mockReturnValue({ uri: "postgres://localhost" });
+      mockExecuteQuery.mockResolvedValue({ data: [{ n: 1 }] });
+      const res = await POST(
+        makeRequest({ connectionId: "c1", query: "SELECT 1" }),
+      );
+      expect((await res.json()).meta.schedulerWaitMs).toBe(280);
+    } finally {
+      extensions.queryMiddleware.clear();
+    }
+  });
+
   it("non-admin without dashboard access gets 404", async () => {
     mockRequireSession.mockResolvedValue({
       ...defaultSession,
