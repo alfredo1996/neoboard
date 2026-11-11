@@ -26,17 +26,34 @@ function cardFor(page: Page, name: string): Locator {
     .filter({ has: page.getByRole("button", actions(name)) });
 }
 
-/** Delete the connection a test created, by id found through its unique name (#2363). */
-async function removeCreated(page: Page, name: string) {
-  const list = await page.request.get("/api/connections?limit=200");
-  if (!list.ok()) return;
-  const { data } = await list.json();
-  const row = data.find((c: { name: string }) => c.name === name);
-  if (!row) return;
-  const del = await page.request.delete(
-    `/api/connections/${row.id}?force=true`,
-  );
-  expect(del.ok(), `cleanup of "${name}" failed`).toBe(true);
+/**
+ * Record the id of every connection the page creates (#2363). The ids are
+ * deleted in afterEach, which runs on a test timeout too, unlike a `finally`
+ * (the test's own 30s budget covers a long status wait).
+ */
+function trackCreated(page: Page, ids: Promise<string | null>[]) {
+  page.on("response", (res) => {
+    if (res.request().method() !== "POST" || !res.ok()) return;
+    if (new URL(res.url()).pathname !== "/api/connections") return;
+    ids.push(
+      res
+        .json()
+        .then((body: { data?: { id?: string } }) => body.data?.id ?? null)
+        .catch(() => null),
+    );
+  });
+}
+
+/** Delete the tracked connections by id; one already gone (404) is fine. */
+async function removeTracked(page: Page, ids: Promise<string | null>[]) {
+  for (const id of await Promise.all(ids)) {
+    if (!id) continue;
+    const del = await page.request.delete(`/api/connections/${id}?force=true`);
+    expect(
+      del.ok() || del.status() === 404,
+      `cleanup of connection ${id} failed: ${del.status()}`,
+    ).toBe(true);
+  }
 }
 
 /** A card's status badge — not the toast region, which is also role=status. */
@@ -73,9 +90,16 @@ async function arrivalRunOver(page: Page) {
 }
 
 test.describe("Connections", () => {
-  test.beforeEach(async ({ authPage, sidebarPage }) => {
+  let created: Promise<string | null>[] = [];
+  test.beforeEach(async ({ page, authPage, sidebarPage }) => {
+    created = [];
+    trackCreated(page, created);
     await authPage.login(ALICE.email, ALICE.password);
     await sidebarPage.navigateTo("Connections");
+  });
+
+  test.afterEach(async ({ page }) => {
+    await removeTracked(page, created);
   });
 
   /**
@@ -216,14 +240,10 @@ test.describe("Connections", () => {
     await dialog.locator("#conn-password").fill("neoboard123");
     await dialog.getByRole("button", { name: "Create", exact: true }).click();
 
-    try {
-      await expect(
-        page.getByText("bolt://address-e2e.invalid:7687", { exact: true }),
-      ).toBeVisible();
-      await expect(page.getByText("zzz", { exact: true })).toHaveCount(0);
-    } finally {
-      await removeCreated(page, name);
-    }
+    await expect(
+      page.getByText("bolt://address-e2e.invalid:7687", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("zzz", { exact: true })).toHaveCount(0);
   });
 
   test("should create a new Neo4j connection", async ({ page }) => {
@@ -239,11 +259,7 @@ test.describe("Connections", () => {
     await dialog.locator("#conn-password").fill("neoboard123");
     await dialog.getByRole("button", { name: "Create" }).click();
 
-    try {
-      await expect(page.getByText(name)).toBeVisible();
-    } finally {
-      await removeCreated(page, name);
-    }
+    await expect(page.getByText(name)).toBeVisible();
   });
 
   test("should create a PostgreSQL connection", async ({ page }) => {
@@ -262,11 +278,7 @@ test.describe("Connections", () => {
     await dialog.locator("#conn-database").fill("movies");
     await dialog.getByRole("button", { name: "Create" }).click();
 
-    try {
-      await expect(page.getByText(name)).toBeVisible();
-    } finally {
-      await removeCreated(page, name);
-    }
+    await expect(page.getByText(name)).toBeVisible();
   });
 
   test("should manually test a connection", async ({ page }) => {
@@ -341,26 +353,20 @@ test.describe("Connections", () => {
     await dialog.locator("#conn-username").fill("wrong");
     await dialog.locator("#conn-password").fill("wrong");
     await dialog.getByRole("button", { name: "Create" }).click();
-    try {
-      await expect(dialog).not.toBeVisible();
+    await expect(dialog).not.toBeVisible();
 
-      // Wait for auto-test to complete: the row reads "Can't connect"
-      await expect(page.getByText(name).first()).toBeVisible();
-      const card = cardFor(page, name);
-      await expect(
-        card.getByText("Can't connect", { exact: true }),
-      ).toBeVisible({
-        timeout: 30_000,
-      });
-      // The failed status is a button and reads as one: its word is underlined
-      // (a button's own decoration stops at the inline-flex Status, #2220).
-      const word = card
-        .getByRole("button", { name: "Can't connect", exact: true })
-        .locator("> span");
-      await expect(word).toHaveCSS("text-decoration-line", "underline");
-    } finally {
-      await removeCreated(page, name);
-    }
+    // Wait for auto-test to complete: the row reads "Can't connect"
+    await expect(page.getByText(name).first()).toBeVisible();
+    const card = cardFor(page, name);
+    await expect(card.getByText("Can't connect", { exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    // The failed status is a button and reads as one: its word is underlined
+    // (a button's own decoration stops at the inline-flex Status, #2220).
+    const word = card
+      .getByRole("button", { name: "Can't connect", exact: true })
+      .locator("> span");
+    await expect(word).toHaveCSS("text-decoration-line", "underline");
   });
 
   test("should duplicate a connection via card dropdown", async ({ page }) => {
@@ -475,36 +481,31 @@ test.describe("Connections", () => {
     await dialog.locator("#conn-username").fill("neo4j");
     await dialog.locator("#conn-password").fill("neoboard123");
     await dialog.getByRole("button", { name: "Create" }).click();
-    try {
-      await expect(page.getByText(name)).toBeVisible();
+    await expect(page.getByText(name)).toBeVisible();
 
-      // Open its edit dialog and change the Name field. Scope to the smallest
-      // card div that holds both this connection's name and its actions button.
-      const card = page
-        .getByRole("row")
-        .filter({ has: page.getByText(name, { exact: true }) })
-        .filter({
-          has: page.getByRole("button", actions(name)),
-        });
-      await card.getByRole("button", actions(name)).click();
-      await page.getByRole("menuitem", { name: /Edit/ }).click();
-      dialog = page.getByRole("dialog");
-      await expect(dialog.locator("#edit-name")).toHaveValue(name, {
-        timeout: 5000,
+    // Open its edit dialog and change the Name field. Scope to the smallest
+    // card div that holds both this connection's name and its actions button.
+    const card = page
+      .getByRole("row")
+      .filter({ has: page.getByText(name, { exact: true }) })
+      .filter({
+        has: page.getByRole("button", actions(name)),
       });
-      await dialog.locator("#edit-name").fill(renamed);
-      await dialog.getByRole("button", { name: "Save" }).click();
+    await card.getByRole("button", actions(name)).click();
+    await page.getByRole("menuitem", { name: /Edit/ }).click();
+    dialog = page.getByRole("dialog");
+    await expect(dialog.locator("#edit-name")).toHaveValue(name, {
+      timeout: 5000,
+    });
+    await dialog.locator("#edit-name").fill(renamed);
+    await dialog.getByRole("button", { name: "Save" }).click();
 
-      // The new name appears and a confirmation toast fires (#1043). Use exact
-      // match to avoid the aria-live "Notification …" status span.
-      await expect(
-        page.getByText("Connection updated", { exact: true }),
-      ).toBeVisible({ timeout: 10000 });
-      await expect(page.getByText(renamed)).toBeVisible();
-    } finally {
-      await removeCreated(page, renamed);
-      await removeCreated(page, name);
-    }
+    // The new name appears and a confirmation toast fires (#1043). Use exact
+    // match to avoid the aria-live "Notification …" status span.
+    await expect(
+      page.getByText("Connection updated", { exact: true }),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(renamed)).toBeVisible();
   });
 
   test("blocks save of a malformed URI with an inline error (#1043)", async ({
