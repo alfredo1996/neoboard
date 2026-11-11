@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { limitedFetch, QUERY_FETCH_LIMIT } from "../limited-fetch";
+import {
+  limitedFetch,
+  QUERY_FETCH_LIMIT,
+  __resetLimitedFetchForTests,
+} from "../limited-fetch";
 
 interface Pending {
   resolve: (r: Response) => void;
@@ -101,6 +105,16 @@ describe("limitedFetch", () => {
     await first;
     await flush();
     // One slot freed: exactly one waiter starts, not both.
+    expect(fetchMock).toHaveBeenCalledTimes(QUERY_FETCH_LIMIT + 1);
+  });
+
+  it("starts a new request at once after the test reset, even when every slot was taken", async () => {
+    fire(QUERY_FETCH_LIMIT + 1); // the extra one is queued, never settles
+    await flush();
+    expect(fetchMock).toHaveBeenCalledTimes(QUERY_FETCH_LIMIT);
+    __resetLimitedFetchForTests();
+    fire(1);
+    await flush();
     expect(fetchMock).toHaveBeenCalledTimes(QUERY_FETCH_LIMIT + 1);
   });
 });

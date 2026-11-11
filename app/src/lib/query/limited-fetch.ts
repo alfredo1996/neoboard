@@ -15,6 +15,8 @@ export const QUERY_FETCH_LIMIT = 4;
 
 let inFlight = 0;
 const waiting: (() => void)[] = [];
+// Bumped by the test reset, so a request that settles after it frees nothing.
+let epoch = 0;
 
 function release() {
   inFlight--;
@@ -43,15 +45,27 @@ function acquire(signal?: AbortSignal | null): Promise<void> {
   });
 }
 
+/**
+ * Test-only: drop every taken slot and queued waiter. Production never calls
+ * it; the vitest setup does after each test so one test's never-settling
+ * request cannot starve the next one's.
+ */
+export function __resetLimitedFetchForTests(): void {
+  epoch++;
+  inFlight = 0;
+  waiting.length = 0;
+}
+
 /** `fetch`, but at most QUERY_FETCH_LIMIT calls run at once. */
 export async function limitedFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
   await acquire(init?.signal);
+  const mine = epoch;
   try {
     return await fetch(input, init);
   } finally {
-    release();
+    if (mine === epoch) release();
   }
 }

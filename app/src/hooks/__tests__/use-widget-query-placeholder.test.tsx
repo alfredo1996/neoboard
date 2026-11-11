@@ -32,7 +32,11 @@ function gatedFetch() {
               meta: { resultId: `r:${actor}` },
             },
           };
-    return new Promise<Response>((resolve) => {
+    return new Promise<Response>((resolve, reject) => {
+      // An unmounted hook aborts its request: honour it so the slot is freed (#2454).
+      init?.signal?.addEventListener("abort", () =>
+        reject(new DOMException("aborted", "AbortError")),
+      );
       gates.push(() =>
         resolve({
           ok: reply.ok,

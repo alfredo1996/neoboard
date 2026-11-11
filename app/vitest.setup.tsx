@@ -7,9 +7,15 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+import { __resetLimitedFetchForTests } from "@/lib/query/limited-fetch";
 
 // Clean up DOM after each test to prevent state leaks
 afterEach(() => cleanup());
+
+// The request limiter is module state shared by every test in a file. A test
+// that leaves a fetch unsettled keeps its slot, and under a shuffled order four
+// of them starve a later test (#2454): start each test with an empty limiter.
+afterEach(() => __resetLimitedFetchForTests());
 
 // Polyfill ResizeObserver — required by Radix UI primitives (Dialog, Popover, etc.)
 // A class, not vi.fn().mockImplementation(): an arrow-function mock is not
