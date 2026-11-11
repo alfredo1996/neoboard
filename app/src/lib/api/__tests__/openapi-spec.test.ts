@@ -187,6 +187,7 @@ describe("POST /api/query row cap and response (#1913)", () => {
     // does: rowLimit always, truncated only when true (#1965).
     const meta = write.properties?.meta;
     expect(Object.keys(meta?.properties ?? {})).toEqual([
+      "schedulerWaitMs",
       "serverDurationMs",
       "rowLimit",
       "truncated",

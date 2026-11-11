@@ -226,6 +226,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
       // to expand a node, on a connection the caller may not list (#2061).
       connectorType: connection.type,
       serverDurationMs,
+      schedulerWaitMs: ctx.metadata.schedulerWaitMs,
       rowLimit,
       ...(truncated ? { truncated: true } : {}),
     });

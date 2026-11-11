@@ -1,5 +1,6 @@
 import { queryLogger } from "@/lib/logger";
 import type {
+  QueryContext,
   QueryMiddlewareFn,
   QueryResult,
 } from "@/lib/query/pipeline-types";
@@ -31,6 +32,16 @@ function countRows(result: QueryResult): number {
   return 0;
 }
 
+function waitOf(ctx: QueryContext): number | undefined {
+  const wait = ctx.metadata.schedulerWaitMs;
+  return typeof wait === "number" ? wait : undefined;
+}
+
+/** Queue wait plus connector execution; durationMs stays execution only (#2438). */
+function totalOf(wait: number | undefined, durationMs: number): number {
+  return (wait ?? 0) + durationMs;
+}
+
 export const auditMiddleware: QueryMiddlewareFn = async (ctx, next) => {
   const startedAt = performance.now();
   const requestId = ctx.metadata.requestId as string | undefined;
@@ -38,7 +49,7 @@ export const auditMiddleware: QueryMiddlewareFn = async (ctx, next) => {
   try {
     const result = await next();
     const durationMs = Math.round(performance.now() - startedAt);
-    const schedulerWaitMs = ctx.metadata.schedulerWaitMs;
+    const schedulerWaitMs = waitOf(ctx);
     queryLogger.info(
       {
         event: "query_executed",
@@ -55,14 +66,15 @@ export const auditMiddleware: QueryMiddlewareFn = async (ctx, next) => {
         rowLimit: result.rowLimit,
         requestId,
         // Only included when the scheduler middleware ran (slice 2 of #129).
-        schedulerWaitMs:
-          typeof schedulerWaitMs === "number" ? schedulerWaitMs : undefined,
+        schedulerWaitMs,
+        totalMs: totalOf(schedulerWaitMs, durationMs),
       },
       "query_executed",
     );
     return result;
   } catch (err) {
     const durationMs = Math.round(performance.now() - startedAt);
+    const schedulerWaitMs = waitOf(ctx);
     queryLogger.warn(
       {
         event: "query_failed",
@@ -74,6 +86,8 @@ export const auditMiddleware: QueryMiddlewareFn = async (ctx, next) => {
         accessMode: ctx.accessMode,
         query: ctx.query,
         durationMs,
+        schedulerWaitMs,
+        totalMs: totalOf(schedulerWaitMs, durationMs),
         requestId,
         // Use pino's `err` key so stdSerializers picks it up and
         // serializes message + stack + code properly for Fluentd/ELK.

@@ -30,6 +30,7 @@ interface PreviewData {
   resultId: string;
   connectorType?: string;
   serverDurationMs?: number;
+  schedulerWaitMs?: number;
 }
 
 type WidgetPreviewPanelProps = Readonly<{
@@ -177,6 +178,8 @@ function renderChart(props: {
     previewQuery,
     initialPreviewData,
   } = props;
+  const waitMs = previewQuery.data?.schedulerWaitMs ?? 0;
+  const queued = waitMs > 0 ? `, ${Math.round(waitMs)} queued` : "";
 
   return (
     <>
@@ -238,7 +241,7 @@ function renderChart(props: {
           <p className="shrink-0 border-t px-2 py-1 text-[11px] text-muted-foreground">
             Preview shows up to {PREVIEW_ROW_LIMIT} rows
             {Number.isFinite(previewQuery.data?.serverDurationMs) &&
-              ` · ${Math.round(previewQuery.data?.serverDurationMs ?? 0)} ms`}
+              ` · ${Math.round(previewQuery.data?.serverDurationMs ?? 0)} ms${queued}`}
           </p>
         </div>
       ) : connectionId && query.trim() && !previewQuery.isError ? (

@@ -14,6 +14,7 @@ import {
   executeQuery,
   QUERY_DEADLINE_GRACE_MS,
 } from "@/lib/query/query-executor";
+import { queryLogger } from "@/lib/logger";
 import { schedulerMiddleware, withSchedulerSlot } from "../scheduler";
 import {
   resetSchedulerRegistry,
@@ -319,4 +320,58 @@ describe("a query the executor timed out", () => {
       queueDepth: 0,
     });
   });
+});
+
+describe("queue refusals are logged (#2438)", () => {
+  beforeEach(() => {
+    resetSchedulerRegistry();
+    vi.restoreAllMocks();
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    [
+      "QueueTimeoutError",
+      1,
+      { ...baseOptions, maxConcurrent: 1, maxPerUser: 5, queueTimeoutMs: 20 },
+    ],
+    [
+      "QueueRejectedError",
+      2,
+      { ...baseOptions, maxConcurrent: 1, maxPerUser: 5, maxQueueDepth: 1 },
+    ],
+  ])(
+    "%s writes one query_failed line and rethrows it",
+    async (name, holders, opts) => {
+      setDefaultSchedulerOptions(opts);
+      const warn = vi.spyOn(queryLogger, "warn").mockImplementation(() => {});
+      const hold = () =>
+        new Promise<QueryResult>((r) =>
+          setTimeout(() => r({ data: null }), 80),
+        );
+      const block = Promise.all(
+        Array.from({ length: holders }, () =>
+          schedulerMiddleware(makeContext({ userId: "blocker" }), hold),
+        ),
+      );
+      const ctx = makeContext({}, { requestId: "req-9" });
+      const err = await schedulerMiddleware(ctx, async () => ({
+        data: null,
+      })).catch((e: unknown) => e);
+      await block;
+      expect((err as Error).name).toBe(name);
+      expect(warn).toHaveBeenCalledTimes(1);
+      const [obj] = warn.mock.calls[0] as unknown as [Record<string, unknown>];
+      expect(obj).toMatchObject({
+        event: "query_failed",
+        errorCode: name,
+        connectionId: "conn-1",
+        requestId: "req-9",
+      });
+      expect(obj.err).toBe(err);
+      expect(typeof obj.schedulerWaitMs).toBe("number");
+      expect(obj.totalMs).toBe(obj.schedulerWaitMs);
+      expect(obj.durationMs).toBeUndefined();
+    },
+  );
 });
