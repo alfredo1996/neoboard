@@ -255,6 +255,26 @@ describe("POST /api/query/write", () => {
     );
   });
 
+  it("runs to the end when the browser aborts: no signal reaches the connector (#2444)", async () => {
+    mockRequireSession.mockResolvedValue(writerSession);
+    mockDashboardAndConnection();
+    mockDecryptJson.mockReturnValue({ uri: "bolt://localhost" });
+    mockExecuteQuery.mockResolvedValue({ data: { nodesCreated: 1 } });
+
+    const res = await POST({
+      ...makeRequest({
+        connectionId: "c1",
+        query: "CREATE (n:Test)",
+        widgetId: "w1",
+        dashboardId: "d1",
+      }),
+      signal: AbortSignal.abort(),
+    } as Request);
+
+    expect(res.status).toBe(200);
+    expect(mockExecuteQuery.mock.calls[0][3]).toEqual({ accessMode: "WRITE" });
+  });
+
   it("passes params correctly to executeQuery", async () => {
     mockRequireSession.mockResolvedValue(writerSession);
     mockDashboardAndConnection();

@@ -93,8 +93,9 @@ export const auditMiddleware: QueryMiddlewareFn = async (ctx, next) => {
         // serializes message + stack + code properly for Fluentd/ELK.
         err: err instanceof Error ? err : String(err),
         // Machine-readable error type for filtering/alerting
-        errorCode:
-          err instanceof Error
+        errorCode: ctx.signal?.aborted
+          ? "aborted"
+          : err instanceof Error
             ? ((err as Error & { code?: string }).code ?? err.name)
             : "UNKNOWN",
       },

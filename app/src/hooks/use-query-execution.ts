@@ -2,6 +2,7 @@
 
 import { limitedFetch } from "@/lib/query/limited-fetch";
 import { useMutation } from "@tanstack/react-query";
+import { useRef } from "react";
 import { unwrapFullResponse } from "@/lib/api/api-client";
 
 interface QueryInput {
@@ -27,12 +28,19 @@ interface QueryResult {
 }
 
 export function useQueryExecution() {
+  // A new run replaces the one before it: the server stops the old query
+  // instead of finishing a result nobody will read (#2444).
+  const previous = useRef<AbortController | undefined>(undefined);
   return useMutation<QueryResult, Error, QueryInput>({
     mutationFn: async (input) => {
+      previous.current?.abort();
+      const controller = new AbortController();
+      previous.current = controller;
       const res = await limitedFetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
+        signal: controller.signal,
       });
       const { data, meta } = await unwrapFullResponse<{ data: unknown }>(res);
       return { ...data, ...meta } as QueryResult;

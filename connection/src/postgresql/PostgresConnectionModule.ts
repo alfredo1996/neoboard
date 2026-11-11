@@ -11,13 +11,21 @@ import {
   resolveQueryTimeout,
   wrapError,
 } from "@neoboard/connector-sdk";
-import { attachClientErrorGuard, isAuthenticationError } from "./utils";
+import {
+  attachClientErrorGuard,
+  cancelBackendOnAbort,
+  isAuthenticationError,
+} from "./utils";
 import { PostgresAuthenticationModule } from "./PostgresAuthenticationModule";
 import { PostgresRecordParser } from "./PostgresRecordParser";
 import { Pool, PoolClient, FieldDef } from "pg";
+import { randomUUID } from "node:crypto";
 import { readBoundedCursor, drainBoundedCursor } from "./cursor-read";
 import { toPositionalParams } from "./positional-params";
 import { classifyPostgresError } from "./classify-error";
+
+const ABORTED = () =>
+  new ConnectorError("The query was aborted", ConnectorErrorType.QUERY);
 
 /**
  * PostgreSQL Connection Module
@@ -137,6 +145,7 @@ export class PostgresConnectionModule extends ConnectionModule {
     // pool saturated) routes to onFail instead of rejecting _runSqlQuery. (#CRITICAL)
     let client: PoolClient | undefined;
     let releaseErrorGuard: (() => void) | undefined;
+    let stopWatching: (() => void) | undefined;
 
     try {
       // The app sends named parameters to every connector; node-pg binds
@@ -150,12 +159,17 @@ export class PostgresConnectionModule extends ConnectionModule {
       client = await pool.connect();
       releaseErrorGuard = attachClientErrorGuard(client);
 
+      // Reads only: a write that was sent runs to its end (#2444).
+      const isReadOnly = config.accessMode !== "WRITE";
+      const signal = isReadOnly ? config.signal : undefined;
+      const cancelTag = `neoboard-${randomUUID()}`;
+      stopWatching = cancelBackendOnAbort(pool, client, signal, cancelTag);
+
       // Start transaction based on access mode. Fail CLOSED: only an explicit
       // "WRITE" gets a read-write transaction; any other value (undefined, or a
       // mis-cased "read" that has reached this layer before, #1044) stays READ
       // ONLY so a non-Form query can never write. Mirrors Neo4j's
       // executeRead-unless-WRITE contract. (#HIGH)
-      const isReadOnly = config.accessMode !== "WRITE";
       await this._beginTransaction(client, isReadOnly);
 
       // Set statement timeout — always. An explicit per-query config.timeout
@@ -168,7 +182,12 @@ export class PostgresConnectionModule extends ConnectionModule {
       const timeoutMs = Math.floor(
         resolveQueryTimeout(config.timeout, this.statementTimeout),
       );
-      await client.query(`SET LOCAL statement_timeout = '${timeoutMs}'`);
+      // The tag names THIS transaction on the backend, so a late cancel can
+      // never hit the next query that reuses the client (#2444).
+      await client.query(
+        `SET LOCAL statement_timeout = '${timeoutMs}'` +
+          (signal ? `; SET LOCAL application_name = '${cancelTag}'` : ""),
+      );
 
       // Both paths stream through a server-side cursor so a huge result set
       // never buffers in memory; each pulls at most rowLimit + 1 rows for the
@@ -182,6 +201,9 @@ export class PostgresConnectionModule extends ConnectionModule {
       let fetchedRows: Record<string, unknown>[];
       let fields: FieldDef[] | undefined;
       let affectedRowCount: number | undefined;
+
+      // A cancel sent before the statement starts finds nothing to cancel.
+      if (signal?.aborted) throw ABORTED();
 
       if (isReadOnly) {
         const batch = await readBoundedCursor(
@@ -261,8 +283,12 @@ export class PostgresConnectionModule extends ConnectionModule {
         }
       }
 
-      // Wrap raw error into normalized ConnectorError
-      const wrapped = wrapError(error, classifyPostgresError);
+      // Wrap raw error into normalized ConnectorError. The 57014 of our own
+      // cancel is the abort, not a timeout.
+      const wrapped =
+        config.signal?.aborted && config.accessMode !== "WRITE"
+          ? ABORTED()
+          : wrapError(error, classifyPostgresError);
       callbacks.setStatus?.(
         wrapped.type === ConnectorErrorType.TIMEOUT
           ? QueryStatus.TIMED_OUT
@@ -271,6 +297,7 @@ export class PostgresConnectionModule extends ConnectionModule {
       callbacks.onFail?.(wrapped);
       return undefined;
     } finally {
+      stopWatching?.();
       releaseErrorGuard?.();
       client?.release();
     }

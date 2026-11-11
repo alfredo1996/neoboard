@@ -13,9 +13,10 @@
  *  - named parameters (the row-limit query is bound by name, as the app
  *    sends every parameter — a connector that drops it returns no rows)
  *
- * Cancellation-cleanup ("no leaked cursor after a timed-out query") isn't
- * covered here: the contract has no generic cancel API, and leak detection is
- * connector-specific. Connectors that can observe it assert it in their own
+ *  - cancellation (a read whose `signal` aborts settles at once, #2444)
+ *
+ * Leak detection ("no leaked cursor after a timed-out query") isn't
+ * covered here: it is connector-specific. Connectors that can observe it assert it in their own
  * teardown (the built-ins are guarded by the #978 pg-cursor timeout tests).
  */
 
@@ -209,6 +210,36 @@ export function buildConformanceCases(
         if (!timedOut) {
           throw new Error(
             "timeout violation: with no timeout configured, a slow query ran past the default timeout",
+          );
+        }
+      },
+    },
+    {
+      // An abandoned read must end on the database, not run to its timeout
+      // (#2444). The query is `slow`, the timeout is long, so only the abort
+      // can settle it this fast.
+      name: "stops a running read when its signal aborts",
+      run: async () => {
+        const controller = new AbortController();
+        const startedAt = Date.now();
+        const timer = setTimeout(() => controller.abort(), 300);
+        let captured: Captured;
+        try {
+          captured = await execute(getModule(), setup.queries.slow, {
+            ...base,
+            accessMode: "READ",
+            timeout: 30_000,
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+        const elapsed = Date.now() - startedAt;
+        if (captured.error === undefined || elapsed > 2500) {
+          throw new Error(
+            `cancel violation: an aborted read settled after ${elapsed} ms with ${
+              captured.error === undefined ? "no failure" : "a failure"
+            }; expected a failure within 2.5 s`,
           );
         }
       },

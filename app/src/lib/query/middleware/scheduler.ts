@@ -1,5 +1,6 @@
 import { queryLogger } from "@/lib/logger";
 import {
+  isQueryAborted,
   isQueueRejected,
   isQueueTimeout,
   type QueryPriority,
@@ -48,7 +49,13 @@ function resolvePriority(raw: unknown): QueryPriority {
  * per-connection budget as the queries do.
  */
 export async function withSchedulerSlot<T>(
-  who: { connectionId: string; userId: string; priority: QueryPriority },
+  who: {
+    connectionId: string;
+    userId: string;
+    priority: QueryPriority;
+    /** Withdraws the ticket while it waits; a running one keeps its slot. */
+    signal?: AbortSignal;
+  },
   work: (waitMs: number) => Promise<T>,
 ): Promise<T> {
   const scheduler = getScheduler(who.connectionId);
@@ -62,7 +69,7 @@ export async function withSchedulerSlot<T>(
     enqueuedAt: Date.now(),
   };
 
-  await scheduler.enqueue(ticket);
+  await scheduler.enqueue(ticket, who.signal);
   try {
     return await work(Date.now() - ticket.enqueuedAt);
   } finally {
@@ -81,6 +88,7 @@ export const schedulerMiddleware: QueryMiddlewareFn = async (
         connectionId: ctx.connectionId,
         userId: ctx.userId,
         priority: resolvePriority(ctx.metadata.priority),
+        signal: ctx.signal,
       },
       (waitMs) => {
         ctx.metadata.schedulerWaitMs = waitMs;
@@ -90,7 +98,7 @@ export const schedulerMiddleware: QueryMiddlewareFn = async (
   } catch (err) {
     // A refusal never reaches the audit middleware (it sits inside this one),
     // so it writes its own query_failed line (#2438).
-    if (isQueueTimeout(err) || isQueueRejected(err)) {
+    if (isQueueTimeout(err) || isQueueRejected(err) || isQueryAborted(err)) {
       const waited = Date.now() - enqueuedAt;
       queryLogger.warn(
         {
@@ -107,7 +115,7 @@ export const schedulerMiddleware: QueryMiddlewareFn = async (
           totalMs: waited,
           requestId: ctx.metadata.requestId,
           err,
-          errorCode: err.name,
+          errorCode: isQueryAborted(err) ? "aborted" : (err as Error).name,
         },
         "query_failed",
       );

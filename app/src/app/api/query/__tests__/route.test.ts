@@ -188,6 +188,49 @@ describe("POST /api/query", () => {
     expect(res.status).toBe(200);
   });
 
+  describe("an abandoned request (#2444)", () => {
+    const withSignal = (signal: AbortSignal) =>
+      ({
+        ...makeRequest({ connectionId: "c1", query: "SELECT 1" }),
+        signal,
+      }) as Request;
+
+    beforeEach(() => {
+      mockRequireSession.mockResolvedValue(defaultSession);
+      mockDb.select.mockReturnValue(
+        drizzleSelectChain([
+          {
+            id: "c1",
+            type: "postgresql",
+            configEncrypted: "enc",
+            userId: "user-1",
+          },
+        ]),
+      );
+      mockDecryptJson.mockReturnValue({ uri: "postgres://localhost" });
+    });
+
+    it("hands the request's signal to the connector call", async () => {
+      const controller = new AbortController();
+      mockExecuteQuery.mockResolvedValue({ data: [] });
+      await POST(withSignal(controller.signal));
+      expect(mockExecuteQuery.mock.calls[0][3].signal).toBe(controller.signal);
+    });
+
+    it("answers 499, not a server error, when the browser left", async () => {
+      const controller = new AbortController();
+      mockExecuteQuery.mockImplementation(async () => {
+        controller.abort();
+        throw new ConnectorError(
+          "The query was aborted",
+          ConnectorErrorType.QUERY,
+        );
+      });
+      const res = await POST(withSignal(controller.signal));
+      expect(res.status).toBe(499);
+    });
+  });
+
   it("returns 200 with resultId on happy path (no tenantId in body)", async () => {
     mockRequireSession.mockResolvedValue(defaultSession);
     mockDb.select.mockReturnValue(

@@ -410,3 +410,58 @@ describe("QueryScheduler — getStats", () => {
     expect(stats.queueDepthByPriority).toEqual({ p1: 1, p2: 2, p3: 1 });
   });
 });
+
+describe("QueryScheduler — abort (#2444)", () => {
+  it("an abort removes a waiting ticket: it rejects and never takes a slot", async () => {
+    const s = new QueryScheduler(opts({ maxConcurrent: 1 }));
+    const running = ticket("u1");
+    await s.enqueue(running);
+    const controller = new AbortController();
+    const waiting = s.enqueue(ticket("u1"), controller.signal);
+    const outcome = waiting.catch((e: Error) => e.name);
+    expect(s.getStats().queueDepth).toBe(1);
+
+    controller.abort();
+    expect(await outcome).toBe("QueryAbortedError");
+    expect(s.getStats().queueDepth).toBe(0);
+
+    s.release(running.id);
+    expect(s.getStats().activeQueries).toBe(0);
+  });
+
+  it("an abort leaves the other waiters in line", async () => {
+    const s = new QueryScheduler(opts({ maxConcurrent: 1 }));
+    const running = ticket("u1");
+    await s.enqueue(running);
+    const controller = new AbortController();
+    const aborted = s.enqueue(ticket("u1"), controller.signal);
+    aborted.catch(() => {});
+    const next = ticket("u1");
+    const kept = s.enqueue(next);
+    controller.abort();
+    s.release(running.id);
+    await expect(kept).resolves.toBeUndefined();
+    expect(s.getStats().activeQueries).toBe(1);
+  });
+
+  it("a signal already aborted rejects at once without queueing", async () => {
+    const s = new QueryScheduler(opts());
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      s.enqueue(ticket("u1"), controller.signal),
+    ).rejects.toMatchObject({ name: "QueryAbortedError" });
+    expect(s.getStats().activeQueries).toBe(0);
+  });
+
+  it("an abort after the grant keeps the slot until release", async () => {
+    const s = new QueryScheduler(opts({ maxConcurrent: 1 }));
+    const controller = new AbortController();
+    const running = ticket("u1");
+    await s.enqueue(running, controller.signal);
+    controller.abort();
+    expect(s.getStats().activeQueries).toBe(1);
+    s.release(running.id);
+    expect(s.getStats().activeQueries).toBe(0);
+  });
+});

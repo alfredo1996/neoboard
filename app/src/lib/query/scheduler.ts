@@ -37,6 +37,7 @@
  *   with:
  *     - `QueueRejectedError` on depth limit or shedding
  *     - `QueueTimeoutError` if the wait exceeds `queueTimeoutMs`
+ *     - `QueryAbortedError` if the optional `signal` aborts while waiting
  *     - a generic `Error("scheduler shutting down")` on `shutdown()`
  *
  *   The caller MUST call `release(ticketId)` exactly once after the
@@ -93,6 +94,14 @@ export class QueueTimeoutError extends Error {
   }
 }
 
+/** The caller gave up on a ticket still waiting for a slot (#2444). */
+export class QueryAbortedError extends Error {
+  constructor(message = "query aborted before it started") {
+    super(message);
+    this.name = "QueryAbortedError";
+  }
+}
+
 /**
  * The scheduler's errors, recognised by name, never by `instanceof` (#2008).
  * A production build loads this module once per bundle, and the scheduler on
@@ -106,6 +115,11 @@ export function isQueueRejected(error: unknown): error is QueueRejectedError {
 /** See {@link isQueueRejected}. */
 export function isQueueTimeout(error: unknown): error is QueueTimeoutError {
   return error instanceof Error && error.name === "QueueTimeoutError";
+}
+
+/** See {@link isQueueRejected}. */
+export function isQueryAborted(error: unknown): error is QueryAbortedError {
+  return error instanceof Error && error.name === "QueryAbortedError";
 }
 
 // ---------------------------------------------------------------------------
@@ -161,7 +175,8 @@ export class QueryScheduler {
    * Enqueue a ticket. Returns a promise that resolves once the ticket
    * is granted a slot, or rejects with one of the scheduler errors.
    */
-  enqueue(ticket: QueryTicket): Promise<void> {
+  enqueue(ticket: QueryTicket, signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) return Promise.reject(new QueryAbortedError());
     if (this.shuttingDown) {
       return Promise.reject(new Error("scheduler shutting down"));
     }
@@ -196,17 +211,31 @@ export class QueryScheduler {
     }
 
     // Slow path — queue the waiter with a timeout.
+    // An abort withdraws the waiter. A ticket already granted is not touched:
+    // its slot frees when its query settles and the caller releases it (#2444).
     return new Promise<void>((resolve, reject) => {
+      const onAbort = () => {
+        clearTimeout(waiter.timer);
+        this.removeWaiter(ticket.priority, ticket.userId, waiter);
+        waiter.reject(new QueryAbortedError());
+      };
       const waiter: Waiter = {
         ticket,
-        resolve,
-        reject,
+        resolve: () => {
+          signal?.removeEventListener("abort", onAbort);
+          resolve();
+        },
+        reject: (err) => {
+          signal?.removeEventListener("abort", onAbort);
+          reject(err);
+        },
         timer: setTimeout(() => {
           // Remove from queue and reject with timeout.
           this.removeWaiter(ticket.priority, ticket.userId, waiter);
-          reject(new QueueTimeoutError());
+          waiter.reject(new QueueTimeoutError());
         }, this.options.queueTimeoutMs),
       };
+      signal?.addEventListener("abort", onAbort, { once: true });
       this.push(waiter);
     });
   }

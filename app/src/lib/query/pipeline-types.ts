@@ -16,6 +16,11 @@ export interface QueryContext {
   accessMode: "read" | "write";
   /** Scratch space for middleware (impersonation tags, cache keys, etc.). */
   metadata: Record<string, unknown>;
+  /**
+   * Fires when the browser abandons the request (#2444). Set by the read
+   * route only: a write or form submit that was sent always runs to the end.
+   */
+  signal?: AbortSignal;
 }
 
 /**

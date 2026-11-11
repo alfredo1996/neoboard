@@ -1,4 +1,5 @@
-import type { Pool, QueryConfig, QueryResultRow } from "pg";
+import { Client } from "pg";
+import type { Pool, PoolClient, QueryConfig, QueryResultRow } from "pg";
 import { DEFAULT_CONNECTION_CONFIG } from "@neoboard/connector-sdk";
 import { AUTHENTICATION_SQLSTATES } from "./classify-error";
 
@@ -85,4 +86,47 @@ export async function runBoundedQuery<
     releaseErrorGuard();
     client.release(failure);
   }
+}
+
+/**
+ * Cancels the statement running on `client`'s backend when `signal` aborts
+ * (#2444): `pg_cancel_backend(pid)` sent over a short-lived client of its own.
+ * Not the pool: its default size equals the scheduler's cap, so it may have no
+ * free client at the moment the cancel is needed. The cancelled statement
+ * rejects on its own connection (57014) and the query settles there. Returns
+ * the cleanup to call once the query is done. The cancel only lands while the
+ * backend still carries `tag` (set LOCAL in the query's transaction), so one
+ * that arrives late cannot hit whatever query reuses the client next.
+ *
+ * ponytail: a cancel that lands between two statements of the transaction is
+ * lost; the caller checks `signal.aborted` before the statement that matters.
+ */
+export function cancelBackendOnAbort(
+  pool: Pool,
+  client: PoolClient,
+  signal: AbortSignal | undefined,
+  tag: string,
+): () => void {
+  const pid = (client as unknown as { processID?: number }).processID;
+  if (!signal || typeof pid !== "number") return () => {};
+  const onAbort = () => {
+    const canceller = new Client(pool.options);
+    canceller.on("error", () => {});
+    canceller
+      .connect()
+      .then(() =>
+        canceller.query(
+          "SELECT pg_cancel_backend(pid) FROM pg_stat_activity WHERE pid = $1 AND application_name = $2",
+          [pid, tag],
+        ),
+      )
+      .catch(() => {})
+      .finally(() => canceller.end().catch(() => {}));
+  };
+  if (signal.aborted) {
+    onAbort();
+    return () => {};
+  }
+  signal.addEventListener("abort", onAbort, { once: true });
+  return () => signal.removeEventListener("abort", onAbort);
 }
