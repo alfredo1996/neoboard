@@ -619,6 +619,10 @@ import {
 } from "@neoboard/connector-sdk";
 import { MyDbConnectionModule } from "../src/connection.js";
 
+// Your own lookup of the statements running on the database (its process
+// list, through an admin client), used by isQueryActive below.
+declare function countRunning(marker: string): Promise<number>;
+
 describe("MyDB query-safety conformance", () => {
   let connection: MyDbConnectionModule;
 
