@@ -115,7 +115,7 @@ export function DashboardEditToolbar({
             aria-label="Add Widget"
           >
             <Plus className="h-4 w-4 xl:mr-2" />
-            {/* Icon-only below xl and no hints below xl: the actions must not wrap the header taller (#2352). */}
+            {/* Icon-only and without hints below xl: the actions must not wrap the header taller (#2352, #2366). */}
             <span className="hidden xl:inline">Add Widget</span>
             <span className="hidden xl:contents">
               <ShortcutHint combo="Cmd+Shift+N" />

@@ -101,6 +101,10 @@ for (const width of [1280, 1024, 834, 768]) {
         await expect(page.getByText("Notes").first()).toBeVisible({
           timeout: 15_000,
         });
+        const filters = page.getByRole("button", {
+          name: /^Filters/,
+        });
+        if (withFilter) await expect(filters).toBeVisible();
         const view = await geometry(page);
 
         await page.getByRole("button", { name: "Edit", exact: true }).click();
@@ -108,6 +112,7 @@ for (const width of [1280, 1024, 834, 768]) {
         await expect(
           page.getByRole("button", { name: "Drag to reorder" }).first(),
         ).toBeVisible({ timeout: 15_000 });
+        if (withFilter) await expect(filters).toBeVisible();
         const edit = await geometry(page);
 
         expect(view).not.toBeNull();
