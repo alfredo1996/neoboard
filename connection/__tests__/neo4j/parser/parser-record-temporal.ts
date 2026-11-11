@@ -157,43 +157,44 @@ describe("Neo4jRecordParser - Temporal Parsing", () => {
     expect(period).toBe("P5M10DT1M0.0000005S");
   });
 
-  test("should correctly parse a Neo4j LocalTime value", async () => {
-    const config = getNeo4jAuth();
-    const connection = new Neo4jConnectionModule(config);
+  // Fixed values, not localtime(): the clock lands on a whole second now and
+  // then, and the driver prints no fraction for 0 nanoseconds (#2391).
+  test.each([
+    [
+      "with a fraction",
+      "localtime({hour: 12, minute: 34, second: 56, nanosecond: 123000000})",
+      "12:34:56.123000000",
+    ],
+    [
+      "on a whole second",
+      "localtime({hour: 12, minute: 34, second: 56})",
+      "12:34:56",
+    ],
+  ])(
+    "should correctly parse a Neo4j LocalTime value %s",
+    async (_name, expr, expected) => {
+      const connection = new Neo4jConnectionModule(getNeo4jAuth());
 
-    const queryParams: QueryParams = {
-      query: "RETURN localtime() AS currentTime",
-      params: {},
-    };
+      let parsed: NeodashRecord[] | undefined;
+      const queryCallback: QueryCallback<any> = {
+        onSuccess: (r) => {
+          parsed = r;
+        },
+        onFail: (error) => {
+          console.error("Error during query execution:", error);
+          throw error;
+        },
+      };
 
-    let parsed: NeodashRecord[] | undefined;
-    const queryCallback: QueryCallback<any> = {
-      onSuccess: (r) => {
-        parsed = r;
-      },
-      onFail: (error) => {
-        console.error("Error during query execution:", error);
-        throw error;
-      },
-    };
+      await connection.runQuery(
+        { query: `RETURN ${expr} AS t`, params: {} },
+        queryCallback,
+        NEO4J_TEST_CONNECTION_CONFIG,
+      );
 
-    await connection.runQuery(
-      queryParams,
-      queryCallback,
-      NEO4J_TEST_CONNECTION_CONFIG,
-    );
-
-    expect(parsed).toBeDefined();
-    const currentTime = parsed![0]["currentTime"];
-    expect(currentTime).toBeDefined();
-
-    expect(typeof currentTime).toBe("string");
-
-    // Exact widths: the old \d{1,2} / \d{1,9} form passed on "12:5:3.400",
-    // which is what let a 10^6 nanosecond error through review (#1306).
-    const timeFormatRegex = /^\d{2}:\d{2}:\d{2}\.\d{9}$/;
-    expect(timeFormatRegex.test(currentTime)).toBe(true);
-  });
+      expect(parsed![0].t).toBe(expected);
+    },
+  );
 
   test("should correctly parse a Neo4j Time value with offset", async () => {
     const config = getNeo4jAuth();
