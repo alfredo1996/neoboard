@@ -26,6 +26,14 @@ function cardFor(page: Page, name: string): Locator {
     .filter({ has: page.getByRole("button", actions(name)) });
 }
 
+/** Delete the connection a test created, by id found through its unique name (#2363). */
+async function removeCreated(page: Page, name: string) {
+  const list = await page.request.get("/api/connections?limit=200");
+  const { data } = await list.json();
+  const row = data.find((c: { name: string }) => c.name === name);
+  if (row) await page.request.delete(`/api/connections/${row.id}?force=true`);
+}
+
 /** A card's status badge — not the toast region, which is also role=status. */
 function badgeOf(card: Locator): Locator {
   return card.locator('output[aria-label^="Connection status"]');
@@ -230,7 +238,11 @@ test.describe("Connections", () => {
     await dialog.locator("#conn-password").fill("neoboard123");
     await dialog.getByRole("button", { name: "Create" }).click();
 
-    await expect(page.getByText(name)).toBeVisible();
+    try {
+      await expect(page.getByText(name)).toBeVisible();
+    } finally {
+      await removeCreated(page, name);
+    }
   });
 
   test("should create a PostgreSQL connection", async ({ page }) => {
@@ -249,7 +261,11 @@ test.describe("Connections", () => {
     await dialog.locator("#conn-database").fill("movies");
     await dialog.getByRole("button", { name: "Create" }).click();
 
-    await expect(page.getByText(name)).toBeVisible();
+    try {
+      await expect(page.getByText(name)).toBeVisible();
+    } finally {
+      await removeCreated(page, name);
+    }
   });
 
   test("should manually test a connection", async ({ page }) => {
