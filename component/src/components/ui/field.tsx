@@ -94,7 +94,12 @@ function Field({
   );
 
   return (
-    <div className={cn("grid content-start gap-1.5", className)}>
+    <div
+      className={cn(
+        "grid grid-cols-[minmax(0,1fr)] content-start gap-1.5",
+        className,
+      )}
+    >
       {/* The label id sits on the plain label and the marker has its own: the
           field's own control lists both ("Score (optional)"), a composed name
           ("Score minimum") lists only the label. */}
