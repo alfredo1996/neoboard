@@ -3,6 +3,10 @@ import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 // 12 cards on one slow connection used to own the browser's six connections,
 // and the navigation's own request queued behind them for ~34 s (#2443).
 const CARDS = 12;
+// The server cancels nothing until #2444, so a sleep outlives the test:
+// 8 s outlasts only the settle time and the 3 s window, and spares the other
+// worker's ALICE queries on this connection.
+const QUERY_FETCH_LIMIT = 4; // mirrors app/src/lib/query/limited-fetch.ts
 
 test.describe("Leaving a loading dashboard", () => {
   test.beforeEach(async ({ authPage }) => {
@@ -23,7 +27,7 @@ test.describe("Leaving a loading dashboard", () => {
         id: `w${i}`,
         chartType: "table",
         connectionId: "conn-pg-001",
-        query: `SELECT pg_sleep(20), ${i} AS n`,
+        query: `SELECT pg_sleep(8), ${i} AS n`,
         settings: { title: `Slow ${i}` },
       }));
       const res = await page.request.put(`/api/dashboards/${id}`, {
@@ -49,23 +53,27 @@ test.describe("Leaving a loading dashboard", () => {
       });
       if (!res.ok()) throw new Error(`PUT dashboard failed: ${res.status()}`);
 
+      let queryRequests = 0;
+      page.on("request", (r) => {
+        if (new URL(r.url()).pathname === "/api/query") queryRequests++;
+      });
       await page.goto(`/${id}`);
       await expect(
         page.getByRole("heading", { name: "Slow 0", exact: true }),
       ).toBeVisible({ timeout: 15_000 });
-      await page.waitForTimeout(1_500);
-
-      let sentAfterClick = 0;
-      page.on("request", (r) => {
-        if (new URL(r.url()).pathname === "/api/query") sentAfterClick++;
-      });
+      // The limiter lets exactly four through; without it all 12 are issued.
+      await expect
+        .poll(() => queryRequests)
+        .toBeGreaterThanOrEqual(QUERY_FETCH_LIMIT);
+      expect(queryRequests).toBe(QUERY_FETCH_LIMIT);
+      const sentBeforeClick = queryRequests;
       await page
         .getByRole("button", { name: "Connections", exact: true })
         .click();
       await expect(
         page.getByRole("heading", { name: "Connections", exact: true }),
       ).toBeVisible({ timeout: 3_000 });
-      expect(sentAfterClick).toBe(0);
+      expect(queryRequests).toBe(sentBeforeClick);
     } finally {
       await cleanup();
     }

@@ -27,7 +27,15 @@ describe("useSeedQuery — a new search term keeps the options on screen (#1742)
           JSON.stringify({ data: [{ value: "keanu", label: "Keanu Reeves" }] }),
         ),
       )
-      .mockImplementation(() => new Promise<Response>(() => {}));
+      .mockImplementation(
+        (_url, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            // Like real fetch: settle on abort, so the limiter's slot is freed.
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("aborted", "AbortError")),
+            );
+          }),
+      );
   });
 
   afterEach(() => {

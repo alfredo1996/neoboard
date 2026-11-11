@@ -7,7 +7,9 @@
  * a navigation always finds a free connection.
  *
  * ponytail: four in flight per tab; over HTTP/2 the browser pool is no longer
- * the limit and this can rise.
+ * the limit and this can rise. The slot frees when headers arrive, not when
+ * the caller has read the JSON body, so a result near the row cap can briefly
+ * overshoot the four.
  */
 export const QUERY_FETCH_LIMIT = 4;
 
@@ -19,15 +21,8 @@ function release() {
   waiting.shift()?.();
 }
 
-function abortError(signal: AbortSignal): unknown {
-  return (
-    signal.reason ??
-    new DOMException("The operation was aborted.", "AbortError")
-  );
-}
-
 function acquire(signal?: AbortSignal | null): Promise<void> {
-  if (signal?.aborted) return Promise.reject(abortError(signal));
+  if (signal?.aborted) return Promise.reject(signal.reason);
   if (inFlight < QUERY_FETCH_LIMIT) {
     inFlight++;
     return Promise.resolve();
@@ -39,9 +34,9 @@ function acquire(signal?: AbortSignal | null): Promise<void> {
       resolve();
     };
     const onAbort = () => {
-      const i = waiting.indexOf(start);
-      if (i >= 0) waiting.splice(i, 1);
-      reject(abortError(signal!));
+      // start() removes this listener, so a waiter that fires is still queued.
+      waiting.splice(waiting.indexOf(start), 1);
+      reject(signal?.reason);
     };
     waiting.push(start);
     signal?.addEventListener("abort", onAbort, { once: true });
