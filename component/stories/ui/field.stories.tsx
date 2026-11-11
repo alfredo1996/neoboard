@@ -144,5 +144,13 @@ export const LongValueStaysInColumn: Story = {
         `trigger overflows its column by ${box.right - column.right}px`,
       );
     }
+    const chevron = trigger.querySelector("svg")!.getBoundingClientRect();
+    if (chevron.right > box.right + 0.5) {
+      throw new Error("chevron is pushed outside the trigger");
+    }
+    const label = trigger.querySelector("span")!;
+    if (label.scrollWidth <= label.clientWidth) {
+      throw new Error("long label is not ellipsized");
+    }
   },
 };
