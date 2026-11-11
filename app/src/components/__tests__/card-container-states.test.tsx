@@ -1253,7 +1253,11 @@ describe("CardContainer - Stop on a slow card (#2446)", () => {
     expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
 
     act(() => vi.advanceTimersByTime(1));
-    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    const stop = screen.getByRole("button", { name: "Stop" });
+    // one row: text left, Stop right (the approved mock)
+    expect(stop.parentElement).toBe(screen.getByText(/^Loading/).parentElement);
+    expect(stop.parentElement?.className).toContain("justify-between");
+    fireEvent.click(stop);
     expect(state.stop).toHaveBeenCalledTimes(1);
   });
 
@@ -1263,6 +1267,9 @@ describe("CardContainer - Stop on a slow card (#2446)", () => {
     render(<CardContainer widget={makeWidget()} />);
 
     expect(screen.getByText("Stopped")).toBeDefined();
+    expect(screen.getByTestId("stopped-icon").getAttribute("class")).toContain(
+      "lucide-circle-stop",
+    );
     expect(
       screen.getByText("The query was stopped before it finished."),
     ).toBeDefined();

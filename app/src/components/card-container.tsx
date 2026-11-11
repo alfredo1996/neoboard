@@ -36,7 +36,14 @@ import React, {
   useLayoutEffect,
   useState,
 } from "react";
-import { AlertCircle, Clock, Play, Square, Unplug } from "lucide-react";
+import {
+  AlertCircle,
+  CircleStop,
+  Clock,
+  Play,
+  Square,
+  Unplug,
+} from "lucide-react";
 import {
   QueueFullError,
   ClientQueueTimeoutError,
@@ -248,7 +255,7 @@ function ConnectorUnavailable({
  */
 const STOP_AFTER_MS = 5000;
 
-/** The loading card; past STOP_AFTER_MS it offers Stop under the loading text. */
+/** The loading card; past STOP_AFTER_MS it offers Stop beside the loading text. */
 function LoadingCard({
   title,
   onStop,
@@ -264,20 +271,22 @@ function LoadingCard({
         <Skeleton className="h-3 w-2/5" />
         <Skeleton className="h-28 w-full" />
       </div>
-      <output className="block text-xs text-muted-foreground">
-        Loading {title || "this widget"}…
-      </output>
-      {slow && (
-        <Button
-          variant="secondary"
-          size="sm"
-          className="h-7 shrink-0 gap-1.5 px-2.5 text-xs"
-          onClick={onStop}
-        >
-          <Square className="h-3 w-3 fill-current" aria-hidden />
-          Stop
-        </Button>
-      )}
+      <div className="flex items-center justify-between gap-3">
+        <output className="block text-xs text-muted-foreground">
+          Loading {title || "this widget"}…
+        </output>
+        {slow && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-7 shrink-0 gap-1.5 px-2.5 text-xs"
+            onClick={onStop}
+          >
+            <Square className="h-3 w-3 fill-current" aria-hidden />
+            Stop
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -287,8 +296,9 @@ function StoppedCard({ onRunAgain }: Readonly<{ onRunAgain: () => void }>) {
   return (
     <div className="flex h-full min-h-0 flex-col items-center justify-center gap-1.5 overflow-hidden p-3 text-center">
       <p className="flex items-center gap-1.5 text-sm font-medium">
-        <Square
-          className="h-3.5 w-3.5 shrink-0 fill-current text-muted-foreground"
+        <CircleStop
+          className="h-4 w-4 shrink-0 text-muted-foreground"
+          data-testid="stopped-icon"
           aria-hidden
         />
         Stopped
