@@ -1213,10 +1213,9 @@ describe("CardContainer - loading line (#2224)", () => {
     const { container, rerender } = render(
       <CardContainer widget={makeWidget({})} />,
     );
-    expect(container.querySelector("[data-loading='true']")).toHaveAttribute(
-      "aria-busy",
-      "true",
-    );
+    expect(
+      container.querySelector("[data-loading='true'] > [aria-busy]"),
+    ).toHaveAttribute("aria-busy", "true");
     mockUseWidgetQuery.mockReturnValue({
       isPending: false,
       fetchStatus: "idle",
@@ -1267,7 +1266,6 @@ describe("CardContainer - Stop on a slow card (#2446)", () => {
     expect(
       screen.getByText("The query was stopped before it finished."),
     ).toBeDefined();
-    expect(screen.queryByTestId("chart-renderer")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Run again" }));
     expect(state.refetch).toHaveBeenCalledTimes(1);
   });

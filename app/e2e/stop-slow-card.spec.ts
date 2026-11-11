@@ -1,7 +1,7 @@
 import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 
 // A card still loading after 5 s offers Stop (#2446). The server cancels
-// nothing until #2444, so the sleep outlives the test; 20 s spares the rest.
+// nothing until #2444, so the sleep outlives the test; 12 s outlasts Stop at 5 s and spares the other workers.
 test.describe("Stopping a slow card", () => {
   test.beforeEach(async ({ authPage }) => {
     await authPage.login(ALICE.email, ALICE.password);
@@ -20,7 +20,7 @@ test.describe("Stopping a slow card", () => {
         id: "w0",
         chartType: "table",
         connectionId: "conn-pg-001",
-        query: "SELECT pg_sleep(20), 1 AS n",
+        query: "SELECT pg_sleep(12), 1 AS n",
         settings: { title: "Slow card" },
       };
       const res = await page.request.put(`/api/dashboards/${id}`, {
@@ -68,7 +68,7 @@ test.describe("Stopping a slow card", () => {
       await expect(
         page.getByText("Loading Slow card…", { exact: true }),
       ).toBeVisible();
-      expect(sent).toBe(2);
+      await expect.poll(() => sent).toBe(2);
     } finally {
       await cleanup();
     }

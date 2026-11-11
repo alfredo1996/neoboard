@@ -337,12 +337,6 @@ export function useWidgetQuery(
 
   const queryClient = useQueryClient();
   const queryKey = widgetQueryKey(mergedInput, options?.staleTime);
-  const keyId = JSON.stringify(queryKey);
-  // The key whose run was stopped (#2446). TanStack's cancelQueries reverts to
-  // the previous state, so "stopped" is remembered here until that key runs
-  // again; a parameter change is another key.
-  const [stoppedKey, setStoppedKey] = useState<string | null>(null);
-
   const queryResult = useQuery<QueryResult, Error>({
     queryKey,
     queryFn: async ({ signal }) => {
@@ -414,15 +408,13 @@ export function useWidgetQuery(
     setWaited(false);
   }
 
-  if (stoppedKey !== null && queryResult.fetchStatus === "fetching") {
-    setStoppedKey(null);
-  }
-  const stopped = stoppedKey === keyId;
+  // Stopped (#2446): TanStack's cancelQueries reverts the shared query to its
+  // previous state, so an enabled first load ends pending and idle, which only
+  // a cancel produces. Read from the query, every card on the key sees it.
+  const stopped =
+    enabled && queryResult.isPending && queryResult.fetchStatus === "idle";
   /** Aborts the in-flight request (its signal) and leaves no result. */
-  const stop = () => {
-    setStoppedKey(keyId);
-    queryClient.cancelQueries({ queryKey }).catch(() => undefined);
-  };
+  const stop = () => queryClient.cancelQueries({ queryKey });
 
   const missingParams = useMemo(
     () =>

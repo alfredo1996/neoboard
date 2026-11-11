@@ -259,9 +259,11 @@ function LoadingCard({
     return () => clearTimeout(t);
   }, []);
   return (
-    <div data-loading="true" aria-busy="true" className="space-y-3 p-4">
-      <Skeleton className="h-3 w-2/5" />
-      <Skeleton className="h-28 w-full" />
+    <div data-loading="true" className="space-y-3 p-4">
+      <div aria-busy="true" className="space-y-3">
+        <Skeleton className="h-3 w-2/5" />
+        <Skeleton className="h-28 w-full" />
+      </div>
       <output className="block text-xs text-muted-foreground">
         Loading {title || "this widget"}…
       </output>
@@ -299,6 +301,7 @@ function StoppedCard({ onRunAgain }: Readonly<{ onRunAgain: () => void }>) {
         size="sm"
         className="mt-1 h-7 shrink-0 px-2.5 text-xs"
         onClick={onRunAgain}
+        autoFocus // Stop unmounts the focused button; keep keyboard users here
       >
         Run again
       </Button>

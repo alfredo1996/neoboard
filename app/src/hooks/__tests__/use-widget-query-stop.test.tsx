@@ -50,7 +50,9 @@ describe("useWidgetQuery stop (#2446)", () => {
     await waitFor(() => expect(f.fn).toHaveBeenCalledTimes(1));
     expect(result.current.stopped).toBe(false);
 
-    act(() => result.current.stop());
+    act(() => {
+      result.current.stop();
+    });
 
     expect(f.signals[0].aborted).toBe(true);
     await waitFor(() => expect(result.current.fetchStatus).toBe("idle"));
@@ -64,7 +66,9 @@ describe("useWidgetQuery stop (#2446)", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(f.fn as never);
     const { result } = renderHook(() => useWidgetQuery(input()), { wrapper });
     await waitFor(() => expect(f.fn).toHaveBeenCalledTimes(1));
-    act(() => result.current.stop());
+    act(() => {
+      result.current.stop();
+    });
     await waitFor(() => expect(result.current.stopped).toBe(true));
 
     act(() => {
@@ -88,7 +92,9 @@ describe("useWidgetQuery stop (#2446)", () => {
         .setParameter("actor", "tom", "tom", "name", "text"),
     );
     await waitFor(() => expect(f.fn).toHaveBeenCalledTimes(1));
-    act(() => result.current.stop());
+    act(() => {
+      result.current.stop();
+    });
     await waitFor(() => expect(result.current.stopped).toBe(true));
 
     act(() =>
@@ -99,5 +105,21 @@ describe("useWidgetQuery stop (#2446)", () => {
 
     await waitFor(() => expect(f.fn).toHaveBeenCalledTimes(2));
     expect(result.current.stopped).toBe(false);
+  });
+
+  it("every card on the same query shows stopped when one stops it", async () => {
+    const f = hangingFetch();
+    vi.spyOn(globalThis, "fetch").mockImplementation(f.fn as never);
+    const { result } = renderHook(
+      () => ({ a: useWidgetQuery(input()), b: useWidgetQuery(input()) }),
+      { wrapper },
+    );
+    await waitFor(() => expect(f.fn).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      result.current.a.stop();
+    });
+
+    await waitFor(() => expect(result.current.b.stopped).toBe(true));
   });
 });
