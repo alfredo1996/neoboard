@@ -109,11 +109,11 @@ function Combobox({
           )}
         >
           {selectedOption ? (
-            <span className="flex min-w-0 items-center gap-2 truncate">
+            <span className="flex min-w-0 items-center gap-2">
               {selectedOption.icon && (
                 <selectedOption.icon className="h-4 w-4 shrink-0 opacity-70" />
               )}
-              {selectedOption.label}
+              <span className="min-w-0 truncate">{selectedOption.label}</span>
             </span>
           ) : (
             <span className="min-w-0 truncate">{placeholder}</span>

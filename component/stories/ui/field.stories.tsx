@@ -148,9 +148,16 @@ export const LongValueStaysInColumn: Story = {
     if (chevron.right > box.right + 0.5) {
       throw new Error("chevron is pushed outside the trigger");
     }
-    const label = trigger.querySelector("span")!;
+    // The text itself must sit in a truncating element: text directly inside a
+    // flex container is clipped without an ellipsis.
+    const label = trigger.querySelector<HTMLElement>("span > span.truncate");
+    if (!label) throw new Error("selected label has no truncating element");
     if (label.scrollWidth <= label.clientWidth) {
       throw new Error("long label is not ellipsized");
+    }
+    const labelBox = label.getBoundingClientRect();
+    if (labelBox.right > column.right + 0.5) {
+      throw new Error("label runs outside its column");
     }
   },
 };
