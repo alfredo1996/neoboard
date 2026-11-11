@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   limitedFetch,
   QUERY_FETCH_LIMIT,
-  __resetLimitedFetchForTests,
+  _resetLimitedFetch,
 } from "../limited-fetch";
 
 interface Pending {
@@ -108,13 +108,49 @@ describe("limitedFetch", () => {
     expect(fetchMock).toHaveBeenCalledTimes(QUERY_FETCH_LIMIT + 1);
   });
 
-  it("starts a new request at once after the test reset, even when every slot was taken", async () => {
+  it("starts a new request at once after the test reset, and old requests settling later free no new slot", async () => {
     fire(QUERY_FETCH_LIMIT + 1); // the extra one is queued, never settles
     await flush();
     expect(fetchMock).toHaveBeenCalledTimes(QUERY_FETCH_LIMIT);
-    __resetLimitedFetchForTests();
+    _resetLimitedFetch();
     fire(1);
     await flush();
     expect(fetchMock).toHaveBeenCalledTimes(QUERY_FETCH_LIMIT + 1);
+    // The four pre-reset requests settle now: they must not free a slot.
+    pending
+      .slice(0, QUERY_FETCH_LIMIT)
+      .forEach((p) => p.resolve(new Response("{}")));
+    await flush();
+    fire(QUERY_FETCH_LIMIT);
+    await flush();
+    expect(fetchMock).toHaveBeenCalledTimes(2 * QUERY_FETCH_LIMIT);
+  });
+
+  it("a request that took its slot before the reset frees nothing after it", async () => {
+    const p = limitedFetch("/x", {});
+    _resetLimitedFetch(); // lands right after the slot was taken, before fetch ran
+    await flush();
+    pending[0].resolve(new Response("{}"));
+    await p;
+    fire(QUERY_FETCH_LIMIT + 1);
+    await flush();
+    expect(fetchMock).toHaveBeenCalledTimes(1 + QUERY_FETCH_LIMIT);
+  });
+
+  it("a waiter dropped by the reset that aborts later does not remove a new waiter", async () => {
+    const ac = new AbortController();
+    fire(QUERY_FETCH_LIMIT);
+    limitedFetch("/old-waiter", { signal: ac.signal }).catch(() => undefined);
+    await flush();
+    _resetLimitedFetch();
+    fire(QUERY_FETCH_LIMIT);
+    limitedFetch("/new-waiter", {}).catch(() => undefined);
+    await flush();
+    ac.abort();
+    for (let i = 0; i < 3; i++) {
+      pending.splice(0).forEach((p) => p.resolve(new Response("{}")));
+      await flush();
+    }
+    expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/new-waiter");
   });
 });

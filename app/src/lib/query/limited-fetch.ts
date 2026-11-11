@@ -37,7 +37,9 @@ function acquire(signal?: AbortSignal | null): Promise<void> {
     };
     const onAbort = () => {
       // start() removes this listener, so a waiter that fires is still queued.
-      waiting.splice(waiting.indexOf(start), 1);
+      // A test reset empties the queue but leaves this listener, so check.
+      const i = waiting.indexOf(start);
+      if (i >= 0) waiting.splice(i, 1);
       reject(signal?.reason);
     };
     waiting.push(start);
@@ -50,7 +52,7 @@ function acquire(signal?: AbortSignal | null): Promise<void> {
  * it; the vitest setup does after each test so one test's never-settling
  * request cannot starve the next one's.
  */
-export function __resetLimitedFetchForTests(): void {
+export function _resetLimitedFetch(): void {
   epoch++;
   inFlight = 0;
   waiting.length = 0;
@@ -61,8 +63,8 @@ export async function limitedFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
+  const mine = epoch; // before acquire: its slot is counted in this epoch
   await acquire(init?.signal);
-  const mine = epoch;
   try {
     return await fetch(input, init);
   } finally {

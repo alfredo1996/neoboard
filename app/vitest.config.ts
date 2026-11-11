@@ -53,6 +53,7 @@ export default defineConfig({
           name: "unit",
           include: ["src/**/__tests__/**/*.test.ts"],
           environment: "node",
+          setupFiles: ["./vitest.setup.limiter.ts"],
         },
       },
       {
@@ -61,7 +62,7 @@ export default defineConfig({
           name: "component",
           include: ["src/**/__tests__/**/*.test.tsx"],
           environment: "jsdom",
-          setupFiles: ["./vitest.setup.tsx"],
+          setupFiles: ["./vitest.setup.limiter.ts", "./vitest.setup.tsx"],
           css: true,
         },
       },
