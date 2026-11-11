@@ -13,12 +13,14 @@ const STEP = CI.slice(start, CI.indexOf("- name:", start + 10));
 
 describe("Merge E2E Results lcov install (#2461)", () => {
   it("bounds every apt-get call with timeout and never fails the step on it", () => {
-    const lines = STEP.split("\n").filter((l) => l.includes("apt-get"));
-    expect(lines.length).toBeGreaterThan(0);
-    for (const l of lines) expect(l).toMatch(/timeout \d+ sudo apt-get .*\|\| true/);
+    const all = STEP.match(/sudo apt-get/g) ?? [];
+    const bounded = STEP.match(/timeout (-k \d+ )?\d+ sudo apt-get[^\n]*\|\| true/g) ?? [];
+    expect(all.length).toBeGreaterThan(0);
+    expect(bounded.length).toBe(all.length);
   });
 
   it("concatenates the shards when lcov is not installed", () => {
     expect(STEP).toMatch(/if command -v lcov[\s\S]*else[\s\S]*-exec cat/);
+    expect(STEP).toMatch(/else\s+echo "::warning::lcov unavailable[\s\S]*-exec cat/);
   });
 });
