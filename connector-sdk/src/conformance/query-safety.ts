@@ -29,6 +29,19 @@ import {
   QueryStatus,
 } from "../generalized/interfaces";
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Polls `cond` every 100 ms until it holds or `deadline` (epoch ms) passes. */
+async function waitFor(
+  cond: () => Promise<boolean>,
+  deadline: number,
+): Promise<boolean> {
+  if (await cond()) return true;
+  if (Date.now() >= deadline) return false;
+  await sleep(100);
+  return waitFor(cond, deadline);
+}
+
 /** The one parameter the harness binds; `$param_rows` in the query text. */
 const ROWS_PARAM = "param_rows";
 
@@ -239,40 +252,74 @@ export function buildConformanceCases(
       name: "stops a running read when its signal aborts",
       run: async () => {
         const controller = new AbortController();
-        const startedAt = Date.now();
-        const timer = setTimeout(() => controller.abort(), 300);
-        let captured: Captured;
-        try {
-          captured = await execute(
-            getModule(),
-            setup.queries.cancellable ?? setup.queries.slow,
-            {
-              ...base,
-              accessMode: "READ",
-              timeout: 30_000,
-              signal: controller.signal,
-            },
-          );
-        } finally {
-          clearTimeout(timer);
-        }
-        const elapsed = Date.now() - startedAt;
-        if (captured.error === undefined || elapsed > 2500) {
-          throw new Error(
-            `cancel violation: an aborted read settled after ${elapsed} ms with ${
-              captured.error === undefined ? "no failure" : "a failure"
-            }; expected a failure within 2.5 s`,
-          );
-        }
         const { isQueryActive } = setup.queries;
+        let settled = false;
+        const running = execute(
+          getModule(),
+          setup.queries.cancellable ?? setup.queries.slow,
+          {
+            ...base,
+            accessMode: "READ",
+            timeout: 30_000,
+            signal: controller.signal,
+          },
+        ).finally(() => {
+          settled = true;
+        });
+        // Whatever happens below, the query must not outlive the case.
+        const abortAndDrain = () => {
+          controller.abort();
+          running.catch(() => undefined);
+        };
+        try {
+          // Abort only a query that is demonstrably running: observed on the
+          // database when the connector can say so, else 300 ms in.
+          if (isQueryActive) {
+            const started = await waitFor(isQueryActive, Date.now() + 5000);
+            if (!started) {
+              throw new Error(
+                "cancel violation: the cancellable query never showed as running on the database within 5 s",
+              );
+            }
+          } else {
+            await sleep(300);
+          }
+          if (settled) {
+            throw new Error(
+              "cancel violation: the query ended before the signal aborted, so cancellation was not exercised",
+            );
+          }
+        } catch (e) {
+          abortAndDrain();
+          throw e;
+        }
+        const abortedAt = Date.now();
+        abortAndDrain();
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const captured = await Promise.race([
+          running,
+          new Promise<undefined>((resolve) => {
+            timer = setTimeout(() => resolve(undefined), 2500);
+          }),
+        ]).finally(() => clearTimeout(timer));
+        const elapsed = Date.now() - abortedAt;
+        if (captured === undefined) {
+          throw new Error(
+            "cancel violation: an aborted read had not settled 2.5 s after the abort",
+          );
+        }
+        if (captured.error === undefined) {
+          throw new Error(
+            `cancel violation: an aborted read settled after ${elapsed} ms with no failure; expected a failure within 2.5 s`,
+          );
+        }
         if (isQueryActive) {
           // The statement may need a moment to unwind after the failure.
-          let active = await isQueryActive();
-          for (let i = 0; active && i < 20; i++) {
-            await new Promise((r) => setTimeout(r, 100));
-            active = await isQueryActive();
-          }
-          if (active) {
+          const gone = await waitFor(
+            async () => !(await isQueryActive()),
+            abortedAt + 2000,
+          );
+          if (!gone) {
             throw new Error(
               "cancel violation: the aborted statement is still running on the database 2 s after the abort",
             );

@@ -181,19 +181,54 @@ describe("query-safety conformance harness", () => {
       expect(seen).toEqual(["LONG"]);
     });
 
+    // Active until the abort lands, as a real database reports it.
+    const activeUntilAbort = (stillActiveAfter: boolean) => {
+      const t0 = Date.now();
+      return async () => Date.now() - t0 < 400 || stillActiveAfter;
+    };
+
     it("rejects a connector that fails fast but leaves the statement running", async () => {
       const c = caseWith(withSignal(true), {
-        isQueryActive: async () => true,
+        isQueryActive: activeUntilAbort(true),
       });
       await expect(c.run()).rejects.toThrow(/still running on the database/);
-    });
+    }, 15000);
 
     it("passes a connector whose statement is gone from the database", async () => {
       const c = caseWith(withSignal(true), {
-        isQueryActive: async () => false,
+        isQueryActive: activeUntilAbort(false),
       });
       await expect(c.run()).resolves.toBeUndefined();
+    }, 15000);
+
+    it("rejects a connector that fails before the abort", async () => {
+      const module = {
+        runQuery: async (_q: QueryParams, cb: QueryCallback<unknown>) => {
+          cb.onFail?.(new Error("auth failed") as never);
+        },
+      } as unknown as ConnectionModule;
+      await expect(caseWith(module, {}).run()).rejects.toThrow(
+        /ended before the signal aborted/,
+      );
     });
+
+    it("rejects when the statement never shows as running", async () => {
+      const c = caseWith(withSignal(true), {
+        isQueryActive: async () => false,
+      });
+      await expect(c.run()).rejects.toThrow(/never showed as running/);
+    }, 15000);
+
+    it("rejects, within the bound, a connector that never settles after the abort", async () => {
+      const module = {
+        runQuery: () => new Promise<void>(() => undefined),
+      } as unknown as ConnectionModule;
+      const t0 = Date.now();
+      await expect(caseWith(module, {}).run()).rejects.toThrow(
+        /had not settled 2.5 s after the abort/,
+      );
+      expect(Date.now() - t0).toBeLessThan(4000);
+    }, 10000);
   });
 
   describe("onSuccess isolation (#1642)", () => {
