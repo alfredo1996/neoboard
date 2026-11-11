@@ -437,11 +437,22 @@ jobs:
           done
           SHARD_COUNT=$(find coverage-shards -name "lcov.info" | wc -l)
           if [ "$SHARD_COUNT" -gt 0 ]; then
-            sudo apt-get update && sudo apt-get install -y lcov
-            lcov $ARGS --output-file app/coverage-e2e/lcov.info \
-              --ignore-errors inconsistent,corrupt,format || \
+            # A package-mirror outage must not cancel the job (#2461): bound
+            # the install, and concatenate the shards if lcov is missing.
+            if ! command -v lcov >/dev/null; then
+              timeout -k 10 60 sudo apt-get update || true
+              timeout -k 10 120 sudo apt-get install -y --no-install-recommends lcov || true
+            fi
+            if command -v lcov >/dev/null; then
+              lcov $ARGS --output-file app/coverage-e2e/lcov.info \
+                --ignore-errors inconsistent,corrupt,format || \
+                find coverage-shards -name "lcov.info" -exec cat {} + \
+                  > app/coverage-e2e/lcov.info
+            else
+              echo "::warning::lcov unavailable, E2E coverage shards concatenated (#2461)"
               find coverage-shards -name "lcov.info" -exec cat {} + \
                 > app/coverage-e2e/lcov.info
+            fi
           else
             : > app/coverage-e2e/lcov.info
           fi
