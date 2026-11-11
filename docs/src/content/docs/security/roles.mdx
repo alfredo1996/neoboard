@@ -39,7 +39,7 @@ Readers can open Settings to edit their profile and see their API keys, but cann
 
 The **write permission** is an additional control, independent of the role, changed from the ⋯ menu on the user's row in **Users** (**Allow writing** / **Remove write access**), as is the role itself. When it is removed, a Creator cannot run write queries of their own. They also cannot create, edit, duplicate, import or delete dashboards, share a dashboard or remove a share, manage widget templates, reassign connections, or create or revoke API keys. They can still view dashboards, run read queries, and submit forms on dashboards they can open, since a form does not need write permission.
 
-Write permission covers dashboards, widget templates, API keys and a Creator's own write queries. It does not cover connections, which are gated by role: a Creator without write permission can still create, edit, test and delete the connections they own, and a Reader cannot manage connections at all. Reassigning widgets from one connection to another is the one connection action that needs write permission.
+Write permission covers dashboards, widget templates, API keys and a Creator's own write queries. It does not cover connections, which are gated by role: a Creator without write permission can still create, edit, test and delete the connections they own, and a Reader cannot add, edit or delete connections. Reassigning widgets from one connection to another is the one connection action that needs write permission.
 
 | Role | Write Permission On | Write Permission Off |
 |------|-------------------|---------------------|
