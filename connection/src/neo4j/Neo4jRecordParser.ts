@@ -330,10 +330,9 @@ export class Neo4jRecordParser extends NeodashRecordParser {
     }
 
     // Every remaining temporal type formats itself losslessly and in ISO-8601
-    // via the driver's own toString(): DateTime keeps its offset and all nine
-    // nanosecond digits, LocalTime is HH:mm:ss, with .nnnnnnnnn only when the nanoseconds
-    // are not 0, and
-    // LocalDateTime stays zone-LESS.
+    // via the driver's own toString(). DateTime, LocalDateTime and LocalTime
+    // print .nnnnnnnnn only when the nanoseconds are not 0; DateTime keeps its
+    // offset (printed as Z for UTC), and LocalDateTime stays zone-LESS.
     //
     // This replaced three hand-rolled formatters, two of which were lossy and
     // one of which turned a zone-less value into an absolute instant in the

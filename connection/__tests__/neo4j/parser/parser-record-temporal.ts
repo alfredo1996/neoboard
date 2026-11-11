@@ -187,12 +187,12 @@ describe("Neo4jRecordParser - Temporal Parsing", () => {
       };
 
       await connection.runQuery(
-        { query: `RETURN ${expr} AS currentTime`, params: {} },
+        { query: `RETURN ${expr} AS t`, params: {} },
         queryCallback,
         NEO4J_TEST_CONNECTION_CONFIG,
       );
 
-      expect(parsed![0]["currentTime"]).toBe(expected);
+      expect(parsed![0].t).toBe(expected);
     },
   );
 
