@@ -146,16 +146,17 @@ function ChoroplethChart({
     const values = normalizedData
       .map((d) => d.value)
       .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-    // ponytail: an all-null result collapses the domain to 0–0. That is exactly
-    // the legend today's all-zeros path already produces — suppress the visualMap
-    // only if someone reports the degenerate legend.
+    // ponytail: an all-null result gives a 0–0 domain, widened below like any
+    // constant one, so every region stays the no-data grey; the legend reads
+    // 0 – 0 — suppress the visualMap only if someone reports it.
     const minVal = values.length ? Math.min(...values) : 0;
     const maxVal = values.length ? Math.max(...values) : 0;
+    const domainPad = maxVal === minVal ? (Math.abs(minVal) || 1) / 2 : 0;
 
     const ramp = rampFor(dark, minColor, maxColor);
     // Each measured region's name is coloured against the fill the visualMap
     // paints it; a region with no data shows no name, so labels go where the
-    // data is (#2341). ECharts places a constant domain at the middle.
+    // data is (#2341). A measured value is the midpoint of the widened domain.
     // The hover fill is pinned to that same colour (ECharts otherwise repaints
     // a hovered region pale yellow, under a label chosen for the data colour),
     // and the name gets a soft halo in the region's own fill, so a name that
@@ -211,8 +212,13 @@ function ChoroplethChart({
         left: 8,
         bottom: 4,
         orient: "horizontal",
-        min: minVal,
-        max: maxVal,
+        // A constant domain makes ECharts' linearMap return 0.5 for every
+        // input, no-data regions included, so they would take the middle
+        // stop instead of areaColor (#2365). Widen it symmetrically: the
+        // measured value stays the midpoint, and on a non-degenerate domain
+        // linearMap gives a no-data (NaN) value NaN, so it keeps areaColor.
+        min: minVal - domainPad,
+        max: maxVal + domainPad,
         calculable: false,
         inRange: {
           // Interpolated end-to-end so every band lies on the ramp between
