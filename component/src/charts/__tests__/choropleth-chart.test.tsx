@@ -389,9 +389,7 @@ describe("Equal Earth keeps its shape in any box (#2230)", () => {
     );
     await waitFor(
       () =>
-        expect(lastOptionWith("series")?.visualMap?.max).toBeGreaterThanOrEqual(
-          80,
-        ),
+        expect(lastOptionWith("series")?.visualMap?.text).toEqual(["80", "80"]),
       { timeout: 15_000 },
     );
   }, 20_000);
@@ -565,6 +563,12 @@ describe("label contrast on the region's own fill (#2341)", () => {
       expect(vm.max).toBeGreaterThan(v);
       expect((vm.min + vm.max) / 2).toBe(v);
       expect(vm.text).toEqual([String(v), String(v)]);
+      // Resolved fills: no-data keeps the muted fill, the measured region the middle stop.
+      const series = lastOptionWith("series").series[0];
+      expect(series.itemStyle.areaColor).toBe("#eeeff2");
+      expect(series.data[0].emphasis.itemStyle.areaColor.toLowerCase()).toBe(
+        LIGHT_RAMP[2].toLowerCase(),
+      );
     },
     20_000,
   );

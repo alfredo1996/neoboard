@@ -458,6 +458,36 @@ export const MissingValues: Story = {
   },
 };
 
+/**
+ * #2365 — one measured region used to collapse the ramp domain, and ECharts
+ * then painted every region with no data in the middle stop too. Legend off,
+ * so a ramp colour on the canvas can only be a region: the measured region
+ * takes the middle stop, the ends are absent, and the rest stay the no-data fill.
+ */
+export const SingleRegion: Story = {
+  args: { data: [{ name: "China", value: 7 }], showVisualMap: false },
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByRole("img");
+    const ramp = defaultRamp();
+    await waitFor(
+      () => {
+        const painted = paintedColors(canvasElement);
+        expect(painted.has(ramp[2])).toBe(true);
+        expect(painted.has(ramp[0])).toBe(false);
+        expect(painted.has(ramp[4])).toBe(false);
+        expect(painted.has(MUTED_FILL[isDark() ? "dark" : "light"])).toBe(true);
+      },
+      { timeout: 5000 },
+    );
+    expectNoRenderError(canvasElement);
+  },
+};
+
+export const SingleRegionDark: Story = {
+  ...SingleRegion,
+  globals: { theme: "dark" },
+};
+
 export const EmptyState: Story = {
   args: {
     data: [],
