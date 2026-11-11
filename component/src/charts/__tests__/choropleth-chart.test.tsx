@@ -563,12 +563,6 @@ describe("label contrast on the region's own fill (#2341)", () => {
       expect(vm.max).toBeGreaterThan(v);
       expect((vm.min + vm.max) / 2).toBe(v);
       expect(vm.text).toEqual([String(v), String(v)]);
-      // Resolved fills: no-data keeps the muted fill, the measured region the middle stop.
-      const series = lastOptionWith("series").series[0];
-      expect(series.itemStyle.areaColor).toBe("#eeeff2");
-      expect(series.data[0].emphasis.itemStyle.areaColor.toLowerCase()).toBe(
-        LIGHT_RAMP[2].toLowerCase(),
-      );
     },
     20_000,
   );

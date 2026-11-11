@@ -483,11 +483,6 @@ export const SingleRegion: Story = {
   },
 };
 
-export const SingleRegionDark: Story = {
-  ...SingleRegion,
-  globals: { theme: "dark" },
-};
-
 export const EmptyState: Story = {
   args: {
     data: [],

@@ -151,6 +151,7 @@ function ChoroplethChart({
     // 0 – 0 — suppress the visualMap only if someone reports it.
     const minVal = values.length ? Math.min(...values) : 0;
     const maxVal = values.length ? Math.max(...values) : 0;
+    const domainPad = maxVal === minVal ? (Math.abs(minVal) || 1) / 2 : 0;
 
     const ramp = rampFor(dark, minColor, maxColor);
     // Each measured region's name is coloured against the fill the visualMap
@@ -216,8 +217,8 @@ function ChoroplethChart({
         // stop instead of areaColor (#2365). Widen it symmetrically: the
         // measured value stays the midpoint, and on a non-degenerate domain
         // linearMap gives a no-data (NaN) value NaN, so it keeps areaColor.
-        min: maxVal === minVal ? minVal - (Math.abs(minVal) || 1) / 2 : minVal,
-        max: maxVal === minVal ? maxVal + (Math.abs(maxVal) || 1) / 2 : maxVal,
+        min: minVal - domainPad,
+        max: maxVal + domainPad,
         calculable: false,
         inRange: {
           // Interpolated end-to-end so every band lies on the ramp between
