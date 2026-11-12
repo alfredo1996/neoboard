@@ -16,7 +16,7 @@
  *  - Schema prop passed to resolveLanguageExt for both SQL and Cypher
  *  - Unified init path — single EditorView for all languages
  */
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { QueryEditor } from "../query-editor";
@@ -226,6 +226,46 @@ describe("QueryEditor", () => {
     render(<QueryEditor value="MATCH (n)" running />);
     await flushAsync();
     expect(screen.getByText("Running").closest("button")).toBeDisabled();
+  });
+
+  it("turns the running Run into an enabled Stop when given onStop (#2445)", async () => {
+    const onStop = vi.fn();
+    render(<QueryEditor value="MATCH (n)" running stoppable onStop={onStop} />);
+    await flushAsync();
+    expect(screen.queryByText("Running")).toBeNull();
+    const stop = screen.getByRole("button", { name: "Stop" });
+    expect(stop).toBeEnabled();
+    await userEvent.setup().click(stop);
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a disabled Running until the run is stoppable (#2445)", async () => {
+    render(<QueryEditor value="MATCH (n)" running onStop={vi.fn()} />);
+    await flushAsync();
+    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    expect(screen.getByText("Running").closest("button")).toBeDisabled();
+  });
+
+  it("ignores the second click of a double-click landing on Run (#2445)", () => {
+    const onRun = vi.fn();
+    render(<QueryEditor value="MATCH (n)" onRun={onRun} />);
+    const run = screen.getByRole("button", { name: "Run" });
+    fireEvent.click(run, { detail: 2 });
+    expect(onRun).not.toHaveBeenCalled();
+    fireEvent.click(run, { detail: 0 });
+    fireEvent.click(run, { detail: 1 });
+    expect(onRun).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores the second click of a double-click landing on Stop (#2445)", async () => {
+    const onStop = vi.fn();
+    render(<QueryEditor value="MATCH (n)" running stoppable onStop={onStop} />);
+    await flushAsync();
+    const stop = screen.getByRole("button", { name: "Stop" });
+    fireEvent.click(stop, { detail: 2 });
+    expect(onStop).not.toHaveBeenCalled();
+    fireEvent.click(stop, { detail: 1 });
+    expect(onStop).toHaveBeenCalledTimes(1);
   });
 
   it("renders clear button (aria-label)", async () => {

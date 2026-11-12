@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 
 vi.mock("@neoboard/components", () => ({
   Button: ({
@@ -39,7 +39,8 @@ vi.mock("@neoboard/components", () => ({
       {children}
     </section>
   ),
-  LoadingOverlay: ({ text }: { text?: string }) => (
+  Spinner: () => <span data-testid="spinner" />,
+  LoadingOverlay: ({ text }: { text?: React.ReactNode }) => (
     <div role="status">{text}</div>
   ),
   Tooltip: ({ children }: React.PropsWithChildren) => <>{children}</>,
@@ -136,6 +137,174 @@ function makeProps(
 }
 
 describe("WidgetPreviewPanel", () => {
+  const pending = {
+    isPending: true,
+    isError: false,
+    error: null,
+    data: undefined,
+  };
+
+  it("turns Run into an enabled Stop while the preview runs (#2445)", () => {
+    const onStopPreview = vi.fn();
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({
+          previewQuery: pending,
+          onStopPreview,
+          stoppable: true,
+        })}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Run" })).toBeNull();
+    const stop = screen.getByRole("button", { name: "Stop" });
+    expect(stop).toBeEnabled();
+    fireEvent.click(stop);
+    expect(onStopPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a disabled Run until the run is stoppable, so a click aimed at Run cannot land on Stop (#2445)", () => {
+    const onStopPreview = vi.fn();
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({ previewQuery: pending, onStopPreview })}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Run" })).toBeDisabled();
+  });
+
+  it("counts the seconds in the loading text (#2445)", () => {
+    vi.useFakeTimers();
+    try {
+      render(<WidgetPreviewPanel {...makeProps({ previewQuery: pending })} />);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Loading preview… 0 s",
+      );
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Loading preview… 3 s",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the seconds out of the live region's announcement (#2445)", () => {
+    vi.useFakeTimers();
+    try {
+      render(<WidgetPreviewPanel {...makeProps({ previewQuery: pending })} />);
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      // The region is polite: a counter inside it is read out every second.
+      expect(screen.getByText("3 s", { exact: true })).toHaveAttribute(
+        "aria-hidden",
+        "true",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("restarts the seconds when a new run replaces the pending one (#2445)", () => {
+    vi.useFakeTimers();
+    try {
+      const run = (submittedAt: number) =>
+        makeProps({ previewQuery: { ...pending, submittedAt } });
+      const { rerender } = render(<WidgetPreviewPanel {...run(1)} />);
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("3 s");
+      rerender(<WidgetPreviewPanel {...run(2)} />);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Loading preview… 0 s",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("announces the stopped state (#2445)", () => {
+    render(<WidgetPreviewPanel {...makeProps({ stopped: true })} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Query stopped");
+  });
+
+  it("ignores the second click of a double-click on Run/Stop (#2445)", () => {
+    const onRunPreview = vi.fn();
+    const onStopPreview = vi.fn();
+    const { rerender } = render(
+      <WidgetPreviewPanel {...makeProps({ onRunPreview, onStopPreview })} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Run" }), { detail: 1 });
+    // The run starts, the label flips, the second click lands on Stop.
+    rerender(
+      <WidgetPreviewPanel
+        {...makeProps({
+          onRunPreview,
+          onStopPreview,
+          previewQuery: pending,
+          stoppable: true,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }), {
+      detail: 2,
+    });
+    expect(onRunPreview).toHaveBeenCalledTimes(1);
+    expect(onStopPreview).not.toHaveBeenCalled();
+  });
+
+  it("lets a quick Stop right after Run act when it is a separate click", () => {
+    const onRunPreview = vi.fn();
+    const onStopPreview = vi.fn();
+    const { rerender } = render(
+      <WidgetPreviewPanel {...makeProps({ onRunPreview, onStopPreview })} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Run" }), { detail: 1 });
+    rerender(
+      <WidgetPreviewPanel
+        {...makeProps({
+          onRunPreview,
+          onStopPreview,
+          previewQuery: pending,
+          stoppable: true,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }), {
+      detail: 1,
+    });
+    expect(onStopPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("tells the author to Run when the query is ready but idle with no data", () => {
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({ connectionId: "c1", query: "SELECT 1" })}
+      />,
+    );
+    expect(screen.getByText("Run a query to see the preview")).toBeVisible();
+  });
+
+  it("after a stop shows the stopped state, not an older result (#2445)", () => {
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({
+          stopped: true,
+          initialPreviewData: { data: [{ n: 1 }], resultId: "old" },
+        })}
+      />,
+    );
+    expect(
+      screen.getByText("Query stopped", { exact: true }),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("card-container")).toBeNull();
+    expect(screen.getByRole("button", { name: "Run" })).toBeEnabled();
+  });
+
   it("names the preview while it loads, with no blur over it (#2224)", () => {
     const { container } = render(
       <WidgetPreviewPanel

@@ -1,8 +1,8 @@
 "use client";
 
-import type { RefObject } from "react";
+import { useEffect, useState, type MouseEvent, type RefObject } from "react";
 import type { CardBackground } from "@neoboard/components/card-background";
-import { AlertCircle, Play } from "lucide-react";
+import { AlertCircle, CircleStop, Play, Square } from "lucide-react";
 import { CardContainer } from "../card-container";
 import { ParameterPreview } from "./parameter-preview";
 import { mapPreviewError } from "@/lib/query/preview-error";
@@ -18,6 +18,7 @@ import {
   Label,
   WidgetCard,
   LoadingOverlay,
+  Spinner,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -71,12 +72,64 @@ type WidgetPreviewPanelProps = Readonly<{
     isError: boolean;
     error: Error | null;
     data: PreviewData | undefined;
+    /** Start of the current run; a new run restarts the seconds (#2445). */
+    submittedAt?: number;
   };
   initialPreviewData: PreviewData | undefined;
   onRunPreview: () => void;
+  /** Ends the running preview (#2445). */
+  onStopPreview?: () => void;
+  /** The run has been pending long enough for Stop to replace Run (#2445). */
+  stoppable?: boolean;
+  /** The author stopped the last run: show that, never an older result (#2445). */
+  stopped?: boolean;
   /** Query references $param_x tokens that aren't all bound yet (#1055). */
   waitingForParams?: boolean;
 }>;
+
+/**
+ * The loading overlay with its seconds. Its own component, keyed on the run,
+ * so the tick re-renders only this and a new run starts again at 0 (#2445).
+ */
+function PreviewLoading() {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <LoadingOverlay
+      className="absolute inset-0 z-10 min-h-0 rounded-lg"
+      // The overlay is a polite live region: only the words are announced,
+      // not a counter that changes every second.
+      text={
+        <>
+          Loading preview… <span aria-hidden="true">{seconds} s</span>
+        </>
+      }
+    />
+  );
+}
+
+function StoppedPreview() {
+  return (
+    // <output> is an implicit status region; its content model is phrasing,
+    // so the two lines are block spans rather than paragraphs.
+    <output className="flex h-full flex-col items-center justify-center gap-2 text-center">
+      <CircleStop
+        className="h-7 w-7 text-muted-foreground"
+        strokeWidth={1.75}
+        aria-hidden
+      />
+      <span className="block text-sm font-medium text-foreground-2">
+        Query stopped
+      </span>
+      <span className="block text-xs text-muted-foreground">
+        Run it again to see the preview.
+      </span>
+    </output>
+  );
+}
 
 function renderMarkdown(chartOptions: Record<string, unknown>) {
   // The schema drops a stored value it does not know, as the dashboard does.
@@ -165,7 +218,20 @@ function renderChart(props: {
   buildClickAction?: () => ClickAction | undefined;
   previewQuery: WidgetPreviewPanelProps["previewQuery"];
   initialPreviewData: PreviewData | undefined;
+  stopped?: boolean;
 }) {
+  const { previewQuery } = props;
+  return (
+    <>
+      {previewQuery.isPending && (
+        <PreviewLoading key={previewQuery.submittedAt} />
+      )}
+      {renderChartBody(props)}
+    </>
+  );
+}
+
+function renderChartBody(props: Parameters<typeof renderChart>[0]) {
   const {
     chartType,
     connectionId,
@@ -177,82 +243,82 @@ function renderChart(props: {
     buildClickAction,
     previewQuery,
     initialPreviewData,
+    stopped,
   } = props;
   const waitMs = previewQuery.data?.schedulerWaitMs ?? 0;
   const queued = waitMs > 0 ? `, ${Math.round(waitMs)} queued` : "";
 
+  if (stopped && !previewQuery.isPending) return <StoppedPreview />;
+  if (previewQuery.isError && !previewQuery.data && !initialPreviewData) {
+    // A write the connector flagged as blocked gets a clear message (#1043).
+    const writeMsg = mapPreviewError(previewQuery.error);
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+        <AlertCircle className="h-8 w-8 text-destructive" />
+        <p className="text-sm font-medium text-destructive">
+          {writeMsg ? "Writes not allowed" : "Query failed"}
+        </p>
+        <p className="text-xs max-w-xs text-center">
+          {writeMsg ?? previewQuery.error?.message}
+        </p>
+      </div>
+    );
+  }
+  if (previewQuery.data || initialPreviewData) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="min-h-0 flex-1">
+          <CardContainer
+            widget={{
+              id: "preview",
+              chartType,
+              connectionId,
+              query,
+              settings: {
+                title: title || undefined,
+                chartOptions,
+                stylingConfig: buildStylingConfig(),
+                clickAction: buildClickAction?.(),
+                conditionalFormatting: colorScales.length
+                  ? { colorScales }
+                  : undefined,
+              },
+            }}
+            inertClicks
+            previewData={(previewQuery.data ?? initialPreviewData)!.data}
+            previewResultId={
+              (previewQuery.data ?? initialPreviewData)!.resultId
+            }
+            previewConnectorType={
+              (previewQuery.data ?? initialPreviewData)!.connectorType
+            }
+          />
+        </div>
+        {/* The preview runs at a row limit of PREVIEW_ROW_LIMIT, so its
+            result is truncated by design: say so here instead of raising the
+            dashboard's truncation warning, so authors don't mistake it for
+            the full result (#1043, #1896). */}
+        <p className="shrink-0 border-t px-2 py-1 text-[11px] text-muted-foreground">
+          Preview shows up to {PREVIEW_ROW_LIMIT} rows
+          {Number.isFinite(previewQuery.data?.serverDurationMs) &&
+            ` · ${Math.round(previewQuery.data?.serverDurationMs ?? 0)} ms${queued}`}
+        </p>
+      </div>
+    );
+  }
+  if (
+    previewQuery.isPending &&
+    connectionId &&
+    query.trim() &&
+    !previewQuery.isError
+  ) {
+    // Pending: the overlay above names it and carries the spinner.
+    return <div className="h-full" />;
+  }
   return (
-    <>
-      {previewQuery.isPending && (
-        <LoadingOverlay
-          className="absolute inset-0 z-10 min-h-0 rounded-lg"
-          text="Loading preview…"
-        />
-      )}
-      {previewQuery.isError && !previewQuery.data && !initialPreviewData ? (
-        (() => {
-          // A write the connector flagged as blocked gets a clear message (#1043).
-          const writeMsg = mapPreviewError(previewQuery.error);
-          return (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-              <AlertCircle className="h-8 w-8 text-destructive" />
-              <p className="text-sm font-medium text-destructive">
-                {writeMsg ? "Writes not allowed" : "Query failed"}
-              </p>
-              <p className="text-xs max-w-xs text-center">
-                {writeMsg ?? previewQuery.error?.message}
-              </p>
-            </div>
-          );
-        })()
-      ) : previewQuery.data || initialPreviewData ? (
-        <div className="flex h-full flex-col">
-          <div className="min-h-0 flex-1">
-            <CardContainer
-              widget={{
-                id: "preview",
-                chartType,
-                connectionId,
-                query,
-                settings: {
-                  title: title || undefined,
-                  chartOptions,
-                  stylingConfig: buildStylingConfig(),
-                  clickAction: buildClickAction?.(),
-                  conditionalFormatting: colorScales.length
-                    ? { colorScales }
-                    : undefined,
-                },
-              }}
-              inertClicks
-              previewData={(previewQuery.data ?? initialPreviewData)!.data}
-              previewResultId={
-                (previewQuery.data ?? initialPreviewData)!.resultId
-              }
-              previewConnectorType={
-                (previewQuery.data ?? initialPreviewData)!.connectorType
-              }
-            />
-          </div>
-          {/* The preview runs at a row limit of PREVIEW_ROW_LIMIT, so its
-              result is truncated by design: say so here instead of raising the
-              dashboard's truncation warning, so authors don't mistake it for
-              the full result (#1043, #1896). */}
-          <p className="shrink-0 border-t px-2 py-1 text-[11px] text-muted-foreground">
-            Preview shows up to {PREVIEW_ROW_LIMIT} rows
-            {Number.isFinite(previewQuery.data?.serverDurationMs) &&
-              ` · ${Math.round(previewQuery.data?.serverDurationMs ?? 0)} ms${queued}`}
-          </p>
-        </div>
-      ) : connectionId && query.trim() && !previewQuery.isError ? (
-        // Pending: the overlay above names it and carries the spinner.
-        <div className="h-full" />
-      ) : (
-        <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-          Run a query to see the preview
-        </div>
-      )}
-    </>
+    <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+      Run a query to see the preview
+    </div>
   );
 }
 
@@ -285,8 +351,19 @@ export function WidgetPreviewPanel({
   previewQuery,
   initialPreviewData,
   onRunPreview,
+  onStopPreview,
+  stoppable,
+  stopped,
   waitingForParams,
 }: WidgetPreviewPanelProps) {
+  const showStop = previewQuery.isPending && !!stoppable;
+  const toggleRun = (event: MouseEvent) => {
+    // The second click of a double-click would land on the flipped Run/Stop
+    // and undo the first.
+    if (event.detail >= 2) return;
+    (showStop ? onStopPreview : onRunPreview)?.();
+  };
+
   function renderPreviewContent() {
     if (isMarkdown) return renderMarkdown(chartOptions);
     if (isIframe) return renderIframe(chartOptions);
@@ -329,6 +406,7 @@ export function WidgetPreviewPanel({
       buildClickAction,
       previewQuery,
       initialPreviewData,
+      stopped,
     });
   }
 
@@ -362,20 +440,26 @@ export function WidgetPreviewPanel({
               size="sm"
               // The one Run while the preview is on screen; the query toolbar
               // takes the same title only while the editor hides it (#2388).
-              title="Run query (Ctrl+Enter / ⌘+Enter)"
-              onClick={onRunPreview}
-              disabled={isRunDisabled(
-                connectionId,
-                query,
-                previewQuery.isPending,
-              )}
+              title={
+                showStop ? "Stop the query" : "Run query (Ctrl+Enter / ⌘+Enter)"
+              }
+              onClick={toggleRun}
+              disabled={
+                previewQuery.isPending
+                  ? !showStop
+                  : isRunDisabled(connectionId, query, false)
+              }
             >
-              {previewQuery.isPending ? (
-                <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5" />
-              ) : (
+              {showStop && (
+                <Square className="h-3 w-3 mr-1.5 fill-current" aria-hidden />
+              )}
+              {!showStop && previewQuery.isPending && (
+                <Spinner size="sm" className="h-3 w-3 mr-1.5" aria-hidden />
+              )}
+              {!showStop && !previewQuery.isPending && (
                 <Play className="h-3 w-3 mr-1.5" />
               )}
-              Run
+              {showStop ? "Stop" : "Run"}
             </Button>
           </div>
         )}

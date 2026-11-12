@@ -93,6 +93,7 @@ import { AfterSubmitRefresh } from "./widget-editor/after-submit-refresh";
 import { LabMetadataForm } from "./widget-editor/lab-metadata-form";
 import { ModalFooter } from "./widget-editor/modal-footer";
 import { WidgetPreviewPanel } from "./widget-editor/widget-preview-panel";
+import { useStoppable } from "./widget-editor/use-stoppable";
 import { editorLanguageForConnector } from "@/lib/connector/editor-language";
 import { useConnectors } from "@/hooks/use-connectors";
 
@@ -373,6 +374,10 @@ export function WidgetEditorModal({
   // the column pickers read the last settled result so they don't unmount
   // under an open dropdown.
   const settledPreview = useSettledData(previewQuery);
+  const stoppable = useStoppable(
+    previewQuery.isPending,
+    previewQuery.submittedAt,
+  );
   const allParamValues = useParameterValues();
   // Query references $param_x tokens that aren't all bound — the preview shows
   // a waiting state instead of running the literal token and erroring (#1055).
@@ -790,6 +795,8 @@ export function WidgetEditorModal({
                     onRun={isForm ? undefined : handlePreview}
                     editorLanguage={editorLanguage}
                     running={previewQuery.isPending}
+                    onStop={previewQuery.stop}
+                    stoppable={stoppable}
                     maximized={editorMaximized}
                     onToggleMaximized={() =>
                       setEditorMaximizedRequested((m) => !m)
@@ -1047,11 +1054,7 @@ export function WidgetEditorModal({
                   paramWidgetName={paramWidgetName}
                   seedPreviewOptions={seedPreviewOptions}
                   seedQueryPending={seedQueryExecution.isPending}
-                  seedQueryError={
-                    seedQueryExecution.isError
-                      ? seedQueryExecution.error.message
-                      : null
-                  }
+                  seedQueryError={seedQueryExecution.error?.message ?? null}
                   formFields={formFields}
                   previewRef={previewRef}
                   previewQuery={{
@@ -1059,9 +1062,13 @@ export function WidgetEditorModal({
                     isError: previewQuery.isError,
                     error: previewQuery.error,
                     data: previewQuery.data,
+                    submittedAt: previewQuery.submittedAt,
                   }}
                   initialPreviewData={initialPreviewData}
                   onRunPreview={handlePreview}
+                  onStopPreview={previewQuery.stop}
+                  stoppable={stoppable}
+                  stopped={previewQuery.isStopped}
                   waitingForParams={previewWaitingForParams}
                 />
               )}

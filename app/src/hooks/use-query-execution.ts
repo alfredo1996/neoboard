@@ -33,7 +33,12 @@ export function useQueryExecution() {
   const previous = useRef<AbortController | undefined>(undefined);
   // Closing the editor abandons a running preview the same way.
   useEffect(() => () => previous.current?.abort(), []);
-  return useMutation<QueryResult, Error, QueryInput>({
+  const mutation = useMutation<QueryResult, Error, QueryInput>({
+    // Offline, the default 'online' mode pauses the mutation before its
+    // function runs: there is no controller, so Stop cannot abort it and the
+    // query would fire on reconnect (#2445). The target is our own server, so
+    // offline just fails fast.
+    networkMode: "always",
     mutationFn: async (input) => {
       previous.current?.abort();
       const controller = new AbortController();
@@ -48,4 +53,17 @@ export function useQueryExecution() {
       return { ...data, ...meta } as QueryResult;
     },
   });
+  // Stop aborts the request (the server and database follow, #2444). The
+  // mutation is left to reject: a reset would detach its observer, and a
+  // run-and-save waiting on it would never settle. The abort the author caused
+  // is reported as `isStopped`, not as a failure.
+  const stop = () => previous.current?.abort();
+  const isStopped = mutation.isError && mutation.error?.name === "AbortError";
+  return {
+    ...mutation,
+    isError: mutation.isError && !isStopped,
+    error: isStopped ? null : mutation.error,
+    isStopped,
+    stop,
+  };
 }
