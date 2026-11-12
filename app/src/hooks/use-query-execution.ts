@@ -33,7 +33,7 @@ export function useQueryExecution() {
   const previous = useRef<AbortController | undefined>(undefined);
   // Closing the editor abandons a running preview the same way.
   useEffect(() => () => previous.current?.abort(), []);
-  return useMutation<QueryResult, Error, QueryInput>({
+  const mutation = useMutation<QueryResult, Error, QueryInput>({
     mutationFn: async (input) => {
       previous.current?.abort();
       const controller = new AbortController();
@@ -48,4 +48,11 @@ export function useQueryExecution() {
       return { ...data, ...meta } as QueryResult;
     },
   });
+  // Stop ends the run in the browser (the server and database follow the
+  // abort, #2444) and clears the mutation, so no older state is left showing.
+  const stop = () => {
+    previous.current?.abort();
+    mutation.reset();
+  };
+  return { ...mutation, stop };
 }

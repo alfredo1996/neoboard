@@ -1,8 +1,8 @@
 "use client";
 
-import type { RefObject } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import type { CardBackground } from "@neoboard/components/card-background";
-import { AlertCircle, Play } from "lucide-react";
+import { AlertCircle, CircleStop, Play, Square } from "lucide-react";
 import { CardContainer } from "../card-container";
 import { ParameterPreview } from "./parameter-preview";
 import { mapPreviewError } from "@/lib/query/preview-error";
@@ -74,9 +74,43 @@ type WidgetPreviewPanelProps = Readonly<{
   };
   initialPreviewData: PreviewData | undefined;
   onRunPreview: () => void;
+  /** Ends the running preview (#2445). */
+  onStopPreview?: () => void;
+  /** The author stopped the last run: show that, never an older result (#2445). */
+  stopped?: boolean;
   /** Query references $param_x tokens that aren't all bound yet (#1055). */
   waitingForParams?: boolean;
 }>;
+
+/** Whole seconds since `active` last turned on; 0 while it is off. */
+function useElapsedSeconds(active: boolean) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => {
+      clearInterval(id);
+      setSeconds(0);
+    };
+  }, [active]);
+  return seconds;
+}
+
+function StoppedPreview() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+      <CircleStop
+        className="h-7 w-7 text-muted-foreground"
+        strokeWidth={1.75}
+        aria-hidden
+      />
+      <p className="text-sm font-medium text-muted-foreground">Query stopped</p>
+      <p className="text-xs text-muted-foreground">
+        Run it again to see the preview.
+      </p>
+    </div>
+  );
+}
 
 function renderMarkdown(chartOptions: Record<string, unknown>) {
   // The schema drops a stored value it does not know, as the dashboard does.
@@ -165,6 +199,8 @@ function renderChart(props: {
   buildClickAction?: () => ClickAction | undefined;
   previewQuery: WidgetPreviewPanelProps["previewQuery"];
   initialPreviewData: PreviewData | undefined;
+  stopped?: boolean;
+  elapsed: number;
 }) {
   const {
     chartType,
@@ -177,6 +213,8 @@ function renderChart(props: {
     buildClickAction,
     previewQuery,
     initialPreviewData,
+    stopped,
+    elapsed,
   } = props;
   const waitMs = previewQuery.data?.schedulerWaitMs ?? 0;
   const queued = waitMs > 0 ? `, ${Math.round(waitMs)} queued` : "";
@@ -186,10 +224,12 @@ function renderChart(props: {
       {previewQuery.isPending && (
         <LoadingOverlay
           className="absolute inset-0 z-10 min-h-0 rounded-lg"
-          text="Loading preview…"
+          text={`Loading preview… ${elapsed} s`}
         />
       )}
-      {previewQuery.isError && !previewQuery.data && !initialPreviewData ? (
+      {stopped && !previewQuery.isPending ? (
+        <StoppedPreview />
+      ) : previewQuery.isError && !previewQuery.data && !initialPreviewData ? (
         (() => {
           // A write the connector flagged as blocked gets a clear message (#1043).
           const writeMsg = mapPreviewError(previewQuery.error);
@@ -285,8 +325,12 @@ export function WidgetPreviewPanel({
   previewQuery,
   initialPreviewData,
   onRunPreview,
+  onStopPreview,
+  stopped,
   waitingForParams,
 }: WidgetPreviewPanelProps) {
+  const elapsed = useElapsedSeconds(previewQuery.isPending);
+
   function renderPreviewContent() {
     if (isMarkdown) return renderMarkdown(chartOptions);
     if (isIframe) return renderIframe(chartOptions);
@@ -329,6 +373,8 @@ export function WidgetPreviewPanel({
       buildClickAction,
       previewQuery,
       initialPreviewData,
+      stopped,
+      elapsed,
     });
   }
 
@@ -362,20 +408,23 @@ export function WidgetPreviewPanel({
               size="sm"
               // The one Run while the preview is on screen; the query toolbar
               // takes the same title only while the editor hides it (#2388).
-              title="Run query (Ctrl+Enter / ⌘+Enter)"
-              onClick={onRunPreview}
-              disabled={isRunDisabled(
-                connectionId,
-                query,
-                previewQuery.isPending,
-              )}
+              title={
+                previewQuery.isPending
+                  ? "Stop the query"
+                  : "Run query (Ctrl+Enter / ⌘+Enter)"
+              }
+              onClick={previewQuery.isPending ? onStopPreview : onRunPreview}
+              disabled={
+                !previewQuery.isPending &&
+                isRunDisabled(connectionId, query, false)
+              }
             >
               {previewQuery.isPending ? (
-                <div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent mr-1.5" />
+                <Square className="h-3 w-3 mr-1.5 fill-current" aria-hidden />
               ) : (
                 <Play className="h-3 w-3 mr-1.5" />
               )}
-              Run
+              {previewQuery.isPending ? "Stop" : "Run"}
             </Button>
           </div>
         )}

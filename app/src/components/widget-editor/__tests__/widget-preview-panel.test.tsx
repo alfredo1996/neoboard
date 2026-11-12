@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 
 vi.mock("@neoboard/components", () => ({
   Button: ({
@@ -136,6 +136,61 @@ function makeProps(
 }
 
 describe("WidgetPreviewPanel", () => {
+  const pending = {
+    isPending: true,
+    isError: false,
+    error: null,
+    data: undefined,
+  };
+
+  it("turns Run into an enabled Stop while the preview runs (#2445)", () => {
+    const onStopPreview = vi.fn();
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({ previewQuery: pending, onStopPreview })}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Run" })).toBeNull();
+    const stop = screen.getByRole("button", { name: "Stop" });
+    expect(stop).toBeEnabled();
+    fireEvent.click(stop);
+    expect(onStopPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("counts the seconds in the loading text (#2445)", () => {
+    vi.useFakeTimers();
+    try {
+      render(<WidgetPreviewPanel {...makeProps({ previewQuery: pending })} />);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Loading preview… 0 s",
+      );
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Loading preview… 3 s",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("after a stop shows the stopped state, not an older result (#2445)", () => {
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({
+          stopped: true,
+          initialPreviewData: { data: [{ n: 1 }], resultId: "old" },
+        })}
+      />,
+    );
+    expect(
+      screen.getByText("Query stopped", { exact: true }),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("card-container")).toBeNull();
+    expect(screen.getByRole("button", { name: "Run" })).toBeEnabled();
+  });
+
   it("names the preview while it loads, with no blur over it (#2224)", () => {
     const { container } = render(
       <WidgetPreviewPanel
