@@ -561,5 +561,8 @@ describe("resolveApiKeyAuth", () => {
     );
     expect(entry).toBeDefined();
     expect(entry?.level).toBe("warn");
+    // The Error itself, so the logger serializes type/message/stack (#2468).
+    expect(entry?.obj.err).toBeInstanceOf(Error);
+    expect((entry?.obj.err as Error).message).toBe("db timeout");
   });
 });

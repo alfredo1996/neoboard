@@ -211,6 +211,39 @@ describe("logger", () => {
       expect(out).toContain("db.internal");
     });
 
+    describe("err is always an object (#2468)", () => {
+      const errOf = async (fields: Record<string, unknown>) =>
+        JSON.parse(await capture((l) => l.error(fields, "x"))).err;
+
+      it.each([
+        ["a string", "b", { message: "b" }],
+        ["a number", 42, { message: "42" }],
+      ])("wraps %s as { message }", async (_n, err, expected) => {
+        expect(await errOf({ err })).toEqual(expected);
+      });
+
+      it("adds no err key when err is undefined", async () => {
+        const line = JSON.parse(
+          await capture((l) => l.error({ err: undefined }, "x")),
+        );
+        expect("err" in line).toBe(false);
+      });
+
+      it("keeps an Error's type, message and stack", async () => {
+        const err = await errOf({ err: new TypeError("bad") });
+        expect(err).toMatchObject({ type: "TypeError", message: "bad" });
+        expect(typeof err.stack).toBe("string");
+      });
+
+      it("still redacts credentials in a string err", async () => {
+        const out = await capture((l) =>
+          l.error({ err: `failed postgresql://u:${SECRET}@h/d` }, "x"),
+        );
+        expect(out).not.toContain(SECRET);
+        expect(JSON.parse(out).err.message).toContain("postgresql://u:***@h/d");
+      });
+    });
+
     it("scrubs a URI held under an unlisted key name", async () => {
       const out = await capture((l) =>
         l.info(
