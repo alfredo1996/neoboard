@@ -16,7 +16,7 @@
  *  - Schema prop passed to resolveLanguageExt for both SQL and Cypher
  *  - Unified init path — single EditorView for all languages
  */
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { QueryEditor } from "../query-editor";
@@ -236,6 +236,17 @@ describe("QueryEditor", () => {
     const stop = screen.getByRole("button", { name: "Stop" });
     expect(stop).toBeEnabled();
     await userEvent.setup().click(stop);
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores the second click of a double-click landing on Stop (#2445)", async () => {
+    const onStop = vi.fn();
+    render(<QueryEditor value="MATCH (n)" running onStop={onStop} />);
+    await flushAsync();
+    const stop = screen.getByRole("button", { name: "Stop" });
+    fireEvent.click(stop, { detail: 2 });
+    expect(onStop).not.toHaveBeenCalled();
+    fireEvent.click(stop, { detail: 1 });
     expect(onStop).toHaveBeenCalledTimes(1);
   });
 

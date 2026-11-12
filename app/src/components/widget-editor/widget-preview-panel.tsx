@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useState, type MouseEvent, type RefObject } from "react";
 import type { CardBackground } from "@neoboard/components/card-background";
 import { AlertCircle, CircleStop, Play, Square } from "lucide-react";
 import { CardContainer } from "../card-container";
@@ -303,7 +303,12 @@ function renderChartBody(props: Parameters<typeof renderChart>[0]) {
       </div>
     );
   }
-  if (connectionId && query.trim() && !previewQuery.isError) {
+  if (
+    previewQuery.isPending &&
+    connectionId &&
+    query.trim() &&
+    !previewQuery.isError
+  ) {
     // Pending: the overlay above names it and carries the spinner.
     return <div className="h-full" />;
   }
@@ -347,13 +352,10 @@ export function WidgetPreviewPanel({
   stopped,
   waitingForParams,
 }: WidgetPreviewPanelProps) {
-  // Two clicks inside this window are one double-click: the second would land
-  // on the flipped Run/Stop and undo the first.
-  const lastToggleRef = useRef(0);
-  const toggleRun = () => {
-    const now = Date.now();
-    if (now - lastToggleRef.current < 400) return;
-    lastToggleRef.current = now;
+  const toggleRun = (event: MouseEvent) => {
+    // The second click of a double-click would land on the flipped Run/Stop
+    // and undo the first.
+    if (event.detail >= 2) return;
     (previewQuery.isPending ? onStopPreview : onRunPreview)?.();
   };
 

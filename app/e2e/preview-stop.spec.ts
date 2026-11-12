@@ -55,9 +55,6 @@ test.describe("Stopping a slow preview", () => {
       const run = dialog.getByRole("button", { name: "Run", exact: true });
       await expect(run).toBeEnabled();
 
-      // A click right after a click on the same button is read as a
-      // double-click and ignored (400 ms).
-      await page.waitForTimeout(500);
       const queryRequest = page.waitForRequest(
         (r) => new URL(r.url()).pathname === "/api/query",
       );

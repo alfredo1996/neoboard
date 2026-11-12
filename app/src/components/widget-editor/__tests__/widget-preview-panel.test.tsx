@@ -217,36 +217,50 @@ describe("WidgetPreviewPanel", () => {
   });
 
   it("ignores the second click of a double-click on Run/Stop (#2445)", () => {
-    vi.useFakeTimers();
-    try {
-      const onRunPreview = vi.fn();
-      const onStopPreview = vi.fn();
-      const { rerender } = render(
-        <WidgetPreviewPanel {...makeProps({ onRunPreview, onStopPreview })} />,
-      );
-      fireEvent.click(screen.getByRole("button", { name: "Run" }));
-      // The run starts, the label flips, the second click lands on Stop.
-      rerender(
-        <WidgetPreviewPanel
-          {...makeProps({
-            onRunPreview,
-            onStopPreview,
-            previewQuery: pending,
-          })}
-        />,
-      );
-      fireEvent.click(screen.getByRole("button", { name: "Stop" }));
-      expect(onRunPreview).toHaveBeenCalledTimes(1);
-      expect(onStopPreview).not.toHaveBeenCalled();
+    const onRunPreview = vi.fn();
+    const onStopPreview = vi.fn();
+    const { rerender } = render(
+      <WidgetPreviewPanel {...makeProps({ onRunPreview, onStopPreview })} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Run" }), { detail: 1 });
+    // The run starts, the label flips, the second click lands on Stop.
+    rerender(
+      <WidgetPreviewPanel
+        {...makeProps({ onRunPreview, onStopPreview, previewQuery: pending })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }), {
+      detail: 2,
+    });
+    expect(onRunPreview).toHaveBeenCalledTimes(1);
+    expect(onStopPreview).not.toHaveBeenCalled();
+  });
 
-      act(() => {
-        vi.advanceTimersByTime(500);
-      });
-      fireEvent.click(screen.getByRole("button", { name: "Stop" }));
-      expect(onStopPreview).toHaveBeenCalledTimes(1);
-    } finally {
-      vi.useRealTimers();
-    }
+  it("lets a quick Stop right after Run act when it is a separate click", () => {
+    const onRunPreview = vi.fn();
+    const onStopPreview = vi.fn();
+    const { rerender } = render(
+      <WidgetPreviewPanel {...makeProps({ onRunPreview, onStopPreview })} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Run" }), { detail: 1 });
+    rerender(
+      <WidgetPreviewPanel
+        {...makeProps({ onRunPreview, onStopPreview, previewQuery: pending })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }), {
+      detail: 1,
+    });
+    expect(onStopPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("tells the author to Run when the query is ready but idle with no data", () => {
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({ connectionId: "c1", query: "SELECT 1" })}
+      />,
+    );
+    expect(screen.getByText("Run a query to see the preview")).toBeVisible();
   });
 
   it("after a stop shows the stopped state, not an older result (#2445)", () => {

@@ -758,7 +758,10 @@ function QueryEditor({
               <Button
                 size="sm"
                 className="h-7 gap-1"
-                onClick={onStop}
+                // The second click of a double-click on Run lands here.
+                onClick={(e) => {
+                  if (e.detail < 2) onStop();
+                }}
                 title="Stop the query"
               >
                 <Square className="h-3 w-3 fill-current" aria-hidden="true" />
