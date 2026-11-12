@@ -1,0 +1,73 @@
+# Values for the official Fluent Bit Helm chart (fluent/fluent-bit), pinned in
+# the docs and CI to chart 0.58.3 (Fluent Bit 5.1.3):
+#
+#   helm repo add fluent https://fluent.github.io/helm-charts
+#   helm upgrade --install fluent-bit fluent/fluent-bit --version 0.58.3 \
+#     -n logging --create-namespace \
+#     -f deploy/kubernetes/fluent-bit-values.yaml
+#
+# A DaemonSet reads the NeoBoard pods' stdout from each node, merges the JSON
+# line into the record, and sends it to OpenSearch. No sidecar: the app logs to
+# stdout. Change `Host` in the output to your OpenSearch service, and the tail
+# Path if your pods are not named *neoboard*.
+kind: DaemonSet
+
+luaScripts:
+  # Same script as deploy/fluent-bit/neoboard.lua (a test keeps them identical).
+  neoboard.lua: |
+    -- Fluent Bit lua filter for NeoBoard's pino lines.
+    --  * severity: pino's numeric `level` as a name (the number stays as `level`)
+    --  * event time: the line's own `time` (epoch milliseconds), not the moment
+    --    Fluent Bit received it
+    local SEVERITY = {
+      [10] = "trace", [20] = "debug", [30] = "info",
+      [40] = "warn", [50] = "error", [60] = "fatal",
+    }
+
+    function neoboard(tag, timestamp, record)
+      local changed = 0
+      if SEVERITY[record["level"]] then
+        record["severity"] = SEVERITY[record["level"]]
+        changed = 1
+      end
+      if type(record["time"]) == "number" then
+        timestamp = record["time"] / 1000
+        changed = 1
+      end
+      return changed, timestamp, record
+    end
+
+config:
+  inputs: |
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*neoboard*.log
+        multiline.parser  docker, cri
+        Tag               kube.*
+        Mem_Buf_Limit     5MB
+        Skip_Long_Lines   On
+
+  filters: |
+    [FILTER]
+        Name         kubernetes
+        Match        kube.*
+        Merge_Log    On
+        Keep_Log     Off
+
+    [FILTER]
+        Name    lua
+        Match   kube.*
+        script  /fluent-bit/scripts/neoboard.lua
+        call    neoboard
+
+  outputs: |
+    [OUTPUT]
+        Name                opensearch
+        Match               kube.*
+        Host                opensearch-cluster-master
+        Port                9200
+        Logstash_Format     On
+        Logstash_Prefix     neoboard
+        Suppress_Type_Name  On
+        Trace_Error         On
+        Retry_Limit         5
