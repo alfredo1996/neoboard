@@ -24,7 +24,8 @@ export const standalone = readdirSync(DOCKER).filter(
 // Compose normalises both depends_on syntaxes. Placeholders stand in for the
 // `:?` vars; docker/.env is gitignored and absent in CI. `--profile "*"`
 // keeps services behind an inactive profile in the resolved config.
-export const resolve = (file) =>
+// `resolve(a, b)` layers the files like `docker compose -f a -f b`.
+export const resolve = (...files) =>
   JSON.parse(
     execFileSync(
       "docker",
@@ -32,8 +33,7 @@ export const resolve = (file) =>
         "compose",
         "--profile",
         "*",
-        "-f",
-        join(DOCKER, file),
+        ...files.flatMap((f) => ["-f", join(DOCKER, f)]),
         "config",
         "--format",
         "json",
@@ -52,3 +52,14 @@ export const resolve = (file) =>
       },
     ),
   );
+
+// What the standalone-file invariants run over: every standalone file, plus the
+// logging add-on layered on each production file (#2439), so the add-on's
+// services meet the same guards (IPv4 health checks, restart policies).
+export const composeSets = [
+  ...standalone.map((f) => [f, [f]]),
+  ...["prod", "prod-full"].map((b) => [
+    `${b} + logging`,
+    [`docker-compose.${b}.yml`, "docker-compose.logging.yml"],
+  ]),
+];

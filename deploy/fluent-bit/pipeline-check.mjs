@@ -2,7 +2,8 @@
 // End-to-end check of the log kit: sign in, run one query through /api/query,
 // then wait for its `query_executed` line in OpenSearch with requestId,
 // durationMs and schedulerWaitMs as fields (a parser that leaves the JSON as
-// one string fails here). Run by .github/workflows/log-shipping-pipeline.yml.
+// one string fails here), severity from the Lua filter, and @timestamp equal to
+// the line's own time to the millisecond. Run by .github/workflows/log-shipping-pipeline.yml.
 //
 //   APP_URL=http://localhost:3000 OPENSEARCH_URL=http://localhost:9200 \
 //   ADMIN_EMAIL=... ADMIN_PASSWORD=... PG_PASSWORD=... node pipeline-check.mjs
@@ -82,6 +83,11 @@ const queryRes = await fetch(`${APP_URL}/api/query`, {
 });
 if (!queryRes.ok) throw new Error(`query: ${queryRes.status}`);
 
+await until(
+  "OpenSearch",
+  async () => (await fetch(`${OPENSEARCH_URL}/_cluster/health`)).ok,
+);
+
 const hit = await until("the query line in OpenSearch", async () => {
   const res = await fetch(`${OPENSEARCH_URL}/neoboard-*/_search`, {
     method: "POST",
@@ -91,6 +97,8 @@ const hit = await until("the query line in OpenSearch", async () => {
         bool: {
           filter: [
             { term: { "event.keyword": "query_executed" } },
+            // This run's line, not a stale one in a reused volume.
+            { term: { "connectionId.keyword": connectionId } },
             { exists: { field: "requestId" } },
             { exists: { field: "durationMs" } },
             { exists: { field: "schedulerWaitMs" } },
@@ -104,7 +112,12 @@ const hit = await until("the query line in OpenSearch", async () => {
 });
 
 console.log("shipped:", JSON.stringify(hit));
+const wrong = [];
+if (hit.severity !== "info") wrong.push(`severity ${hit.severity}`);
+const want = new Date(hit.time).toISOString();
+if (hit["@timestamp"] !== want) wrong.push(`@timestamp ${hit["@timestamp"]} != ${want}`);
 await fetch(`${APP_URL}/api/connections/${connectionId}`, {
   method: "DELETE",
   headers: json,
 });
+if (wrong.length) throw new Error(`Lua filter: ${wrong.join(", ")}`);

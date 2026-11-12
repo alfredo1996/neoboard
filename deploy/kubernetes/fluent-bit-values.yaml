@@ -9,16 +9,34 @@
 # A DaemonSet reads the NeoBoard pods' stdout from each node, merges the JSON
 # line into the record, and sends it to OpenSearch. No sidecar: the app logs to
 # stdout. Change `Host` in the output to your OpenSearch service, and the tail
-# Path if your pods are not named *neoboard*.
+# Path if your pods are not named *neoboard* (it also matches a namespace of
+# that name). The output expects the official OpenSearch chart's defaults:
+# HTTPS on 9200 with basic auth. Create the Secret first:
+#
+#   kubectl -n logging create secret generic opensearch-credentials \
+#     --from-literal=password='<the admin password>'
 kind: DaemonSet
+
+env:
+  - name: OPENSEARCH_USER
+    value: admin
+  - name: OPENSEARCH_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: opensearch-credentials
+        key: password
 
 luaScripts:
   # Same script as deploy/fluent-bit/neoboard.lua (a test keeps them identical).
   neoboard.lua: |
-    -- Fluent Bit lua filter for NeoBoard's pino lines.
+    -- Fluent Bit lua filter for NeoBoard's pino lines (the filter sets
+    -- time_as_table On, so `timestamp` is {sec, nsec}).
     --  * severity: pino's numeric `level` as a name (the number stays as `level`)
     --  * event time: the line's own `time` (epoch milliseconds), not the moment
-    --    Fluent Bit received it
+    --    Fluent Bit received it, kept to the millisecond
+    --  * err: the app logs it as an object in some places and a string in others,
+    --    and OpenSearch maps a field to the first type it sees, then rejects the
+    --    other. A string becomes { message = <string> }.
     local SEVERITY = {
       [10] = "trace", [20] = "debug", [30] = "info",
       [40] = "warn", [50] = "error", [60] = "fatal",
@@ -30,8 +48,13 @@ luaScripts:
         record["severity"] = SEVERITY[record["level"]]
         changed = 1
       end
-      if type(record["time"]) == "number" then
-        timestamp = record["time"] / 1000
+      local t = record["time"]
+      if type(t) == "number" then
+        timestamp = { sec = math.floor(t / 1000), nsec = math.floor(t % 1000) * 1000000 }
+        changed = 1
+      end
+      if type(record["err"]) == "string" then
+        record["err"] = { message = record["err"] }
         changed = 1
       end
       return changed, timestamp, record
@@ -59,6 +82,7 @@ config:
         Match   kube.*
         script  /fluent-bit/scripts/neoboard.lua
         call    neoboard
+        time_as_table On
 
   outputs: |
     [OUTPUT]
@@ -66,8 +90,17 @@ config:
         Match               kube.*
         Host                opensearch-cluster-master
         Port                9200
+        tls                 On
+        # ponytail: the chart's demo certificate is self-signed, so the chain is
+        # not checked. Set `tls.verify On` and `tls.ca_file` once it is not.
+        tls.verify          Off
+        HTTP_User           ${OPENSEARCH_USER}
+        HTTP_Passwd         ${OPENSEARCH_PASSWORD}
         Logstash_Format     On
         Logstash_Prefix     neoboard
         Suppress_Type_Name  On
+        # A pod with both `app` and `app.kubernetes.io/name` labels is otherwise
+        # rejected: OpenSearch reads the dot as an object path.
+        Replace_Dots        On
         Trace_Error         On
         Retry_Limit         5

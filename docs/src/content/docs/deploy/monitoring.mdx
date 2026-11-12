@@ -189,20 +189,38 @@ It works the same with `docker-compose.prod.yml`. Open Dashboards at `http://loc
 
 #### Kubernetes
 
-A DaemonSet reads the app pods' stdout from each node. Install the official chart with the shipped values (point `Host` in the output at your OpenSearch service first):
+A DaemonSet reads the app pods' stdout from each node. The output points at `opensearch-cluster-master`, the service of the official OpenSearch chart, which runs its security plugin by default: HTTPS on 9200 with basic auth. The values read the user and password from the environment, the password from a Secret you create first (the certificate is self-signed, so the values do not verify it; set `tls.verify On` and `tls.ca_file` for a real one). Point `Host` at your own OpenSearch service if it differs, then install the chart with the shipped values:
 
 ```bash
+kubectl -n logging create secret generic opensearch-credentials \
+  --from-literal=password='<the OpenSearch admin password>'
 helm repo add fluent https://fluent.github.io/helm-charts
 helm upgrade --install fluent-bit fluent/fluent-bit --version 0.58.3 \
   -n logging --create-namespace -f deploy/kubernetes/fluent-bit-values.yaml
 ```
 
+The `tail` input reads `/var/log/containers/*neoboard*.log`. That also matches a namespace named `neoboard`, and the product rename (#1974) changes the pod names: edit `Path` in the values to match yours.
+
 No sidecar is needed while the app logs to stdout (the default). If you set `LOG_OUTPUT=file`, the logs go to `LOG_FILE_PATH` inside the pod: mount that directory on a volume shared with a Fluent Bit sidecar whose `tail` input reads the file and uses the same filters and output.
 
 #### Another destination
 
-Only OpenSearch is tested. To send the logs elsewhere, replace the `[OUTPUT]` block of `deploy/fluent-bit/fluent-bit.conf` (or `config.outputs` in the values) with the matching Fluent Bit output: `es` for Elasticsearch and Kibana, `loki` for Grafana Loki, `cloudwatch_logs`, `datadog`. The parser and the severity filter stay as they are.
+Only OpenSearch is tested. To send the logs elsewhere, replace the `[OUTPUT]` block of `deploy/fluent-bit/fluent-bit.conf` (or `config.outputs` in the values) with the matching Fluent Bit output: `loki` for Grafana Loki, `cloudwatch_logs`, `datadog`. The parser and the severity filter stay as they are. For Elasticsearch and Kibana:
+
+```ini
+[OUTPUT]
+    Name                es
+    Match               *
+    Host                elasticsearch.example.com
+    Port                9200
+    tls                 On
+    HTTP_User           ${ELASTIC_USER}
+    HTTP_Passwd         ${ELASTIC_PASSWORD}
+    Logstash_Format     On
+    Logstash_Prefix     neoboard
+    Suppress_Type_Name  On
+```
 
 #### Checks
 
-CI validates the Fluent Bit config (`--dry-run` in the pinned image), the compose add-on and the Helm values on every pull request. A full run (the app, Fluent Bit and OpenSearch; one query's log line must arrive with `requestId`, `durationMs` and `schedulerWaitMs` as fields) runs on demand and whenever the kit's files change.
+CI validates the Fluent Bit config (`--dry-run`, a few seconds of startup in the pinned image, and the Lua filter on sample lines), the compose add-on and the Helm values on every pull request. A full run (the app, Fluent Bit and OpenSearch; one query's log line must arrive with `requestId`, `durationMs` and `schedulerWaitMs` as fields) runs on demand and whenever the kit's files change.

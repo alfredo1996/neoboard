@@ -15,6 +15,7 @@ on:
       - 'docker/docker-compose.prod-full.yml'
       - 'app/src/lib/logger.ts'
       - 'app/src/lib/log-redact.ts'
+      - 'app/src/lib/query/middleware/audit.ts'
       - '.github/workflows/log-shipping-pipeline.yml'
 
 permissions:
@@ -34,7 +35,7 @@ jobs:
       BOOTSTRAP_ADMIN_PASSWORD: ci-password-1
       FORCE_HTTPS: 'false'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Raise vm.max_map_count for OpenSearch
         run: sudo sysctl -w vm.max_map_count=262144

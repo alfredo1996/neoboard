@@ -34,6 +34,7 @@ services:
       - "127.0.0.1:24224:24224"
     depends_on:
       - opensearch
+    networks: [logging]
     deploy:
       resources:
         limits:
@@ -54,9 +55,10 @@ services:
       - "127.0.0.1:${OPENSEARCH_PORT:-9200}:9200"
     volumes:
       - opensearchdata:/usr/share/opensearch/data
+    networks: [logging]
     healthcheck:
       test:
-        ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+        ["CMD-SHELL", "curl -fs http://127.0.0.1:9200/_cluster/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -66,7 +68,10 @@ services:
           memory: 1G
     restart: unless-stopped
 
-  # One-shot: installs the 14-day retention policy, then exits.
+  # One-shot: installs (or updates) the 14-day retention policy, attaches it to
+  # any index that already exists (Fluent Bit may create the first day's index
+  # before this runs), then exits. A re-run finds the policy (409) and updates
+  # it with its seq_no and primary_term, so an edited policy applies.
   opensearch-init:
     image: curlimages/curl:8.10.1
     depends_on:
@@ -74,15 +79,18 @@ services:
         condition: service_healthy
     volumes:
       - ../deploy/opensearch:/policy:ro
+    networks: [logging]
+    entrypoint: ["/bin/sh", "-ec"]
     command:
-      - -fsS
-      - -X
-      - PUT
-      - -H
-      - "Content-Type: application/json"
-      - --data-binary
-      - "@/policy/ism-neoboard-14d.json"
-      - http://opensearch:9200/_plugins/_ism/policies/neoboard-14d
+      - |
+        api=http://opensearch:9200/_plugins/_ism
+        put() { curl -sS -o /dev/null -w '%{http_code}' -X PUT -H 'Content-Type: application/json' --data-binary @/policy/ism-neoboard-14d.json "$$api/policies/neoboard-14d$$1"; }
+        code=$$(put)
+        if [ "$$code" = 409 ]; then
+          code=$$(put "?$$(curl -fsS $$api/policies/neoboard-14d | sed -n 's/.*"_seq_no":\([0-9]*\),"_primary_term":\([0-9]*\).*/if_seq_no=\1\&if_primary_term=\2/p')")
+        fi
+        case "$$code" in 200|201) ;; *) echo "policy install failed: HTTP $$code"; exit 1 ;; esac
+        curl -fsS -X POST -H 'Content-Type: application/json' -d '{"policy_id":"neoboard-14d"}' "$$api/add/neoboard-*"
     restart: "no"
 
   opensearch-dashboards:
@@ -90,6 +98,7 @@ services:
     environment:
       OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
       DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    networks: [logging]
     ports:
       - "127.0.0.1:${OPENSEARCH_DASHBOARDS_PORT:-5601}:5601"
     depends_on:
@@ -100,6 +109,13 @@ services:
         limits:
           memory: 768M
     restart: unless-stopped
+
+# Unauthenticated OpenSearch lives here only. The Docker daemon, not the app,
+# reaches Fluent Bit (through its loopback port), so the app does not join it.
+# Otherwise anything that can make the app's network connections (a query
+# against the bundled Neo4j, say) could read every tenant's query log.
+networks:
+  logging:
 
 volumes:
   opensearchdata:

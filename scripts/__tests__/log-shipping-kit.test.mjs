@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, DOCKER } from "./compose-config.mjs";
+import { ROOT, resolve } from "./compose-config.mjs";
 
 /**
  * #2439 — the log shipping kit. The add-on has no image or build for the app,
@@ -11,34 +10,7 @@ import { ROOT, DOCKER } from "./compose-config.mjs";
  */
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
 
-const resolveWith = (base) =>
-  JSON.parse(
-    execFileSync(
-      "docker",
-      [
-        "compose",
-        "-f",
-        join(DOCKER, base),
-        "-f",
-        join(DOCKER, "docker-compose.logging.yml"),
-        "config",
-        "--format",
-        "json",
-      ],
-      {
-        encoding: "utf8",
-        stdio: ["pipe", "pipe", "pipe"],
-        env: {
-          ...process.env,
-          ENCRYPTION_KEY: "0".repeat(64),
-          NEXTAUTH_SECRET: "test-secret",
-          API_KEY_HMAC_SECRET: "0".repeat(64),
-          DATABASE_URL: "postgres://x:x@localhost/x",
-          POSTGRES_PASSWORD: "test-password",
-        },
-      },
-    ),
-  );
+const resolveWith = (base) => resolve(base, "docker-compose.logging.yml");
 
 describe("the logging add-on (#2439)", () => {
   it.each(["docker-compose.prod.yml", "docker-compose.prod-full.yml"])(
@@ -62,6 +34,20 @@ describe("the logging add-on (#2439)", () => {
     },
     60_000,
   );
+
+  it("keeps OpenSearch on its own network, away from the app", () => {
+    const { services } = resolveWith("docker-compose.prod-full.yml");
+    const nets = (n) => Object.keys(services[n].networks ?? { default: {} });
+    for (const n of [
+      "fluent-bit",
+      "opensearch",
+      "opensearch-init",
+      "opensearch-dashboards",
+    ]) {
+      expect(nets(n)).toEqual(["logging"]);
+    }
+    expect(nets("neoboard")).not.toContain("logging");
+  }, 60_000);
 
   it("pins every image to an exact version", () => {
     const { services } = resolveWith("docker-compose.prod.yml");

@@ -26,13 +26,10 @@ jobs:
       DATABASE_URL: postgres://x:x@localhost/x
       POSTGRES_PASSWORD: ci
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Fluent Bit config (--dry-run in the pinned image)
-        run: |
-          docker run --rm -e OPENSEARCH_HOST=opensearch -e OPENSEARCH_PORT=9200 \
-            -v "$PWD/deploy/fluent-bit:/fluent-bit/etc:ro" "$FLUENT_BIT_IMAGE" \
-            /fluent-bit/bin/fluent-bit -c /fluent-bit/etc/fluent-bit.conf --dry-run
+      - name: Fluent Bit config (dry run, startup log, Lua filter)
+        run: deploy/fluent-bit/check.sh "$FLUENT_BIT_IMAGE"
 
       - name: Compose add-on resolves with each production file
         run: |
