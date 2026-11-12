@@ -97,6 +97,8 @@ interface Captured {
   data: unknown;
   error: unknown;
   statuses: QueryStatus[];
+  /** When onFail fired (epoch ms), so a failure before the abort is detectable. */
+  failedAt?: number;
 }
 
 /** Run one query, capturing everything the module reported through callbacks. */
@@ -118,6 +120,7 @@ async function execute(
       },
       onFail: (e) => {
         captured.error = e;
+        captured.failedAt = Date.now();
       },
       setStatus: (s) => {
         captured.statuses.push(s);
@@ -295,6 +298,17 @@ export function buildConformanceCases(
         }
         const abortedAt = Date.now();
         abortAndDrain();
+        // Measure the shutdown from the abort, not from settlement: a connector
+        // that settles late must not get a late stop accepted.
+        let goneAt: number | undefined;
+        const polling = isQueryActive
+          ? waitFor(async () => {
+              if (await isQueryActive()) return false;
+              goneAt ??= Date.now();
+              return true;
+            }, abortedAt + 2000)
+          : undefined;
+        polling?.catch(() => undefined);
         let timer: ReturnType<typeof setTimeout> | undefined;
         const captured = await Promise.race([
           running,
@@ -313,13 +327,14 @@ export function buildConformanceCases(
             `cancel violation: an aborted read settled after ${elapsed} ms with no failure; expected a failure within 2.5 s`,
           );
         }
-        if (isQueryActive) {
-          // The statement may need a moment to unwind after the failure.
-          const gone = await waitFor(
-            async () => !(await isQueryActive()),
-            abortedAt + 2000,
+        if (captured.failedAt !== undefined && captured.failedAt < abortedAt) {
+          throw new Error(
+            "cancel violation: the failure was reported before the signal aborted, so it does not certify cancellation",
           );
-          if (!gone) {
+        }
+        if (polling) {
+          await polling;
+          if (goneAt === undefined || goneAt > abortedAt + 2000) {
             throw new Error(
               "cancel violation: the aborted statement is still running on the database 2 s after the abort",
             );
