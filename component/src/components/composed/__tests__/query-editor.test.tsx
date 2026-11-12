@@ -230,7 +230,7 @@ describe("QueryEditor", () => {
 
   it("turns the running Run into an enabled Stop when given onStop (#2445)", async () => {
     const onStop = vi.fn();
-    render(<QueryEditor value="MATCH (n)" running onStop={onStop} />);
+    render(<QueryEditor value="MATCH (n)" running stoppable onStop={onStop} />);
     await flushAsync();
     expect(screen.queryByText("Running")).toBeNull();
     const stop = screen.getByRole("button", { name: "Stop" });
@@ -239,9 +239,16 @@ describe("QueryEditor", () => {
     expect(onStop).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps a disabled Running until the run is stoppable (#2445)", async () => {
+    render(<QueryEditor value="MATCH (n)" running onStop={vi.fn()} />);
+    await flushAsync();
+    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    expect(screen.getByText("Running").closest("button")).toBeDisabled();
+  });
+
   it("ignores the second click of a double-click landing on Stop (#2445)", async () => {
     const onStop = vi.fn();
-    render(<QueryEditor value="MATCH (n)" running onStop={onStop} />);
+    render(<QueryEditor value="MATCH (n)" running stoppable onStop={onStop} />);
     await flushAsync();
     const stop = screen.getByRole("button", { name: "Stop" });
     fireEvent.click(stop, { detail: 2 });

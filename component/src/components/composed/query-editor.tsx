@@ -37,6 +37,11 @@ export interface QueryEditorProps {
    * enabled Stop that calls it (#2445).
    */
   onStop?: () => void;
+  /**
+   * Whether Stop may show yet. Until then a running toolbar keeps its disabled
+   * Run, so a click aimed at Run cannot land on Stop (#2445).
+   */
+  stoppable?: boolean;
   history?: string[];
   placeholder?: string;
   /**
@@ -242,6 +247,7 @@ function QueryEditor({
   onRun,
   running = false,
   onStop,
+  stoppable = false,
   history,
   placeholder = "Enter your query...",
   language = "",
@@ -754,7 +760,7 @@ function QueryEditor({
             </span>
           )}
           {showRun &&
-            (running && onStop ? (
+            (running && stoppable && onStop ? (
               <Button
                 size="sm"
                 className="h-7 gap-1"

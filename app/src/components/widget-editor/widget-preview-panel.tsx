@@ -18,6 +18,7 @@ import {
   Label,
   WidgetCard,
   LoadingOverlay,
+  Spinner,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -78,6 +79,8 @@ type WidgetPreviewPanelProps = Readonly<{
   onRunPreview: () => void;
   /** Ends the running preview (#2445). */
   onStopPreview?: () => void;
+  /** The run has been pending long enough for Stop to replace Run (#2445). */
+  stoppable?: boolean;
   /** The author stopped the last run: show that, never an older result (#2445). */
   stopped?: boolean;
   /** Query references $param_x tokens that aren't all bound yet (#1055). */
@@ -349,14 +352,16 @@ export function WidgetPreviewPanel({
   initialPreviewData,
   onRunPreview,
   onStopPreview,
+  stoppable,
   stopped,
   waitingForParams,
 }: WidgetPreviewPanelProps) {
+  const showStop = previewQuery.isPending && !!stoppable;
   const toggleRun = (event: MouseEvent) => {
     // The second click of a double-click would land on the flipped Run/Stop
     // and undo the first.
     if (event.detail >= 2) return;
-    (previewQuery.isPending ? onStopPreview : onRunPreview)?.();
+    (showStop ? onStopPreview : onRunPreview)?.();
   };
 
   function renderPreviewContent() {
@@ -436,22 +441,25 @@ export function WidgetPreviewPanel({
               // The one Run while the preview is on screen; the query toolbar
               // takes the same title only while the editor hides it (#2388).
               title={
-                previewQuery.isPending
-                  ? "Stop the query"
-                  : "Run query (Ctrl+Enter / ⌘+Enter)"
+                showStop ? "Stop the query" : "Run query (Ctrl+Enter / ⌘+Enter)"
               }
               onClick={toggleRun}
               disabled={
-                !previewQuery.isPending &&
-                isRunDisabled(connectionId, query, false)
+                previewQuery.isPending
+                  ? !showStop
+                  : isRunDisabled(connectionId, query, false)
               }
             >
-              {previewQuery.isPending ? (
+              {showStop && (
                 <Square className="h-3 w-3 mr-1.5 fill-current" aria-hidden />
-              ) : (
+              )}
+              {!showStop && previewQuery.isPending && (
+                <Spinner size="sm" className="h-3 w-3 mr-1.5" aria-hidden />
+              )}
+              {!showStop && !previewQuery.isPending && (
                 <Play className="h-3 w-3 mr-1.5" />
               )}
-              {previewQuery.isPending ? "Stop" : "Run"}
+              {showStop ? "Stop" : "Run"}
             </Button>
           </div>
         )}

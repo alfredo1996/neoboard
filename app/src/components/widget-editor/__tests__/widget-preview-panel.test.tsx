@@ -39,6 +39,7 @@ vi.mock("@neoboard/components", () => ({
       {children}
     </section>
   ),
+  Spinner: () => <span data-testid="spinner" />,
   LoadingOverlay: ({ text }: { text?: React.ReactNode }) => (
     <div role="status">{text}</div>
   ),
@@ -147,7 +148,11 @@ describe("WidgetPreviewPanel", () => {
     const onStopPreview = vi.fn();
     render(
       <WidgetPreviewPanel
-        {...makeProps({ previewQuery: pending, onStopPreview })}
+        {...makeProps({
+          previewQuery: pending,
+          onStopPreview,
+          stoppable: true,
+        })}
       />,
     );
     expect(screen.queryByRole("button", { name: "Run" })).toBeNull();
@@ -155,6 +160,17 @@ describe("WidgetPreviewPanel", () => {
     expect(stop).toBeEnabled();
     fireEvent.click(stop);
     expect(onStopPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a disabled Run until the run is stoppable, so a click aimed at Run cannot land on Stop (#2445)", () => {
+    const onStopPreview = vi.fn();
+    render(
+      <WidgetPreviewPanel
+        {...makeProps({ previewQuery: pending, onStopPreview })}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Run" })).toBeDisabled();
   });
 
   it("counts the seconds in the loading text (#2445)", () => {
@@ -226,7 +242,12 @@ describe("WidgetPreviewPanel", () => {
     // The run starts, the label flips, the second click lands on Stop.
     rerender(
       <WidgetPreviewPanel
-        {...makeProps({ onRunPreview, onStopPreview, previewQuery: pending })}
+        {...makeProps({
+          onRunPreview,
+          onStopPreview,
+          previewQuery: pending,
+          stoppable: true,
+        })}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Stop" }), {
@@ -245,7 +266,12 @@ describe("WidgetPreviewPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run" }), { detail: 1 });
     rerender(
       <WidgetPreviewPanel
-        {...makeProps({ onRunPreview, onStopPreview, previewQuery: pending })}
+        {...makeProps({
+          onRunPreview,
+          onStopPreview,
+          previewQuery: pending,
+          stoppable: true,
+        })}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Stop" }), {
