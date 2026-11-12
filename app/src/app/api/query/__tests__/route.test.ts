@@ -6,6 +6,7 @@ import {
   sqlValues,
 } from "@/__tests__/helpers/drizzle-mocks";
 import { ConnectorError, ConnectorErrorType } from "@neoboard/connection";
+import { metricsRegistry, resetMetrics } from "@/lib/metrics";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -226,8 +227,12 @@ describe("POST /api/query", () => {
           ConnectorErrorType.QUERY,
         );
       });
+      resetMetrics();
       const res = await POST(withSignal(controller.signal));
       expect(res.status).toBe(499);
+      expect(await metricsRegistry().metrics()).toContain(
+        'neoboard_query_cancellations_total{connector_type="postgresql"} 1',
+      );
     });
   });
 

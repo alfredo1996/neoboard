@@ -19,6 +19,8 @@ const TEST_ENCRYPTION_KEY =
   "b8c0dbaad415694973d7cf4a3a40d4e53fc940493a6362ecff4dae45245e05d9";
 const TEST_NEXTAUTH_SECRET =
   "d0eece19938fc5e2e3e45ed76fb5c92b0fc6ba2c4f213404ccca7ea0e641cd65";
+// Turns /api/metrics on for the metrics spec (#2440).
+const TEST_METRICS_TOKEN = "e2e-metrics-token-0123456789abcdef0123456789abcdef";
 const TEST_API_KEY_HMAC_SECRET =
   "a1f3c9e2d47b6a85f0e12d3c4b5a6978f0e1d2c3b4a59687f0e1d2c3b4a59687";
 
@@ -246,6 +248,7 @@ export default async function globalSetup() {
     `API_KEY_HMAC_SECRET=${TEST_API_KEY_HMAC_SECRET}`,
     `NEXTAUTH_SECRET=${TEST_NEXTAUTH_SECRET}`,
     `NEXTAUTH_URL=http://localhost:${serverPort}`,
+    `METRICS_TOKEN=${TEST_METRICS_TOKEN}`,
     `TEST_SERVER_PORT=${serverPort}`,
     // E2E exercises /signup flows; v1.0 default is closed.
     `REGISTRATION_ENABLED=true`,
@@ -264,6 +267,7 @@ export default async function globalSetup() {
   process.env.ENCRYPTION_KEY = TEST_ENCRYPTION_KEY;
   process.env.API_KEY_HMAC_SECRET = TEST_API_KEY_HMAC_SECRET;
   process.env.NEXTAUTH_SECRET = TEST_NEXTAUTH_SECRET;
+  process.env.METRICS_TOKEN = TEST_METRICS_TOKEN;
   process.env.NEXTAUTH_URL = `http://localhost:${serverPort}`;
   process.env.TEST_SERVER_PORT = String(serverPort);
   process.env.TEST_NEO4J_BOLT_URL = `bolt://localhost:${neo4jBoltPort}`;

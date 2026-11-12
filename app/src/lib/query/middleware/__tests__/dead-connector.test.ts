@@ -6,6 +6,7 @@ import {
   DEAD_CONNECTOR_TTL_MS,
 } from "../dead-connector";
 import type { QueryContext, QueryResult } from "@/lib/query/pipeline-types";
+import { metricsRegistry, resetMetrics } from "@/lib/metrics";
 import { ConnectorError, ConnectorErrorType } from "@neoboard/connection";
 
 function makeContext(overrides: Partial<QueryContext> = {}): QueryContext {
@@ -33,6 +34,7 @@ describe("deadConnectorMiddleware (#1888)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     resetDeadConnectors();
+    resetMetrics();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -57,6 +59,26 @@ describe("deadConnectorMiddleware (#1888)", () => {
       failure,
     );
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it("counts each replayed fast-failure as a connector_unavailable rejection (#2440)", async () => {
+    const failure = unreachable();
+    await expect(
+      deadConnectorMiddleware(makeContext(), async () => {
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+    const count = async () =>
+      (await metricsRegistry().metrics()).match(
+        /neoboard_query_rejections_total\{connector_type="neo4j",reason="connector_unavailable"\} (\d+)/,
+      )?.[1];
+    // The first failure was a real dial, not a replay.
+    expect(await count()).toBeUndefined();
+    for (let i = 0; i < 2; i++)
+      await expect(
+        deadConnectorMiddleware(makeContext(), async () => ok),
+      ).rejects.toBe(failure);
+    expect(await count()).toBe("2");
   });
 
   it("dials again once the TTL has passed", async () => {

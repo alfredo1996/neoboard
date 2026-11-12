@@ -16,6 +16,9 @@ const publicExact = new Set([
   // readiness poll before any session exists. Anonymous callers get
   // status and DB status only; config detail is admin-only (#2332).
   "/api/health",
+  // Prometheus scrape (#2440): has no session. The route is off without
+  // METRICS_TOKEN and checks the bearer token itself.
+  "/api/metrics",
 ]);
 
 /**

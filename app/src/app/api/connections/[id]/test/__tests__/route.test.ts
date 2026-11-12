@@ -132,6 +132,26 @@ describe("POST /api/connections/[id]/test", () => {
     expect(body.error).toBeNull();
   });
 
+  it("a running probe shows under its connection's type in the scheduler gauges (#2440)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(
+      makeSelectChain([
+        { id: "c1", userId: "user-1", type: "neo4j", configEncrypted: "enc" },
+      ]),
+    );
+    mockDecryptJson.mockReturnValue({ uri: "bolt://localhost" });
+    const { metricsRegistry } = await import("@/lib/metrics");
+    let scraped = "";
+    mockTestConnection.mockImplementation(async () => {
+      scraped = await metricsRegistry().metrics();
+      return true;
+    });
+    await POST(makeRequest(null), makeParams("c1"));
+    expect(scraped).toContain(
+      'neoboard_query_active{connector_type="neo4j"} 1',
+    );
+  });
+
   it("clears the dead-connector memo when the test passes, and only then (#1888)", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     const conn = {

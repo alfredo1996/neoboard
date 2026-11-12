@@ -39,6 +39,7 @@ const INTERNAL_ROUTES = new Set<string>([
   "/api/docs", // Swagger UI HTML, not an API operation
   "/api/openapi", // serves the spec
   "/api/openapi.json", // serves the spec
+  "/api/metrics", // Prometheus scrape, token-gated, not an API operation (#2440)
 ]);
 
 /**

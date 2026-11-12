@@ -1,4 +1,5 @@
 import { apiLogger } from "@/lib/logger";
+import { recordRequest } from "@/lib/metrics";
 
 /**
  * Route handler wrapper that emits structured request lifecycle logs.
@@ -45,6 +46,7 @@ export async function logRoute<T extends Response>(
   try {
     const response = await fn();
     const durationMs = Math.round(performance.now() - start);
+    recordRequest(module, method, response.status, durationMs);
     log.info(
       {
         event: "request_end",
@@ -59,6 +61,7 @@ export async function logRoute<T extends Response>(
     return response;
   } catch (err) {
     const durationMs = Math.round(performance.now() - start);
+    recordRequest(module, method, 500, durationMs);
     const isProd = process.env.NODE_ENV === "production";
     log.error(
       {

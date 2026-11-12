@@ -1,0 +1,59 @@
+---
+title: Prometheus metrics
+description: Scrape NeoBoard's query queue, query time and request metrics with Prometheus.
+sidebar:
+  order: 8
+---
+
+NeoBoard serves Prometheus metrics at `GET /api/metrics`. It is **off by default**: the endpoint answers `404` until you set `METRICS_TOKEN`.
+
+## Enable it
+
+Generate one token and give the same value to NeoBoard and to Prometheus:
+
+```bash
+openssl rand -hex 32 > neoboard-metrics-token
+chmod 600 neoboard-metrics-token
+```
+
+- **NeoBoard** reads it from the `METRICS_TOKEN` environment variable of the app's process or container. With the production compose files, put `METRICS_TOKEN=<the token>` in the `.env` file next to them: they pass it to the app. Restart the app after setting it.
+- **Prometheus** reads it from the file its `credentials_file` names (below): mount `neoboard-metrics-token` there, readable by Prometheus only.
+
+Prometheus sends the token as a bearer token in the `Authorization` header. A missing or wrong token gets `401`. The endpoint needs no user session, so the token is the only gate: keep it out of logs and put the endpoint behind your network controls.
+
+## Scrape it
+
+```yaml
+scrape_configs:
+  - job_name: neoboard
+    metrics_path: /api/metrics
+    authorization:
+      credentials_file: /etc/prometheus/neoboard-token
+    static_configs:
+      - targets: ["neoboard:3000"]
+```
+
+Metrics are per process. With several replicas, scrape each one.
+
+## What you get
+
+| Metric | Type | Labels |
+|--------|------|--------|
+| `neoboard_query_duration_seconds` | histogram | `connector_type`, `priority`, `outcome` |
+| `neoboard_query_queue_wait_seconds` | histogram | `connector_type`, `priority`, `outcome` |
+| `neoboard_query_queue_depth` | gauge | `connector_type` |
+| `neoboard_query_active` | gauge | `connector_type` |
+| `neoboard_query_rejections_total` | counter | `connector_type`, `reason` (`queue_full`, `shed`, `connector_unavailable`) |
+| `neoboard_query_queue_timeouts_total` | counter | `connector_type` |
+| `neoboard_query_cancellations_total` | counter | `connector_type` |
+| `neoboard_http_requests_total` | counter | `route`, `method`, `status` |
+| `neoboard_http_request_duration_seconds` | histogram | `route`, `method`, `status` |
+| `neoboard_process_*`, `neoboard_nodejs_*` | default | none |
+
+`outcome` is `success` or `error`, and on `neoboard_query_queue_wait_seconds` also `queue_timeout`: a query that waited the whole queue timeout is in the wait histogram, so its p95 shows saturation. A rejection (`queue_full`, `shed`) never waited, so it is only counted in `neoboard_query_rejections_total`. `connector_unavailable` counts queries answered at once because the connector is known to be down.
+
+The `neoboard_http_*` metrics cover the query routes (`/api/query` and `/api/query/write`), not every API route. No label carries a connection, tenant, user, dashboard or query text, so a scrape reveals nothing about who uses the instance and the series count stays bounded by the connector types you run.
+
+## Dashboard
+
+Import [`deploy/grafana/neoboard-queries.json`](https://github.com/alfredo1996/neoboard/blob/dev/deploy/grafana/neoboard-queries.json) into Grafana and pick your Prometheus data source.
