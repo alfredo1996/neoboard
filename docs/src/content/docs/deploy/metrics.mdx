@@ -9,11 +9,17 @@ NeoBoard serves Prometheus metrics at `GET /api/metrics`. It is **off by default
 
 ## Enable it
 
+Generate one token and give the same value to NeoBoard and to Prometheus:
+
 ```bash
-METRICS_TOKEN=$(openssl rand -hex 32)
+openssl rand -hex 32 > neoboard-metrics-token
+chmod 600 neoboard-metrics-token
 ```
 
-Send the token as a bearer token in the `Authorization` header. A missing or wrong token gets `401`. The endpoint needs no user session, so the token is the only gate: keep it out of logs and put the endpoint behind your network controls.
+- **NeoBoard** reads it from the `METRICS_TOKEN` environment variable of the app's process or container. With the production compose files, put `METRICS_TOKEN=<the token>` in the `.env` file next to them: they pass it to the app. Restart the app after setting it.
+- **Prometheus** reads it from the file its `credentials_file` names (below): mount `neoboard-metrics-token` there, readable by Prometheus only.
+
+Prometheus sends the token as a bearer token in the `Authorization` header. A missing or wrong token gets `401`. The endpoint needs no user session, so the token is the only gate: keep it out of logs and put the endpoint behind your network controls.
 
 ## Scrape it
 
