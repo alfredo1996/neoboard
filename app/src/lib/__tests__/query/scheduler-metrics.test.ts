@@ -296,3 +296,35 @@ describe("startSchedulerMetricsEmitter", () => {
     expect(() => stopSchedulerMetricsEmitter()).not.toThrow();
   });
 });
+
+describe("metrics tick failure", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.doUnmock("@/lib/query/scheduler-registry");
+    vi.doUnmock("@/lib/logger");
+  });
+
+  it("logs the thrown Error itself as err, not its message (#2468)", async () => {
+    vi.resetModules();
+    vi.useFakeTimers();
+    const boom = new Error("stats exploded");
+    const error = vi.fn();
+    vi.doMock("@/lib/query/scheduler-registry", () => ({
+      listSchedulers: () => {
+        throw boom;
+      },
+    }));
+    vi.doMock("@/lib/logger", () => ({ queryLogger: { error } }));
+    const mod = await import("@/lib/query/scheduler-metrics");
+    mod.startSchedulerMetricsEmitter(1000);
+    vi.advanceTimersByTime(1000);
+    mod.stopSchedulerMetricsEmitter();
+    expect(error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "scheduler_metrics_tick_failed",
+        err: boom,
+      }),
+      "scheduler_metrics_tick_failed",
+    );
+  });
+});

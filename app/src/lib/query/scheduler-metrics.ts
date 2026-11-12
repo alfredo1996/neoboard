@@ -164,7 +164,7 @@ export function startSchedulerMetricsEmitter(
       queryLogger.error(
         {
           event: "scheduler_metrics_tick_failed",
-          err: err instanceof Error ? err.message : String(err),
+          err,
         },
         "scheduler_metrics_tick_failed",
       );

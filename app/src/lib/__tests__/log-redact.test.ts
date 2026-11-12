@@ -646,3 +646,22 @@ describe("redactSecrets — query text (LOG_QUERY_TEXT)", () => {
     expect(out).not.toContain("SELECT id FROM users");
   });
 });
+
+describe("a string err under LOG_ANONYMIZE (#2468)", () => {
+  it("scrubs its quoted values like an Error's message", () => {
+    expect(
+      redactSecrets(
+        { err: "failed on 'alice@example.com'" },
+        { anonymize: true },
+      ),
+    ).toEqual({ err: { message: "failed on '[value]'" } });
+  });
+
+  it("wraps an err that walk turns into a string (a URL), password gone", () => {
+    const out = redactSecrets({
+      err: new URL("https://u:" + SECRET + "@example.com/x"),
+    }) as { err: { message: string } };
+    expect(out.err.message).toContain("example.com/x");
+    expect(JSON.stringify(out)).not.toContain(SECRET);
+  });
+});

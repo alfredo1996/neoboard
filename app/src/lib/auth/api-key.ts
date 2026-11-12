@@ -117,7 +117,7 @@ export async function resolveApiKeyAuth(): Promise<{
       authLogger.warn(
         {
           event: "api_key_last_used_update_failed",
-          err: err instanceof Error ? err.message : "unknown",
+          err,
         },
         "api_key_last_used_update_failed",
       );
