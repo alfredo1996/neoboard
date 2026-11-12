@@ -1,0 +1,15 @@
+NeoBoard {{ default .Chart.AppVersion .Values.image.tag }} is installing as {{ include "neoboard.fullname" . }}.
+
+  kubectl rollout status deployment/{{ include "neoboard.fullname" . }}
+  kubectl port-forward svc/{{ include "neoboard.fullname" . }} 3000:{{ .Values.service.port }}
+  curl -fsS http://localhost:3000/api/health
+
+IMPORTANT: keep ENCRYPTION_KEY safe. If it is lost, every stored database
+credential is unrecoverable.
+{{- if gt (int .Values.replicaCount) 1 }}
+
+WARNING: replicaCount is {{ .Values.replicaCount }}. More than one replica is not safe yet:
+the login rate limits, the SSO provider cache and the per-connection query
+caps are held in each process, so every replica gets its own budget. Use 1,
+or rate-limit at the ingress, until a shared store exists.
+{{- end }}

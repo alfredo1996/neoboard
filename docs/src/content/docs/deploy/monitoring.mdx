@@ -64,24 +64,35 @@ To override it, add a `healthcheck:` block to the `neoboard` service.
 ### Using with Kubernetes
 
 ```yaml
-livenessProbe:
+startupProbe:
   httpGet:
     path: /api/health
     port: 3000
-  initialDelaySeconds: 30
-  periodSeconds: 30
-  timeoutSeconds: 10
+    httpHeaders:
+      - name: Host
+        value: localhost
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 60
 
 readinessProbe:
   httpGet:
     path: /api/health
     port: 3000
-  initialDelaySeconds: 10
+    httpHeaders:
+      - name: Host
+        value: localhost
   periodSeconds: 10
   timeoutSeconds: 5
+
+# A TCP check: a database outage should not restart the pod.
+livenessProbe:
+  tcpSocket:
+    port: 3000
+  periodSeconds: 30
 ```
 
-A complete Deployment and Service using these probes is on [Run from a build](/deploy/run-from-a-build#option-2-kubernetes-with-the-published-image).
+The Helm chart sets these probes; its install steps are on [Run from a build](/deploy/run-from-a-build#option-2-kubernetes-with-the-published-image).
 
 ## Key metrics to monitor
 

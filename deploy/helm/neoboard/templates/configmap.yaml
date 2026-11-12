@@ -1,0 +1,12 @@
+{{- range $k := list "DATABASE_URL" "ENCRYPTION_KEY" "ENCRYPTION_KEY_OLD" "NEXTAUTH_SECRET" "AUTH_SECRET" "API_KEY_HMAC_SECRET" "ADMIN_BOOTSTRAP_TOKEN" "BOOTSTRAP_ADMIN_PASSWORD" "LOG_ANONYMIZE_SECRET" "METRICS_TOKEN" "OIDC_CLIENT_SECRET" }}
+{{- if hasKey $.Values.config $k }}{{ fail (printf "config.%s is a secret: put it under secrets.* or in existingSecret, never the ConfigMap" $k) }}{{- end }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "neoboard.fullname" . }}
+  labels: {{- include "neoboard.labels" . | nindent 4 }}
+data:
+  {{- range $k, $v := .Values.config }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

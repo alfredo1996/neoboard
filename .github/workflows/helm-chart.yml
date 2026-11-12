@@ -1,0 +1,139 @@
+# Helm chart checks (#2441). The static checks (helm lint, template, the chart
+# tests) run on every PR. The install into a throwaway kind cluster is slow, so
+# it runs on demand and when the chart, the Dockerfile, the migrations or this
+# workflow change (the `changes` job decides).
+name: Helm chart
+
+on:
+  push:
+    branches: [main, dev, 'release/*']
+  pull_request:
+    branches: [main, dev, 'release/*']
+  workflow_dispatch:
+
+concurrency:
+  group: helm-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CHART: deploy/helm/neoboard
+  # Placeholders for lint/template only.
+  REQUIRED: >-
+    --set secrets.DATABASE_URL=postgresql://u:p@db:5432/d
+    --set secrets.ENCRYPTION_KEY=placeholder
+    --set secrets.NEXTAUTH_SECRET=placeholder
+    --set secrets.API_KEY_HMAC_SECRET=placeholder
+
+jobs:
+  changes:
+    name: Which checks apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      kind: ${{ steps.f.outputs.kind }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - id: f
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then echo kind=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            files=$(gh pr diff "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --name-only)
+          else
+            before="${{ github.event.before }}"
+            case "$before" in
+              ""|0000000000000000000000000000000000000000) echo kind=true >> "$GITHUB_OUTPUT"; exit 0 ;;
+            esac
+            git fetch --no-tags --depth=1 origin "$before" || { echo kind=true >> "$GITHUB_OUTPUT"; exit 0; }
+            files=$(git diff --name-only "$before" "${{ github.sha }}")
+          fi
+          if echo "$files" | grep -qE '^(deploy/helm/|Dockerfile$|app/drizzle/|\.github/workflows/helm-chart\.yml$)'; then
+            echo kind=true >> "$GITHUB_OUTPUT"
+          else
+            echo kind=false >> "$GITHUB_OUTPUT"
+          fi
+
+  lint:
+    name: Helm lint, template and chart tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.16.4 # the chart tests need >= 3.13 (--dry-run=client for NOTES)
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - name: Lint
+        run: helm lint --strict $CHART $REQUIRED
+      - name: Template with defaults
+        run: helm template r $CHART $REQUIRED > /dev/null
+      - name: Template with every option on
+        run: >-
+          helm template r $CHART $REQUIRED
+          --set replicaCount=2
+          --set ingress.enabled=true --set ingress.tls.enabled=true
+          --set metrics.enabled=true --set metrics.tokenSecret.name=m
+          --set metrics.serviceMonitor.enabled=true > /dev/null
+      - name: Chart tests
+        run: npx vitest run scripts/__tests__/helm-chart.test.mjs
+
+  kind-install:
+    name: Install and upgrade on kind
+    needs: changes
+    if: needs.changes.outputs.kind == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PUBLISHED: 1.7.0-rc.2 # the newest published image; bump when a newer one ships
+      LOCAL_TAG: ci-head
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.16.4
+      - uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: neoboard-chart
+      - name: Throwaway PostgreSQL
+        run: |
+          kubectl create deployment pg --image=postgres:16-alpine --port=5432
+          kubectl set env deployment/pg POSTGRES_PASSWORD=ci POSTGRES_DB=neoboard
+          kubectl expose deployment pg --port=5432
+          kubectl rollout status deployment/pg --timeout=120s
+      - name: Install the chart with the published image
+        run: >-
+          helm install nb $CHART --wait --timeout 8m
+          --set image.tag=$PUBLISHED
+          --set secrets.DATABASE_URL=postgresql://postgres:ci@pg:5432/neoboard
+          --set secrets.ENCRYPTION_KEY=$(openssl rand -hex 32)
+          --set secrets.NEXTAUTH_SECRET=$(openssl rand -base64 32)
+          --set secrets.API_KEY_HMAC_SECRET=$(openssl rand -hex 32)
+      - name: Health answers 200
+        run: |
+          kubectl port-forward svc/nb-neoboard 3000:3000 &
+          curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://localhost:3000/api/health
+      - name: Build this checkout's image and load it into kind
+        run: |
+          docker build -t neoboard:$LOCAL_TAG .
+          kind load docker-image neoboard:$LOCAL_TAG --name neoboard-chart
+      - name: Upgrade to the new image (runs head's migrations on the old schema)
+        run: >-
+          helm upgrade nb $CHART --reuse-values --wait --timeout 8m
+          --set image.repository=neoboard --set image.tag=$LOCAL_TAG
+          --set image.pullPolicy=Never
+      - name: Health answers 200 and the log shows no migration error
+        run: |
+          kubectl port-forward svc/nb-neoboard 3001:3000 &
+          curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://localhost:3001/api/health
+          kubectl logs $(kubectl get pod -l app.kubernetes.io/instance=nb --sort-by=.metadata.creationTimestamp -o name | tail -1) > pod.log
+          if grep -iE 'migration.*(fail|error)|(fail|error).*migrat' pod.log; then exit 1; fi
+      - name: Diagnostics
+        if: failure()
+        run: kubectl get pods -o wide; kubectl logs deployment/nb-neoboard --tail=80 || true

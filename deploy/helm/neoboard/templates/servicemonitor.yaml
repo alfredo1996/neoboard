@@ -1,0 +1,22 @@
+{{- if .Values.metrics.serviceMonitor.enabled }}
+{{- if not .Values.metrics.enabled }}{{ fail "metrics.serviceMonitor.enabled needs metrics.enabled=true" }}{{- end }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "neoboard.fullname" . }}
+  labels:
+    {{- include "neoboard.labels" . | nindent 4 }}
+    {{- with .Values.metrics.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels: {{- include "neoboard.selector" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /api/metrics
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+      bearerTokenSecret:
+        name: {{ .Values.metrics.tokenSecret.name }}
+        key: {{ .Values.metrics.tokenSecret.key }}
+{{- end }}
