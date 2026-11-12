@@ -72,6 +72,7 @@ startupProbe:
       - name: Host
         value: localhost
   periodSeconds: 10
+  timeoutSeconds: 5
   failureThreshold: 60
 
 readinessProbe:
