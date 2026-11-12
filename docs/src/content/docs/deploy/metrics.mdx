@@ -37,14 +37,16 @@ Metrics are per process. With several replicas, scrape each one.
 | `neoboard_query_queue_wait_seconds` | histogram | `connector_type`, `priority`, `outcome` |
 | `neoboard_query_queue_depth` | gauge | `connector_type` |
 | `neoboard_query_active` | gauge | `connector_type` |
-| `neoboard_query_rejections_total` | counter | `connector_type`, `reason` (`queue_full`, `shed`) |
+| `neoboard_query_rejections_total` | counter | `connector_type`, `reason` (`queue_full`, `shed`, `connector_unavailable`) |
 | `neoboard_query_queue_timeouts_total` | counter | `connector_type` |
 | `neoboard_query_cancellations_total` | counter | `connector_type` |
 | `neoboard_http_requests_total` | counter | `route`, `method`, `status` |
 | `neoboard_http_request_duration_seconds` | histogram | `route`, `method`, `status` |
 | `neoboard_process_*`, `neoboard_nodejs_*` | default | none |
 
-`outcome` is `success` or `error`. No label carries a connection, tenant, user, dashboard or query text, so a scrape reveals nothing about who uses the instance and the series count stays bounded by the connector types you run.
+`outcome` is `success` or `error`, and on `neoboard_query_queue_wait_seconds` also `queue_timeout`: a query that waited the whole queue timeout is in the wait histogram, so its p95 shows saturation. A rejection (`queue_full`, `shed`) never waited, so it is only counted in `neoboard_query_rejections_total`. `connector_unavailable` counts queries answered at once because the connector is known to be down.
+
+The `neoboard_http_*` metrics cover the query routes (`/api/query` and `/api/query/write`), not every API route. No label carries a connection, tenant, user, dashboard or query text, so a scrape reveals nothing about who uses the instance and the series count stays bounded by the connector types you run.
 
 ## Dashboard
 

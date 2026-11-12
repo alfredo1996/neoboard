@@ -124,7 +124,8 @@ export const schedulerMiddleware: QueryMiddlewareFn = async (
     );
   } catch (err) {
     if (ran) observeQuery(ctx.connectionType, priority, "error", ran);
-    else if (isQueueTimeout(err)) recordQueueTimeout(ctx.connectionType);
+    else if (isQueueTimeout(err))
+      recordQueueTimeout(ctx.connectionType, priority, Date.now() - enqueuedAt);
     else if (isQueueRejected(err))
       recordRejection(ctx.connectionType, err.reason);
 

@@ -91,8 +91,8 @@ A complete Deployment and Service using these probes is on [Run from a build](/d
 |--------|-------------|-----------------|
 | Health endpoint | `GET /api/health` | HTTP status != 200 |
 | DB latency | `health.db.latencyMs` | > 500ms |
-| Response time | Load balancer / reverse proxy logs | p95 > 2s |
-| Error rate | Application logs (5xx responses) | > 1% of requests |
+| Response time | [Metrics](/deploy/metrics): `neoboard_http_request_duration_seconds` (query routes) | p95 > 2s |
+| Error rate | [Metrics](/deploy/metrics): `neoboard_http_requests_total` by `status` (query routes) | > 1% of requests |
 
 ### Infrastructure
 

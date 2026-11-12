@@ -556,5 +556,18 @@ describe("schedulerMiddleware metrics (#2440)", () => {
         connector_type: "neo4j",
       }),
     ).toBe(1);
+    // The wait that ended in the timeout is in the wait histogram, so its p95
+    // shows saturation. A rejection never waited and stays out of it.
+    expect(
+      await count("neoboard_query_queue_wait_seconds_count", {
+        connector_type: "neo4j",
+        outcome: "queue_timeout",
+      }),
+    ).toBe(1);
+    expect(
+      await count("neoboard_query_duration_seconds_count", {
+        outcome: "queue_timeout",
+      }),
+    ).toBeUndefined();
   });
 });

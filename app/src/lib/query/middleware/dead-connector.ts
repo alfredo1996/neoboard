@@ -2,6 +2,7 @@ import {
   connectorUnavailableReason,
   DEAD_CONNECTOR_TTL_MS,
 } from "@/lib/connector/connection-error-classifier";
+import { recordRejection } from "@/lib/metrics";
 import type { QueryMiddlewareFn } from "@/lib/query/pipeline-types";
 
 /**
@@ -41,7 +42,12 @@ export const deadConnectorMiddleware: QueryMiddlewareFn = async (ctx, next) => {
   const key = keyOf(ctx.tenantId, ctx.connectionId);
   const known = dead.get(key);
   if (known) {
-    if (Date.now() < known.until) throw known.error;
+    if (Date.now() < known.until) {
+      // Fast-failures run outside the scheduler: count them here or a down
+      // connector shows in no query metric (#2440).
+      recordRejection(ctx.connectionType, "connector_unavailable");
+      throw known.error;
+    }
     dead.delete(key);
   }
   try {

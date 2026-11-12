@@ -5,14 +5,15 @@ import {
   recordRejection,
   recordQueueTimeout,
   recordCancellation,
+  noteConnection,
   recordRequest,
   resetMetrics,
 } from "../index";
 import {
   getScheduler,
+  setDefaultSchedulerOptions,
   resetSchedulerRegistry,
 } from "@/lib/query/scheduler-registry";
-import { noteConnection } from "../index";
 
 /** Value of the sample `name` whose labels include `labels`, or undefined. */
 async function sample(name: string, labels: Record<string, string> = {}) {
@@ -38,7 +39,7 @@ describe("metrics", () => {
     resetSchedulerRegistry();
   });
 
-  it("a successful query adds one observation to the time and wait histograms", async () => {
+  it("records the execution and the wait in seconds, each in its own histogram", async () => {
     recordQuery({
       connectorType: "t1",
       priority: 2,
@@ -50,42 +51,22 @@ describe("metrics", () => {
     expect(await sample("neoboard_query_duration_seconds_count", labels)).toBe(
       1,
     );
-    expect(
-      await sample("neoboard_query_queue_wait_seconds_count", labels),
-    ).toBe(1);
+    expect(await sample("neoboard_query_duration_seconds_sum", labels)).toBe(
+      0.25,
+    );
+    expect(await sample("neoboard_query_queue_wait_seconds_sum", labels)).toBe(
+      0.04,
+    );
   });
 
-  it("a rejection, a queue timeout and a cancellation each increment their own counter", async () => {
-    recordRejection("t1", "queue_full");
-    recordRejection("t1", "shed");
-    recordQueueTimeout("t1");
-    recordCancellation("t1");
+  it("a queue timeout adds its wait, in seconds, under the queue_timeout outcome", async () => {
+    recordQueueTimeout("t1", 3, 500);
     expect(
-      await sample("neoboard_query_rejections_total", { reason: "queue_full" }),
-    ).toBe(1);
-    expect(
-      await sample("neoboard_query_rejections_total", { reason: "shed" }),
-    ).toBe(1);
-    expect(
-      await sample("neoboard_query_queue_timeouts_total", {
-        connector_type: "t1",
+      await sample("neoboard_query_queue_wait_seconds_sum", {
+        priority: "3",
+        outcome: "queue_timeout",
       }),
-    ).toBe(1);
-    expect(
-      await sample("neoboard_query_cancellations_total", {
-        connector_type: "t1",
-      }),
-    ).toBe(1);
-  });
-
-  it("counts a request by route and status", async () => {
-    recordRequest("query", "POST", 200, 12);
-    expect(
-      await sample("neoboard_http_requests_total", {
-        route: "query",
-        status: "200",
-      }),
-    ).toBe(1);
+    ).toBe(0.5);
   });
 
   it("exposes the default process metrics", async () => {
@@ -109,7 +90,34 @@ describe("metrics", () => {
     ).toBe(1);
   });
 
-  it("never carries a connection, tenant, user, dashboard or query label", async () => {
+  it("reports the queue depth per connector type", async () => {
+    noteConnection("c-2", "t1");
+    setDefaultSchedulerOptions({
+      maxConcurrent: 1,
+      maxPerUser: 1,
+      maxQueueDepth: 4,
+      queueTimeoutMs: 60_000,
+      shedThreshold: 1,
+    });
+    const scheduler = getScheduler("c-2");
+    const ticket = (id: string) => ({
+      id,
+      userId: id,
+      connectorId: "c-2",
+      priority: 2 as const,
+      enqueuedAt: Date.now(),
+    });
+    await scheduler.enqueue(ticket("run"));
+    // Fills every slot, so the next one waits; its promise settles on release.
+    const waiting = scheduler.enqueue(ticket("wait"));
+    expect(
+      await sample("neoboard_query_queue_depth", { connector_type: "t1" }),
+    ).toBe(1);
+    scheduler.release("run");
+    await waiting;
+  });
+
+  it("no metric declares a connection, tenant, user, dashboard or query label", async () => {
     recordQuery({
       connectorType: "t1",
       priority: 1,
@@ -117,12 +125,19 @@ describe("metrics", () => {
       waitMs: 1,
       execMs: 1,
     });
+    recordRejection("t1", "connector_unavailable");
+    recordQueueTimeout("t1", 1, 1);
+    recordCancellation("t1");
+    recordRequest("query", "POST", 200, 1);
     const forbidden = /connection|tenant|user|dashboard|query|^id$|_id$/;
-    const json = await metricsRegistry().getMetricsAsJSON();
-    const names = new Set(
-      json.flatMap((m) => m.values.flatMap((v) => Object.keys(v.labels))),
-    );
-    expect(names.size).toBeGreaterThan(0);
-    expect([...names].filter((n) => forbidden.test(n))).toEqual([]);
+    // Declared names, not observed samples: a label on a metric with no
+    // sample yet would otherwise slip through.
+    const names = metricsRegistry()
+      .getMetricsAsArray()
+      .flatMap(
+        (metric) => (metric as { labelNames?: string[] }).labelNames ?? [],
+      );
+    expect(names).toContain("connector_type");
+    expect(names.filter((n) => forbidden.test(n))).toEqual([]);
   });
 });

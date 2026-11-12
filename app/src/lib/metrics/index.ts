@@ -24,7 +24,7 @@ const PREFIX = `${PRODUCT_NAME.toLowerCase()}_`;
 const SECONDS_BUCKETS = [0.005, 0.025, 0.1, 0.5, 1, 2.5, 5, 10, 30];
 
 export type QueryOutcome = "success" | "error";
-export type RejectionReason = "queue_full" | "shed";
+export type RejectionReason = "queue_full" | "shed" | "connector_unavailable";
 
 interface Metrics {
   registry: Registry;
@@ -33,6 +33,8 @@ interface Metrics {
   rejections: Counter<string>;
   queueTimeouts: Counter<string>;
   cancellations: Counter<string>;
+  queueDepth: Gauge<string>;
+  active: Gauge<string>;
   httpRequests: Counter<string>;
   httpDuration: Histogram<string>;
   /** connection id -> connector type, internal only (never a label). */
@@ -65,14 +67,14 @@ function build(): Metrics {
         this.set({ connector_type: type }, value);
     };
 
-  new Gauge({
+  const queueDepth = new Gauge({
     name: `${PREFIX}query_queue_depth`,
     help: "Queries waiting for a slot, by connector type.",
     labelNames: ["connector_type"],
     registers: [registry],
     collect: perType((s) => s.queueDepth),
   });
-  new Gauge({
+  const active = new Gauge({
     name: `${PREFIX}query_active`,
     help: "Queries running now, by connector type.",
     labelNames: ["connector_type"],
@@ -83,6 +85,8 @@ function build(): Metrics {
   return {
     registry,
     connectionTypes,
+    queueDepth,
+    active,
     queryDuration: new Histogram({
       name: `${PREFIX}query_duration_seconds`,
       help: "Connector execution time of a query, queue wait excluded.",
@@ -99,7 +103,7 @@ function build(): Metrics {
     }),
     rejections: new Counter({
       name: `${PREFIX}query_rejections_total`,
-      help: "Queries refused by the scheduler (queue full, or shed under load).",
+      help: "Queries refused before running: queue full, shed under load, or a connector known to be down.",
       labelNames: ["connector_type", "reason"],
       registers: [registry],
     }),
@@ -173,11 +177,28 @@ export function recordRejection(
   m().rejections.inc({ connector_type: connectorType, reason });
 }
 
-export function recordQueueTimeout(connectorType: string): void {
+/**
+ * A wait that ended in the queue timeout is still a wait: it goes into the
+ * wait histogram too, or its p95 would hide saturation. A rejection never
+ * waited, so it is only counted.
+ */
+export function recordQueueTimeout(
+  connectorType: string,
+  priority: 1 | 2 | 3,
+  waitMs: number,
+): void {
   m().queueTimeouts.inc({ connector_type: connectorType });
+  m().queueWait.observe(
+    {
+      connector_type: connectorType,
+      priority: String(priority),
+      outcome: "queue_timeout",
+    },
+    waitMs / 1000,
+  );
 }
 
-/** Hook point for the client-cancel path (#2459); not called until that lands. */
+/** The browser abandoned a read (#2444, #2459). */
 export function recordCancellation(connectorType: string): void {
   m().cancellations.inc({ connector_type: connectorType });
 }

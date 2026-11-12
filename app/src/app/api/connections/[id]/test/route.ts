@@ -12,6 +12,7 @@ import {
   connectionTestErrorResult,
 } from "@/lib/connector/connection-test-result";
 import { isContainerised } from "@/lib/connector/is-containerised";
+import { noteConnection } from "@/lib/metrics";
 import { forgetDeadConnector } from "@/lib/query/middleware/dead-connector";
 import { withSchedulerSlot } from "@/lib/query/middleware/scheduler";
 import { isQueueRejected, isQueueTimeout } from "@/lib/query/scheduler";
@@ -71,6 +72,7 @@ export async function POST(
       });
     }
 
+    noteConnection(id, connection.type);
     try {
       const success = await withSchedulerSlot(
         { connectionId: id, userId, priority },

@@ -27,6 +27,7 @@ import {
 import { apiSuccess } from "@/lib/api/api-response";
 import { layoutsAllowQuery } from "@/lib/query/dashboard-query-binding";
 import { usableConnection } from "@/lib/db/connection-access";
+import { recordCancellation } from "@/lib/metrics";
 import { logRoute } from "@/lib/api/log-route";
 import type { QueryPriority } from "@/lib/query/scheduler";
 
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
 }
 
 async function handleReadQuery(request: Request): Promise<Response> {
+  let connectorType: string | undefined;
   try {
     const {
       userId,
@@ -154,6 +156,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
     if (!connection) {
       return notFound("Connection not found");
     }
+    connectorType = connection.type;
 
     const credentials = decryptJson<ConnectionCredentials>(
       connection.configEncrypted,
@@ -236,7 +239,10 @@ async function handleReadQuery(request: Request): Promise<Response> {
     });
   } catch (error) {
     // Nobody is listening: the cancel's own failure is not a server error (#2444).
-    if (request.signal?.aborted) return new Response(null, { status: 499 });
+    if (request.signal?.aborted) {
+      if (connectorType) recordCancellation(connectorType);
+      return new Response(null, { status: 499 });
+    }
     return handleRouteError(error, "Query execution failed", {
       callerStatement: true,
     });
