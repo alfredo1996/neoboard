@@ -199,13 +199,17 @@ export function redactSecrets(
   value: unknown,
   { anonymize = false }: { anonymize?: boolean } = {},
 ): unknown {
-  // `err` is always an object in a log line (#2468): the log shipper's
-  // `err.message` lookup assumes it. A bare string or number becomes
-  // `{ message }`, then goes through the same redaction as any string.
+  // `err` is always an object in a log line (#2468): a log store maps `err`
+  // from the first type it sees and rejects lines of the other. A bare string
+  // or number becomes `{ message }`, redacted like an Error's message.
   if (value !== null && typeof value === "object" && isPlainObject(value)) {
     const err = value.err;
     if (err !== undefined && (err === null || typeof err !== "object")) {
-      value = { ...value, err: { message: String(err) } };
+      const message = String(err);
+      value = {
+        ...value,
+        err: { message: anonymize ? scrubQuotedValues(message) : message },
+      };
     }
   }
   return walk(value, new Set(), anonymize);
