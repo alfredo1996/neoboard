@@ -8,7 +8,12 @@ import { describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useSettledData } from "../use-settled-data";
 
-type State = { isPending: boolean; data: unknown };
+type State = {
+  isPending: boolean;
+  data: unknown;
+  isStopped?: boolean;
+  variables?: { query: string };
+};
 
 function setup(initial: State) {
   return renderHook((s: State) => useSettledData(s), { initialProps: initial });
@@ -42,6 +47,44 @@ describe("useSettledData", () => {
 
   it("is undefined when the first run is still pending", () => {
     const { result } = setup({ isPending: true, data: undefined });
+    expect(result.current).toBeUndefined();
+  });
+
+  // #2445: Stop leaves no data, but the pickers keep the columns of the last
+  // run when the stopped query is that run's own text.
+  it("keeps the last data after a stop of the same query text", () => {
+    const first = { rows: 1 };
+    const { result, rerender } = setup({
+      isPending: false,
+      data: first,
+      variables: { query: "RETURN 1" },
+    });
+    rerender({
+      isPending: true,
+      data: undefined,
+      variables: { query: "RETURN 1" },
+    });
+    rerender({
+      isPending: false,
+      data: undefined,
+      isStopped: true,
+      variables: { query: "RETURN 1" },
+    });
+    expect(result.current).toBe(first);
+  });
+
+  it("clears after a stop of a changed query text", () => {
+    const { result, rerender } = setup({
+      isPending: false,
+      data: { rows: 1 },
+      variables: { query: "RETURN 1" },
+    });
+    rerender({
+      isPending: false,
+      data: undefined,
+      isStopped: true,
+      variables: { query: "RETURN 2" },
+    });
     expect(result.current).toBeUndefined();
   });
 });

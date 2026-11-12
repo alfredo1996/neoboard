@@ -39,7 +39,7 @@ vi.mock("@neoboard/components", () => ({
       {children}
     </section>
   ),
-  LoadingOverlay: ({ text }: { text?: string }) => (
+  LoadingOverlay: ({ text }: { text?: React.ReactNode }) => (
     <div role="status">{text}</div>
   ),
   Tooltip: ({ children }: React.PropsWithChildren) => <>{children}</>,
@@ -170,6 +170,80 @@ describe("WidgetPreviewPanel", () => {
       expect(screen.getByRole("status")).toHaveTextContent(
         "Loading preview… 3 s",
       );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the seconds out of the live region's announcement (#2445)", () => {
+    vi.useFakeTimers();
+    try {
+      render(<WidgetPreviewPanel {...makeProps({ previewQuery: pending })} />);
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      // The region is polite: a counter inside it is read out every second.
+      expect(screen.getByText("3 s", { exact: true })).toHaveAttribute(
+        "aria-hidden",
+        "true",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("restarts the seconds when a new run replaces the pending one (#2445)", () => {
+    vi.useFakeTimers();
+    try {
+      const run = (submittedAt: number) =>
+        makeProps({ previewQuery: { ...pending, submittedAt } });
+      const { rerender } = render(<WidgetPreviewPanel {...run(1)} />);
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("3 s");
+      rerender(<WidgetPreviewPanel {...run(2)} />);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Loading preview… 0 s",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("announces the stopped state (#2445)", () => {
+    render(<WidgetPreviewPanel {...makeProps({ stopped: true })} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Query stopped");
+  });
+
+  it("ignores the second click of a double-click on Run/Stop (#2445)", () => {
+    vi.useFakeTimers();
+    try {
+      const onRunPreview = vi.fn();
+      const onStopPreview = vi.fn();
+      const { rerender } = render(
+        <WidgetPreviewPanel {...makeProps({ onRunPreview, onStopPreview })} />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Run" }));
+      // The run starts, the label flips, the second click lands on Stop.
+      rerender(
+        <WidgetPreviewPanel
+          {...makeProps({
+            onRunPreview,
+            onStopPreview,
+            previewQuery: pending,
+          })}
+        />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+      expect(onRunPreview).toHaveBeenCalledTimes(1);
+      expect(onStopPreview).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+      expect(onStopPreview).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }

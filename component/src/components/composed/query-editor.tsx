@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Play, RotateCcw, Clock } from "lucide-react";
+import { Play, RotateCcw, Clock, Square } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +32,11 @@ export interface QueryEditorProps {
   onChange?: (value: string) => void;
   onRun?: (query: string) => void;
   running?: boolean;
+  /**
+   * Ends the running query. While `running`, the toolbar's Run becomes an
+   * enabled Stop that calls it (#2445).
+   */
+  onStop?: () => void;
   history?: string[];
   placeholder?: string;
   /**
@@ -236,6 +241,7 @@ function QueryEditor({
   onChange,
   onRun,
   running = false,
+  onStop,
   history,
   placeholder = "Enter your query...",
   language = "",
@@ -747,22 +753,33 @@ function QueryEditor({
               <span className="ml-1">Run &amp; Save</span>
             </span>
           )}
-          {showRun && (
-            <Button
-              size="sm"
-              className="h-7 gap-1"
-              onClick={handleRun}
-              disabled={!currentValue.trim() || running}
-              title="Run query (Ctrl+Enter / ⌘+Enter)"
-            >
-              {running ? (
-                <Spinner size="sm" className="h-3 w-3" aria-hidden="true" />
-              ) : (
-                <Play className="h-3 w-3" />
-              )}
-              {running ? "Running" : "Run"}
-            </Button>
-          )}
+          {showRun &&
+            (running && onStop ? (
+              <Button
+                size="sm"
+                className="h-7 gap-1"
+                onClick={onStop}
+                title="Stop the query"
+              >
+                <Square className="h-3 w-3 fill-current" aria-hidden="true" />
+                Stop
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="h-7 gap-1"
+                onClick={handleRun}
+                disabled={!currentValue.trim() || running}
+                title="Run query (Ctrl+Enter / ⌘+Enter)"
+              >
+                {running ? (
+                  <Spinner size="sm" className="h-3 w-3" aria-hidden="true" />
+                ) : (
+                  <Play className="h-3 w-3" />
+                )}
+                {running ? "Running" : "Run"}
+              </Button>
+            ))}
         </div>
       </div>
 

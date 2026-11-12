@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 export interface LoadingOverlayProps {
   loading?: boolean;
-  text?: string;
+  text?: React.ReactNode;
   className?: string;
   children?: React.ReactNode;
 }

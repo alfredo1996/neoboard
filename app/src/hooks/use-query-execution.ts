@@ -48,11 +48,17 @@ export function useQueryExecution() {
       return { ...data, ...meta } as QueryResult;
     },
   });
-  // Stop ends the run in the browser (the server and database follow the
-  // abort, #2444) and clears the mutation, so no older state is left showing.
-  const stop = () => {
-    previous.current?.abort();
-    mutation.reset();
+  // Stop aborts the request (the server and database follow, #2444). The
+  // mutation is left to reject: a reset would detach its observer, and a
+  // run-and-save waiting on it would never settle. The abort the author caused
+  // is reported as `isStopped`, not as a failure.
+  const stop = () => previous.current?.abort();
+  const isStopped = mutation.isError && mutation.error?.name === "AbortError";
+  return {
+    ...mutation,
+    isError: mutation.isError && !isStopped,
+    error: isStopped ? null : mutation.error,
+    isStopped,
+    stop,
   };
-  return { ...mutation, stop };
 }

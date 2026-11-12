@@ -87,7 +87,7 @@ describe("use-query-execution", () => {
       expect(signal?.aborted).toBe(true);
     });
 
-    it("stop aborts the in-flight request and resets the mutation (#2445)", async () => {
+    it("stop aborts the in-flight request and leaves the mutation to reject (#2445)", async () => {
       let signal: AbortSignal | undefined;
       vi.spyOn(globalThis, "fetch").mockImplementationOnce((_u, init) => {
         signal = init?.signal ?? undefined;
@@ -101,7 +101,8 @@ describe("use-query-execution", () => {
       await vi.waitFor(() => expect(signal).toBeDefined());
       hook.stop();
       expect(signal?.aborted).toBe(true);
-      expect(reset).toHaveBeenCalledTimes(1);
+      // A reset would detach the observer and strand a run-and-save.
+      expect(reset).not.toHaveBeenCalled();
     });
 
     it("aborts its previous run when a new run starts (#2444)", async () => {

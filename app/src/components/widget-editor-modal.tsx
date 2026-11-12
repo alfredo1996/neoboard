@@ -369,10 +369,6 @@ export function WidgetEditorModal({
   );
 
   const previewQuery = useQueryExecution();
-  // The author pressed Stop on the last preview run (#2445); any new run, or
-  // a reset of the editor, clears it
-  // (the stop leaves the mutation idle, a new run does not).
-  const [previewStopped, setPreviewStopped] = useState(false);
   // A re-run (the debounced auto-preview) blanks `data` until it settles;
   // the column pickers read the last settled result so they don't unmount
   // under an open dropdown.
@@ -515,7 +511,6 @@ export function WidgetEditorModal({
     if (open) {
       seedQueryExecution.reset();
       previewQuery.reset();
-      setPreviewStopped(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, widget, templateProp]);
@@ -795,6 +790,7 @@ export function WidgetEditorModal({
                     onRun={isForm ? undefined : handlePreview}
                     editorLanguage={editorLanguage}
                     running={previewQuery.isPending}
+                    onStop={previewQuery.stop}
                     maximized={editorMaximized}
                     onToggleMaximized={() =>
                       setEditorMaximizedRequested((m) => !m)
@@ -1052,11 +1048,7 @@ export function WidgetEditorModal({
                   paramWidgetName={paramWidgetName}
                   seedPreviewOptions={seedPreviewOptions}
                   seedQueryPending={seedQueryExecution.isPending}
-                  seedQueryError={
-                    seedQueryExecution.isError
-                      ? seedQueryExecution.error.message
-                      : null
-                  }
+                  seedQueryError={seedQueryExecution.error?.message ?? null}
                   formFields={formFields}
                   previewRef={previewRef}
                   previewQuery={{
@@ -1064,14 +1056,12 @@ export function WidgetEditorModal({
                     isError: previewQuery.isError,
                     error: previewQuery.error,
                     data: previewQuery.data,
+                    submittedAt: previewQuery.submittedAt,
                   }}
                   initialPreviewData={initialPreviewData}
                   onRunPreview={handlePreview}
-                  onStopPreview={() => {
-                    previewQuery.stop();
-                    setPreviewStopped(true);
-                  }}
-                  stopped={previewStopped && previewQuery.isIdle}
+                  onStopPreview={previewQuery.stop}
+                  stopped={previewQuery.isStopped}
                   waitingForParams={previewWaitingForParams}
                 />
               )}

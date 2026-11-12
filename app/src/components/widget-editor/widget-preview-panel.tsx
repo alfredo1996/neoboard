@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { CardBackground } from "@neoboard/components/card-background";
 import { AlertCircle, CircleStop, Play, Square } from "lucide-react";
 import { CardContainer } from "../card-container";
@@ -71,6 +71,8 @@ type WidgetPreviewPanelProps = Readonly<{
     isError: boolean;
     error: Error | null;
     data: PreviewData | undefined;
+    /** Start of the current run; a new run restarts the seconds (#2445). */
+    submittedAt?: number;
   };
   initialPreviewData: PreviewData | undefined;
   onRunPreview: () => void;
@@ -82,29 +84,42 @@ type WidgetPreviewPanelProps = Readonly<{
   waitingForParams?: boolean;
 }>;
 
-/** Whole seconds since `active` last turned on; 0 while it is off. */
-function useElapsedSeconds(active: boolean) {
+/**
+ * The loading overlay with its seconds. Its own component, keyed on the run,
+ * so the tick re-renders only this and a new run starts again at 0 (#2445).
+ */
+function PreviewLoading() {
   const [seconds, setSeconds] = useState(0);
   useEffect(() => {
-    if (!active) return;
     const id = setInterval(() => setSeconds((s) => s + 1), 1000);
-    return () => {
-      clearInterval(id);
-      setSeconds(0);
-    };
-  }, [active]);
-  return seconds;
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <LoadingOverlay
+      className="absolute inset-0 z-10 min-h-0 rounded-lg"
+      // The overlay is a polite live region: only the words are announced,
+      // not a counter that changes every second.
+      text={
+        <>
+          Loading preview… <span aria-hidden="true">{seconds} s</span>
+        </>
+      }
+    />
+  );
 }
 
 function StoppedPreview() {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+    <div
+      role="status"
+      className="flex h-full flex-col items-center justify-center gap-2 text-center"
+    >
       <CircleStop
         className="h-7 w-7 text-muted-foreground"
         strokeWidth={1.75}
         aria-hidden
       />
-      <p className="text-sm font-medium text-muted-foreground">Query stopped</p>
+      <p className="text-sm font-medium text-foreground-2">Query stopped</p>
       <p className="text-xs text-muted-foreground">
         Run it again to see the preview.
       </p>
@@ -200,8 +215,19 @@ function renderChart(props: {
   previewQuery: WidgetPreviewPanelProps["previewQuery"];
   initialPreviewData: PreviewData | undefined;
   stopped?: boolean;
-  elapsed: number;
 }) {
+  const { previewQuery } = props;
+  return (
+    <>
+      {previewQuery.isPending && (
+        <PreviewLoading key={previewQuery.submittedAt} />
+      )}
+      {renderChartBody(props)}
+    </>
+  );
+}
+
+function renderChartBody(props: Parameters<typeof renderChart>[0]) {
   const {
     chartType,
     connectionId,
@@ -214,85 +240,76 @@ function renderChart(props: {
     previewQuery,
     initialPreviewData,
     stopped,
-    elapsed,
   } = props;
   const waitMs = previewQuery.data?.schedulerWaitMs ?? 0;
   const queued = waitMs > 0 ? `, ${Math.round(waitMs)} queued` : "";
 
+  if (stopped && !previewQuery.isPending) return <StoppedPreview />;
+  if (previewQuery.isError && !previewQuery.data && !initialPreviewData) {
+    // A write the connector flagged as blocked gets a clear message (#1043).
+    const writeMsg = mapPreviewError(previewQuery.error);
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
+        <AlertCircle className="h-8 w-8 text-destructive" />
+        <p className="text-sm font-medium text-destructive">
+          {writeMsg ? "Writes not allowed" : "Query failed"}
+        </p>
+        <p className="text-xs max-w-xs text-center">
+          {writeMsg ?? previewQuery.error?.message}
+        </p>
+      </div>
+    );
+  }
+  if (previewQuery.data || initialPreviewData) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="min-h-0 flex-1">
+          <CardContainer
+            widget={{
+              id: "preview",
+              chartType,
+              connectionId,
+              query,
+              settings: {
+                title: title || undefined,
+                chartOptions,
+                stylingConfig: buildStylingConfig(),
+                clickAction: buildClickAction?.(),
+                conditionalFormatting: colorScales.length
+                  ? { colorScales }
+                  : undefined,
+              },
+            }}
+            inertClicks
+            previewData={(previewQuery.data ?? initialPreviewData)!.data}
+            previewResultId={
+              (previewQuery.data ?? initialPreviewData)!.resultId
+            }
+            previewConnectorType={
+              (previewQuery.data ?? initialPreviewData)!.connectorType
+            }
+          />
+        </div>
+        {/* The preview runs at a row limit of PREVIEW_ROW_LIMIT, so its
+            result is truncated by design: say so here instead of raising the
+            dashboard's truncation warning, so authors don't mistake it for
+            the full result (#1043, #1896). */}
+        <p className="shrink-0 border-t px-2 py-1 text-[11px] text-muted-foreground">
+          Preview shows up to {PREVIEW_ROW_LIMIT} rows
+          {Number.isFinite(previewQuery.data?.serverDurationMs) &&
+            ` · ${Math.round(previewQuery.data?.serverDurationMs ?? 0)} ms${queued}`}
+        </p>
+      </div>
+    );
+  }
+  if (connectionId && query.trim() && !previewQuery.isError) {
+    // Pending: the overlay above names it and carries the spinner.
+    return <div className="h-full" />;
+  }
   return (
-    <>
-      {previewQuery.isPending && (
-        <LoadingOverlay
-          className="absolute inset-0 z-10 min-h-0 rounded-lg"
-          text={`Loading preview… ${elapsed} s`}
-        />
-      )}
-      {stopped && !previewQuery.isPending ? (
-        <StoppedPreview />
-      ) : previewQuery.isError && !previewQuery.data && !initialPreviewData ? (
-        (() => {
-          // A write the connector flagged as blocked gets a clear message (#1043).
-          const writeMsg = mapPreviewError(previewQuery.error);
-          return (
-            <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-              <AlertCircle className="h-8 w-8 text-destructive" />
-              <p className="text-sm font-medium text-destructive">
-                {writeMsg ? "Writes not allowed" : "Query failed"}
-              </p>
-              <p className="text-xs max-w-xs text-center">
-                {writeMsg ?? previewQuery.error?.message}
-              </p>
-            </div>
-          );
-        })()
-      ) : previewQuery.data || initialPreviewData ? (
-        <div className="flex h-full flex-col">
-          <div className="min-h-0 flex-1">
-            <CardContainer
-              widget={{
-                id: "preview",
-                chartType,
-                connectionId,
-                query,
-                settings: {
-                  title: title || undefined,
-                  chartOptions,
-                  stylingConfig: buildStylingConfig(),
-                  clickAction: buildClickAction?.(),
-                  conditionalFormatting: colorScales.length
-                    ? { colorScales }
-                    : undefined,
-                },
-              }}
-              inertClicks
-              previewData={(previewQuery.data ?? initialPreviewData)!.data}
-              previewResultId={
-                (previewQuery.data ?? initialPreviewData)!.resultId
-              }
-              previewConnectorType={
-                (previewQuery.data ?? initialPreviewData)!.connectorType
-              }
-            />
-          </div>
-          {/* The preview runs at a row limit of PREVIEW_ROW_LIMIT, so its
-              result is truncated by design: say so here instead of raising the
-              dashboard's truncation warning, so authors don't mistake it for
-              the full result (#1043, #1896). */}
-          <p className="shrink-0 border-t px-2 py-1 text-[11px] text-muted-foreground">
-            Preview shows up to {PREVIEW_ROW_LIMIT} rows
-            {Number.isFinite(previewQuery.data?.serverDurationMs) &&
-              ` · ${Math.round(previewQuery.data?.serverDurationMs ?? 0)} ms${queued}`}
-          </p>
-        </div>
-      ) : connectionId && query.trim() && !previewQuery.isError ? (
-        // Pending: the overlay above names it and carries the spinner.
-        <div className="h-full" />
-      ) : (
-        <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-          Run a query to see the preview
-        </div>
-      )}
-    </>
+    <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+      Run a query to see the preview
+    </div>
   );
 }
 
@@ -329,7 +346,15 @@ export function WidgetPreviewPanel({
   stopped,
   waitingForParams,
 }: WidgetPreviewPanelProps) {
-  const elapsed = useElapsedSeconds(previewQuery.isPending);
+  // Two clicks inside this window are one double-click: the second would land
+  // on the flipped Run/Stop and undo the first.
+  const lastToggleRef = useRef(0);
+  const toggleRun = () => {
+    const now = Date.now();
+    if (now - lastToggleRef.current < 400) return;
+    lastToggleRef.current = now;
+    (previewQuery.isPending ? onStopPreview : onRunPreview)?.();
+  };
 
   function renderPreviewContent() {
     if (isMarkdown) return renderMarkdown(chartOptions);
@@ -374,7 +399,6 @@ export function WidgetPreviewPanel({
       previewQuery,
       initialPreviewData,
       stopped,
-      elapsed,
     });
   }
 
@@ -413,7 +437,7 @@ export function WidgetPreviewPanel({
                   ? "Stop the query"
                   : "Run query (Ctrl+Enter / ⌘+Enter)"
               }
-              onClick={previewQuery.isPending ? onStopPreview : onRunPreview}
+              onClick={toggleRun}
               disabled={
                 !previewQuery.isPending &&
                 isRunDisabled(connectionId, query, false)

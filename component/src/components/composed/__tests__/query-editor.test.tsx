@@ -228,6 +228,17 @@ describe("QueryEditor", () => {
     expect(screen.getByText("Running").closest("button")).toBeDisabled();
   });
 
+  it("turns the running Run into an enabled Stop when given onStop (#2445)", async () => {
+    const onStop = vi.fn();
+    render(<QueryEditor value="MATCH (n)" running onStop={onStop} />);
+    await flushAsync();
+    expect(screen.queryByText("Running")).toBeNull();
+    const stop = screen.getByRole("button", { name: "Stop" });
+    expect(stop).toBeEnabled();
+    await userEvent.setup().click(stop);
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
   it("renders clear button (aria-label)", async () => {
     render(<QueryEditor defaultValue="MATCH (n)" />);
     await flushAsync();

@@ -27,6 +27,11 @@ vi.mock("next/dynamic", () => ({
         data-class-name={String(props.className ?? "")}
       >
         {props.toolbar as React.ReactNode}
+        {props.running === true && typeof props.onStop === "function" && (
+          <button type="button" onClick={props.onStop as () => void}>
+            Stop
+          </button>
+        )}
       </div>
     );
     Stub.displayName = "QueryEditorStub";
@@ -37,21 +42,34 @@ vi.mock("next/dynamic", () => ({
 /** The dismiss handlers the modal hands its Dialog and DialogContent (#1952).
  *  Radix closes on Escape and on the close button by calling the Dialog's
  *  `onOpenChange(false)`, so that one stands for both. */
-const { dismiss, selector, browser, updateTemplate, seed, connectorList } =
-  vi.hoisted(() => ({
-    dismiss: {} as Record<string, ((e?: unknown) => void) | undefined>,
-    /** The chart-type picker's props, as the user reaches them. */
-    selector: {} as Partial<ChartTypeSelectProps & ConnectionSelectProps>,
-    /** From Template's pick, as the user reaches it. */
-    browser: {} as { onApply?: (t: WidgetTemplate) => void },
-    /** Edit Template's save (#2076). */
-    updateTemplate: vi.fn(),
-    /** What Test Seed Query returns, and the options the preview is given (#2104). */
-    seed: {} as { data?: unknown; previewOptions?: unknown },
-    /** What useConnectors answers. One object, so `data` keeps its identity
-     *  across renders as TanStack's does. */
-    connectorList: { data: [] as unknown[] },
-  }));
+const {
+  dismiss,
+  selector,
+  browser,
+  updateTemplate,
+  seed,
+  connectorList,
+  preview,
+} = vi.hoisted(() => ({
+  dismiss: {} as Record<string, ((e?: unknown) => void) | undefined>,
+  /** The chart-type picker's props, as the user reaches them. */
+  selector: {} as Partial<ChartTypeSelectProps & ConnectionSelectProps>,
+  /** From Template's pick, as the user reaches it. */
+  browser: {} as { onApply?: (t: WidgetTemplate) => void },
+  /** Edit Template's save (#2076). */
+  updateTemplate: vi.fn(),
+  /** What Test Seed Query returns, and the options the preview is given (#2104). */
+  seed: {} as { data?: unknown; previewOptions?: unknown },
+  /** What useConnectors answers. One object, so `data` keeps its identity
+   *  across renders as TanStack's does. */
+  connectorList: { data: [] as unknown[] },
+  /** What useQueryExecution answers for the Stop wiring (#2445). */
+  preview: {
+    isPending: false,
+    isStopped: false,
+    stop: vi.fn(),
+  },
+}));
 
 vi.mock("@neoboard/components", async () => {
   const { FieldStub } = await import("@/__tests__/helpers/field-stub");
@@ -254,7 +272,9 @@ vi.mock("@/hooks/use-query-execution", () => ({
   useQueryExecution: () => ({
     mutate: vi.fn(),
     reset: vi.fn(),
-    isPending: false,
+    isPending: preview.isPending,
+    isStopped: preview.isStopped,
+    stop: preview.stop,
     isError: false,
     error: null,
     data: seed.data,
@@ -276,13 +296,25 @@ vi.mock("../widget-editor/widget-preview-panel", () => ({
   WidgetPreviewPanel: ({
     isLabMode,
     seedPreviewOptions,
+    stopped,
+    onStopPreview,
   }: {
     isLabMode?: boolean;
     seedPreviewOptions?: unknown;
+    stopped?: boolean;
+    onStopPreview?: () => void;
   }) => {
     seed.previewOptions = seedPreviewOptions;
     return (
-      <div data-testid="widget-preview" data-lab-mode={String(isLabMode)} />
+      <div
+        data-testid="widget-preview"
+        data-lab-mode={String(isLabMode)}
+        data-stopped={String(stopped)}
+      >
+        <button type="button" onClick={onStopPreview}>
+          Stop preview
+        </button>
+      </div>
     );
   },
 }));
@@ -398,6 +430,49 @@ describe("WidgetEditorModal — editor maximize (#1374)", () => {
     expect(
       screen.getByTestId("query-editor").getAttribute("data-class-name"),
     ).toContain("min-h-[50vh]");
+  });
+
+  it("hands the preview the hook's stopped state, and its stop (#2445)", async () => {
+    const user = userEvent.setup();
+    preview.isStopped = false;
+    preview.stop.mockClear();
+    const { rerender } = renderModal();
+    expect(screen.getByTestId("widget-preview")).toHaveAttribute(
+      "data-stopped",
+      "false",
+    );
+    await user.click(screen.getByRole("button", { name: "Stop preview" }));
+    expect(preview.stop).toHaveBeenCalledTimes(1);
+
+    preview.isStopped = true;
+    rerender(
+      <WidgetEditorModal
+        open
+        onOpenChange={vi.fn()}
+        mode="add"
+        connections={[]}
+        onSave={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("widget-preview")).toHaveAttribute(
+      "data-stopped",
+      "true",
+    );
+    preview.isStopped = false;
+  });
+
+  it("maximized, a running query offers Stop on the toolbar (#2445)", async () => {
+    const user = userEvent.setup();
+    preview.isPending = true;
+    preview.stop.mockClear();
+    try {
+      renderModal();
+      await user.click(screen.getByRole("button", { name: /expand editor/i }));
+      await user.click(screen.getByRole("button", { name: "Stop" }));
+      expect(preview.stop).toHaveBeenCalledTimes(1);
+    } finally {
+      preview.isPending = false;
+    }
   });
 
   it("restores both panes when toggled back", async () => {

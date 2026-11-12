@@ -159,6 +159,8 @@ export interface QueryEditorPanelProps {
   editorLanguage: string;
   /** When true, shows a running/loading indicator on the query editor. */
   running?: boolean;
+  /** Ends the running query: the maximized editor's Run turns into Stop (#2445). */
+  onStop?: () => void;
   /** #1374 — when true the editor is expanded and the preview pane is unmounted. */
   maximized?: boolean;
   /** When omitted, the expand/collapse toggle is not rendered. */
@@ -169,6 +171,7 @@ export function QueryEditorPanel({
   onRun,
   editorLanguage,
   running,
+  onStop,
   maximized = false,
   onToggleMaximized,
 }: QueryEditorPanelProps) {
@@ -358,6 +361,7 @@ export function QueryEditorPanel({
         showRun={maximized && !!onRun}
         toolbar={tools}
         running={running}
+        onStop={onStop}
         language={editorLanguage}
         schema={schema}
         placeholder={placeholderFor(editorLanguage, content)}
