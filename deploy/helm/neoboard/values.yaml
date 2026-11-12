@@ -55,14 +55,22 @@ metrics:
     enabled: false # needs the Prometheus Operator CRDs
     interval: 30s
     labels: {}
+    # The scrape goes to <podIP>:3000, so the Host is the pod IP. On IPv6 or
+    # 100.64/10 pod networks the app's HTTPS redirect answers 301; set
+    # FORCE_HTTPS "false" in config in that case (no Host override in the CRD).
 
+# Readiness asks /api/health (it checks the database). Liveness is a TCP check
+# on the port: a database outage must restart nobody. The startup probe gives
+# the boot migration up to failureThreshold x periodSeconds (10 minutes).
 probes:
+  startup:
+    periodSeconds: 10
+    failureThreshold: 60
+    timeoutSeconds: 5
   readiness:
-    initialDelaySeconds: 10
     periodSeconds: 10
     timeoutSeconds: 5
   liveness:
-    initialDelaySeconds: 30 # covers the boot migration
     periodSeconds: 30
     timeoutSeconds: 10
 
@@ -80,6 +88,8 @@ podSecurityContext:
   runAsUser: 1001
   runAsGroup: 1001
   fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault # Pod Security Standards "restricted" requires it
 securityContext:
   allowPrivilegeEscalation: false
   capabilities:

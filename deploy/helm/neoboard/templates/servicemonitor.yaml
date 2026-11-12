@@ -1,5 +1,5 @@
 {{- if .Values.metrics.serviceMonitor.enabled }}
-{{- if not .Values.metrics.tokenSecret.name }}{{ fail "metrics.tokenSecret.name is required for the ServiceMonitor" }}{{- end }}
+{{- if not .Values.metrics.enabled }}{{ fail "metrics.serviceMonitor.enabled needs metrics.enabled=true" }}{{- end }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:

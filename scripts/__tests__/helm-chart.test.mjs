@@ -30,6 +30,12 @@ const SECRET_KEYS = [
   "API_KEY_HMAC_SECRET",
 ];
 
+function chartField(name) {
+  return new RegExp(`^${name}: "?([^"\\n]+)"?$`, "m").exec(
+    readFileSync(`${CHART}/Chart.yaml`, "utf8"),
+  )[1];
+}
+
 function sets(values) {
   return Object.entries(values).flatMap(([k, v]) => ["--set", `${k}=${v}`]);
 }
@@ -70,18 +76,58 @@ describe.skipIf(!HAS_HELM)("helm chart (#2441)", () => {
     for (const key of SECRET_KEYS) expect(k.Secret[0]).toContain(key);
   });
 
-  it("probes /api/health, runs non-root, one replica, image = appVersion", () => {
-    const dep = render().Deployment[0];
-    expect(dep.match(/path: \/api\/health/g)).toHaveLength(2);
-    expect(dep).toMatch(/readinessProbe:/);
-    expect(dep).toMatch(/livenessProbe:/);
+  it("runs non-root, one replica, image = appVersion, boot migrations on", () => {
+    const k = render();
+    const dep = k.Deployment[0];
     expect(dep).toContain("runAsNonRoot: true");
     expect(dep).toMatch(/^ {2}replicas: 1$/m);
-    const appVersion = /^appVersion: "?([^"\n]+)"?$/m.exec(
-      readFileSync(`${CHART}/Chart.yaml`, "utf8"),
-    )[1];
-    expect(dep).toContain(`neoboard:${appVersion}"`);
-    expect(dep).toMatch(/MIGRATE_ON_START|configMapRef/);
+    expect(dep).toContain(`neoboard:${chartField("appVersion")}"`);
+    expect(k.ConfigMap[0]).toContain('MIGRATE_ON_START: "1"');
+  });
+
+  it("keeps appVersion equal to the root package.json version", () => {
+    const pkg = JSON.parse(
+      readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+    );
+    expect(chartField("appVersion")).toBe(pkg.version);
+  });
+
+  it("probes: startup and readiness on /api/health with Host localhost, liveness a TCP check (#2441)", () => {
+    const dep = render().Deployment[0];
+    const probe = (name) =>
+      new RegExp(`${name}:\\n([\\s\\S]*?)(?=\\n {10}\\w|\\n {8}\\w|$)`).exec(dep)[1];
+    for (const name of ["startupProbe", "readinessProbe"]) {
+      expect(probe(name)).toContain("path: /api/health");
+      expect(probe(name)).toMatch(/name: Host\n\s+value: localhost/);
+    }
+    expect(probe("livenessProbe")).toMatch(/tcpSocket:\n\s+port: http/);
+    expect(probe("livenessProbe")).not.toContain("/api/health");
+    // boot migrations may take minutes: at least 10 minutes of startup budget
+    const t = probe("startupProbe");
+    const budget =
+      Number(/failureThreshold: (\d+)/.exec(t)[1]) * Number(/periodSeconds: (\d+)/.exec(t)[1]);
+    expect(budget).toBeGreaterThanOrEqual(600);
+  });
+
+  it("meets Pod Security Standards restricted", () => {
+    const dep = render().Deployment[0];
+    expect(dep).toMatch(/seccompProfile:\n\s+type: RuntimeDefault/);
+    expect(dep).toContain("allowPrivilegeEscalation: false");
+    expect(dep).toMatch(/drop:\n\s+- ALL/);
+    expect(dep).toContain("runAsNonRoot: true");
+  });
+
+  it("rolls the pods when the chart-made Secret changes, not for existingSecret", () => {
+    const sum = (extra) => /checksum\/secret: (\w+)/.exec(render(extra).Deployment[0])?.[1];
+    expect(sum()).toBeTruthy();
+    expect(sum({ "secrets.ENCRYPTION_KEY": "SENTINEL-other" })).not.toBe(sum());
+    expect(sum({ existingSecret: "mine" })).toBeUndefined();
+  });
+
+  it("refuses a ServiceMonitor while metrics are off", () => {
+    expect(() =>
+      render({ "metrics.serviceMonitor.enabled": true, "metrics.tokenSecret.name": "m" }),
+    ).toThrow(/metrics\.enabled/);
   });
 
   it("renders no Ingress or ServiceMonitor by default", () => {

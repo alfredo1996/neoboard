@@ -23,7 +23,7 @@ Use this checklist before deploying NeoBoard to production or to a new customer.
 
 - [ ] PostgreSQL 16+ running and accessible from the NeoBoard process
 - [ ] TLS/SSL certificate configured on the reverse proxy
-- [ ] Version pinned — an explicit image tag (e.g. `ghcr.io/…/neoboard:1.7.0`, **not** `:latest`) via `NEOBOARD_IMAGE` for Docker Compose or the manifest for Kubernetes, a release tag checkout for a build you run yourself — so deploys are reproducible and an upgrade cannot cross a major version unintentionally
+- [ ] Version pinned — an explicit image tag (e.g. `ghcr.io/…/neoboard:1.7.0`, **not** `:latest`) via `NEOBOARD_IMAGE` for Docker Compose or `--set image.tag=…` on the Helm chart for Kubernetes, a release tag checkout for a build you run yourself — so deploys are reproducible and an upgrade cannot cross a major version unintentionally
 - [ ] Resource limits set (CPU: 2 cores, memory: 1 GB recommended) — compose `deploy.resources`, Kubernetes `resources`, or a systemd `MemoryMax=`
 - [ ] Log rotation configured (max 10MB, 3 files) — the compose files set the json-file driver; journald and the kubelet rotate on their own
 - [ ] Backup strategy in place (see [Backup & Restore](/deploy/backup-restore))
@@ -85,7 +85,7 @@ After first deployment, record baseline metrics:
 
 ## Rollback procedure
 
-If a deployment fails — the commands are for Docker Compose; under systemd, stop the unit, point it at the previous build and add `MIGRATE_ON_START=0` before starting; on Kubernetes, `kubectl set env deployment/neoboard MIGRATE_ON_START=0` and then `kubectl set image` to the previous tag. Steps 3 and 4 are the same everywhere.
+If a deployment fails — the commands are for Docker Compose; under systemd, stop the unit, point it at the previous build and add `MIGRATE_ON_START=0` before starting; on Kubernetes (Helm), `helm upgrade neoboard deploy/helm/neoboard --reuse-values --set config.MIGRATE_ON_START=0 --set image.tag=PREVIOUS` (`kubectl set env` or `set image` on a Helm release is drift Helm reverts). Steps 3 and 4 are the same everywhere.
 
 1. **Stop the new version:**
    ```bash
