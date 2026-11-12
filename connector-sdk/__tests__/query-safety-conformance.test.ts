@@ -82,7 +82,7 @@ const caseNamed = (module: ConnectionModule, needle: string) => {
 const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ i }));
 
 describe("query-safety conformance harness", () => {
-  it("registers exactly the five documented cases", () => {
+  it("registers exactly the six documented cases", () => {
     // A case-count guard: deleting one left both connector suites green at
     // two tests each, with nothing to say a rule had stopped being checked.
     const names = buildConformanceCases(() => fakeModule({}), setup).map(
@@ -93,6 +93,7 @@ describe("query-safety conformance harness", () => {
       "caps results at rowLimit and flags truncation (MAX_ROWS+1)",
       "honors the driver-level timeout",
       "bounds a slow query when timeout is unset",
+      "stops a running read when its signal aborts",
       "does not report a throwing onSuccess as a query failure",
     ]);
   });
@@ -119,6 +120,159 @@ describe("query-safety conformance harness", () => {
         { query: setup.queries.manyRows, params: { param_rows: count } },
       ]);
     });
+  });
+
+  describe("cancellation (#2444)", () => {
+    const withSignal = (honour: boolean): ConnectionModule =>
+      ({
+        runQuery: async (
+          _q: QueryParams,
+          callbacks: QueryCallback<unknown>,
+          config: ConnectionConfig,
+        ) => {
+          if (!honour) {
+            callbacks.onSuccess?.([]);
+            return;
+          }
+          await new Promise<void>((resolve) =>
+            config.signal?.addEventListener("abort", () => {
+              callbacks.onFail?.(new Error("aborted") as never);
+              resolve();
+            }),
+          );
+        },
+      }) as unknown as ConnectionModule;
+
+    it("rejects a connector that ignores the signal", async () => {
+      const c = caseNamed(withSignal(false), "signal aborts");
+      await expect(c.run()).rejects.toThrow(/cancel violation/);
+    });
+
+    it("passes a connector that fails its query when the signal aborts", async () => {
+      const c = caseNamed(withSignal(true), "signal aborts");
+      await expect(c.run()).resolves.toBeUndefined();
+    });
+
+    const caseWith = (
+      module: ConnectionModule,
+      extra: Record<string, unknown>,
+    ) =>
+      buildConformanceCases(() => module, {
+        ...setup,
+        queries: { ...setup.queries, ...extra },
+      }).find((c) => c.name.includes("signal aborts"))!;
+
+    it("runs the dedicated cancellable query, not slow, when one is given", async () => {
+      const seen: string[] = [];
+      const module = {
+        runQuery: async (
+          q: QueryParams,
+          cb: QueryCallback<unknown>,
+          cfg: ConnectionConfig,
+        ) => {
+          seen.push(q.query);
+          cfg.signal?.addEventListener("abort", () =>
+            cb.onFail?.(new Error("aborted") as never),
+          );
+          await new Promise((r) => setTimeout(r, 400));
+        },
+      } as unknown as ConnectionModule;
+      await caseWith(module, { cancellable: { query: "LONG" } }).run();
+      expect(seen).toEqual(["LONG"]);
+    });
+
+    // Active until the abort lands, as a real database reports it.
+    const activeUntilAbort = (stillActiveAfter: boolean) => {
+      const t0 = Date.now();
+      return async () => Date.now() - t0 < 400 || stillActiveAfter;
+    };
+
+    it("rejects a connector that fails fast but leaves the statement running", async () => {
+      const c = caseWith(withSignal(true), {
+        isQueryActive: activeUntilAbort(true),
+      });
+      await expect(c.run()).rejects.toThrow(/still running on the database/);
+    }, 15000);
+
+    it("passes a connector whose statement is gone from the database", async () => {
+      const c = caseWith(withSignal(true), {
+        isQueryActive: activeUntilAbort(false),
+      });
+      await expect(c.run()).resolves.toBeUndefined();
+    }, 15000);
+
+    it("rejects a connector that fails before the abort", async () => {
+      const module = {
+        runQuery: async (_q: QueryParams, cb: QueryCallback<unknown>) => {
+          cb.onFail?.(new Error("auth failed") as never);
+        },
+      } as unknown as ConnectionModule;
+      await expect(caseWith(module, {}).run()).rejects.toThrow(
+        /ended before the signal aborted/,
+      );
+    });
+
+    it("rejects a connector that settles late and whose statement stops after the 2 s deadline", async () => {
+      let abortedAt: number | undefined;
+      const module = {
+        runQuery: async (
+          _q: QueryParams,
+          cb: QueryCallback<unknown>,
+          cfg: ConnectionConfig,
+        ) => {
+          await new Promise<void>((resolve) =>
+            cfg.signal?.addEventListener("abort", () => {
+              abortedAt = Date.now();
+              setTimeout(() => {
+                cb.onFail?.(new Error("aborted") as never);
+                resolve();
+              }, 2300);
+            }),
+          );
+        },
+      } as unknown as ConnectionModule;
+      const c = caseWith(module, {
+        isQueryActive: async () =>
+          abortedAt === undefined || Date.now() - abortedAt < 2250,
+      });
+      await expect(c.run()).rejects.toThrow(/still running on the database/);
+    }, 15000);
+
+    it("rejects a failure reported before the abort even if the promise settles on abort", async () => {
+      const module = {
+        runQuery: async (
+          _q: QueryParams,
+          cb: QueryCallback<unknown>,
+          cfg: ConnectionConfig,
+        ) => {
+          cb.onFail?.(new Error("early") as never);
+          await new Promise<void>((resolve) =>
+            cfg.signal?.addEventListener("abort", () => resolve()),
+          );
+        },
+      } as unknown as ConnectionModule;
+      await expect(caseWith(module, {}).run()).rejects.toThrow(
+        /before the signal aborted/,
+      );
+    }, 10000);
+
+    it("rejects when the statement never shows as running", async () => {
+      const c = caseWith(withSignal(true), {
+        isQueryActive: async () => false,
+      });
+      await expect(c.run()).rejects.toThrow(/never showed as running/);
+    }, 15000);
+
+    it("rejects, within the bound, a connector that never settles after the abort", async () => {
+      const module = {
+        runQuery: () => new Promise<void>(() => undefined),
+      } as unknown as ConnectionModule;
+      const t0 = Date.now();
+      await expect(caseWith(module, {}).run()).rejects.toThrow(
+        /had not settled 2.5 s after the abort/,
+      );
+      expect(Date.now() - t0).toBeLessThan(4000);
+    }, 10000);
   });
 
   describe("onSuccess isolation (#1642)", () => {

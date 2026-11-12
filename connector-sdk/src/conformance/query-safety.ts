@@ -13,9 +13,12 @@
  *  - named parameters (the row-limit query is bound by name, as the app
  *    sends every parameter — a connector that drops it returns no rows)
  *
- * Cancellation-cleanup ("no leaked cursor after a timed-out query") isn't
- * covered here: the contract has no generic cancel API, and leak detection is
- * connector-specific. Connectors that can observe it assert it in their own
+ *  - cancellation (a read whose `signal` aborts settles at once, #2444; the
+ *    statement is also gone from the database when the connector supplies
+ *    `isQueryActive`, otherwise the case is callback-level only)
+ *
+ * Leak detection ("no leaked cursor after a timed-out query") isn't
+ * covered here: it is connector-specific. Connectors that can observe it assert it in their own
  * teardown (the built-ins are guarded by the #978 pg-cursor timeout tests).
  */
 
@@ -25,6 +28,19 @@ import {
   DEFAULT_CONNECTION_CONFIG,
   QueryStatus,
 } from "../generalized/interfaces";
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Polls `cond` every 100 ms until it holds or `deadline` (epoch ms) passes. */
+async function waitFor(
+  cond: () => Promise<boolean>,
+  deadline: number,
+): Promise<boolean> {
+  if (await cond()) return true;
+  if (Date.now() >= deadline) return false;
+  await sleep(100);
+  return waitFor(cond, deadline);
+}
 
 /** The one parameter the harness binds; `$param_rows` in the query text. */
 const ROWS_PARAM = "param_rows";
@@ -44,6 +60,22 @@ export interface ConformanceQueries {
   manyRows: string;
   /** A query guaranteed to run longer than a short (sub-second) timeout. */
   slow: QueryParams;
+  /**
+   * The query the cancellation case aborts (#2444). It must keep running far
+   * longer than the 300 ms the harness waits before aborting, e.g. a 30 s
+   * sleep. Optional: it falls back to `slow`, which then has to outlast that
+   * wait too.
+   */
+  cancellable?: QueryParams;
+  /**
+   * Resolves true while the `cancellable` statement is still running on the
+   * database (`pg_stat_activity`, `SHOW TRANSACTIONS`, ...). When supplied,
+   * the cancellation case also fails a connector that reported failure at
+   * once but left the statement running. Without it the case only proves the
+   * callback and the elapsed time, so assert the database side in your own
+   * test.
+   */
+  isQueryActive?: () => Promise<boolean>;
 }
 
 export interface ConformanceSetup {
@@ -65,6 +97,8 @@ interface Captured {
   data: unknown;
   error: unknown;
   statuses: QueryStatus[];
+  /** When onFail fired (epoch ms), so a failure before the abort is detectable. */
+  failedAt?: number;
 }
 
 /** Run one query, capturing everything the module reported through callbacks. */
@@ -86,6 +120,7 @@ async function execute(
       },
       onFail: (e) => {
         captured.error = e;
+        captured.failedAt = Date.now();
       },
       setStatus: (s) => {
         captured.statuses.push(s);
@@ -210,6 +245,100 @@ export function buildConformanceCases(
           throw new Error(
             "timeout violation: with no timeout configured, a slow query ran past the default timeout",
           );
+        }
+      },
+    },
+    {
+      // An abandoned read must end on the database, not run to its timeout
+      // (#2444). The query is `slow`, the timeout is long, so only the abort
+      // can settle it this fast.
+      name: "stops a running read when its signal aborts",
+      run: async () => {
+        const controller = new AbortController();
+        const { isQueryActive } = setup.queries;
+        let settled = false;
+        const running = execute(
+          getModule(),
+          setup.queries.cancellable ?? setup.queries.slow,
+          {
+            ...base,
+            accessMode: "READ",
+            timeout: 30_000,
+            signal: controller.signal,
+          },
+        ).finally(() => {
+          settled = true;
+        });
+        // Whatever happens below, the query must not outlive the case.
+        const abortAndDrain = () => {
+          controller.abort();
+          running.catch(() => undefined);
+        };
+        try {
+          // Abort only a query that is demonstrably running: observed on the
+          // database when the connector can say so, else 300 ms in.
+          if (isQueryActive) {
+            const started = await waitFor(isQueryActive, Date.now() + 5000);
+            if (!started) {
+              throw new Error(
+                "cancel violation: the cancellable query never showed as running on the database within 5 s",
+              );
+            }
+          } else {
+            await sleep(300);
+          }
+          if (settled) {
+            throw new Error(
+              "cancel violation: the query ended before the signal aborted, so cancellation was not exercised",
+            );
+          }
+        } catch (e) {
+          abortAndDrain();
+          throw e;
+        }
+        const abortedAt = Date.now();
+        abortAndDrain();
+        // Measure the shutdown from the abort, not from settlement: a connector
+        // that settles late must not get a late stop accepted.
+        let goneAt: number | undefined;
+        const polling = isQueryActive
+          ? waitFor(async () => {
+              if (await isQueryActive()) return false;
+              goneAt ??= Date.now();
+              return true;
+            }, abortedAt + 2000)
+          : undefined;
+        polling?.catch(() => undefined);
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const captured = await Promise.race([
+          running,
+          new Promise<undefined>((resolve) => {
+            timer = setTimeout(() => resolve(undefined), 2500);
+          }),
+        ]).finally(() => clearTimeout(timer));
+        const elapsed = Date.now() - abortedAt;
+        if (captured === undefined) {
+          throw new Error(
+            "cancel violation: an aborted read had not settled 2.5 s after the abort",
+          );
+        }
+        if (captured.error === undefined) {
+          throw new Error(
+            `cancel violation: an aborted read settled after ${elapsed} ms with no failure; expected a failure within 2.5 s`,
+          );
+        }
+        if (captured.failedAt !== undefined && captured.failedAt < abortedAt) {
+          throw new Error(
+            "cancel violation: the failure was reported before the signal aborted, so it does not certify cancellation",
+          );
+        }
+        if (polling) {
+          await polling;
+          if (goneAt === undefined || goneAt > abortedAt + 2000) {
+            throw new Error(
+              "cancel violation: the aborted statement is still running on the database 2 s after the abort",
+            );
+          }
         }
       },
     },

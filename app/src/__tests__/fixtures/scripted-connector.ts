@@ -15,7 +15,7 @@ export interface ScriptedCallbacks {
 
 export type Script = (
   callbacks: ScriptedCallbacks,
-  config: { rowLimit: number },
+  config: { rowLimit: number; signal?: AbortSignal },
 ) => void;
 
 export const SCRIPTED_TYPE = "scripted-stub";
@@ -77,7 +77,7 @@ export const scriptedConnector = {
       async runQuery(
         _query: unknown,
         callbacks: ScriptedCallbacks,
-        config: { rowLimit: number },
+        config: { rowLimit: number; signal?: AbortSignal },
       ) {
         scripted.script(callbacks, config);
         for (const resolve of waiting.splice(0)) resolve(callbacks);

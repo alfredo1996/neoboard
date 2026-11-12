@@ -178,6 +178,9 @@ async function handleReadQuery(request: Request): Promise<Response> {
       tenantId: sessionTenantId,
       accessMode: "read",
       metadata,
+      // The browser left: queued work is withdrawn, running work cancelled
+      // on the database (#2444). Reads only — this route never writes.
+      signal: request.signal,
     };
 
     const queryStart = performance.now();
@@ -191,6 +194,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
         {
           accessMode: toConnectorAccessMode(pipelineCtx.accessMode),
           rowLimit: requestedRowLimit,
+          signal: pipelineCtx.signal,
         },
       );
     });
@@ -231,6 +235,8 @@ async function handleReadQuery(request: Request): Promise<Response> {
       ...(truncated ? { truncated: true } : {}),
     });
   } catch (error) {
+    // Nobody is listening: the cancel's own failure is not a server error (#2444).
+    if (request.signal?.aborted) return new Response(null, { status: 499 });
     return handleRouteError(error, "Query execution failed", {
       callerStatement: true,
     });

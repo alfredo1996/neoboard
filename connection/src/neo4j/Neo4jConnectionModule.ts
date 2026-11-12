@@ -3,6 +3,7 @@ import {
   ConnectionConfig,
   ConnectionModule,
   ConnectorConfig,
+  ConnectorError,
   ConnectorErrorType,
   DEFAULT_CONNECTION_CONFIG,
   determineQueryStatus,
@@ -30,6 +31,9 @@ import { classifyNeo4jError } from "./classify-error";
  * answering still hangs the await; bound it at the caller if that shows up.
  */
 const INTROSPECTION_TX_CONFIG = { timeout: DEFAULT_CONNECTION_CONFIG.timeout };
+
+const ABORTED = () =>
+  new ConnectorError("The query was aborted", ConnectorErrorType.QUERY);
 
 /**
  * Neo4jConnectionModule
@@ -127,7 +131,15 @@ export class Neo4jConnectionModule extends ConnectionModule {
     const execute = isWrite
       ? session.executeWrite.bind(session)
       : session.executeRead.bind(session);
+    // Reads only (#2444): closing the session closes its open transaction, and
+    // the server terminates the query. The read then rejects and settles.
+    const signal = isWrite ? undefined : config.signal;
+    const closeOnAbort = () => {
+      void session.close().catch(() => {});
+    };
+    signal?.addEventListener("abort", closeOnAbort, { once: true });
     try {
+      if (signal?.aborted) throw ABORTED();
       const { rows: records, truncated } = await execute(
         async (tx: ManagedTransaction) => {
           if (isWrite) {
@@ -178,7 +190,9 @@ export class Neo4jConnectionModule extends ConnectionModule {
         records as unknown as Record<string, unknown>[],
       ) as T;
     } catch (err: unknown) {
-      const wrapped = wrapError(err, classifyNeo4jError);
+      const wrapped = signal?.aborted
+        ? ABORTED()
+        : wrapError(err, classifyNeo4jError);
       callbacks.setStatus?.(
         wrapped.type === ConnectorErrorType.TIMEOUT
           ? QueryStatus.TIMED_OUT
@@ -187,6 +201,7 @@ export class Neo4jConnectionModule extends ConnectionModule {
       callbacks.onFail?.(wrapped);
       return undefined;
     } finally {
+      signal?.removeEventListener("abort", closeOnAbort);
       await session.close();
     }
   }

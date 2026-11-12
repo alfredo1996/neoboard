@@ -382,6 +382,12 @@ export async function executeQuery(
     accessMode?: ConnectorAccessMode;
     rowLimit?: number;
     timeout?: number;
+    /**
+     * The caller abandoned the query (#2444). Reaches the connector, which
+     * may stop the statement; the deadline below is unchanged, so a connector
+     * that ignores it holds its scheduler slot until it answers.
+     */
+    signal?: AbortSignal;
   },
 ): Promise<{
   data: unknown;
@@ -396,6 +402,7 @@ export async function executeQuery(
     database: credentials.database,
     rowLimit: effectiveRowLimit,
     ...(options?.accessMode ? { accessMode: options.accessMode } : {}),
+    ...(options?.signal ? { signal: options.signal } : {}),
     // Overwrites the spread's 30s on purpose: a default passed from here would
     // outrank the connector's own configured timeout (#1898).
     timeout: options?.timeout,

@@ -149,6 +149,19 @@ describe("auditMiddleware", () => {
     expect(typeof logged[0].obj.durationMs).toBe("number");
   });
 
+  it("logs errorCode aborted when the caller abandoned the query (#2444)", async () => {
+    const controller = new AbortController();
+    const core = async (): Promise<QueryResult> => {
+      controller.abort();
+      throw new Error("canceling statement due to user request");
+    };
+    await expect(
+      auditMiddleware(makeContext({ signal: controller.signal }), core),
+    ).rejects.toThrow();
+    expect(logged[0].obj.errorCode).toBe("aborted");
+    expect(typeof logged[0].obj.totalMs).toBe("number");
+  });
+
   it("re-throws the original error so upstream handlers see it", async () => {
     const original = new Error("boom");
     const core = async (): Promise<QueryResult> => {

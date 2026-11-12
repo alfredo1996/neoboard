@@ -3,9 +3,9 @@ import { test, expect, ALICE, createTestDashboard, uid } from "./fixtures";
 // 12 cards on one slow connection used to own the browser's six connections,
 // and the navigation's own request queued behind them for ~34 s (#2443).
 const CARDS = 12;
-// The server cancels nothing until #2444, so a sleep outlives the test:
-// 8 s outlasts only the settle time and the 3 s window, and spares the other
-// worker's ALICE queries on this connection.
+// The server cancels a read when the page leaves (#2444); the sleep is 8 s
+// so a run that cancels nothing still outlasts the settle time and the 3 s
+// window, and spares the other worker's ALICE queries on this connection.
 const QUERY_FETCH_LIMIT = 4; // mirrors app/src/lib/query/limited-fetch.ts
 
 test.describe("Leaving a loading dashboard", () => {

@@ -6,6 +6,7 @@ import {
 } from "@neoboard/connection";
 import {
   nextRun,
+  scripted,
   scriptedConnector,
   SCRIPTED_TYPE,
 } from "@/__tests__/fixtures/scripted-connector";
@@ -319,6 +320,89 @@ describe("a query the executor timed out", () => {
       activeQueries: 0,
       queueDepth: 0,
     });
+  });
+});
+
+describe("an abandoned query (#2444)", () => {
+  beforeEach(() => {
+    resetSchedulerRegistry();
+    setDefaultSchedulerOptions({
+      ...baseOptions,
+      maxConcurrent: 1,
+      maxPerUser: 5,
+    });
+    registerConnector(scriptedConnector);
+  });
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    scripted.script = () => {};
+    await closeAllConnections();
+    unregisterConnector(SCRIPTED_TYPE);
+  });
+
+  const who = {
+    connectionId: "conn-1",
+    userId: "user-1",
+    priority: 1,
+  } as const;
+
+  it("a connector that ignores the signal keeps its slot until its query ends", async () => {
+    const controller = new AbortController();
+    let seen: AbortSignal | undefined;
+    scripted.script = (_cb, config) => {
+      seen = config.signal;
+    };
+    const run = nextRun();
+    const slow = withSchedulerSlot({ ...who, signal: controller.signal }, () =>
+      executeQuery(
+        SCRIPTED_TYPE,
+        {},
+        { query: "SLOW" },
+        { signal: controller.signal },
+      ),
+    );
+    const callbacks = await run;
+    expect(seen).toBe(controller.signal);
+
+    controller.abort();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(getScheduler("conn-1").getStats().activeQueries).toBe(1);
+
+    callbacks.onSuccess?.([]);
+    await slow;
+    expect(getScheduler("conn-1").getStats().activeQueries).toBe(0);
+  });
+
+  it("an aborted waiting query never runs and writes one query_failed line", async () => {
+    const warn = vi.spyOn(queryLogger, "warn").mockImplementation(() => {});
+    let release: (r: QueryResult) => void = () => {};
+    const blocker = schedulerMiddleware(
+      makeContext({ userId: "blocker" }),
+      () => new Promise<QueryResult>((r) => (release = r)),
+    );
+    const controller = new AbortController();
+    const next = vi.fn(async () => ({ data: null }));
+    const waiting = schedulerMiddleware(
+      { ...makeContext({}, { requestId: "req-7" }), signal: controller.signal },
+      next,
+    ).catch((e: unknown) => e);
+    controller.abort();
+
+    expect(((await waiting) as Error).name).toBe("QueryAbortedError");
+    expect(next).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(1);
+    const [obj] = warn.mock.calls[0] as unknown as [Record<string, unknown>];
+    expect(obj).toMatchObject({
+      event: "query_failed",
+      errorCode: "aborted",
+      requestId: "req-7",
+    });
+    expect(typeof obj.schedulerWaitMs).toBe("number");
+    expect(obj.totalMs).toBe(obj.schedulerWaitMs);
+
+    release({ data: null });
+    await blocker;
   });
 });
 

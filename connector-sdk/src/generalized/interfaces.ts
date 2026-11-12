@@ -123,6 +123,14 @@ export interface ConnectionConfig {
    * The maximum number of records to return from a query before truncation is applied.
    */
   rowLimit: number;
+
+  /**
+   * Fires when the caller no longer wants the result (the browser left). A
+   * connector that honours it stops the statement on the database and settles
+   * the query; one that ignores it runs to its end as before (#2444). Reads
+   * only: the app never passes it for a write.
+   */
+  signal?: AbortSignal;
 }
 
 /**
