@@ -5,6 +5,7 @@ import { isParamUnset } from "@/lib/parameter/is-param-unset";
 import { useMemo, useState } from "react";
 import {
   useQuery,
+  useQueryClient,
   type PlaceholderDataFunction,
   type QueryClient,
 } from "@tanstack/react-query";
@@ -334,8 +335,10 @@ export function useWidgetQuery(
   const [waited, setWaited] = useState(false);
   if (!enabled && !waited) setWaited(true);
 
+  const queryClient = useQueryClient();
+  const queryKey = widgetQueryKey(mergedInput, options?.staleTime);
   const queryResult = useQuery<QueryResult, Error>({
-    queryKey: widgetQueryKey(mergedInput, options?.staleTime),
+    queryKey,
     queryFn: async ({ signal }) => {
       const fetchStart = performance.now();
       const res = await limitedFetch("/api/query", {
@@ -405,6 +408,24 @@ export function useWidgetQuery(
     setWaited(false);
   }
 
+  // Stopped (#2446): TanStack's cancelQueries reverts the shared query to its
+  // previous state, so an enabled first load ends pending and idle, which only
+  // a cancel produces. Read from the query, every card on the key sees it.
+  const stopped =
+    enabled && queryResult.isPending && queryResult.fetchStatus === "idle";
+  /** Aborts the in-flight request (its signal) and leaves no result. */
+  const stop = async () => {
+    // exact: a key is matched by prefix otherwise, so params {ids:[1]} would
+    // also stop a card whose params are {ids:[1,2]}.
+    await queryClient.cancelQueries({ queryKey, exact: true });
+    // Cancelling a Retry reverts to the error it started from; a stop always
+    // lands in the same pending-and-idle state, for every card on the key.
+    queryClient
+      .getQueryCache()
+      .find({ queryKey, exact: true })
+      ?.setState({ status: "pending", error: null });
+  };
+
   const missingParams = useMemo(
     () =>
       mergedInput?.query
@@ -413,5 +434,5 @@ export function useWidgetQuery(
     [mergedInput, allParameters],
   );
 
-  return { ...queryResult, missingParams };
+  return { ...queryResult, missingParams, stopped, stop };
 }

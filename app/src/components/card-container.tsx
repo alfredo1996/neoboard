@@ -32,10 +32,18 @@ import React, {
   useContext,
   useMemo,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useState,
 } from "react";
-import { AlertCircle, Clock, Play, Unplug } from "lucide-react";
+import {
+  AlertCircle,
+  CircleStop,
+  Clock,
+  Play,
+  Square,
+  Unplug,
+} from "lucide-react";
 import {
   QueueFullError,
   ClientQueueTimeoutError,
@@ -237,6 +245,76 @@ function ConnectorUnavailable({
           Retry
         </Button>
       )}
+    </div>
+  );
+}
+
+/**
+ * ponytail: one global threshold (#2446); a per-connection value only if
+ * customers ask. The owner chose an automatic Stop over a per-widget setting.
+ */
+const STOP_AFTER_MS = 5000;
+
+/** The loading card; past STOP_AFTER_MS it offers Stop beside the loading text. */
+function LoadingCard({
+  title,
+  onStop,
+}: Readonly<{ title: string; onStop: () => void }>) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), STOP_AFTER_MS);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <div data-loading="true" className="space-y-3 p-4">
+      <div aria-busy="true" className="space-y-3">
+        <Skeleton className="h-3 w-2/5" />
+        <Skeleton className="h-28 w-full" />
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <output className="block text-xs text-muted-foreground">
+          Loading {title || "this widget"}…
+        </output>
+        {slow && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-7 shrink-0 gap-1.5 px-2.5 text-xs"
+            onClick={onStop}
+          >
+            <Square className="h-3 w-3 fill-current" aria-hidden />
+            Stop
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** What a stopped card shows (#2446), laid out like ConnectorUnavailable. */
+function StoppedCard({ onRunAgain }: Readonly<{ onRunAgain: () => void }>) {
+  return (
+    <div className="flex h-full min-h-0 flex-col items-center justify-center gap-1.5 overflow-hidden p-3 text-center">
+      <p className="flex items-center gap-1.5 text-sm font-medium">
+        <CircleStop
+          className="h-4 w-4 shrink-0 text-muted-foreground"
+          data-testid="stopped-icon"
+          aria-hidden
+        />
+        Stopped
+      </p>
+      <p className="max-w-sm text-xs text-muted-foreground">
+        The query was stopped before it finished.
+      </p>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="mt-1 h-7 shrink-0 px-2.5 text-xs"
+        onClick={onRunAgain}
+        autoFocus // Stop unmounts the focused button; keep keyboard users here
+      >
+        Run again
+      </Button>
     </div>
   );
 }
@@ -640,6 +718,10 @@ export function CardContainer({
     );
   }
 
+  if (widgetQuery.isPending && widgetQuery.stopped) {
+    return <StoppedCard onRunAgain={() => widgetQuery.refetch()} />;
+  }
+
   // When enabled:false, TanStack Query returns isPending:true + fetchStatus:"idle".
   // Show a friendly placeholder instead of the loading skeleton so the user
   // isn't confused. Distinguish between missing connection and missing parameters.
@@ -724,15 +806,7 @@ export function CardContainer({
   }
 
   if (widgetQuery.isPending) {
-    return (
-      <div data-loading="true" aria-busy="true" className="space-y-3 p-4">
-        <Skeleton className="h-3 w-2/5" />
-        <Skeleton className="h-28 w-full" />
-        <output className="block text-xs text-muted-foreground">
-          Loading {widgetTitle || "this widget"}…
-        </output>
-      </div>
-    );
+    return <LoadingCard title={widgetTitle} onStop={widgetQuery.stop} />;
   }
 
   if (widgetQuery.isError) {
