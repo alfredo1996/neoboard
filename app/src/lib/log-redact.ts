@@ -199,20 +199,22 @@ export function redactSecrets(
   value: unknown,
   { anonymize = false }: { anonymize?: boolean } = {},
 ): unknown {
+  const out = walk(value, new Set(), anonymize);
   // `err` is always an object in a log line (#2468): a log store maps `err`
-  // from the first type it sees and rejects lines of the other. A bare string
-  // or number becomes `{ message }`, redacted like an Error's message.
-  if (value !== null && typeof value === "object" && isPlainObject(value)) {
-    const err = value.err;
+  // from the first type it sees and rejects lines of the other. A bare string,
+  // number, or anything `walk` flattens to a string (a URL) becomes
+  // `{ message }`; the walked string is already credential-redacted.
+  if (out !== null && typeof out === "object" && isPlainObject(out)) {
+    const err = out.err;
     if (err !== undefined && (err === null || typeof err !== "object")) {
       const message = String(err);
-      value = {
-        ...value,
+      return {
+        ...out,
         err: { message: anonymize ? scrubQuotedValues(message) : message },
       };
     }
   }
-  return walk(value, new Set(), anonymize);
+  return out;
 }
 
 function walk(value: unknown, path: Set<object>, anonymize: boolean): unknown {

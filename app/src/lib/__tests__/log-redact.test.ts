@@ -656,4 +656,12 @@ describe("a string err under LOG_ANONYMIZE (#2468)", () => {
       ),
     ).toEqual({ err: { message: "failed on '[value]'" } });
   });
+
+  it("wraps an err that walk turns into a string (a URL), password gone", () => {
+    const out = redactSecrets({
+      err: new URL("https://u:" + SECRET + "@example.com/x"),
+    }) as { err: { message: string } };
+    expect(out.err.message).toContain("example.com/x");
+    expect(JSON.stringify(out)).not.toContain(SECRET);
+  });
 });
