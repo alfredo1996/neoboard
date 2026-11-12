@@ -246,6 +246,17 @@ describe("QueryEditor", () => {
     expect(screen.getByText("Running").closest("button")).toBeDisabled();
   });
 
+  it("ignores the second click of a double-click landing on Run (#2445)", () => {
+    const onRun = vi.fn();
+    render(<QueryEditor value="MATCH (n)" onRun={onRun} />);
+    const run = screen.getByRole("button", { name: "Run" });
+    fireEvent.click(run, { detail: 2 });
+    expect(onRun).not.toHaveBeenCalled();
+    fireEvent.click(run, { detail: 0 });
+    fireEvent.click(run, { detail: 1 });
+    expect(onRun).toHaveBeenCalledTimes(2);
+  });
+
   it("ignores the second click of a double-click landing on Stop (#2445)", async () => {
     const onStop = vi.fn();
     render(<QueryEditor value="MATCH (n)" running stoppable onStop={onStop} />);

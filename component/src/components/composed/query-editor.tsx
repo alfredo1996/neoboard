@@ -777,7 +777,10 @@ function QueryEditor({
               <Button
                 size="sm"
                 className="h-7 gap-1"
-                onClick={handleRun}
+                // A double-click on Stop that settles in between lands here.
+                onClick={(e) => {
+                  if (e.detail < 2) handleRun();
+                }}
                 disabled={!currentValue.trim() || running}
                 title="Run query (Ctrl+Enter / ⌘+Enter)"
               >

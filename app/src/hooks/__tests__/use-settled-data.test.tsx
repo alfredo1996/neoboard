@@ -12,7 +12,7 @@ type State = {
   isPending: boolean;
   data: unknown;
   isStopped?: boolean;
-  variables?: { query: string };
+  variables?: { query: string; connectionId?: string; database?: string };
 };
 
 function setup(initial: State) {
@@ -87,4 +87,29 @@ describe("useSettledData", () => {
     });
     expect(result.current).toBeUndefined();
   });
+
+  it.each([
+    ["connection", { connectionId: "B" }, { connectionId: "A" }],
+    [
+      "database",
+      { connectionId: "A", database: "y" },
+      { connectionId: "A", database: "x" },
+    ],
+  ])(
+    "clears after a stop of the same text on another %s",
+    (_n, stopped, ran) => {
+      const { result, rerender } = setup({
+        isPending: false,
+        data: { rows: 1 },
+        variables: { query: "RETURN 1", ...ran },
+      });
+      rerender({
+        isPending: false,
+        data: undefined,
+        isStopped: true,
+        variables: { query: "RETURN 1", ...stopped },
+      });
+      expect(result.current).toBeUndefined();
+    },
+  );
 });

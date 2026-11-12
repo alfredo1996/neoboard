@@ -34,6 +34,11 @@ export function useQueryExecution() {
   // Closing the editor abandons a running preview the same way.
   useEffect(() => () => previous.current?.abort(), []);
   const mutation = useMutation<QueryResult, Error, QueryInput>({
+    // Offline, the default 'online' mode pauses the mutation before its
+    // function runs: there is no controller, so Stop cannot abort it and the
+    // query would fire on reconnect (#2445). The target is our own server, so
+    // offline just fails fast.
+    networkMode: "always",
     mutationFn: async (input) => {
       previous.current?.abort();
       const controller = new AbortController();

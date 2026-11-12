@@ -6,27 +6,37 @@ import { useState } from "react";
  * it (the editor's column pickers) would unmount mid-run. A reset or an error
  * settles with no data, so those still clear.
  *
- * A Stop (#2445) also settles with no data, but when the stopped query's text
- * is the text that produced the last data, that data is kept: the columns are
- * still the right ones. A stop of a changed text clears, as an error does.
+ * A Stop (#2445) also settles with no data, but when the stopped run asked the
+ * same question as the run that produced the last data (same query text,
+ * connection and database), that data is kept: the columns are still the right
+ * ones. A stop of anything else clears, as an error does.
  */
+type RunVariables = {
+  query: string;
+  connectionId?: string;
+  database?: string;
+};
+
+const identity = (v?: RunVariables) =>
+  v && JSON.stringify([v.query, v.connectionId, v.database]);
+
 export function useSettledData<T>(mutation: {
   isPending: boolean;
   data: T | undefined;
   isStopped?: boolean;
-  variables?: { query: string };
+  variables?: RunVariables;
 }): T | undefined {
   const [settled, setSettled] = useState({
     data: mutation.data,
-    query: mutation.variables?.query,
+    run: identity(mutation.variables),
   });
   if (mutation.isPending || mutation.data === settled.data) {
     return settled.data;
   }
-  if (mutation.isStopped && mutation.variables?.query === settled.query) {
+  if (mutation.isStopped && identity(mutation.variables) === settled.run) {
     return settled.data;
   }
   // Adjusting state during render — React re-renders before committing.
-  setSettled({ data: mutation.data, query: mutation.variables?.query });
+  setSettled({ data: mutation.data, run: identity(mutation.variables) });
   return mutation.data;
 }
