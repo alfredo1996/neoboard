@@ -136,7 +136,8 @@ function build(): Metrics {
 }
 
 function m(): Metrics {
-  return (g.__neoboardMetrics ??= build());
+  g.__neoboardMetrics ??= build();
+  return g.__neoboardMetrics;
 }
 
 export function metricsRegistry(): Registry {
