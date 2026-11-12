@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import {
+  cpSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * #2441 — what the Helm chart must render. Needs `helm` on the PATH; GitHub's
@@ -9,12 +17,6 @@ import { readFileSync } from "node:fs";
  */
 const CHART = new URL("../../deploy/helm/neoboard", import.meta.url).pathname;
 const HAS_HELM = spawnSync("helm", ["version", "--short"]).status === 0;
-// --dry-run=client (offline NOTES rendering) arrived in helm 3.13.
-const NOTES_OK =
-  HAS_HELM &&
-  !/invalid argument "client"/.test(
-    spawnSync("helm", ["install", "x", ".", "--dry-run=client"], { encoding: "utf8" }).stderr,
-  );
 if (!HAS_HELM && process.env.CI) throw new Error("helm is required on CI");
 
 const SECRET_VALUES = {
@@ -56,14 +58,41 @@ function render(extra = {}) {
   return byKind;
 }
 
+/**
+ * NOTES.txt is only rendered by `helm install`, which wants a cluster. Wrap a
+ * copy of it in a named template and emit it as a JSON string from an ordinary
+ * manifest, so `helm template` renders it with no cluster on any helm 3.
+ */
 function renderNotes(extra = {}) {
-  const r = spawnSync(
-    "helm",
-    ["install", "r", CHART, "--dry-run=client", ...sets({ ...SECRET_VALUES, ...extra })],
-    { encoding: "utf8" },
-  );
-  if (r.status !== 0) throw new Error(r.stderr);
-  return r.stdout.slice(r.stdout.indexOf("NOTES:"));
+  const dir = mkdtempSync(join(tmpdir(), "neoboard-chart-"));
+  try {
+    cpSync(CHART, dir, { recursive: true });
+    const notes = readFileSync(`${dir}/templates/NOTES.txt`, "utf8");
+    writeFileSync(
+      `${dir}/templates/_zz.tpl`,
+      `{{ define "zz.notes" }}${notes}{{ end }}`,
+    );
+    writeFileSync(
+      `${dir}/templates/zz-notes.yaml`,
+      'notes: {{ include "zz.notes" . | toJson }}\n',
+    );
+    const r = spawnSync(
+      "helm",
+      [
+        "template",
+        "r",
+        dir,
+        "--show-only",
+        "templates/zz-notes.yaml",
+        ...sets({ ...SECRET_VALUES, ...extra }),
+      ],
+      { encoding: "utf8" },
+    );
+    if (r.status !== 0) throw new Error(r.stderr);
+    return JSON.parse(/^notes: (.*)$/m.exec(r.stdout)[1]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 describe.skipIf(!HAS_HELM)("helm chart (#2441)", () => {
@@ -95,7 +124,9 @@ describe.skipIf(!HAS_HELM)("helm chart (#2441)", () => {
   it("probes: startup and readiness on /api/health with Host localhost, liveness a TCP check (#2441)", () => {
     const dep = render().Deployment[0];
     const probe = (name) =>
-      new RegExp(`${name}:\\n([\\s\\S]*?)(?=\\n {10}\\w|\\n {8}\\w|$)`).exec(dep)[1];
+      new RegExp(`${name}:\\n([\\s\\S]*?)(?=\\n {10}\\w|\\n {8}\\w|$)`).exec(
+        dep,
+      )[1];
     for (const name of ["startupProbe", "readinessProbe"]) {
       expect(probe(name)).toContain("path: /api/health");
       expect(probe(name)).toMatch(/name: Host\n\s+value: localhost/);
@@ -105,7 +136,8 @@ describe.skipIf(!HAS_HELM)("helm chart (#2441)", () => {
     // boot migrations may take minutes: at least 10 minutes of startup budget
     const t = probe("startupProbe");
     const budget =
-      Number(/failureThreshold: (\d+)/.exec(t)[1]) * Number(/periodSeconds: (\d+)/.exec(t)[1]);
+      Number(/failureThreshold: (\d+)/.exec(t)[1]) *
+      Number(/periodSeconds: (\d+)/.exec(t)[1]);
     expect(budget).toBeGreaterThanOrEqual(600);
   });
 
@@ -118,7 +150,8 @@ describe.skipIf(!HAS_HELM)("helm chart (#2441)", () => {
   });
 
   it("rolls the pods when the chart-made Secret changes, not for existingSecret", () => {
-    const sum = (extra) => /checksum\/secret: (\w+)/.exec(render(extra).Deployment[0])?.[1];
+    const sum = (extra) =>
+      /checksum\/secret: (\w+)/.exec(render(extra).Deployment[0])?.[1];
     expect(sum()).toBeTruthy();
     expect(sum({ "secrets.ENCRYPTION_KEY": "SENTINEL-other" })).not.toBe(sum());
     expect(sum({ existingSecret: "mine" })).toBeUndefined();
@@ -136,13 +169,21 @@ describe.skipIf(!HAS_HELM)("helm chart (#2441)", () => {
     "LOG_ANONYMIZE_SECRET",
     "METRICS_TOKEN",
     "OIDC_CLIENT_SECRET",
-  ])("refuses secret key %s under config (it would land in the ConfigMap)", (key) => {
-    expect(() => render({ [`config.${key}`]: "SENTINEL-x" })).toThrow(/secrets\.\*|existingSecret/);
-  });
+  ])(
+    "refuses secret key %s under config (it would land in the ConfigMap)",
+    (key) => {
+      expect(() => render({ [`config.${key}`]: "SENTINEL-x" })).toThrow(
+        /secrets\.\*|existingSecret/,
+      );
+    },
+  );
 
   it("refuses a ServiceMonitor while metrics are off", () => {
     expect(() =>
-      render({ "metrics.serviceMonitor.enabled": true, "metrics.tokenSecret.name": "m" }),
+      render({
+        "metrics.serviceMonitor.enabled": true,
+        "metrics.tokenSecret.name": "m",
+      }),
     ).toThrow(/metrics\.enabled/);
   });
 
@@ -172,8 +213,12 @@ describe.skipIf(!HAS_HELM)("helm chart (#2441)", () => {
       "metrics.serviceMonitor.enabled": true,
     });
     expect(k.ServiceMonitor[0]).toContain("path: /api/metrics");
-    expect(k.ServiceMonitor[0]).toMatch(/bearerTokenSecret:\n\s+name: nb-metrics/);
-    expect(k.Deployment[0]).toMatch(/METRICS_TOKEN\n\s+valueFrom:\n\s+secretKeyRef:\n\s+name: nb-metrics/);
+    expect(k.ServiceMonitor[0]).toMatch(
+      /bearerTokenSecret:\n\s+name: nb-metrics/,
+    );
+    expect(k.Deployment[0]).toMatch(
+      /METRICS_TOKEN\n\s+valueFrom:\n\s+secretKeyRef:\n\s+name: nb-metrics/,
+    );
   });
 
   it("uses existingSecret and creates no Secret of its own", () => {
@@ -182,7 +227,7 @@ describe.skipIf(!HAS_HELM)("helm chart (#2441)", () => {
     expect(k.Deployment[0]).toMatch(/secretRef:\n\s+name: mine/);
   });
 
-  it.skipIf(!NOTES_OK)("warns about per-process limits only above one replica", () => {
+  it("warns about per-process limits only above one replica", () => {
     expect(renderNotes()).toContain("ENCRYPTION_KEY");
     expect(renderNotes()).not.toContain("WARNING");
     const notes = renderNotes({ replicaCount: 2 });
