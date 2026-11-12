@@ -206,7 +206,14 @@ export function redactSecrets(
   // `{ message }`; the walked string is already credential-redacted.
   if (out !== null && typeof out === "object" && isPlainObject(out)) {
     const err = out.err;
-    if (err !== undefined && (err === null || typeof err !== "object")) {
+    // The scalars JSON prints; a function or symbol never reaches the line.
+    if (
+      err === null ||
+      typeof err === "string" ||
+      typeof err === "number" ||
+      typeof err === "boolean" ||
+      typeof err === "bigint"
+    ) {
       const message = String(err);
       return {
         ...out,
