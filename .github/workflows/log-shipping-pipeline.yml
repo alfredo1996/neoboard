@@ -1,0 +1,60 @@
+name: Log shipping pipeline
+
+# The full test of the Fluent Bit kit (#2439): app + Fluent Bit + OpenSearch,
+# one real query, its log line found in OpenSearch with requestId, durationMs
+# and schedulerWaitMs as fields. Slow, so it runs on demand and when the kit's
+# files change; log-shipping.yml validates the same files on every PR.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'deploy/fluent-bit/**'
+      - 'deploy/opensearch/**'
+      - 'docker/docker-compose.logging.yml'
+      - 'docker/docker-compose.prod.yml'
+      - 'docker/docker-compose.prod-full.yml'
+      - 'app/src/lib/logger.ts'
+      - 'app/src/lib/log-redact.ts'
+      - 'app/src/lib/query/middleware/audit.ts'
+      - '.github/workflows/log-shipping-pipeline.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: logship
+      ENCRYPTION_KEY: '1111111111111111111111111111111111111111111111111111111111111111'
+      API_KEY_HMAC_SECRET: '2222222222222222222222222222222222222222222222222222222222222222'
+      NEXTAUTH_SECRET: ci-secret-ci-secret-ci-secret-ci-secret
+      POSTGRES_PASSWORD: ci-password
+      BOOTSTRAP_ADMIN_EMAIL: admin@example.com
+      BOOTSTRAP_ADMIN_PASSWORD: ci-password-1
+      FORCE_HTTPS: 'false'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Raise vm.max_map_count for OpenSearch
+        run: sudo sysctl -w vm.max_map_count=262144
+
+      - name: Start the app with the logging add-on
+        run: |
+          docker compose -f docker/docker-compose.prod-full.yml -f docker/docker-compose.logging.yml up -d --build
+
+      - name: A query's log line reaches OpenSearch
+        env:
+          ADMIN_EMAIL: ${{ env.BOOTSTRAP_ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ env.BOOTSTRAP_ADMIN_PASSWORD }}
+          PG_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        run: node deploy/fluent-bit/pipeline-check.mjs
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker/docker-compose.prod-full.yml -f docker/docker-compose.logging.yml logs --no-color --tail 80
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker/docker-compose.prod-full.yml -f docker/docker-compose.logging.yml down -v

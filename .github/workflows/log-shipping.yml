@@ -1,0 +1,44 @@
+name: Log shipping kit
+
+# Cheap static checks of the Fluent Bit kit (#2439), on every PR. The full
+# pipeline test is log-shipping-pipeline.yml (on demand and when the kit changes).
+on:
+  pull_request:
+  push:
+    branches: [main, dev, 'release/*']
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Keep in step with deploy/kubernetes/fluent-bit-values.yaml and the
+      # image in docker/docker-compose.logging.yml.
+      FLUENT_BIT_IMAGE: fluent/fluent-bit:5.1.3
+      FLUENT_BIT_CHART: 0.58.3
+      # Placeholders for the prod compose files' required variables.
+      ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+      API_KEY_HMAC_SECRET: '0000000000000000000000000000000000000000000000000000000000000000'
+      NEXTAUTH_SECRET: ci
+      DATABASE_URL: postgres://x:x@localhost/x
+      POSTGRES_PASSWORD: ci
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fluent Bit config (dry run, startup log, Lua filter)
+        run: deploy/fluent-bit/check.sh "$FLUENT_BIT_IMAGE"
+
+      - name: Compose add-on resolves with each production file
+        run: |
+          for base in prod prod-full; do
+            docker compose -f "docker/docker-compose.$base.yml" -f docker/docker-compose.logging.yml config -q
+          done
+
+      - name: Helm values render at the pinned chart version
+        run: |
+          helm repo add fluent https://fluent.github.io/helm-charts
+          helm template fb fluent/fluent-bit --version "$FLUENT_BIT_CHART" \
+            -f deploy/kubernetes/fluent-bit-values.yaml > /dev/null

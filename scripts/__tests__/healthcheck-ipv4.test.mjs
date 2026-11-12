@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, standalone, resolve } from "./compose-config.mjs";
+import { ROOT, composeSets, resolve } from "./compose-config.mjs";
 
 // The image listens on 0.0.0.0 (IPv4 only). BusyBox wget resolves `localhost`
 // to ::1 when the container's loopback has IPv6 on (Docker Engine 29) and does
@@ -17,10 +17,10 @@ describe("in-container health checks probe 127.0.0.1, not localhost (#2432)", ()
     expect(check).not.toContain("localhost");
   });
 
-  it.each(standalone)(
+  it.each(composeSets)(
     "%s",
-    (file) => {
-      const { services } = resolve(file);
+    (_label, files) => {
+      const { services } = resolve(...files);
       const probes = Object.values(services)
         .map((s) => s.healthcheck?.test)
         .filter(Boolean)

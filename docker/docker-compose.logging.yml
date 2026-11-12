@@ -1,0 +1,124 @@
+# Log shipping add-on: Fluent Bit + single-node OpenSearch + OpenSearch
+# Dashboards. Not standalone: layer it on a production compose file.
+#
+#   docker compose --env-file docker/.env.production.local \
+#     -f docker/docker-compose.prod-full.yml -f docker/docker-compose.logging.yml up -d
+#
+# Works the same with docker-compose.prod.yml. Dashboards: http://localhost:5601
+# (create the index pattern `neoboard-*`). OpenSearch runs WITHOUT its security
+# plugin and every port is bound to 127.0.0.1: for a laptop or a trusted
+# single server. Put authentication in front before exposing any of them.
+# Retention: 14 days, set by deploy/opensearch/ism-neoboard-14d.json.
+services:
+  neoboard:
+    # Docker's dual logging keeps `docker logs neoboard` working. Async, so the
+    # app starts even when Fluent Bit is down. Compose replaces the logging
+    # block whole when the driver differs, so the base file's json-file size
+    # options do not leak in.
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: "127.0.0.1:24224"
+        fluentd-async: "true"
+        tag: neoboard
+
+  fluent-bit:
+    image: fluent/fluent-bit:5.1.3
+    environment:
+      OPENSEARCH_HOST: opensearch
+      OPENSEARCH_PORT: "9200"
+    volumes:
+      - ../deploy/fluent-bit:/fluent-bit/etc:ro
+      # Disk buffer: chunks wait here while OpenSearch is down.
+      - fluentbitbuffer:/fluent-bit/buffer
+    # The Docker daemon, not the app container, connects to this port.
+    ports:
+      - "127.0.0.1:24224:24224"
+    depends_on:
+      - opensearch
+    networks: [logging]
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    restart: unless-stopped
+
+  opensearch:
+    image: opensearchproject/opensearch:2.17.1
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    ports:
+      - "127.0.0.1:${OPENSEARCH_PORT:-9200}:9200"
+    volumes:
+      - opensearchdata:/usr/share/opensearch/data
+    networks: [logging]
+    healthcheck:
+      test:
+        ["CMD-SHELL", "curl -fs http://127.0.0.1:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    restart: unless-stopped
+
+  # One-shot: installs (or updates) the 14-day retention policy, attaches it to
+  # any index that already exists (Fluent Bit may create the first day's index
+  # before this runs), then exits. A re-run finds the policy (409) and updates
+  # it with its seq_no and primary_term, so an edited policy applies.
+  opensearch-init:
+    image: curlimages/curl:8.10.1
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    volumes:
+      - ../deploy/opensearch:/policy:ro
+    networks: [logging]
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        api=http://opensearch:9200/_plugins/_ism
+        put() { curl -sS -o /dev/null -w '%{http_code}' -X PUT -H 'Content-Type: application/json' --data-binary @/policy/ism-neoboard-14d.json "$$api/policies/neoboard-14d$$1"; }
+        code=$$(put)
+        if [ "$$code" = 409 ]; then
+          code=$$(put "?$$(curl -fsS $$api/policies/neoboard-14d | sed -n 's/.*"_seq_no":\([0-9]*\),"_primary_term":\([0-9]*\).*/if_seq_no=\1\&if_primary_term=\2/p')")
+        fi
+        case "$$code" in 200|201) ;; *) echo "policy install failed: HTTP $$code"; exit 1 ;; esac
+        curl -fsS -X POST -H 'Content-Type: application/json' -d '{"policy_id":"neoboard-14d"}' "$$api/add/neoboard-*"
+    restart: "no"
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.17.1
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    networks: [logging]
+    ports:
+      - "127.0.0.1:${OPENSEARCH_DASHBOARDS_PORT:-5601}:5601"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+    restart: unless-stopped
+
+# Unauthenticated OpenSearch lives here only. The Docker daemon, not the app,
+# reaches Fluent Bit (through its loopback port), so the app does not join it.
+# Otherwise anything that can make the app's network connections (a query
+# against the bundled Neo4j, say) could read every tenant's query log.
+networks:
+  logging:
+
+volumes:
+  opensearchdata:
+  fluentbitbuffer:

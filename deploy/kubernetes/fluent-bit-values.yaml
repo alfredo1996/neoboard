@@ -1,0 +1,190 @@
+# Values for the official Fluent Bit Helm chart (fluent/fluent-bit), pinned in
+# the docs and CI to chart 0.58.3 (Fluent Bit 5.1.3):
+#
+#   helm repo add fluent https://fluent.github.io/helm-charts
+#   helm upgrade --install fluent-bit fluent/fluent-bit --version 0.58.3 \
+#     -n logging --create-namespace \
+#     -f deploy/kubernetes/fluent-bit-values.yaml
+#
+# A DaemonSet reads the NeoBoard pods' stdout from each node, merges the JSON
+# line into the record, and sends it to OpenSearch. No sidecar: the app logs to
+# stdout. Change `Host` in the output to your OpenSearch service, and the tail
+# Path if your pods are not named *neoboard* (it also matches a namespace of
+# that name). The output expects the official OpenSearch chart's defaults:
+# HTTPS on 9200 with basic auth. Create the Secret first:
+#
+#   kubectl -n logging create secret generic opensearch-credentials \
+#     --from-literal=password='<the admin password>'
+#   kubectl -n logging create secret generic opensearch-ca \
+#     --from-file=ca.crt=<the OpenSearch CA certificate, PEM>
+kind: DaemonSet
+
+# The disk buffer: chunks wait here while OpenSearch is down, and survive a pod
+# restart. Overriding daemonSetVolumes replaces the chart's list, so its three
+# default mounts are repeated.
+daemonSetVolumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+  - name: varlibdockercontainers
+    hostPath:
+      path: /var/lib/docker/containers
+  - name: etcmachineid
+    hostPath:
+      path: /etc/machine-id
+      type: File
+  - name: buffer
+    hostPath:
+      path: /var/lib/fluent-bit-buffer
+      type: DirectoryOrCreate
+daemonSetVolumeMounts:
+  - name: varlog
+    mountPath: /var/log
+  - name: varlibdockercontainers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+  - name: etcmachineid
+    mountPath: /etc/machine-id
+    readOnly: true
+  - name: buffer
+    mountPath: /fluent-bit/buffer
+
+# The OpenSearch CA, for tls.ca_file below.
+extraVolumes:
+  - name: opensearch-ca
+    secret:
+      secretName: opensearch-ca
+extraVolumeMounts:
+  - name: opensearch-ca
+    mountPath: /fluent-bit/tls
+    readOnly: true
+
+env:
+  - name: OPENSEARCH_USER
+    value: admin
+  - name: OPENSEARCH_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: opensearch-credentials
+        key: password
+
+luaScripts:
+  # Same script as deploy/fluent-bit/neoboard.lua (a test keeps them identical).
+  neoboard.lua: |
+    -- Fluent Bit lua filter for NeoBoard's pino lines (the filter sets
+    -- time_as_table On, so `timestamp` is {sec, nsec}).
+    --  * severity: pino's numeric `level` as a name (the number stays as `level`)
+    --  * event time: the line's own `time` (epoch milliseconds), not the moment
+    --    Fluent Bit received it, kept to the millisecond
+    --  * time: a runtime's string `time` (a plain-text line) becomes `runtime_time`.
+    --    pino's `time` is a number, and a daily index maps `time` from whichever
+    --    kind arrives first, then rejects the other.
+    --  * err: the app logs it as an object in some places and a string in others,
+    --    and OpenSearch maps a field to the first type it sees, then rejects the
+    --    other. A string becomes { message = <string> }.
+    local SEVERITY = {
+      [10] = "trace", [20] = "debug", [30] = "info",
+      [40] = "warn", [50] = "error", [60] = "fatal",
+    }
+
+    function neoboard(tag, timestamp, record)
+      local changed = 0
+      if SEVERITY[record["level"]] then
+        record["severity"] = SEVERITY[record["level"]]
+        changed = 1
+      end
+      local t = record["time"]
+      if type(t) == "number" then
+        timestamp = { sec = math.floor(t / 1000), nsec = math.floor(t % 1000) * 1000000 }
+        changed = 1
+      end
+      if type(t) == "string" then
+        record["runtime_time"] = t
+        record["time"] = nil
+        changed = 1
+      end
+      if type(record["err"]) == "string" then
+        record["err"] = { message = record["err"] }
+        changed = 1
+      end
+      return changed, timestamp, record
+    end
+
+config:
+  # The chart's [SERVICE] block plus storage.path, for the disk buffer.
+  service: |
+    [SERVICE]
+        Daemon Off
+        Flush {{ .Values.flush }}
+        Log_Level {{ .Values.logLevel }}
+        Parsers_File /fluent-bit/etc/parsers.conf
+        Parsers_File /fluent-bit/etc/conf/custom_parsers.conf
+        HTTP_Server On
+        HTTP_Listen 0.0.0.0
+        HTTP_Port {{ .Values.metricsPort }}
+        Health_Check On
+        storage.path /fluent-bit/buffer
+
+  inputs: |
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*neoboard*.log
+        multiline.parser  docker, cri
+        Tag               kube.*
+        Mem_Buf_Limit     5MB
+        storage.type      filesystem
+        Skip_Long_Lines   On
+        # Keep the read position on the persistent buffer hostPath, so lines
+        # written while a pod was down are read after a restart. A file with no
+        # saved position is read from the start: on first install this ships
+        # the logs already on the node.
+        DB                /fluent-bit/buffer/tail.db
+        DB.locking        true
+        Read_From_Head    On
+
+  filters: |
+    [FILTER]
+        Name         kubernetes
+        Match        kube.*
+        Merge_Log    On
+        Keep_Log     Off
+
+    [FILTER]
+        Name    lua
+        Match   kube.*
+        script  /fluent-bit/scripts/neoboard.lua
+        call    neoboard
+        time_as_table On
+
+  outputs: |
+    [OUTPUT]
+        Name                opensearch
+        Match               kube.*
+        Host                opensearch-cluster-master
+        Port                9200
+        tls                 On
+        # The certificate is checked against the OpenSearch CA mounted from the
+        # `opensearch-ca` Secret (see above), and must be valid for `Host`
+        # (tls.verify_hostname): else any service with a certificate from that
+        # CA could receive the password. Only for the official chart's
+        # self-signed demo certificate, replace these two lines with
+        # `tls.verify Off`: then anything answering on that address receives
+        # the password and the logs.
+        tls.verify          On
+        tls.verify_hostname On
+        tls.ca_file         /fluent-bit/tls/ca.crt
+        HTTP_User           ${OPENSEARCH_USER}
+        HTTP_Passwd         ${OPENSEARCH_PASSWORD}
+        Logstash_Format     On
+        Logstash_Prefix     neoboard
+        Suppress_Type_Name  On
+        # A pod with both `app` and `app.kubernetes.io/name` labels is otherwise
+        # rejected: OpenSearch reads the dot as an object path.
+        Replace_Dots        On
+        Trace_Error         On
+        # Retry until OpenSearch is back. The ceiling is the disk cap: past it
+        # the oldest chunks are dropped, so the node's disk use stays bounded.
+        Retry_Limit         no_limits
+        storage.total_limit_size 1G
+        # A stable _id, so a retried bulk request overwrites, not duplicates.
+        Generate_ID         On

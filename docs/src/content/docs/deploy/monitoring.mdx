@@ -170,22 +170,79 @@ $C logs --no-log-prefix neoboard 2>&1 | jq -R 'fromjson? | select(.userId == "us
 
 ### Log aggregation
 
-For production deployments, ship logs to a centralized system:
+The repo ships a Fluent Bit kit that puts the app's logs into OpenSearch, searchable in OpenSearch Dashboards. The app already writes one JSON object per line to stdout, so nothing in the app changes. Each line arrives with its own time as the event time, `severity` (`info`, `warn`, `error`, ...) next to pino's numeric `level`, and every field (`requestId`, `durationMs`, `schedulerWaitMs`, ...) searchable.
 
-- **Grafana Loki** + Promtail: Lightweight, pairs with Grafana dashboards
-- **ELK Stack** (Elasticsearch + Logstash + Kibana): Full-text search
-- **Datadog**: SaaS monitoring with log management
-- **AWS CloudWatch**: Native if running on AWS
+#### Docker
 
-Example Promtail config for Docker:
+Layer the add-on on a production compose file:
 
-```yaml title="promtail-config.yml"
-scrape_configs:
-  - job_name: neoboard
-    docker_sd_configs:
-      - host: unix:///var/run/docker.sock
-    relabel_configs:
-      - source_labels: ['__meta_docker_container_name']
-        regex: '/(.+-neoboard-1|neoboard-app)'
-        action: keep
+```bash
+docker compose --env-file docker/.env.production.local \
+  -f docker/docker-compose.prod-full.yml -f docker/docker-compose.logging.yml up -d
 ```
+
+It works the same with `docker-compose.prod.yml`. Open Dashboards at `http://localhost:5601` and create the index pattern `neoboard-*`. Then search `event:query_executed` to see every query with its timings.
+
+- The app logs through Docker's `fluentd` driver to Fluent Bit; `docker logs` keeps working.
+- One index a day (`neoboard-YYYY.MM.DD`), deleted after 14 days by the policy in `deploy/opensearch/ism-neoboard-14d.json`.
+- If OpenSearch is down, Fluent Bit keeps the logs in a disk buffer (the `fluentbitbuffer` volume) and retries until it is back. The buffer is capped at 1 GB (`storage.total_limit_size` in the output): that cap is the only limit, and past it the oldest buffered logs are dropped, so disk use stays bounded. Raise it for a longer outage.
+- OpenSearch runs single-node with a 512 MB heap and **without its security plugin**, and every port is bound to `127.0.0.1`. That suits a laptop or a trusted single server; put authentication in front before exposing any of it.
+
+#### Kubernetes
+
+A DaemonSet reads the app pods' stdout from each node. The output points at `opensearch-cluster-master`, the service of the official OpenSearch chart, which runs its security plugin by default: HTTPS on 9200 with basic auth. The values read the user and password from the environment, the password from a Secret you create first, and verify the OpenSearch certificate against the CA in a second Secret (`tls.verify On`, `tls.verify_hostname On`, `tls.ca_file`), so nothing but your OpenSearch receives the password and the logs. The certificate must be valid for the `Host` name; if you point `Host` at another service, that name must be in the certificate too. The tail input keeps its read position in `/fluent-bit/buffer/tail.db` and reads files it has no position for from the start, so on first install it ships the logs already on the node.
+
+If OpenSearch is down, each node keeps the logs in a buffer directory on its disk (`/var/lib/fluent-bit-buffer`, a `hostPath` mounted through the chart's volume values) and retries until it is back. The buffer is capped at 1 GB per node (`storage.total_limit_size`): that cap is the only limit, and past it the oldest buffered logs are dropped.
+
+Install the 14-day retention policy before any log is shipped, so every `neoboard-*` index picks it up as it is created (the policy's `ism_template` attaches it). Through a port-forward, with the CA saved as `ca.crt`:
+
+```bash
+kubectl -n logging port-forward svc/opensearch-cluster-master 9200:9200 &
+OS="curl -sS --fail-with-body --cacert ca.crt -u admin:<the OpenSearch admin password> https://localhost:9200/_plugins/_ism"
+$OS/policies/neoboard-14d -X PUT -H 'Content-Type: application/json' \
+  --data-binary @deploy/opensearch/ism-neoboard-14d.json &&
+# attach it to any index that already exists
+$OS/add/neoboard-* -X POST -H 'Content-Type: application/json' -d '{"policy_id":"neoboard-14d"}'
+```
+
+Install Fluent Bit only once both commands succeed. A `409` on the first one means the policy is already installed.
+
+Then install the chart with the shipped values:
+
+```bash
+kubectl -n logging create secret generic opensearch-credentials \
+  --from-literal=password='<the OpenSearch admin password>'
+kubectl -n logging create secret generic opensearch-ca \
+  --from-file=ca.crt=ca.crt
+helm repo add fluent https://fluent.github.io/helm-charts
+helm upgrade --install fluent-bit fluent/fluent-bit --version 0.58.3 \
+  -n logging --create-namespace -f deploy/kubernetes/fluent-bit-values.yaml
+```
+
+For the official OpenSearch chart's self-signed demo certificate only, replace `tls.verify On`, `tls.verify_hostname On` and `tls.ca_file` in the values with `tls.verify Off`. The password is then sent to whatever answers on that address, so keep that to a test cluster.
+
+The `tail` input reads `/var/log/containers/*neoboard*.log`. That also matches a namespace named `neoboard`, and the product rename (#1974) changes the pod names: edit `Path` in the values to match yours.
+
+No sidecar is needed while the app logs to stdout (the default). If you set `LOG_OUTPUT=file`, the logs go to `LOG_FILE_PATH` inside the pod: mount that directory on a volume shared with a Fluent Bit sidecar whose `tail` input reads the file and uses the same filters and output.
+
+#### Another destination
+
+Only OpenSearch is tested. To send the logs elsewhere, replace the `[OUTPUT]` block of `deploy/fluent-bit/fluent-bit.conf` (or `config.outputs` in the values) with the matching Fluent Bit output: `loki` for Grafana Loki, `cloudwatch_logs`, `datadog`. The parser and the severity filter stay as they are. For Elasticsearch and Kibana:
+
+```ini
+[OUTPUT]
+    Name                es
+    Match               *
+    Host                elasticsearch.example.com
+    Port                9200
+    tls                 On
+    HTTP_User           ${ELASTIC_USER}
+    HTTP_Passwd         ${ELASTIC_PASSWORD}
+    Logstash_Format     On
+    Logstash_Prefix     neoboard
+    Suppress_Type_Name  On
+```
+
+#### Checks
+
+CI validates the Fluent Bit config (`--dry-run`, a few seconds of startup in the pinned image, and the Lua filter on sample lines), the compose add-on and the Helm values on every pull request. A full run (the app, Fluent Bit and OpenSearch; one query's log line must arrive with `requestId`, `durationMs` and `schedulerWaitMs` as fields) runs on demand and whenever the kit's files change.

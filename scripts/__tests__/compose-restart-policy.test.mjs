@@ -1,15 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { standalone, resolve } from "./compose-config.mjs";
+import { composeSets, resolve } from "./compose-config.mjs";
 
 // After a Docker restart only services with a restart policy come back. A
 // service that restarts while its dependency does not crash-loops (#2182).
 const RESTARTS = new Set(["always", "unless-stopped"]);
 
 describe("a restarting service never outlives its dependencies (#2182)", () => {
-  it.each(standalone)(
+  it.each(composeSets)(
     "%s",
-    (file) => {
-      const { services } = resolve(file);
+    (_label, files) => {
+      const { services } = resolve(...files);
       const orphaned = Object.entries(services).flatMap(([name, svc]) =>
         RESTARTS.has(svc.restart)
           ? Object.keys(svc.depends_on ?? {})
