@@ -1,0 +1,90 @@
+# NeoBoard chart values. Placeholders only: never commit real secrets.
+
+image:
+  repository: ghcr.io/alfredo1996/neoboard
+  tag: "" # defaults to the chart's appVersion
+  pullPolicy: IfNotPresent
+
+# More than one replica is not safe yet: login rate limits, the SSO provider
+# cache and per-connection query caps are held per process. NOTES.txt warns.
+replicaCount: 1
+
+# Secrets. Either let the chart create a Secret from `secrets`, or point
+# `existingSecret` at one you manage (then the chart creates none).
+# That Secret must hold: DATABASE_URL, ENCRYPTION_KEY, NEXTAUTH_SECRET,
+# API_KEY_HMAC_SECRET (and ADMIN_BOOTSTRAP_TOKEN if you use it).
+existingSecret: ""
+secrets:
+  DATABASE_URL: "" # postgresql://user:password@host:5432/neoboard
+  ENCRYPTION_KEY: "" # openssl rand -hex 32. A LOST KEY MAKES STORED CREDENTIALS UNRECOVERABLE
+  NEXTAUTH_SECRET: "" # openssl rand -base64 32
+  API_KEY_HMAC_SECRET: "" # openssl rand -hex 32
+  ADMIN_BOOTSTRAP_TOKEN: "" # optional: creates the first admin on /signup
+
+# Non-secret settings, rendered into the ConfigMap.
+config:
+  NEXTAUTH_URL: http://localhost:3000 # the public URL
+  MIGRATE_ON_START: "1"
+  REGISTRATION_ENABLED: "false"
+  LOG_LEVEL: info
+  LOG_FORMAT: json
+  # FORCE_HTTPS: "false" # only when TLS terminates upstream without X-Forwarded-Proto
+extraEnv: [] # extra container env entries (name/value or valueFrom)
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {} # e.g. cert-manager.io/cluster-issuer: letsencrypt
+  host: neoboard.example.com
+  tls:
+    enabled: false
+    secretName: "" # empty: <release>-neoboard-tls (cert-manager fills it)
+
+# Prometheus metrics (/api/metrics; the app enables it when METRICS_TOKEN is set).
+metrics:
+  enabled: false
+  # Secret holding the bearer token. Required when metrics are on.
+  tokenSecret:
+    name: ""
+    key: token
+  serviceMonitor:
+    enabled: false # needs the Prometheus Operator CRDs
+    interval: 30s
+    labels: {}
+
+probes:
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+  liveness:
+    initialDelaySeconds: 30 # covers the boot migration
+    periodSeconds: 30
+    timeoutSeconds: 10
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 256Mi
+  limits:
+    cpu: "2"
+    memory: 1Gi
+
+# The image runs as uid/gid 1001 (nextjs).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

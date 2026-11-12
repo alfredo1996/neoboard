@@ -48,16 +48,7 @@ docker compose -f docker/docker-compose.prod-full.yml up -d
 
 The PostgreSQL and Neo4j image names are written into the compose file. When they come from a registry under a different name, edit the two `image:` lines; when they arrived by `docker load`, leave them.
 
-**Kubernetes** — in the [Deployment manifest](/deploy/run-from-a-build#option-2-kubernetes-with-the-published-image), point `image:` at the mirror and add a pull secret if the registry needs one:
-
-```yaml
-spec:
-  imagePullSecrets:
-    - name: internal-registry
-  containers:
-    - name: neoboard
-      image: registry.internal.example/neoboard/neoboard:X.Y.Z
-```
+**Kubernetes** — with the [Helm chart](/deploy/run-from-a-build#option-2-kubernetes-with-the-published-image), point `image.repository` and `image.tag` at the mirror (`--set image.repository=registry.internal.example/neoboard/neoboard`). If the registry needs a pull secret, attach it to the namespace default service account.
 
 Everything else is the same as a connected install: the required variables (`DATABASE_URL`, `ENCRYPTION_KEY`, `NEXTAUTH_SECRET`, `API_KEY_HMAC_SECRET`) and `ADMIN_BOOTSTRAP_TOKEN` for the first admin. Set `NEXTAUTH_URL` to the address users reach on the internal network — it is the origin the sign-in flow redirects back to. The image sets `MIGRATE_ON_START=1` and `MIGRATIONS_DIR`, so the schema is created at first boot from the migration journal inside the image; nothing is downloaded for it.
 

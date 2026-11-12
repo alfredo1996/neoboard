@@ -1,0 +1,89 @@
+# Helm chart checks (#2441). Lint and template on every PR that touches the
+# chart; the install into a throwaway kind cluster runs on demand and when
+# chart files change (the same path filter), never on unrelated PRs.
+name: Helm chart
+
+on:
+  push:
+    branches: [main, dev, 'release/*']
+    paths:
+      - 'deploy/helm/**'
+      - 'scripts/__tests__/helm-chart.test.mjs'
+      - '.github/workflows/helm-chart.yml'
+  pull_request:
+    branches: [main, dev, 'release/*']
+    paths:
+      - 'deploy/helm/**'
+      - 'scripts/__tests__/helm-chart.test.mjs'
+      - '.github/workflows/helm-chart.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: helm-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CHART: deploy/helm/neoboard
+  # Placeholders for lint/template only.
+  REQUIRED: >-
+    --set secrets.DATABASE_URL=postgresql://u:p@db:5432/d
+    --set secrets.ENCRYPTION_KEY=placeholder
+    --set secrets.NEXTAUTH_SECRET=placeholder
+    --set secrets.API_KEY_HMAC_SECRET=placeholder
+
+jobs:
+  lint:
+    name: Helm lint and template
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v4.3.0
+      - name: Lint
+        run: helm lint $CHART $REQUIRED
+      - name: Template with defaults
+        run: helm template r $CHART $REQUIRED > /dev/null
+      - name: Template with every option on
+        run: >-
+          helm template r $CHART $REQUIRED
+          --set replicaCount=2
+          --set ingress.enabled=true --set ingress.tls.enabled=true
+          --set metrics.enabled=true --set metrics.tokenSecret.name=m
+          --set metrics.serviceMonitor.enabled=true > /dev/null
+
+  kind-install:
+    name: Install on kind
+    # Not on every PR: when chart files change (path filter above) and on demand.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v4.3.0
+      - uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: neoboard-chart
+      - name: Throwaway PostgreSQL
+        run: |
+          kubectl create deployment pg --image=postgres:16-alpine --port=5432
+          kubectl set env deployment/pg POSTGRES_PASSWORD=ci POSTGRES_DB=neoboard
+          kubectl expose deployment pg --port=5432
+          kubectl rollout status deployment/pg --timeout=120s
+      - name: Install the chart (published image of the chart's appVersion)
+        run: >-
+          helm install nb $CHART --wait --timeout 5m
+          --set secrets.DATABASE_URL=postgresql://postgres:ci@pg:5432/neoboard
+          --set secrets.ENCRYPTION_KEY=$(openssl rand -hex 32)
+          --set secrets.NEXTAUTH_SECRET=$(openssl rand -base64 32)
+          --set secrets.API_KEY_HMAC_SECRET=$(openssl rand -hex 32)
+      - name: Health answers 200
+        run: |
+          kubectl port-forward svc/nb-neoboard 3000:3000 &
+          sleep 3
+          curl -fsS http://localhost:3000/api/health
+      - name: Upgrade rolls out
+        run: >-
+          helm upgrade nb $CHART --reuse-values --wait --timeout 5m
+          --set config.LOG_LEVEL=debug
+      - name: Diagnostics
+        if: failure()
+        run: kubectl get pods -o wide; kubectl logs deployment/nb-neoboard --tail=80 || true
