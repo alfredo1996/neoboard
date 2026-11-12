@@ -198,12 +198,14 @@ Install the 14-day retention policy before any log is shipped, so every `neoboar
 
 ```bash
 kubectl -n logging port-forward svc/opensearch-cluster-master 9200:9200 &
-OS="curl -sS --cacert ca.crt -u admin:<the OpenSearch admin password> https://localhost:9200/_plugins/_ism"
+OS="curl -sS --fail-with-body --cacert ca.crt -u admin:<the OpenSearch admin password> https://localhost:9200/_plugins/_ism"
 $OS/policies/neoboard-14d -X PUT -H 'Content-Type: application/json' \
-  --data-binary @deploy/opensearch/ism-neoboard-14d.json
+  --data-binary @deploy/opensearch/ism-neoboard-14d.json &&
 # attach it to any index that already exists
 $OS/add/neoboard-* -X POST -H 'Content-Type: application/json' -d '{"policy_id":"neoboard-14d"}'
 ```
+
+Install Fluent Bit only once both commands succeed. A `409` on the first one means the policy is already installed.
 
 Then install the chart with the shipped values:
 
