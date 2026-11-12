@@ -155,7 +155,7 @@ Build the next release into a fresh directory, back up the database, point `Work
 
 ## Option 2: Kubernetes with the published image
 
-The Helm chart in `deploy/helm/neoboard` installs the published image `ghcr.io/alfredo1996/neoboard`, pinned to the chart's `appVersion`. It is not published to a registry yet; install it from a checkout of the release tag you run.
+The Helm chart in `deploy/helm/neoboard` installs the published image `ghcr.io/alfredo1996/neoboard`, pinned to the chart's `appVersion`. It is not published to a registry yet; install it from a checkout of the release tag you run: the chart in a release tag installs that release's image. A checkout of an untagged branch pins an image that may not exist yet, so add `--set image.tag=<a published tag>`.
 
 PostgreSQL is external: the chart takes a `DATABASE_URL`, it does not run a database. For a first try, one in-cluster Postgres is enough (use a managed database, or an operator such as CloudNativePG, for anything you keep):
 
@@ -165,7 +165,14 @@ kubectl set env deployment/pg POSTGRES_PASSWORD=<choose-a-password> POSTGRES_DB=
 kubectl expose deployment pg --port=5432
 ```
 
-Install, with the secrets generated on the spot (keep them: see the warning below):
+Generate the secrets into shell variables first, and keep them (see the warning below). `ADMIN_BOOTSTRAP_TOKEN` is the one you type on `/signup`:
+
+```bash
+ADMIN_BOOTSTRAP_TOKEN=$(openssl rand -hex 32)
+echo "ADMIN_BOOTSTRAP_TOKEN=$ADMIN_BOOTSTRAP_TOKEN"   # shown once; store it in your password manager
+```
+
+Install:
 
 ```bash
 helm install neoboard deploy/helm/neoboard \
@@ -173,14 +180,14 @@ helm install neoboard deploy/helm/neoboard \
   --set secrets.ENCRYPTION_KEY=$(openssl rand -hex 32) \
   --set secrets.NEXTAUTH_SECRET=$(openssl rand -base64 32) \
   --set secrets.API_KEY_HMAC_SECRET=$(openssl rand -hex 32) \
-  --set secrets.ADMIN_BOOTSTRAP_TOKEN=$(openssl rand -hex 32) \
+  --set secrets.ADMIN_BOOTSTRAP_TOKEN=$ADMIN_BOOTSTRAP_TOKEN \
   --set config.NEXTAUTH_URL=https://neoboard.example.com
 kubectl rollout status deployment/neoboard
 kubectl port-forward svc/neoboard 3000:3000 &
 curl -fsS http://localhost:3000/api/health
 ```
 
-(A release named `neoboard` gets resources named `neoboard`; any other name gets `<name>-neoboard`.) Then create the first admin on `/signup` with the `ADMIN_BOOTSTRAP_TOKEN` — the same two paths as [Production deployment](/deploy/production#3-create-the-first-admin). Self-registration is closed by default, so a pod that passes the health check is not yet one anyone can log into.
+(A release named `neoboard` gets resources named `neoboard`; any other name gets `<name>-neoboard`.) Then create the first admin on `/signup` with the `ADMIN_BOOTSTRAP_TOKEN` (if you lost it: `kubectl get secret neoboard -o jsonpath='{.data.ADMIN_BOOTSTRAP_TOKEN}' | base64 -d`) — the same two paths as [Production deployment](/deploy/production#3-create-the-first-admin). Self-registration is closed by default, so a pod that passes the health check is not yet one anyone can log into.
 
 > **Keep `ENCRYPTION_KEY`.** If it is lost, every stored database credential is unrecoverable.
 
@@ -190,4 +197,4 @@ curl -fsS http://localhost:3000/api/health
 - **Ingress.** Off by default. Set `ingress.enabled=true`, `ingress.host` and `ingress.className`, plus `ingress.tls.enabled=true` (optionally `ingress.tls.secretName`; empty means `<release>-neoboard-tls`). For cert-manager set `ingress.tls.enabled=true` and the issuer annotation in `ingress.annotations`; cert-manager fills the Secret. `config.NEXTAUTH_URL` must be the public URL and `X-Forwarded-Proto` must reach the pod; the rules are the same as for any [load balancer](/deploy/reverse-proxy#cloud-load-balancers). The app's own HTTPS redirect stays as configured (`config.FORCE_HTTPS`).
 - **Metrics.** `metrics.enabled=true` with `metrics.tokenSecret.name` (a Secret holding the bearer token) passes that token to the app as its metrics token; `metrics.serviceMonitor.enabled=true` (which needs `metrics.enabled`) adds a Prometheus Operator ServiceMonitor that scrapes `/api/metrics` with the same token. The endpoint itself needs a release that includes it; on an older image the scrape returns 404. The scrape reaches the pod by IP, so on IPv6 or 100.64/10 pod networks the app's HTTPS redirect answers 301: set `config.FORCE_HTTPS=false` there.
 - **Private registry or mirror.** Set `image.repository` and `image.tag` to the mirror. The chart has no pull-secret value yet; attach `imagePullSecrets` to the namespace's default service account.
-- **Upgrade and roll back.** `helm upgrade` with the new `image.tag`. If the release you are leaving migrated the schema, disable boot migration first, then move the tag: `helm upgrade neoboard deploy/helm/neoboard --reuse-values --set config.MIGRATE_ON_START=0 --set image.tag=PREVIOUS`. Why, and what to do with the database, is in [Controlling migrations at boot](/deploy/deployment-checklist#controlling-migrations-at-boot).
+- **Upgrade and roll back.** `helm upgrade neoboard deploy/helm/neoboard --reuse-values --set image.tag=NEW` (without `--reuse-values` the secrets given at install are gone and the render fails on `secrets.DATABASE_URL is required`). If the release you are leaving migrated the schema, disable boot migration first, then move the tag: `helm upgrade neoboard deploy/helm/neoboard --reuse-values --set config.MIGRATE_ON_START=0 --set image.tag=PREVIOUS`. Why, and what to do with the database, is in [Controlling migrations at boot](/deploy/deployment-checklist#controlling-migrations-at-boot).

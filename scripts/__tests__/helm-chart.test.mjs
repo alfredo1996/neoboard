@@ -124,6 +124,22 @@ describe.skipIf(!HAS_HELM)("helm chart (#2441)", () => {
     expect(sum({ existingSecret: "mine" })).toBeUndefined();
   });
 
+  it.each([
+    "DATABASE_URL",
+    "ENCRYPTION_KEY",
+    "ENCRYPTION_KEY_OLD",
+    "NEXTAUTH_SECRET",
+    "AUTH_SECRET",
+    "API_KEY_HMAC_SECRET",
+    "ADMIN_BOOTSTRAP_TOKEN",
+    "BOOTSTRAP_ADMIN_PASSWORD",
+    "LOG_ANONYMIZE_SECRET",
+    "METRICS_TOKEN",
+    "OIDC_CLIENT_SECRET",
+  ])("refuses secret key %s under config (it would land in the ConfigMap)", (key) => {
+    expect(() => render({ [`config.${key}`]: "SENTINEL-x" })).toThrow(/secrets\.\*|existingSecret/);
+  });
+
   it("refuses a ServiceMonitor while metrics are off", () => {
     expect(() =>
       render({ "metrics.serviceMonitor.enabled": true, "metrics.tokenSecret.name": "m" }),
