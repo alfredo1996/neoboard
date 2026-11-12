@@ -34,4 +34,8 @@ for want in \
   '"severity":"info"'; do
   echo "$out" | grep -qF "$want" || { echo "$out"; echo "FAIL: missing $want" >&2; exit 1; }
 done
+# A runtime's string `time` must not reach OpenSearch as `time` (it would clash
+# with pino's numeric one in the daily index mapping).
+echo "$out" | grep -F '"runtime_time":"2023-11-14T22:13:20.789Z"' | grep -qvE '"time":"' \
+  || { echo "$out"; echo "FAIL: a string time was not renamed" >&2; exit 1; }
 echo "ok"

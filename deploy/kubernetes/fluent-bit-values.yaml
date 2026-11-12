@@ -76,6 +76,9 @@ luaScripts:
     --  * severity: pino's numeric `level` as a name (the number stays as `level`)
     --  * event time: the line's own `time` (epoch milliseconds), not the moment
     --    Fluent Bit received it, kept to the millisecond
+    --  * time: a runtime's string `time` (a plain-text line) becomes `runtime_time`.
+    --    pino's `time` is a number, and a daily index maps `time` from whichever
+    --    kind arrives first, then rejects the other.
     --  * err: the app logs it as an object in some places and a string in others,
     --    and OpenSearch maps a field to the first type it sees, then rejects the
     --    other. A string becomes { message = <string> }.
@@ -93,6 +96,11 @@ luaScripts:
       local t = record["time"]
       if type(t) == "number" then
         timestamp = { sec = math.floor(t / 1000), nsec = math.floor(t % 1000) * 1000000 }
+        changed = 1
+      end
+      if type(t) == "string" then
+        record["runtime_time"] = t
+        record["time"] = nil
         changed = 1
       end
       if type(record["err"]) == "string" then
@@ -126,6 +134,13 @@ config:
         Mem_Buf_Limit     5MB
         storage.type      filesystem
         Skip_Long_Lines   On
+        # Keep the read position on the persistent buffer hostPath, so lines
+        # written while a pod was down are read after a restart. A file with no
+        # saved position is read from the start: on first install this ships
+        # the logs already on the node.
+        DB                /fluent-bit/buffer/tail.db
+        DB.locking        true
+        Read_From_Head    On
 
   filters: |
     [FILTER]
@@ -149,11 +164,14 @@ config:
         Port                9200
         tls                 On
         # The certificate is checked against the OpenSearch CA mounted from the
-        # `opensearch-ca` Secret (see above). Only for the official chart's
+        # `opensearch-ca` Secret (see above), and must be valid for `Host`
+        # (tls.verify_hostname): else any service with a certificate from that
+        # CA could receive the password. Only for the official chart's
         # self-signed demo certificate, replace these two lines with
         # `tls.verify Off`: then anything answering on that address receives
         # the password and the logs.
         tls.verify          On
+        tls.verify_hostname On
         tls.ca_file         /fluent-bit/tls/ca.crt
         HTTP_User           ${OPENSEARCH_USER}
         HTTP_Passwd         ${OPENSEARCH_PASSWORD}

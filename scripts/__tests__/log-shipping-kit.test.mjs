@@ -90,8 +90,19 @@ describe("the Kubernetes values verify TLS (#2439)", () => {
   it("check the OpenSearch certificate unless the opt-out is uncommented", () => {
     const v = read("deploy/kubernetes/fluent-bit-values.yaml");
     expect(v).toMatch(/^\s*tls\.verify\s+On\s*$/m);
+    expect(v).toMatch(/^\s*tls\.verify_hostname\s+On\s*$/m);
     expect(v).toMatch(/^\s*tls\.ca_file\s+\S+/m);
     expect(v).not.toMatch(/^\s*tls\.verify\s+Off/m);
+  });
+});
+
+describe("the Kubernetes tail input keeps its place (#2439)", () => {
+  it.each([
+    [/^\s*DB\s+\/fluent-bit\/buffer\/\S+\s*$/m, "a position DB on the buffer hostPath"],
+    [/^\s*DB\.locking\s+true\s*$/m, "DB locking"],
+    [/^\s*Read_From_Head\s+On\s*$/m, "reading new files from the head"],
+  ])("sets %s", (re) => {
+    expect(read("deploy/kubernetes/fluent-bit-values.yaml")).toMatch(re);
   });
 });
 
