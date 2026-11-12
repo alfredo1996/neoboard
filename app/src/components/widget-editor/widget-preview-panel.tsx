@@ -110,20 +110,21 @@ function PreviewLoading() {
 
 function StoppedPreview() {
   return (
-    <div
-      role="status"
-      className="flex h-full flex-col items-center justify-center gap-2 text-center"
-    >
+    // <output> is an implicit status region; its content model is phrasing,
+    // so the two lines are block spans rather than paragraphs.
+    <output className="flex h-full flex-col items-center justify-center gap-2 text-center">
       <CircleStop
         className="h-7 w-7 text-muted-foreground"
         strokeWidth={1.75}
         aria-hidden
       />
-      <p className="text-sm font-medium text-foreground-2">Query stopped</p>
-      <p className="text-xs text-muted-foreground">
+      <span className="block text-sm font-medium text-foreground-2">
+        Query stopped
+      </span>
+      <span className="block text-xs text-muted-foreground">
         Run it again to see the preview.
-      </p>
-    </div>
+      </span>
+    </output>
   );
 }
 
