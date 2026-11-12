@@ -15,7 +15,49 @@
 #
 #   kubectl -n logging create secret generic opensearch-credentials \
 #     --from-literal=password='<the admin password>'
+#   kubectl -n logging create secret generic opensearch-ca \
+#     --from-file=ca.crt=<the OpenSearch CA certificate, PEM>
 kind: DaemonSet
+
+# The disk buffer: chunks wait here while OpenSearch is down, and survive a pod
+# restart. Overriding daemonSetVolumes replaces the chart's list, so its three
+# default mounts are repeated.
+daemonSetVolumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+  - name: varlibdockercontainers
+    hostPath:
+      path: /var/lib/docker/containers
+  - name: etcmachineid
+    hostPath:
+      path: /etc/machine-id
+      type: File
+  - name: buffer
+    hostPath:
+      path: /var/lib/fluent-bit-buffer
+      type: DirectoryOrCreate
+daemonSetVolumeMounts:
+  - name: varlog
+    mountPath: /var/log
+  - name: varlibdockercontainers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+  - name: etcmachineid
+    mountPath: /etc/machine-id
+    readOnly: true
+  - name: buffer
+    mountPath: /fluent-bit/buffer
+
+# The OpenSearch CA, for tls.ca_file below.
+extraVolumes:
+  - name: opensearch-ca
+    secret:
+      secretName: opensearch-ca
+extraVolumeMounts:
+  - name: opensearch-ca
+    mountPath: /fluent-bit/tls
+    readOnly: true
 
 env:
   - name: OPENSEARCH_USER
@@ -61,6 +103,20 @@ luaScripts:
     end
 
 config:
+  # The chart's [SERVICE] block plus storage.path, for the disk buffer.
+  service: |
+    [SERVICE]
+        Daemon Off
+        Flush {{ .Values.flush }}
+        Log_Level {{ .Values.logLevel }}
+        Parsers_File /fluent-bit/etc/parsers.conf
+        Parsers_File /fluent-bit/etc/conf/custom_parsers.conf
+        HTTP_Server On
+        HTTP_Listen 0.0.0.0
+        HTTP_Port {{ .Values.metricsPort }}
+        Health_Check On
+        storage.path /fluent-bit/buffer
+
   inputs: |
     [INPUT]
         Name              tail
@@ -68,6 +124,7 @@ config:
         multiline.parser  docker, cri
         Tag               kube.*
         Mem_Buf_Limit     5MB
+        storage.type      filesystem
         Skip_Long_Lines   On
 
   filters: |
@@ -91,9 +148,13 @@ config:
         Host                opensearch-cluster-master
         Port                9200
         tls                 On
-        # ponytail: the chart's demo certificate is self-signed, so the chain is
-        # not checked. Set `tls.verify On` and `tls.ca_file` once it is not.
-        tls.verify          Off
+        # The certificate is checked against the OpenSearch CA mounted from the
+        # `opensearch-ca` Secret (see above). Only for the official chart's
+        # self-signed demo certificate, replace these two lines with
+        # `tls.verify Off`: then anything answering on that address receives
+        # the password and the logs.
+        tls.verify          On
+        tls.ca_file         /fluent-bit/tls/ca.crt
         HTTP_User           ${OPENSEARCH_USER}
         HTTP_Passwd         ${OPENSEARCH_PASSWORD}
         Logstash_Format     On
@@ -103,4 +164,9 @@ config:
         # rejected: OpenSearch reads the dot as an object path.
         Replace_Dots        On
         Trace_Error         On
-        Retry_Limit         5
+        # Retry until OpenSearch is back. The ceiling is the disk cap: past it
+        # the oldest chunks are dropped, so the node's disk use stays bounded.
+        Retry_Limit         no_limits
+        storage.total_limit_size 1G
+        # A stable _id, so a retried bulk request overwrites, not duplicates.
+        Generate_ID         On

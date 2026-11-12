@@ -69,6 +69,32 @@ describe("the Kubernetes values (#2439)", () => {
   });
 });
 
+// The two outputs share one contract: no chunk lost to a retry cap, no
+// duplicate from a retried bulk request, a disk buffer with a ceiling.
+describe.each([
+  ["Docker", "deploy/fluent-bit/fluent-bit.conf"],
+  ["Kubernetes", "deploy/kubernetes/fluent-bit-values.yaml"],
+])("the %s Fluent Bit config (#2439)", (_, file) => {
+  const conf = () => read(file);
+  it.each([
+    [/^\s*Retry_Limit\s+no_limits\s*$/m, "retries without a cap"],
+    [/^\s*Generate_ID\s+On\s*$/m, "stable ids, so a retry cannot duplicate"],
+    [/^\s*storage\.total_limit_size\s+\S+/m, "a disk buffer ceiling"],
+    [/^\s*storage\.type\s+filesystem\s*$/m, "a filesystem buffer on the input"],
+  ])("sets %s", (re) => {
+    expect(conf()).toMatch(re);
+  });
+});
+
+describe("the Kubernetes values verify TLS (#2439)", () => {
+  it("check the OpenSearch certificate unless the opt-out is uncommented", () => {
+    const v = read("deploy/kubernetes/fluent-bit-values.yaml");
+    expect(v).toMatch(/^\s*tls\.verify\s+On\s*$/m);
+    expect(v).toMatch(/^\s*tls\.ca_file\s+\S+/m);
+    expect(v).not.toMatch(/^\s*tls\.verify\s+Off/m);
+  });
+});
+
 describe("the Fluent Bit pipeline workflow (#2439)", () => {
   it("re-runs when any file of the kit changes", () => {
     const wf = read(".github/workflows/log-shipping-pipeline.yml");

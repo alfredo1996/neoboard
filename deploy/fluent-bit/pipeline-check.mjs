@@ -7,7 +7,11 @@
 //
 //   APP_URL=http://localhost:3000 OPENSEARCH_URL=http://localhost:9200 \
 //   ADMIN_EMAIL=... ADMIN_PASSWORD=... PG_PASSWORD=... node pipeline-check.mjs
+import net from "node:net";
+
 const {
+  FLUENT_HOST = "127.0.0.1",
+  FLUENT_PORT = "24224",
   APP_URL = "http://localhost:3000",
   OPENSEARCH_URL = "http://localhost:9200",
   ADMIN_EMAIL,
@@ -39,6 +43,23 @@ async function until(what, fn, tries = 60) {
 }
 
 await until("the app", async () => (await fetch(`${APP_URL}/api/health`)).ok);
+// Both ends of the pipeline must be ready before the query, or its line is
+// logged into a shipper that is not listening yet.
+await until("OpenSearch", async () => {
+  const { status } = await (
+    await fetch(`${OPENSEARCH_URL}/_cluster/health`)
+  ).json();
+  return status === "yellow" || status === "green";
+});
+await until(
+  "Fluent Bit",
+  () =>
+    new Promise((ok) => {
+      const sock = net.connect(Number(FLUENT_PORT), FLUENT_HOST);
+      sock.on("connect", () => (sock.destroy(), ok(true)));
+      sock.on("error", () => ok(false));
+    }),
+);
 
 const csrfRes = await fetch(`${APP_URL}/api/auth/csrf`);
 const { csrfToken } = await csrfRes.json();
@@ -83,11 +104,6 @@ const queryRes = await fetch(`${APP_URL}/api/query`, {
 });
 if (!queryRes.ok) throw new Error(`query: ${queryRes.status}`);
 
-await until(
-  "OpenSearch",
-  async () => (await fetch(`${OPENSEARCH_URL}/_cluster/health`)).ok,
-);
-
 const hit = await until("the query line in OpenSearch", async () => {
   const res = await fetch(`${OPENSEARCH_URL}/neoboard-*/_search`, {
     method: "POST",
@@ -115,7 +131,8 @@ console.log("shipped:", JSON.stringify(hit));
 const wrong = [];
 if (hit.severity !== "info") wrong.push(`severity ${hit.severity}`);
 const want = new Date(hit.time).toISOString();
-if (hit["@timestamp"] !== want) wrong.push(`@timestamp ${hit["@timestamp"]} != ${want}`);
+if (hit["@timestamp"] !== want)
+  wrong.push(`@timestamp ${hit["@timestamp"]} != ${want}`);
 await fetch(`${APP_URL}/api/connections/${connectionId}`, {
   method: "DELETE",
   headers: json,

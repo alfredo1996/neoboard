@@ -185,19 +185,39 @@ It works the same with `docker-compose.prod.yml`. Open Dashboards at `http://loc
 
 - The app logs through Docker's `fluentd` driver to Fluent Bit; `docker logs` keeps working.
 - One index a day (`neoboard-YYYY.MM.DD`), deleted after 14 days by the policy in `deploy/opensearch/ism-neoboard-14d.json`.
+- If OpenSearch is down, Fluent Bit keeps the logs in a disk buffer (the `fluentbitbuffer` volume) and retries until it is back. The buffer is capped at 1 GB (`storage.total_limit_size` in the output): that cap is the only limit, and past it the oldest buffered logs are dropped, so disk use stays bounded. Raise it for a longer outage.
 - OpenSearch runs single-node with a 512 MB heap and **without its security plugin**, and every port is bound to `127.0.0.1`. That suits a laptop or a trusted single server; put authentication in front before exposing any of it.
 
 #### Kubernetes
 
-A DaemonSet reads the app pods' stdout from each node. The output points at `opensearch-cluster-master`, the service of the official OpenSearch chart, which runs its security plugin by default: HTTPS on 9200 with basic auth. The values read the user and password from the environment, the password from a Secret you create first (the certificate is self-signed, so the values do not verify it; set `tls.verify On` and `tls.ca_file` for a real one). Point `Host` at your own OpenSearch service if it differs, then install the chart with the shipped values:
+A DaemonSet reads the app pods' stdout from each node. The output points at `opensearch-cluster-master`, the service of the official OpenSearch chart, which runs its security plugin by default: HTTPS on 9200 with basic auth. The values read the user and password from the environment, the password from a Secret you create first, and verify the OpenSearch certificate against the CA in a second Secret (`tls.verify On`, `tls.ca_file`), so nothing but your OpenSearch receives the password and the logs. Point `Host` at your own OpenSearch service if it differs.
+
+If OpenSearch is down, each node keeps the logs in a buffer directory on its disk (`/var/lib/fluent-bit-buffer`, a `hostPath` mounted through the chart's volume values) and retries until it is back. The buffer is capped at 1 GB per node (`storage.total_limit_size`): that cap is the only limit, and past it the oldest buffered logs are dropped.
+
+Install the 14-day retention policy before any log is shipped, so every `neoboard-*` index picks it up as it is created (the policy's `ism_template` attaches it). Through a port-forward, with the CA saved as `ca.crt`:
+
+```bash
+kubectl -n logging port-forward svc/opensearch-cluster-master 9200:9200 &
+OS="curl -sS --cacert ca.crt -u admin:<the OpenSearch admin password> https://localhost:9200/_plugins/_ism"
+$OS/policies/neoboard-14d -X PUT -H 'Content-Type: application/json' \
+  --data-binary @deploy/opensearch/ism-neoboard-14d.json
+# attach it to any index that already exists
+$OS/add/neoboard-* -X POST -H 'Content-Type: application/json' -d '{"policy_id":"neoboard-14d"}'
+```
+
+Then install the chart with the shipped values:
 
 ```bash
 kubectl -n logging create secret generic opensearch-credentials \
   --from-literal=password='<the OpenSearch admin password>'
+kubectl -n logging create secret generic opensearch-ca \
+  --from-file=ca.crt=ca.crt
 helm repo add fluent https://fluent.github.io/helm-charts
 helm upgrade --install fluent-bit fluent/fluent-bit --version 0.58.3 \
   -n logging --create-namespace -f deploy/kubernetes/fluent-bit-values.yaml
 ```
+
+For the official OpenSearch chart's self-signed demo certificate only, replace `tls.verify On` and `tls.ca_file` in the values with `tls.verify Off`. The password is then sent to whatever answers on that address, so keep that to a test cluster.
 
 The `tail` input reads `/var/log/containers/*neoboard*.log`. That also matches a namespace named `neoboard`, and the product rename (#1974) changes the pod names: edit `Path` in the values to match yours.
 

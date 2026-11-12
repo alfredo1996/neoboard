@@ -29,6 +29,8 @@ services:
       OPENSEARCH_PORT: "9200"
     volumes:
       - ../deploy/fluent-bit:/fluent-bit/etc:ro
+      # Disk buffer: chunks wait here while OpenSearch is down.
+      - fluentbitbuffer:/fluent-bit/buffer
     # The Docker daemon, not the app container, connects to this port.
     ports:
       - "127.0.0.1:24224:24224"
@@ -119,3 +121,4 @@ networks:
 
 volumes:
   opensearchdata:
+  fluentbitbuffer:
