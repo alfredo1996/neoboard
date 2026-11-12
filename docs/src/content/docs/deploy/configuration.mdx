@@ -147,6 +147,8 @@ redaction applies to query text either way.
 
 See [Monitoring](/deploy/monitoring#log-monitoring) for log fields and aggregation.
 
+Set `METRICS_TOKEN` to enable the Prometheus endpoint `GET /api/metrics`; see [Prometheus metrics](/deploy/metrics).
+
 ## Project config file
 
 `neoboard.config.json` in the repo root configures the **CLI's local and Docker workflow** — ports, dev database credentials, and seed script paths. It does *not* configure the running app; that's env vars only.

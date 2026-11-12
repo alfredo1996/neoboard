@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { logRoute } from "@/lib/api/log-route";
+import { metricsRegistry, resetMetrics } from "@/lib/metrics";
 
 type LogRecord = {
   level: string;
@@ -135,5 +136,14 @@ describe("logRoute", () => {
     await logRoute(req, "query", async () => makeResponse(200));
     const duration = logged[1].obj.durationMs as number;
     expect(duration).toBeGreaterThanOrEqual(0);
+  });
+
+  it("counts the request by route and status for the metrics endpoint (#2440)", async () => {
+    resetMetrics();
+    const req = makeRequest("POST", "http://localhost/api/query");
+    await logRoute(req, "query", async () => makeResponse(429));
+    expect(await metricsRegistry().metrics()).toContain(
+      'neoboard_http_requests_total{route="query",method="POST",status="429"} 1',
+    );
   });
 });

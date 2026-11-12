@@ -5,6 +5,12 @@ import {
   isQueueTimeout,
   type QueryPriority,
 } from "@/lib/query/scheduler";
+import {
+  noteConnection,
+  recordQuery,
+  recordQueueTimeout,
+  recordRejection,
+} from "@/lib/metrics";
 import { getScheduler } from "@/lib/query/scheduler-registry";
 import type {
   QueryMiddlewareFn,
@@ -77,25 +83,51 @@ export async function withSchedulerSlot<T>(
   }
 }
 
+function observeQuery(
+  connectorType: string,
+  priority: QueryPriority,
+  outcome: "success" | "error",
+  ran: { waitMs: number; startedAt: number },
+): void {
+  recordQuery({
+    connectorType,
+    priority,
+    outcome,
+    waitMs: ran.waitMs,
+    execMs: performance.now() - ran.startedAt,
+  });
+}
+
 export const schedulerMiddleware: QueryMiddlewareFn = async (
   ctx,
   next,
 ): Promise<QueryResult> => {
   const enqueuedAt = Date.now();
+  const priority = resolvePriority(ctx.metadata.priority);
+  noteConnection(ctx.connectionId, ctx.connectionType);
+  let ran: { waitMs: number; startedAt: number } | undefined;
   try {
     return await withSchedulerSlot(
       {
         connectionId: ctx.connectionId,
         userId: ctx.userId,
-        priority: resolvePriority(ctx.metadata.priority),
+        priority,
         signal: ctx.signal,
       },
-      (waitMs) => {
+      async (waitMs) => {
         ctx.metadata.schedulerWaitMs = waitMs;
-        return next();
+        ran = { waitMs, startedAt: performance.now() };
+        const result = await next();
+        observeQuery(ctx.connectionType, priority, "success", ran);
+        return result;
       },
     );
   } catch (err) {
+    if (ran) observeQuery(ctx.connectionType, priority, "error", ran);
+    else if (isQueueTimeout(err)) recordQueueTimeout(ctx.connectionType);
+    else if (isQueueRejected(err))
+      recordRejection(ctx.connectionType, err.reason);
+
     // A refusal never reaches the audit middleware (it sits inside this one),
     // so it writes its own query_failed line (#2438).
     if (isQueueTimeout(err) || isQueueRejected(err) || isQueryAborted(err)) {
@@ -110,7 +142,7 @@ export const schedulerMiddleware: QueryMiddlewareFn = async (
           connectionType: ctx.connectionType,
           accessMode: ctx.accessMode,
           query: ctx.query,
-          priority: resolvePriority(ctx.metadata.priority),
+          priority,
           schedulerWaitMs: waited,
           totalMs: waited,
           requestId: ctx.metadata.requestId,

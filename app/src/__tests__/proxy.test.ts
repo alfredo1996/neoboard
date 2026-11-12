@@ -121,6 +121,17 @@ describe("proxy", () => {
       expect(res.status).toBe(200);
     });
 
+    it("passes through /api/metrics, whose route checks its own token", async () => {
+      expect((await proxy(makeRequest("/api/metrics"))).status).toBe(200);
+    });
+
+    it.each(["/api/metrics/x", "/api/metrics-other", "/api/query"])(
+      "does not make %s public",
+      async (path) => {
+        expect((await proxy(makeRequest(path))).status).toBe(401);
+      },
+    );
+
     it("does not treat /api/health sub-paths as public", async () => {
       const res = await proxy(makeRequest("/api/health/internal"));
       expect(res.status).toBe(401);

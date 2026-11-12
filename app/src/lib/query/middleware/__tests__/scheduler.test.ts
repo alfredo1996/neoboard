@@ -15,6 +15,7 @@ import {
   executeQuery,
   QUERY_DEADLINE_GRACE_MS,
 } from "@/lib/query/query-executor";
+import { metricsRegistry, resetMetrics } from "@/lib/metrics";
 import { queryLogger } from "@/lib/logger";
 import { schedulerMiddleware, withSchedulerSlot } from "../scheduler";
 import {
@@ -458,4 +459,102 @@ describe("queue refusals are logged (#2438)", () => {
       expect(obj.durationMs).toBeUndefined();
     },
   );
+});
+
+describe("schedulerMiddleware metrics (#2440)", () => {
+  async function count(name: string, labels: Record<string, string>) {
+    const json = await metricsRegistry().getMetricsAsJSON();
+    for (const metric of json) {
+      const hit = metric.values.find(
+        (v) =>
+          ((v as { metricName?: string }).metricName ?? metric.name) === name &&
+          Object.entries(labels).every(
+            ([k, x]) => (v.labels as Record<string, string>)[k] === x,
+          ),
+      );
+      if (hit) return hit.value;
+    }
+    return undefined;
+  }
+
+  beforeEach(() => {
+    resetMetrics();
+    resetSchedulerRegistry();
+    setDefaultSchedulerOptions(baseOptions);
+  });
+
+  it.each([
+    ["success", async () => ({ data: null }) as QueryResult],
+    [
+      "error",
+      async (): Promise<QueryResult> => {
+        throw new Error("boom");
+      },
+    ],
+  ])(
+    "records one time and one wait observation on %s",
+    async (outcome, next) => {
+      await schedulerMiddleware(makeContext({}, { priority: 1 }), next).catch(
+        () => {},
+      );
+      const labels = { connector_type: "neo4j", priority: "1", outcome };
+      expect(await count("neoboard_query_duration_seconds_count", labels)).toBe(
+        1,
+      );
+      expect(
+        await count("neoboard_query_queue_wait_seconds_count", labels),
+      ).toBe(1);
+    },
+  );
+
+  it("counts a queue-full rejection, labelled by the connection's type", async () => {
+    setDefaultSchedulerOptions({
+      ...baseOptions,
+      maxConcurrent: 1,
+      maxPerUser: 1,
+      maxQueueDepth: 1,
+    });
+    const slow = () =>
+      new Promise<QueryResult>((r) => setTimeout(() => r({ data: null }), 30));
+    const active = schedulerMiddleware(makeContext({ userId: "u0" }), slow);
+    await new Promise<void>((r) => setImmediate(r));
+    const queued = schedulerMiddleware(makeContext({ userId: "u1" }), slow);
+    await expect(
+      schedulerMiddleware(makeContext({ userId: "u2" }), slow),
+    ).rejects.toBeInstanceOf(QueueRejectedError);
+    await Promise.all([active, queued]);
+    expect(
+      await count("neoboard_query_rejections_total", {
+        connector_type: "neo4j",
+        reason: "queue_full",
+      }),
+    ).toBe(1);
+  });
+
+  it("counts a queue timeout", async () => {
+    setDefaultSchedulerOptions({
+      ...baseOptions,
+      maxConcurrent: 1,
+      maxPerUser: 1,
+      queueTimeoutMs: 20,
+    });
+    const blocker = schedulerMiddleware(
+      makeContext({ userId: "u0" }),
+      () =>
+        new Promise<QueryResult>((r) =>
+          setTimeout(() => r({ data: null }), 100),
+        ),
+    );
+    await expect(
+      schedulerMiddleware(makeContext({ userId: "u1" }), async () => ({
+        data: null,
+      })),
+    ).rejects.toBeInstanceOf(QueueTimeoutError);
+    await blocker;
+    expect(
+      await count("neoboard_query_queue_timeouts_total", {
+        connector_type: "neo4j",
+      }),
+    ).toBe(1);
+  });
 });
