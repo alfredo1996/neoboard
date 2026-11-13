@@ -390,6 +390,32 @@ describe("useParameterStore", () => {
       expect(restored["year"].source).toBe("YearPicker");
     });
 
+    it("keeps a selector's label through save and restore, and drops it when the value is set again without one", () => {
+      const { setParameter, saveToDashboard, restoreFromDashboard } =
+        useParameterStore.getState();
+      setParameter(
+        "region",
+        "%",
+        "Selector",
+        "region",
+        "select",
+        "selector-widget",
+        "w1",
+        "All continents",
+      );
+      saveToDashboard("dash-label");
+      restoreFromDashboard("dash-label");
+      expect(useParameterStore.getState().parameters["region"].label).toBe(
+        "All continents",
+      );
+
+      // A later write that names no label (a link, a default) must not inherit it.
+      setParameter("region", "EU", "URL", "region", "text", "url");
+      expect(
+        useParameterStore.getState().parameters["region"].label,
+      ).toBeUndefined();
+    });
+
     it("restores empty parameters when no data exists for dashboard", () => {
       const { setParameter, restoreFromDashboard } =
         useParameterStore.getState();

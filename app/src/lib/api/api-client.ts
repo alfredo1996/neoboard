@@ -73,8 +73,12 @@ function envelopeError(error: ApiEnvelopeError): Error {
     return new ConnectorUnavailableError(message, reason);
   }
   // `details` rides along so a caller can act on it — e.g. the form puts a
-  // write error on the field its `column` names (#1409).
-  return Object.assign(new Error(message), { details: error.details });
+  // write error on the field its `column` names (#1409). `code` rides along
+  // so a retry predicate can tell NOT_FOUND from a network blip (#2334).
+  return Object.assign(new Error(message), {
+    code: error.code,
+    details: error.details,
+  });
 }
 
 /**

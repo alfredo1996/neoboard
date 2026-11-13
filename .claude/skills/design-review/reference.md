@@ -205,11 +205,11 @@ tooltip: { trigger: "axis", axisPointer: { type: "shadow" } }
 
 ### Faces
 
-| Token / class                                                 | Face                     | Used for                                                     |
-| ------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------ |
-| `--font-serif` / `font-serif`                                 | Source Serif 4           | The widget card's optional serif title only; none in the kit |
-| `--font-body`, `--font-display` / `font-body`, `font-display` | IBM Plex Sans            | Everything else, tabular figures on at the root              |
-| `--font-mono` / `font-mono`                                   | IBM Plex Mono (400, 500) | Code, query text, keyboard hints                             |
+| Token / class                                                 | Face                     | Used for                                                                                                                        |
+| ------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `--font-serif` / `font-serif`                                 | Source Serif 4           | The widget card's optional serif title only; none in the kit                                                                    |
+| `--font-body`, `--font-display` / `font-body`, `font-display` | IBM Plex Sans            | Everything else, tabular figures on at the root                                                                                 |
+| `--font-mono` / `font-mono`                                   | IBM Plex Mono (400, 500) | Code and query text. Not keyboard hints: Plex Mono has no ⌘ ⇧ ⌥, so `shortcut-hint.tsx` sets the system font on purpose (#2297) |
 
 All three are self-hosted woff2 in `component/fonts/` (OFL-1.1); nothing loads from a network URL (#1683).
 

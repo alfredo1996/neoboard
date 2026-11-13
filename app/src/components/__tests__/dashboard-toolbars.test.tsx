@@ -139,6 +139,42 @@ describe("custom auto-refresh interval typing (#2293)", () => {
       expect(onApplyInterval).toHaveBeenCalledTimes(1);
     },
   );
+
+  // UX-12 (#2334): below the 5 s minimum, say so instead of doing nothing.
+  it.each(["2", "4", "0"])(
+    "typing %s then Set shows the minimum, keeps the menu open and applies nothing",
+    async (typed) => {
+      const onApplyInterval = vi.fn();
+      render(
+        <DashboardViewToolbar
+          {...viewProps}
+          onApplyInterval={onApplyInterval}
+        />,
+      );
+      await userEvent.click(screen.getByTestId("auto-refresh-trigger"));
+      await userEvent.type(screen.getByTestId("custom-interval-input"), typed);
+      await userEvent.click(screen.getByTestId("custom-interval-apply"));
+      expect(screen.getByText("Minimum is 5 seconds")).toBeInTheDocument();
+      expect(screen.getByTestId("custom-interval-input")).toBeInTheDocument();
+      expect(onApplyInterval).not.toHaveBeenCalled();
+    },
+  );
+
+  it("clears the minimum message once the value is edited, and 5 applies", async () => {
+    const onApplyInterval = vi.fn();
+    render(
+      <DashboardViewToolbar {...viewProps} onApplyInterval={onApplyInterval} />,
+    );
+    await userEvent.click(screen.getByTestId("auto-refresh-trigger"));
+    const input = screen.getByTestId("custom-interval-input");
+    await userEvent.type(input, "2");
+    await userEvent.click(screen.getByTestId("custom-interval-apply"));
+    expect(screen.getByText("Minimum is 5 seconds")).toBeInTheDocument();
+    await userEvent.type(input, "{Backspace}5");
+    expect(screen.queryByText("Minimum is 5 seconds")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("custom-interval-apply"));
+    expect(onApplyInterval).toHaveBeenCalledExactlyOnceWith(5);
+  });
 });
 
 describe("header filters slot (#2297)", () => {

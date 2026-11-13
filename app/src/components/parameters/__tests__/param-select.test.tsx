@@ -165,7 +165,8 @@ describe("ParamSelect — write mapping", () => {
     renderSelect();
     fireEvent.click(screen.getByTestId("ps-change"));
     expect(actions.set).toHaveBeenCalledTimes(1);
-    expect(actions.set).toHaveBeenCalledWith(42);
+    // The chosen option's label rides along so the filter chip can show it (#2334).
+    expect(actions.set).toHaveBeenCalledWith(42, "Forty-Two");
     expect(actions.clear).not.toHaveBeenCalled();
   });
 
@@ -181,20 +182,20 @@ describe("ParamSelect — write mapping", () => {
         seed: { options: [{ value: "42", label: "F", rawValue: raw }] },
       });
       fireEvent.click(screen.getByTestId("ps-change"));
-      expect(actions.set).toHaveBeenCalledWith(raw);
+      expect(actions.set).toHaveBeenCalledWith(raw, "F");
     },
   );
 
   it("falls back to the raw string when the option has no rawValue", () => {
     renderSelect({ seed: { options: [{ value: "42", label: "F" }] } });
     fireEvent.click(screen.getByTestId("ps-change"));
-    expect(actions.set).toHaveBeenCalledWith("42");
+    expect(actions.set).toHaveBeenCalledWith("42", "F");
   });
 
   it("falls back to the raw string when the value is not in the option list", () => {
     renderSelect();
     fireEvent.click(screen.getByTestId("ps-change-missing"));
-    expect(actions.set).toHaveBeenCalledWith("not-an-option");
+    expect(actions.set).toHaveBeenCalledWith("not-an-option", undefined);
   });
 
   it("clears the parameter on an empty selection instead of setting ''", () => {

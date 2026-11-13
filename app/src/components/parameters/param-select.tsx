@@ -46,7 +46,10 @@ export function ParamSelect({
           actions.clear();
           return;
         }
-        actions.set(rawValueOf(v, seed.options));
+        actions.set(
+          rawValueOf(v, seed.options),
+          seed.options.find((o) => o.value === v)?.label,
+        );
       }}
       placeholder={placeholder}
       loading={seed.loading}

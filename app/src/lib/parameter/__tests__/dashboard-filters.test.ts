@@ -27,6 +27,19 @@ const map: ParameterSourceMap = {
 };
 
 describe("buildDashboardFilters", () => {
+  // UX-9 (#2334): the strip and the panel show what the selector shows.
+  it("shows the label a selector stored, and the raw value when it stored none", () => {
+    const f = buildDashboardFilters(map, {
+      region: { ...entry("%", "w1"), label: "All continents" },
+      decade: entry("1990s", "w2"),
+    });
+    expect(f.map((x) => [x.id, x.value])).toEqual([
+      ["decade", "1990s"],
+      ["region", "All continents"],
+      ["actor", undefined],
+    ]);
+  });
+
   it("lists every filter the dashboard has, set first then unset, by label within each group", () => {
     const f = buildDashboardFilters(map, { decade: entry("1990s", "w2") });
     expect(f.map((x) => [x.id, x.label, x.value])).toEqual([

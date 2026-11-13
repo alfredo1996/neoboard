@@ -5,7 +5,8 @@ import { useParameterStore } from "@/stores/parameter-store";
 import type { ParameterType, ParameterEntry } from "@/stores/parameter-store";
 
 export interface ParamActions {
-  set: (value: unknown) => void;
+  /** `label` is what the selector shows for the value, for the filter chip. */
+  set: (value: unknown, label?: string) => void;
   clear: () => void;
   /** Also sets a companion sub-parameter (e.g. _from, _min). */
   setCompanion: (suffix: string, value: unknown, type: ParameterType) => void;
@@ -26,7 +27,7 @@ export function useParamActions(
   const clearParameter = useParameterStore((s) => s.clearParameter);
 
   const set = useCallback(
-    (value: unknown) =>
+    (value: unknown, label?: string) =>
       setParameter(
         parameterName,
         value,
@@ -35,6 +36,7 @@ export function useParamActions(
         parameterType,
         "selector-widget",
         widgetId,
+        label,
       ),
     [parameterName, parameterType, setParameter, widgetId],
   );
@@ -66,7 +68,8 @@ export function useParamActions(
   const retype = useCallback(
     (value: unknown) => {
       if (!currentEntry) return;
-      const { source, field, type, sourceType, sourceWidgetId } = currentEntry;
+      const { source, field, type, sourceType, sourceWidgetId, label } =
+        currentEntry;
       setParameter(
         parameterName,
         value,
@@ -75,6 +78,7 @@ export function useParamActions(
         type,
         sourceType,
         sourceWidgetId,
+        label,
       );
     },
     [currentEntry, parameterName, setParameter],

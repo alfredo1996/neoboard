@@ -44,6 +44,12 @@ export interface ParameterEntry {
   sourceType: ParameterSource;
   /** The widget ID that set this parameter — enables scroll-to-source on tag click. */
   sourceWidgetId?: string;
+  /**
+   * What the selector showed for this value ("All continents" for "%"); several
+   * selections joined with ", ". Written with the value, so it is dropped by
+   * any later write that names none. Display only: never used in a query (#2334).
+   */
+  label?: string;
 }
 
 interface ParameterState {
@@ -56,6 +62,7 @@ interface ParameterState {
     type?: ParameterType,
     sourceType?: ParameterSource,
     sourceWidgetId?: string,
+    label?: string,
   ) => void;
   /** Atomically set multiple parameters in a single state update (no intermediate renders). */
   setParametersBatch: (
@@ -167,6 +174,7 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
     type = "text",
     sourceType = "click-action",
     sourceWidgetId?,
+    label?,
   ) => {
     const result = coerceValue(value, type);
     if (!result.ok) {
@@ -186,6 +194,7 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
           type,
           sourceType,
           sourceWidgetId,
+          label,
         },
       },
     }));
@@ -281,6 +290,7 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
           sourceType:
             (entry.sourceType as ParameterSource | undefined) ?? "click-action",
           sourceWidgetId: entry.sourceWidgetId,
+          label: typeof entry.label === "string" ? entry.label : undefined,
         };
       }
       set({ parameters: safe });

@@ -81,8 +81,8 @@ export function DashboardAssignPanel({
 
       <h3 className="text-sm font-semibold">People</h3>
 
-      <form onSubmit={handleAssign} className="flex items-end gap-2">
-        <Field label="Email" id="assign-email" className="flex-1">
+      <form onSubmit={handleAssign} className="flex flex-wrap items-end gap-2">
+        <Field label="Email" id="assign-email" className="w-full">
           <Input
             type="email"
             placeholder="user@example.com"

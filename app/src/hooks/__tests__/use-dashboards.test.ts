@@ -48,18 +48,16 @@ describe("use-dashboards", () => {
      * clamping `limit` to the server's cap (parsePagination's MAX_LIMIT).
      */
     function serveDashboards(all: { id: string; name: string }[], cap = 1000) {
-      return vi
-        .spyOn(globalThis, "fetch")
-        .mockImplementation(async (input) => {
-          const url = new URL(String(input), "http://localhost");
-          const limit = Math.min(Number(url.searchParams.get("limit")), cap);
-          const offset = Number(url.searchParams.get("offset"));
-          return mockResponse({
-            data: all.slice(offset, offset + limit),
-            error: null,
-            meta: { total: all.length, limit, offset },
-          });
+      return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+        const url = new URL(String(input), "http://localhost");
+        const limit = Math.min(Number(url.searchParams.get("limit")), cap);
+        const offset = Number(url.searchParams.get("offset"));
+        return mockResponse({
+          data: all.slice(offset, offset + limit),
+          error: null,
+          meta: { total: all.length, limit, offset },
         });
+      });
     }
 
     it("loads every page, so search and the duplicate-name check see a dashboard past the first (#1789)", async () => {
@@ -190,6 +188,48 @@ describe("use-dashboards", () => {
         queryFn: () => Promise<unknown>;
       };
       await expect(config.queryFn()).rejects.toThrow("Not found");
+    });
+
+    // UX-7 (#2334): a missing/forbidden dashboard is not retried (the default
+    // 3 retries kept a skeleton up for ~7 s); a transient fault still is.
+    async function errorFrom(code: string, status: number, config: unknown) {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse(
+          { data: null, error: { code, message: "boom" }, meta: null },
+          status,
+        ),
+      );
+      const cfg = config as unknown as {
+        queryFn: () => Promise<unknown>;
+        retry: (n: number, e: Error) => boolean;
+      };
+      const error = await cfg.queryFn().catch((e: Error) => e);
+      return { retry: cfg.retry, error: error as Error };
+    }
+
+    it.each([
+      ["NOT_FOUND", 404, 0, false],
+      ["FORBIDDEN", 403, 0, false],
+      ["INTERNAL_ERROR", 500, 0, true],
+      ["INTERNAL_ERROR", 500, 2, true],
+      ["INTERNAL_ERROR", 500, 3, false],
+    ])(
+      "retry for %s (%i) at attempt %i is %s",
+      async (code, status, n, want) => {
+        const { retry, error } = await errorFrom(
+          code,
+          status,
+          useDashboard("d1"),
+        );
+        expect(retry(n, error)).toBe(want);
+      },
+    );
+
+    it("retries a network failure that carries no code", async () => {
+      const config = useDashboard("d1") as unknown as {
+        retry: (n: number, e: Error) => boolean;
+      };
+      expect(config.retry(0, new TypeError("Failed to fetch"))).toBe(true);
     });
   });
 

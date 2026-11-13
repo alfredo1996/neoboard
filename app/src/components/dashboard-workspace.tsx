@@ -737,7 +737,7 @@ export function DashboardWorkspace({
     return (
       // On the ground from the first paint, so the page doesn't flash to it.
       <div className="flex-1 bg-page-ground">
-        <div className="p-6 space-y-4">
+        <div className="space-y-4 px-4 py-6 md:px-7">
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-4 w-96" />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-6">
@@ -752,7 +752,7 @@ export function DashboardWorkspace({
 
   if (!dashboard) {
     return (
-      <div className="p-6">
+      <div className="px-4 py-6 md:px-7">
         <EmptyState
           title="Dashboard not found"
           description="The dashboard you're looking for doesn't exist or you don't have access."
@@ -906,7 +906,7 @@ export function DashboardWorkspace({
       <DashboardErrorBoundary>
         {/* The ground behind the panels, full-bleed under the tabs (#2219). */}
         <div className="flex-1 bg-page-ground" data-testid="dashboard-ground">
-          <div className="relative mx-auto w-full max-w-[1600px] p-6">
+          <div className="relative w-full px-4 py-6 md:px-7">
             {activeLayout.pages.map((page, index) => {
               const isActive = index === safeIndex;
               if (page.widgets.length === 0 && isActive) {

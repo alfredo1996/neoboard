@@ -125,6 +125,12 @@ export function useDashboard(id: string) {
       return unwrapResponse<DashboardDetail>(res);
     },
     enabled: !!id,
+    // A missing or forbidden dashboard never comes back; the default
+    // back-off kept a skeleton up for ~7 s (#2334).
+    retry: (failureCount, error) =>
+      failureCount < 3 &&
+      (error as { code?: string }).code !== "NOT_FOUND" &&
+      (error as { code?: string }).code !== "FORBIDDEN",
   });
 }
 

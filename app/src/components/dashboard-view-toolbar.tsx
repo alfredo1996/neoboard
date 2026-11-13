@@ -85,6 +85,7 @@ export function DashboardViewToolbar({
 }: Readonly<DashboardViewToolbarProps>) {
   const countdown = useCountdown(refetchInterval);
   const [customSeconds, setCustomSeconds] = useState("");
+  const [customTooLow, setCustomTooLow] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const handleIntervalChange = useCallback(
@@ -96,7 +97,10 @@ export function DashboardViewToolbar({
 
   const handleCustomApply = useCallback(() => {
     const s = Number.parseInt(customSeconds, 10);
-    if (!Number.isFinite(s) || s < 5) return; // minimum 5s
+    if (!Number.isFinite(s) || s < 5) {
+      setCustomTooLow(true); // minimum 5s, said out loud (#2334)
+      return;
+    }
     onApplyInterval(s);
     setCustomSeconds("");
     setDropdownOpen(false);
@@ -197,9 +201,10 @@ export function DashboardViewToolbar({
                         min={5}
                         placeholder="e.g. 5"
                         value={customSeconds}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          setCustomSeconds(e.target.value)
-                        }
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          setCustomSeconds(e.target.value);
+                          setCustomTooLow(false);
+                        }}
                         onKeyDown={(e: React.KeyboardEvent) => {
                           // Radix menu typeahead would steal focus on character keys.
                           if (e.key.length === 1) e.stopPropagation();
@@ -218,6 +223,11 @@ export function DashboardViewToolbar({
                         Set
                       </Button>
                     </div>
+                    {customTooLow && (
+                      <p role="alert" className="text-xs text-destructive">
+                        Minimum is 5 seconds
+                      </p>
+                    )}
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
