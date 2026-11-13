@@ -72,4 +72,20 @@ describe("dark Leaflet chrome (#1399)", () => {
     expect(leaflet).toBeGreaterThan(-1);
     expect(ours).toBeGreaterThan(leaflet);
   });
+
+  it("styles the zoom bar like the secondary Button (#2336)", () => {
+    const rule = (sel: string) =>
+      new RegExp(String.raw`\n${sel}\s*\{([^}]*)\}`).exec(mapCss)?.[1] ?? "";
+    expect(
+      rule(String.raw`\.leaflet-bar,\s*\.leaflet-touch \.leaflet-bar`),
+    ).toMatch(/border:\s*1px solid hsl\(var\(--border-strong\)\)/);
+    const a = rule(
+      String.raw`\.leaflet-bar a,\s*\.leaflet-touch \.leaflet-bar a`,
+    );
+    expect(a).toMatch(/background-color:\s*hsl\(var\(--card\)\)/);
+    expect(a).toMatch(/border-bottom-color:\s*hsl\(var\(--border-strong\)\)/);
+    expect(
+      rule(String.raw`\.leaflet-bar a:hover,\s*\.leaflet-bar a:focus`),
+    ).toMatch(/background-color:\s*hsl\(var\(--active\)\)/);
+  });
 });

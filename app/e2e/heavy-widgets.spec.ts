@@ -159,11 +159,12 @@ test.describe("Heavy widget rendering", () => {
         await zoomIn.evaluate((el) => getComputedStyle(el).borderTopLeftRadius),
       ).toBe("6px");
       expect(zoom.family).toContain("IBM Plex Sans");
-      // The ground is the --field token, resolved through a probe element.
+      // The zoom fill is the --card token (the secondary Button's), resolved
+      // through a probe element; the attribution ink is --ring.
       const expected = await page.evaluate(() => {
         const p = document.createElement("i");
         p.style.cssText =
-          "background-color:hsl(var(--field));color:hsl(var(--ring))";
+          "background-color:hsl(var(--card));color:hsl(var(--ring))";
         document.body.append(p);
         const s = getComputedStyle(p);
         const r = { bg: s.backgroundColor, ink: s.color };
