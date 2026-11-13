@@ -62,7 +62,9 @@ export function buildDashboardFilters(
     return {
       id: name,
       label: paramLabel(name, sourceMap),
-      value: entry ? formatParameterValue(entry.value) : undefined,
+      value: entry
+        ? (entry.label ?? formatParameterValue(entry.value))
+        : undefined,
       where: source
         ? whereLine(source, paramLabel(name, sourceMap))
         : undefined,

@@ -58,6 +58,9 @@ export function ParamMultiSelect({
               stored.find((p) => String(p) === v) ??
               rawValueOf(v, seed.options),
           ),
+          vals
+            .map((v) => seed.options.find((o) => o.value === v)?.label ?? v)
+            .join(", "),
         );
       }}
       placeholder={placeholder}

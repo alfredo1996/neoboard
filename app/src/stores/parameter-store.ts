@@ -44,6 +44,12 @@ export interface ParameterEntry {
   sourceType: ParameterSource;
   /** The widget ID that set this parameter — enables scroll-to-source on tag click. */
   sourceWidgetId?: string;
+  /**
+   * What the selector showed for this value ("All continents" for "%"); several
+   * selections joined with ", ". Written with the value, so it is dropped by
+   * any later write that names none. Display only: never used in a query (#2334).
+   */
+  label?: string;
 }
 
 interface ParameterState {
@@ -57,6 +63,8 @@ interface ParameterState {
     sourceType?: ParameterSource,
     sourceWidgetId?: string,
   ) => void;
+  /** Patches the label of a parameter that is set; a later `setParameter` drops it. */
+  setParameterLabel: (name: string, label: string) => void;
   /** Atomically set multiple parameters in a single state update (no intermediate renders). */
   setParametersBatch: (
     entries: Array<{
@@ -190,6 +198,15 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
       },
     }));
   },
+
+  setParameterLabel: (name, label) =>
+    set((state) => {
+      const entry = state.parameters[name];
+      if (!entry || entry.label === label) return state;
+      return {
+        parameters: { ...state.parameters, [name]: { ...entry, label } },
+      };
+    }),
 
   setParametersBatch: (entries) => {
     set((state) => {

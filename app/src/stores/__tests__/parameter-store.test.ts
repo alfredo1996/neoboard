@@ -390,6 +390,39 @@ describe("useParameterStore", () => {
       expect(restored["year"].source).toBe("YearPicker");
     });
 
+    it("drops a label on restore (the selector refills it from its options); setParameterLabel only patches a set parameter; a later write drops it", () => {
+      const {
+        setParameter,
+        setParameterLabel,
+        saveToDashboard,
+        restoreFromDashboard,
+      } = useParameterStore.getState();
+      setParameterLabel("ghost", "Nobody");
+      expect(useParameterStore.getState().parameters["ghost"]).toBeUndefined();
+
+      setParameter(
+        "region",
+        "%",
+        "Selector",
+        "region",
+        "select",
+        "selector-widget",
+        "w1",
+      );
+      setParameterLabel("region", "All continents");
+      saveToDashboard("dash-label");
+      restoreFromDashboard("dash-label");
+      expect(
+        useParameterStore.getState().parameters["region"].label,
+      ).toBeUndefined();
+
+      // A later write that names no label (a link, a default) must not inherit it.
+      setParameter("region", "EU", "URL", "region", "text", "url");
+      expect(
+        useParameterStore.getState().parameters["region"].label,
+      ).toBeUndefined();
+    });
+
     it("restores empty parameters when no data exists for dashboard", () => {
       const { setParameter, restoreFromDashboard } =
         useParameterStore.getState();

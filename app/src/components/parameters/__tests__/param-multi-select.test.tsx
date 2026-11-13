@@ -61,6 +61,7 @@ function makeActions(value?: unknown, hasEntry = true): ParamActions {
     setCompanion: vi.fn(),
     clearCompanion: vi.fn(),
     retype: vi.fn(),
+    setLabel: vi.fn(),
     currentEntry,
   };
 }
@@ -194,40 +195,44 @@ describe("ParamMultiSelect — writing the selection back", () => {
     const actions = makeActions(undefined, false);
     renderWidget(actions, makeSeed({ options: OPTIONS }));
     fireChange(["a"]);
-    expect(actions.set).toHaveBeenCalledWith([1]);
+    expect(actions.set).toHaveBeenCalledWith([1], "A");
   });
 
   it("maps per element — an option without rawValue keeps its string", () => {
     const actions = makeActions(undefined, false);
     renderWidget(actions, makeSeed({ options: OPTIONS }));
     fireChange(["a", "b"]);
-    expect(actions.set).toHaveBeenCalledWith([1, "b"]);
+    // Several selections: their labels, joined like the chip joins values (#2334).
+    expect(actions.set).toHaveBeenCalledWith([1, "b"], "A, B");
   });
 
   it("preserves falsy rawValues (0, null) instead of the string fallback", () => {
     const actions = makeActions(undefined, false);
     renderWidget(actions, makeSeed({ options: OPTIONS }));
     fireChange(["zero", "nil"]);
-    expect(actions.set).toHaveBeenCalledWith([0, null]);
+    expect(actions.set).toHaveBeenCalledWith([0, null], "Zero, Nil");
   });
 
   it("keeps the raw string when the value is not in the options list", () => {
     const actions = makeActions(undefined, false);
     renderWidget(actions, makeSeed({ options: OPTIONS }));
     fireChange(["stale"]);
-    expect(actions.set).toHaveBeenCalledWith(["stale"]);
+    expect(actions.set).toHaveBeenCalledWith(["stale"], "stale");
   });
 
   // #2124: an item restored typed from a link keeps its type when its option is not loaded.
   it.each([
-    ["adding an option", [1999], ["1999", "a"], [1999, 1]],
-    ["removing a chip", [1999, true], ["1999"], [1999]],
-  ])("keeps a stored item's type on %s", (_l, stored, picked, expected) => {
-    const actions = makeActions(stored);
-    renderWidget(actions, makeSeed({ options: OPTIONS }));
-    fireChange(picked);
-    expect(actions.set).toHaveBeenCalledWith(expected);
-  });
+    ["adding an option", [1999], ["1999", "a"], [1999, 1], "1999, A"],
+    ["removing a chip", [1999, true], ["1999"], [1999], "1999"],
+  ])(
+    "keeps a stored item's type on %s",
+    (_l, stored, picked, expected, label) => {
+      const actions = makeActions(stored);
+      renderWidget(actions, makeSeed({ options: OPTIONS }));
+      fireChange(picked);
+      expect(actions.set).toHaveBeenCalledWith(expected, label);
+    },
+  );
 
   it("clears the parameter when everything is deselected", () => {
     const actions = makeActions([1, 2]);

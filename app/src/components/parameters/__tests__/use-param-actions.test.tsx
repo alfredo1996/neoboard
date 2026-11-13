@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useParameterStore } from "@/stores/parameter-store";
-import { useParamActions } from "../use-param-actions";
+import { useParamActions, useTypedSelection } from "../use-param-actions";
 
 function resetStore() {
   useParameterStore.getState().clearAll();
@@ -135,5 +135,78 @@ describe("useParamActions", () => {
       result.current.retype(1999);
     });
     expect(useParameterStore.getState().parameters["year"]).toBeUndefined();
+  });
+
+  // A default, a link or a click action never fires the selector's onChange (#2334).
+  describe("useTypedSelection — fills in the label of a value nobody picked", () => {
+    const OPTIONS = [
+      { value: "%", label: "All continents" },
+      { value: "EU", label: "Europe" },
+      { value: "1999", label: "Year 1999", rawValue: 1999 },
+    ];
+    const run = () =>
+      renderHook(
+        ({ options }) => {
+          const actions = useParamActions("geo", "select", "w");
+          useTypedSelection(actions, options);
+          return actions;
+        },
+        { initialProps: { options: OPTIONS } },
+      );
+    const entry = () => useParameterStore.getState().parameters["geo"];
+
+    it.each([
+      ["a default", "%", "All continents"],
+      ["several values", ["%", "EU"], "All continents, Europe"],
+      ["a typed value", 1999, "Year 1999"],
+    ])("labels %s from the options, keeping who set it", (_l, value, label) => {
+      useParameterStore
+        .getState()
+        .setParameter("geo", value, "URL", "geo", "select", "url", "w-url");
+      run();
+      expect(entry().label).toBe(label);
+      expect(entry().sourceType).toBe("url");
+      expect(entry().sourceWidgetId).toBe("w-url");
+    });
+
+    it("keeps a label already there and leaves a value no option names unlabelled", () => {
+      const store = useParameterStore.getState();
+      store.setParameter("geo", "EU", "S", "geo", "select", "selector-widget");
+      store.setParameterLabel("geo", "Picked name");
+      run();
+      expect(entry().label).toBe("Picked name");
+
+      store.setParameter("geo", "XX", "S", "geo", "select", "selector-widget");
+      run();
+      expect(entry().label).toBeUndefined();
+    });
+
+    // Two selectors on one parameter (e.g. on different pages, all mounted) whose seeds
+    // label the value differently must not overwrite each other forever.
+    it("two selectors with conflicting labels settle instead of looping", () => {
+      useParameterStore
+        .getState()
+        .setParameter("geo", "EU", "URL", "geo", "select", "url", "w-url");
+      let writes = 0;
+      const real = useParameterStore.getState().setParameterLabel;
+      useParameterStore.setState({
+        setParameterLabel: (name, label) => {
+          if (++writes > 20) throw new Error("label update loop");
+          real(name, label);
+        },
+      });
+      const seeded = (label: string) => () => {
+        const actions = useParamActions("geo", "select", "w");
+        useTypedSelection(actions, [{ value: "EU", label }]);
+      };
+      try {
+        renderHook(seeded("First"));
+        renderHook(seeded("Second"));
+        expect(writes).toBeLessThanOrEqual(1);
+        expect(entry().label).toBe("First");
+      } finally {
+        useParameterStore.setState({ setParameterLabel: real });
+      }
+    });
   });
 });

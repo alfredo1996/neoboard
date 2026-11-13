@@ -315,6 +315,7 @@ vi.mock("@neoboard/components", () => {
     "DropdownMenuRadioItem",
     "DropdownMenuSeparator",
     "DropdownMenuTrigger",
+    "FieldError",
   ];
   const buttons = ["Button", "LoadingButton"];
 
