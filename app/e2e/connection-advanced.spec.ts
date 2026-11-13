@@ -274,8 +274,9 @@ test.describe("Connection Advanced Settings", () => {
       await page.getByRole("menuitem", { name: /Edit/ }).click();
 
       // Pre-filled from the stored config, under edit- ids derived from the
-      // same keys; the advanced section starts open.
+      // same keys; the advanced section starts collapsed (#2338).
       const dialog = page.getByRole("dialog");
+      await dialog.getByText("Advanced Settings", { exact: true }).click();
       await expect(dialog.locator("#edit-max-pool-size")).toHaveValue("20");
       await expect(dialog.locator("#edit-statement-timeout")).toHaveValue(
         "60000",

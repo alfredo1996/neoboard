@@ -54,7 +54,7 @@ export function ConnectorConfigForm({
   onChange,
   errors,
 }: ConnectorConfigFormProps) {
-  const [advancedToggled, setAdvancedToggled] = useState(mode === "edit");
+  const [advancedToggled, setAdvancedToggled] = useState(false);
   const advanced = toFormFields(connector.fields, "advanced", mode);
   // An error nobody can see is no error message: a problem inside the section
   // opens it.

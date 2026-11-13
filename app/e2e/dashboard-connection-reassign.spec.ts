@@ -5,6 +5,7 @@ import {
   BOB,
   TEST_NEO4J_BOLT_URL,
   createTestDashboard,
+  putPage,
   uid,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
@@ -464,6 +465,131 @@ test.describe("Per-dashboard connection reassignment", () => {
       }
     } finally {
       await cleanup();
+    }
+  });
+
+  // #2338: query and content-only widgets that all carry one real connection id
+  // are one set of widgets, so the three dialogs must give one number.
+  test("the change dialog, the moved toast and the delete dialog count the same widgets", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await authPage.login(ALICE.email, ALICE.password);
+
+    const stamp = uid();
+    const connConfig = {
+      uri: TEST_NEO4J_BOLT_URL,
+      username: "neo4j",
+      password: "neoboard123",
+    };
+    const sourceName = `Count Source ${stamp}`;
+    const targetName = `Count Target ${stamp}`;
+    const ids: string[] = [];
+    let cleanup: (() => Promise<void>) | undefined;
+    try {
+      for (const name of [sourceName, targetName]) {
+        const res = await page.request.post("/api/connections", {
+          data: { name, type: "neo4j", config: connConfig },
+        });
+        expect(res.status()).toBe(201);
+        ids.push((await res.json()).data.id as string);
+      }
+      const [sourceId, targetId] = ids;
+
+      const created = await createTestDashboard(
+        page.request,
+        `Count Dash ${stamp}`,
+      );
+      cleanup = created.cleanup;
+      const id = created.id;
+      const dashName = `Count Dash ${stamp}`;
+      const query = (n: number) => ({
+        id: `q${n}`,
+        chartType: "table",
+        connectionId: sourceId,
+        query: "RETURN 1 AS n",
+        settings: { title: `Query ${n}` },
+      });
+      const note = (n: number) => ({
+        id: `md${n}`,
+        chartType: "markdown",
+        connectionId: sourceId,
+        query: "",
+        settings: { title: `Note ${n}`, content: "text" },
+      });
+      const widgets = [query(1), query(2), note(1), note(2)];
+      await putPage(
+        page.request,
+        id,
+        widgets,
+        widgets.map((w, i) => ({
+          i: w.id,
+          x: (i % 2) * 6,
+          y: Math.floor(i / 2) * 4,
+          w: 6,
+          h: 4,
+        })),
+      );
+
+      // 1. The connection's delete dialog.
+      await page.goto("/connections");
+      const card = page
+        .getByRole("row")
+        .filter({ hasText: sourceName })
+        .filter({
+          has: page.getByRole("button", {
+            name: `Connection actions for ${sourceName}`,
+            exact: true,
+          }),
+        });
+      await expect(card).toBeVisible({ timeout: 15_000 });
+      await card
+        .getByRole("button", {
+          name: `Connection actions for ${sourceName}`,
+          exact: true,
+        })
+        .click();
+      await page.getByRole("menuitem", { name: /Delete/ }).click();
+      await expect(
+        page.getByText(
+          "4 widgets on 1 dashboard use it and will stop loading:",
+          {
+            exact: true,
+          },
+        ),
+      ).toBeVisible({ timeout: 10_000 });
+      await page.keyboard.press("Escape");
+
+      // 2. The change-connection dialog lists the same four.
+      await page.goto("/");
+      await openCardMenu(page, dashName);
+      await page
+        .getByRole("menuitem", { name: "Change connection…", exact: true })
+        .click({ timeout: 10_000 });
+      const dialog = page.getByRole("dialog", {
+        name: "Change connection",
+        exact: true,
+      });
+      await expect(dialog).toBeVisible({ timeout: 10_000 });
+      await expect(dialog.getByText("4 widgets", { exact: true })).toBeVisible({
+        timeout: 10_000,
+      });
+
+      // 3. Applying it moves the same four.
+      await dialog.locator(`#reassign-source-${sourceId}`).click();
+      await dialog.locator("#reassign-dashboard-target").selectOption(targetId);
+      await dialog
+        .getByRole("button", { name: "Change connection", exact: true })
+        .click({ timeout: 10_000 });
+      await expect(
+        dialog.getByText(`Moved 4 widgets to ${targetName}.`, { exact: true }),
+      ).toBeVisible({ timeout: 20_000 });
+    } finally {
+      await cleanup?.();
+      for (const cid of ids) {
+        await page.request.delete(`/api/connections/${cid}?force=true`);
+      }
     }
   });
 });

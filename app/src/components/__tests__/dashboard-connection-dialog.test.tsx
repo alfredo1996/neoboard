@@ -197,7 +197,7 @@ describe("DashboardConnectionDialog — source buckets", () => {
 
   // dashboard-export writes markdown/iframe widgets as connectionId:"" even
   // though they never wanted a connection, so counting them would invent work.
-  it("excludes content-only widgets from every count", () => {
+  it("leaves content-only widgets with no connection out of the Unassigned row", () => {
     mockDashboard = {
       layoutJson: layout([
         widget({ id: "w1" }),
@@ -212,6 +212,23 @@ describe("DashboardConnectionDialog — source buckets", () => {
     expect(screen.getByText("1 widget")).toBeInTheDocument();
     // No Unassigned row at all — the only "" widgets are content-only.
     expect(screen.queryByText("Unassigned")).not.toBeInTheDocument();
+  });
+
+  // The server rewrites every widget carrying the source id, content-only or
+  // not (#2338), so the dialog's count must match what will move.
+  it("counts content-only widgets under the real connection id they carry", () => {
+    mockDashboard = {
+      layoutJson: layout([
+        widget({ id: "w1" }),
+        widget({ id: "md", chartType: "markdown" }),
+        widget({ id: "if", chartType: "iframe" }),
+      ]),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+
+    renderDialog();
+
+    expect(screen.getByText("3 widgets")).toBeInTheDocument();
   });
 
   it("says so when the dashboard has no connection-backed widgets", () => {
