@@ -29,6 +29,10 @@ describe("cn keeps a custom text size next to a text colour (#2215)", () => {
     );
   });
 
+  it("text-kpi survives next to a text colour (#2336)", () => {
+    expect(cn("text-kpi", "text-foreground")).toBe("text-kpi text-foreground");
+  });
+
   it("cn's size list is the preset's fontSize keys (a new size cannot be forgotten)", () => {
     expect([...CUSTOM_TEXT_SIZES].sort()).toEqual([...sizes].sort());
   });

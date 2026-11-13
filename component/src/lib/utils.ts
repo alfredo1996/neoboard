@@ -16,6 +16,7 @@ export const CUSTOM_TEXT_SIZES = [
   "meta",
   "caption",
   "figure",
+  "kpi",
   "wordmark",
   "h1",
   "h2",

@@ -2,10 +2,13 @@ import { describe, it, expect } from "vitest";
 // `?raw` — same convention as dark-basemap.test.ts, and for the same reason.
 import tokens from "../../design-tokens.css?raw";
 import storybookOnly from "../index.css?raw";
+import mapCss from "../charts/map-chart.css?raw";
+import mapChart from "../charts/map-chart.tsx?raw";
 
 /**
- * Dark styling for Leaflet's own furniture — zoom buttons, attribution strip,
- * popups, tooltips (#1154, #1399).
+ * Dark styling for Leaflet's own furniture — popups and tooltips here; the
+ * zoom buttons and attribution strip are themed from tokens in
+ * `charts/map-chart.css` (#1154, #1399, #2336).
  *
  * It was written into `component/src/index.css`, which only Storybook loads:
  * the app imports `globals.css` → `design-tokens.css` and nothing else from
@@ -19,11 +22,6 @@ import storybookOnly from "../index.css?raw";
  * drifts back, and makes no claim about how the result looks.
  */
 const SELECTORS = [
-  ".dark .leaflet-control-zoom a",
-  ".dark .leaflet-control-zoom a:hover",
-  ".dark .leaflet-container .leaflet-control-attribution",
-  ".dark .leaflet-container .leaflet-control-attribution a",
-  ".dark .leaflet-bar a.leaflet-disabled",
   ".dark .leaflet-popup-content-wrapper",
   ".dark .leaflet-popup-tip",
   ".dark .leaflet-tooltip",
@@ -48,11 +46,46 @@ describe("dark Leaflet chrome (#1399)", () => {
     );
   });
 
-  it("keeps the attribution link on the interaction token", () => {
-    const rule = tokens.match(
-      /\.dark\s+\.leaflet-container\s+\.leaflet-control-attribution\s+a\s*\{[^}]*\}/,
-    )?.[0];
-    expect(rule, "attribution link rule missing").toBeTruthy();
-    expect(rule).toContain("hsl(var(--ring))");
+  // The zoom buttons and attribution moved to src/charts/map-chart.css (#2336),
+  // which MapChart imports, so one rule serves both themes from the tokens.
+  it("themes the map controls from tokens only, in the sheet MapChart imports (#2336)", () => {
+    const code = mapCss.replaceAll(/\/\*[\s\S]*?\*\//g, "");
+    expect(code).not.toMatch(/#[0-9a-f]{3,8}\b|\brgba?\(|hsl\(\s*\d/i);
+    expect(mapCss).toContain("border-radius: var(--radius-sm)");
+    expect(mapCss).toMatch(
+      /\.leaflet-control-attribution a\s*\{[^}]*hsl\(var\(--ring\)\)/,
+    );
+    expect(tokens).not.toContain(".dark .leaflet-control-zoom a");
+  });
+
+  it("paints the attribution strip on an opaque ground (#2336)", () => {
+    // A translucent ground lets dark tile pixels through and drops the text
+    // below 4.5:1.
+    const strip =
+      /\.leaflet-control-attribution\s*\{([^}]*)\}/.exec(mapCss)?.[1] ?? "";
+    expect(strip).toMatch(/background-color:\s*hsl\(var\(--field\)\)\s*;/);
+  });
+
+  it("MapChart imports the sheet after leaflet's own (#1399)", () => {
+    const leaflet = mapChart.indexOf('import "leaflet/dist/leaflet.css"');
+    const ours = mapChart.indexOf('import "./map-chart.css"');
+    expect(leaflet).toBeGreaterThan(-1);
+    expect(ours).toBeGreaterThan(leaflet);
+  });
+
+  it("styles the zoom bar like the secondary Button (#2336)", () => {
+    const rule = (sel: string) =>
+      new RegExp(String.raw`\n${sel}\s*\{([^}]*)\}`).exec(mapCss)?.[1] ?? "";
+    expect(
+      rule(String.raw`\.leaflet-bar,\s*\.leaflet-touch \.leaflet-bar`),
+    ).toMatch(/border:\s*1px solid hsl\(var\(--border-strong\)\)/);
+    const a = rule(
+      String.raw`\.leaflet-bar a,\s*\.leaflet-touch \.leaflet-bar a`,
+    );
+    expect(a).toMatch(/background-color:\s*hsl\(var\(--card\)\)/);
+    expect(a).toMatch(/border-bottom-color:\s*hsl\(var\(--border-strong\)\)/);
+    expect(
+      rule(String.raw`\.leaflet-bar a:hover,\s*\.leaflet-bar a:focus`),
+    ).toMatch(/background-color:\s*hsl\(var\(--active\)\)/);
   });
 });

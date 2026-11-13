@@ -16,7 +16,7 @@ export type SingleValueNumberFormat = NumberFormat;
 const FONT_SIZE_CLASS: Record<SingleValueFontSize, string> = {
   sm: "text-xl",
   md: "text-2xl",
-  lg: "text-[34px] leading-[1.1]",
+  lg: "text-kpi",
   xl: "text-5xl",
 };
 

@@ -188,6 +188,48 @@ test.describe("Content-only widgets (Markdown & iFrame)", () => {
   });
 });
 
+test.describe("Markdown bold (#2336)", () => {
+  test("DS-9: bold text is weight 600, not the preflight's 700", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Markdown bold ${uid()}`,
+    );
+    try {
+      await putPage(
+        page.request,
+        id,
+        [
+          {
+            id: "md",
+            chartType: "markdown",
+            connectionId: HEALTHY_PG,
+            query: "",
+            settings: {
+              title: "Bold",
+              chartOptions: { content: "Some **bold words** here" },
+            },
+          },
+        ],
+        [{ i: "md", x: 0, y: 0, w: 6, h: 3 }],
+      );
+      await page.goto(`/${id}`);
+      const strong = page
+        .getByRole("region", { name: "Markdown content", exact: true })
+        .locator("strong");
+      await expect(strong).toHaveText("bold words", { timeout: 15_000 });
+      expect(
+        await strong.evaluate((el) => getComputedStyle(el).fontWeight),
+      ).toBe("600");
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
 test.describe("Markdown overflow (#2335)", () => {
   test("DS-6: a markdown card with more text than room shows a fade until the end", async ({
     authPage,
