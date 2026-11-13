@@ -119,7 +119,10 @@ export function rawValueOf(v: unknown, options: SeedOption[]): unknown {
  *
  * Also writes the options' label for the value, so a default, a link or a
  * click action reads "All continents" on the chip like a pick does, and a
- * label saved before the seed's labels changed is corrected (#2334).
+ * Only fills a missing label, never replaces one: two selectors on one
+ * parameter whose seeds label a value differently would otherwise overwrite
+ * each other forever (#2334). A label is not restored from storage, so the
+ * fill writes it fresh once the options load.
  *
  * ponytail: only the loaded options can type or label a value. An unmarked
  * default the seed's first page lacks stays a string, unlabelled.
@@ -142,6 +145,6 @@ export function useTypedSelection(
     );
     if (value === undefined || labels.includes(undefined)) return;
     const joined = labels.join(", ");
-    if (joined !== label) setLabel(joined);
+    if (label === undefined) setLabel(joined);
   }, [value, label, options, retype, setLabel]);
 }

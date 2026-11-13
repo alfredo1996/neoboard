@@ -298,7 +298,6 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
           sourceType:
             (entry.sourceType as ParameterSource | undefined) ?? "click-action",
           sourceWidgetId: entry.sourceWidgetId,
-          label: typeof entry.label === "string" ? entry.label : undefined,
         };
       }
       set({ parameters: safe });
