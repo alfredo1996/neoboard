@@ -1,10 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import React from "react";
 import type { ConfirmDialogProps } from "@neoboard/components";
 import { MockClosingDialog } from "@/__tests__/helpers/dialog-mocks";
 
-const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
+const { mockCreate, mockToast } = vi.hoisted(() => ({
+  mockCreate: vi.fn(),
+  mockToast: vi.fn(),
+}));
 
 /**
  * #1899 — the widget library reads connector facts from the descriptor list
@@ -55,14 +64,26 @@ vi.mock("@/hooks/use-connections", () => ({
       ? { data: undefined, isError: true }
       : { data: connections, isError: false },
 }));
+let latestCreate = 0;
 vi.mock("@/hooks/use-widget-templates", () => {
   const idle = () => ({ mutate: vi.fn(), mutateAsync: vi.fn() });
   return {
     useWidgetTemplates: () => ({ data: templates, isLoading: false }),
     useDeleteWidgetTemplate: idle,
+    // As TanStack v5: mutate's per-call callbacks fire for the LATEST call
+    // only; mutateAsync settles every call (#2476).
     useCreateWidgetTemplate: () => ({
-      mutate: mockCreate,
-      mutateAsync: vi.fn(),
+      mutate: (
+        input: unknown,
+        cb?: { onSuccess?: () => void; onError?: (e: Error) => void },
+      ) => {
+        const mine = ++latestCreate;
+        mockCreate(input).then(
+          () => mine === latestCreate && cb?.onSuccess?.(),
+          (e: Error) => mine === latestCreate && cb?.onError?.(e),
+        );
+      },
+      mutateAsync: mockCreate,
     }),
   };
 });
@@ -195,7 +216,7 @@ vi.mock("@neoboard/components", () => {
       children?: React.ReactNode;
     }) => <option value={value}>{children}</option>,
     focusedMenuTrigger: () => menuTrigger,
-    useToast: () => ({ toast: vi.fn() }),
+    useToast: () => ({ toast: mockToast }),
   };
 });
 
@@ -212,7 +233,10 @@ beforeEach(() => {
   sessionUser = { id: "u1", role: "creator" };
   templates = BASE_TEMPLATES;
   connections = [];
-  mockCreate.mockClear();
+  mockCreate.mockReset();
+  mockCreate.mockResolvedValue({});
+  mockToast.mockReset();
+  latestCreate = 0;
 });
 
 /**
@@ -249,6 +273,24 @@ describe("WidgetLibraryPage duplicate", () => {
 
     expect(mockCreate.mock.calls[0][0]).toMatchObject({
       connectorType: "acme-sheets",
+    });
+  });
+
+  it("keeps the first duplicate's failure toast when a second succeeds (#2476)", async () => {
+    mockCreate.mockRejectedValueOnce(new Error("nope"));
+    render(<WidgetLibraryPage />);
+
+    const items = screen.getAllByRole("menuitem", { name: "Duplicate" });
+    fireEvent.click(items[0]);
+    fireEvent.click(items[1]);
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Failed to duplicate template" }),
+      );
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Template duplicated" }),
+      );
     });
   });
 });
