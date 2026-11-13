@@ -50,10 +50,11 @@ interface SourceBucket {
 /**
  * Group the dashboard's widgets by the connection they reference.
  *
- * Content-only widgets (markdown, iframe) are excluded outright: they carry
- * `connectionId: ""` but never wanted a connection, so counting them would both
- * overstate the unassigned bucket and imply they are about to be rewritten —
- * which the server refuses to do (#1377).
+ * Content-only widgets (markdown, iframe) are skipped only in the unassigned
+ * bucket: an export writes them with `connectionId: ""` because they never
+ * wanted a connection, and the server refuses to stamp one on them (#1377).
+ * One that carries a real id is rewritten by the server like any other, so it
+ * counts under that id (#2338).
  */
 export function bucketWidgetsByConnection(
   layoutJson: Parameters<typeof migrateLayout>[0],
@@ -61,8 +62,10 @@ export function bucketWidgetsByConnection(
   const counts = new Map<string, number>();
   for (const page of migrateLayout(layoutJson).pages) {
     for (const widget of page.widgets) {
-      if (isContentOnlyChartType(widget.chartType)) continue;
       const key = widget.connectionId || UNASSIGNED;
+      if (key === UNASSIGNED && isContentOnlyChartType(widget.chartType)) {
+        continue;
+      }
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
   }

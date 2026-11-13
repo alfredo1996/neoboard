@@ -816,8 +816,9 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
     const dialog = within(screen.getByRole("dialog"));
     expect(dialog.getByText("Edit sheets")).toBeInTheDocument();
     expect(mockConnectionConfig).toHaveBeenCalledWith("c1");
-    // Edit opens with the advanced section — the descriptor's group and the
-    // app's own row cap — already showing.
+    // Edit opens collapsed like create (#2338); the descriptor's group and the
+    // app's own row cap show once the section is opened.
+    fireEvent.click(dialog.getByRole("button", { name: /Advanced Settings/ }));
     expect(fieldGroups(dialog)).toEqual([
       "Name",
       "Workbook",

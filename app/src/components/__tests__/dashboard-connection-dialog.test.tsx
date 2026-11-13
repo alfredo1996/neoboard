@@ -214,6 +214,23 @@ describe("DashboardConnectionDialog — source buckets", () => {
     expect(screen.queryByText("Unassigned")).not.toBeInTheDocument();
   });
 
+  // The server rewrites every widget carrying the source id, content-only or
+  // not (#2338), so the dialog's count must match what will move.
+  it("counts content-only widgets under the real connection id they carry", () => {
+    mockDashboard = {
+      layoutJson: layout([
+        widget({ id: "w1" }),
+        widget({ id: "md", chartType: "markdown" }),
+        widget({ id: "if", chartType: "iframe" }),
+      ]),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+
+    renderDialog();
+
+    expect(screen.getByText("3 widgets")).toBeInTheDocument();
+  });
+
   it("says so when the dashboard has no connection-backed widgets", () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockDashboard = { layoutJson: layout([]) } as any;

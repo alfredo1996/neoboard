@@ -205,8 +205,29 @@ describe("ConnectorConfigForm — edit (the same component)", () => {
     name: "Books",
   };
 
-  it("derives edit- ids from the same keys and starts with the advanced section open", () => {
+  it("starts with the advanced section collapsed, as create does (#2338)", () => {
     render(<Harness mode="edit" initial={initial} />);
+    expect(
+      screen.getByRole("button", { name: /Advanced Settings/ }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("still opens the advanced section when a field in it has an error", () => {
+    render(
+      <Harness
+        mode="edit"
+        initial={initial}
+        errors={{ own: { maxRows: "Too few rows" }, config: {} }}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: /Advanced Settings/ }),
+    ).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("derives edit- ids from the same keys", () => {
+    render(<Harness mode="edit" initial={initial} />);
+    openAdvanced();
     for (const id of [
       "edit-name",
       "edit-endpoint",
@@ -224,6 +245,7 @@ describe("ConnectorConfigForm — edit (the same component)", () => {
 
   it("pre-fills everything but the secrets", () => {
     render(<Harness mode="edit" initial={initial} />);
+    openAdvanced();
     expect(byId("edit-name")).toHaveValue("Books");
     expect(byId("edit-endpoint")).toHaveValue("acme://host/book");
     expect(byId("edit-page-size")).toHaveValue(50);
@@ -234,6 +256,7 @@ describe("ConnectorConfigForm — edit (the same component)", () => {
 
   it("leaves BOTH secrets blank, optional, and says blank keeps the stored one", () => {
     render(<Harness mode="edit" initial={initial} />);
+    openAdvanced();
     for (const id of ["edit-api-token", "edit-signing-secret"]) {
       expect(byId(id), id).toHaveValue("");
       expect(byId(id), id).toHaveAttribute(

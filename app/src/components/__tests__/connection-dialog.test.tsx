@@ -244,6 +244,7 @@ describe("ConnectionDialog — edit", () => {
 
   it("opens pre-filled under edit- ids, with no type picker and no inline test", () => {
     open(target);
+    click(/Advanced Settings/);
     expect(screen.getByText("Edit Books")).toBeVisible();
     expect(byId("edit-name")).toHaveValue("Books");
     expect(byId("edit-endpoint")).toHaveValue("acme://host/book");
@@ -280,6 +281,7 @@ describe("ConnectionDialog — edit", () => {
   it("sends the one secret that was re-entered", async () => {
     updateMutate.mockResolvedValue({ id: "c1" });
     open(target);
+    click(/Advanced Settings/);
     type("edit-signing-secret", "rotated");
     click("Save");
 
