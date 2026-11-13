@@ -1197,6 +1197,10 @@ export default function DashboardListPage() {
                                 <DropdownMenuItem
                                   onClick={() =>
                                     duplicateDashboard.mutate(d.id, {
+                                      onSuccess: () =>
+                                        toast({
+                                          title: "Dashboard duplicated",
+                                        }),
                                       // A refusal must not look like a
                                       // click that did nothing (#1816).
                                       onError: (err) =>

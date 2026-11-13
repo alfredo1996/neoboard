@@ -110,6 +110,20 @@ vi.mock("@neoboard/components", async () => {
       />
     ),
     Label: Nothing,
+    Tag: ({ children }: { children?: React.ReactNode }) => (
+      <span data-kit="tag">{children}</span>
+    ),
+    Status: ({
+      children,
+      tone,
+    }: {
+      children?: React.ReactNode;
+      tone: string;
+    }) => (
+      <span data-kit="status" data-tone={tone}>
+        {children}
+      </span>
+    ),
     Dialog: ({
       open,
       children,
@@ -388,6 +402,18 @@ describe("UsersPage — disable and enable (#2049)", () => {
     expect(row("u2").queryByText("Disabled")).toBeNull();
     expect(row("u2").getByText("Active")).toBeInTheDocument();
     expect(row(ME).queryByText("Disabled")).toBeNull();
+  });
+
+  it("shows the role as a Tag and the state as a Status, none-toned when disabled (#2337)", () => {
+    render(<UsersPage />);
+
+    expect(row("u2").getByText("Creator")).toHaveAttribute("data-kit", "tag");
+    const active = row("u2").getByText("Active");
+    expect(active).toHaveAttribute("data-kit", "status");
+    expect(active).toHaveAttribute("data-tone", "good");
+    const disabled = row("u3").getByText("Disabled");
+    expect(disabled).toHaveAttribute("data-kit", "status");
+    expect(disabled).toHaveAttribute("data-tone", "none");
   });
 
   it("names a user who has no name by their email", async () => {

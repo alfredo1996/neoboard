@@ -79,6 +79,8 @@ const mockTestInline = vi.fn();
 const mockToast = vi.fn();
 const mockUpdate = vi.fn();
 const mockCreate = vi.fn();
+const mockDeleteConn = vi.fn();
+const mockReassignConn = vi.fn();
 const mockConnectionConfig = vi.fn();
 
 vi.mock("next-auth/react", () => ({
@@ -107,8 +109,11 @@ vi.mock("@/hooks/use-connections", () => {
     }),
     useCreateConnection: () => ({ ...idle(), mutateAsync: mockCreate }),
     useUpdateConnection: () => ({ ...idle(), mutateAsync: mockUpdate }),
-    useDeleteConnection: idle,
-    useReassignConnection: idle,
+    useDeleteConnection: () => ({ ...idle(), mutateAsync: mockDeleteConn }),
+    useReassignConnection: () => ({
+      ...idle(),
+      mutateAsync: mockReassignConn,
+    }),
     useTestInlineConnection: () => ({ ...idle(), mutateAsync: mockTestInline }),
     useTestConnection: () => ({ mutateAsync: mockTest }),
   };
@@ -361,6 +366,7 @@ beforeEach(() => {
   mockConnections = [];
   mockConnectionsLoading = false;
   mockUsage = undefined;
+  mockDeleteConn.mockResolvedValue({});
   mockConnectors = { data: INSTALLED, isLoading: false, isError: false };
   useConnectionStatusStore.getState().reset();
   // A background tab: the rest of the suite probes only what it clicks.
@@ -1006,6 +1012,80 @@ it("a create from the empty state puts focus on the heading (#2146)", async () =
   expect(mockCreate).toHaveBeenCalledOnce();
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.getByRole("heading", { name: "Connections" })).toHaveFocus();
+});
+
+describe("ConnectionsPage — success is confirmed (#2337)", () => {
+  it("a create says so", async () => {
+    mockCreate.mockResolvedValue({ id: "c9" });
+    mockTest.mockResolvedValue({ success: true });
+    render(<ConnectionsPage />);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create your first connection" }),
+    );
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.click(dialog.getByTestId("pick-any"));
+    fireEvent.click(dialog.getByTestId("fill-name"));
+    fireEvent.click(dialog.getByRole("button", { name: "Create" }));
+    await flush();
+
+    expect(mockToast).toHaveBeenCalledWith({ title: "Connection created" });
+  });
+
+  it("a confirmed delete says so once the server has deleted it", async () => {
+    mockDeleteConn.mockResolvedValue({});
+    mockConnections = rows(1);
+    render(<ConnectionsPage />);
+
+    pick("conn-1", "Delete");
+    fireEvent.click(screen.getByRole("button", { name: "Delete connection" }));
+    await flush();
+
+    expect(mockToast).toHaveBeenCalledWith({ title: "Connection deleted" });
+  });
+
+  it("a refused delete does not say it worked", async () => {
+    mockDeleteConn.mockRejectedValue(new Error("no"));
+    mockConnections = rows(1);
+    render(<ConnectionsPage />);
+
+    pick("conn-1", "Delete");
+    fireEvent.click(screen.getByRole("button", { name: "Delete connection" }));
+    await flush();
+
+    expect(mockToast).not.toHaveBeenCalledWith({ title: "Connection deleted" });
+  });
+
+  it("a re-assign says how many widgets moved, and to which connection", async () => {
+    mockReassignConn.mockResolvedValue({
+      dashboardsUpdated: 1,
+      widgetsReassigned: 2,
+    });
+    mockConnections = [
+      ...rows(1, { name: "source", type: "acme-sheets" }),
+      { ...rows(1)[0], id: "c2", name: "target", type: "acme-sheets" },
+    ];
+    mockUsage = {
+      widgetCount: 2,
+      dashboards: [{ id: "d1", name: "Budget", widgetCount: 2 }],
+    };
+    render(<ConnectionsPage />);
+    pick("source", "Delete");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Re-assign widgets to another connection…",
+      }),
+    );
+    const dialog = within(screen.getByRole("dialog"));
+    fireEvent.change(document.getElementById("reassign-target")!, {
+      target: { value: "c2" },
+    });
+    fireEvent.click(dialog.getByRole("button", { name: "Re-assign" }));
+    await flush();
+
+    expect(mockToast).toHaveBeenCalledWith({
+      title: "Moved 2 widgets to target",
+    });
+  });
 });
 
 describe("ConnectionsPage — where focus goes after Delete (#2086)", () => {

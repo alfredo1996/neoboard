@@ -260,6 +260,56 @@ test.describe("Connections", () => {
     await dialog.getByRole("button", { name: "Create" }).click();
 
     await expect(page.getByText(name)).toBeVisible();
+    await expect(
+      page.getByText("Connection created", { exact: true }),
+    ).toBeVisible();
+  });
+
+  test("twin names stay apart at 1024 px: the row wraps instead of cutting the end (#2337)", async ({
+    page,
+  }) => {
+    const base = `PostgreSQL Ecommerce ${uid().slice(-8)}`;
+    const ids: string[] = [];
+    try {
+      for (const side of ["read", "write"]) {
+        const res = await page.request.post("/api/connections", {
+          data: {
+            name: `${base} (demo, ${side})`,
+            type: "postgresql",
+            config: {
+              uri: `postgresql://localhost:${TEST_PG_PORT}`,
+              username: "neoboard",
+              password: "neoboard",
+              database: "movies",
+            },
+          },
+        });
+        expect(res.ok()).toBe(true);
+        ids.push((await res.json()).data.id as string);
+      }
+      await page.setViewportSize({ width: 1024, height: 800 });
+      await page.reload();
+      for (const side of ["read", "write"]) {
+        const name = `${base} (demo, ${side})`;
+        const title = page.getByText(name, { exact: true });
+        await expect(title).toBeVisible();
+        // Two lines tall, not cut to one: the box is taller than a line.
+        const box = await title.boundingBox();
+        const lineHeight = await title.evaluate((el) =>
+          Number.parseFloat(getComputedStyle(el).lineHeight),
+        );
+        expect(box!.height).toBeGreaterThan(lineHeight);
+        // And what is visible ends in the side that tells the twins apart.
+        const clipped = await title.evaluate(
+          (el) => el.scrollHeight > el.clientHeight + 1,
+        );
+        expect(clipped).toBe(false);
+      }
+    } finally {
+      for (const id of ids) {
+        await page.request.delete(`/api/connections/${id}?force=true`);
+      }
+    }
   });
 
   test("should create a PostgreSQL connection", async ({ page }) => {
@@ -554,6 +604,9 @@ test.describe("Connections", () => {
     // Confirm deletion
     await page.getByRole("button", { name: "Delete" }).click();
     await expect(page.getByText(name)).not.toBeVisible();
+    await expect(
+      page.getByText("Connection deleted", { exact: true }),
+    ).toBeVisible();
   });
 
   // ─────────────────────────────────────────────────────────────────────────

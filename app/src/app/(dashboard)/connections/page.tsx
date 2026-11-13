@@ -61,6 +61,7 @@ import {
   controlSizes,
   fieldBaseClasses,
 } from "@neoboard/components";
+import { pluralWidgets } from "@/lib/widget/plural-widgets";
 import { List, ListRow, PageHeader } from "@neoboard/components/kit";
 import {
   connectionListMeta,
@@ -295,7 +296,12 @@ export default function ConnectionsPage() {
 
   /** A save closes the dialog and probes that one connection (#1426). */
   function handleSaved(id: string) {
-    if (dialogTarget?.mode === "edit") toast({ title: "Connection updated" });
+    toast({
+      title:
+        dialogTarget?.mode === "edit"
+          ? "Connection updated"
+          : "Connection created",
+    });
     // The empty state and its button leave with the refetch, after the close.
     if (!connections?.length) setReturnFocusTo(headingRef.current);
     setDialogTarget(null);
@@ -430,7 +436,12 @@ export default function ConnectionsPage() {
             setReturnFocusTo(headingRef.current);
             const force =
               !!deleteUsage.data && deleteUsage.data.widgetCount > 0;
-            deleteConnection.mutate({ id: deleteTarget, force });
+            // mutateAsync, not mutate's per-call onSuccess: a second delete
+            // started before this one lands would otherwise drop its toast.
+            deleteConnection.mutateAsync({ id: deleteTarget, force }).then(
+              () => toast({ title: "Connection deleted" }),
+              () => undefined, // a refusal leaves the row; nothing to confirm
+            );
             setDeleteTarget(null);
           }
         }}
@@ -520,9 +531,15 @@ export default function ConnectionsPage() {
                 if (!reassignTarget || !reassignChoice) return;
                 setReassignError(null);
                 try {
-                  await reassignConnection.mutateAsync({
+                  const result = await reassignConnection.mutateAsync({
                     fromId: reassignTarget,
                     targetConnectionId: reassignChoice,
+                  });
+                  const target = connections?.find(
+                    (c) => c.id === reassignChoice,
+                  );
+                  toast({
+                    title: `Moved ${pluralWidgets(result.widgetsReassigned)} to ${target?.name ?? "the other connection"}`,
                   });
                   setReassignTarget(null);
                   setReassignChoice("");

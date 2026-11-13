@@ -182,3 +182,38 @@ test.describe("Remove widget and Delete page ask first (#2055)", () => {
     }
   });
 });
+
+// The widget menu draws an icon before every item, as the list menus do (#2337).
+test("every item of the widget actions menu has an icon (#2337)", async ({
+  page,
+  authPage,
+}) => {
+  test.setTimeout(60_000);
+  await authPage.login(ALICE.email, ALICE.password);
+  const { id, cleanup } = await createTestDashboard(
+    page.request,
+    `Widget menu icons ${uid()}`,
+  );
+  try {
+    await page.request.put(`/api/dashboards/${id}`, {
+      data: {
+        layoutJson: { version: 2, pages: [pageOf("p1", "Main", ["Subject"])] },
+      },
+    });
+    await page.goto(`/${id}/edit`);
+    const card = page.locator('[data-widget-id="p1-w0"]');
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await card
+      .getByRole("button", { name: "Widget actions", exact: true })
+      .click();
+
+    const items = page.getByRole("menuitem");
+    await expect(items.filter({ hasText: "Edit Widget" })).toHaveCount(1);
+    await expect(items.filter({ hasText: "Duplicate" })).toHaveCount(1);
+    await expect(items.filter({ hasText: "Remove widget…" })).toHaveCount(1);
+    const total = await items.count();
+    await expect(items.locator("svg")).toHaveCount(total);
+  } finally {
+    await cleanup();
+  }
+});

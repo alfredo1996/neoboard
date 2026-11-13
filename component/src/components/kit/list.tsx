@@ -125,7 +125,7 @@ const PLAIN_LEFT_CLICK = (e: React.MouseEvent) =>
   e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
 
 const TITLE_CLASS =
-  "block truncate font-medium text-inherit no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring";
+  "block line-clamp-2 font-medium text-inherit no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring";
 
 function RowTitle({
   title,
@@ -162,7 +162,7 @@ function RowTitle({
     );
   }
   return (
-    <span className="block truncate font-medium" title={title}>
+    <span className="block line-clamp-2 font-medium" title={title}>
       {title}
     </span>
   );

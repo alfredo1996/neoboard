@@ -53,6 +53,8 @@ import {
   CopyButton,
   useToast,
   Field,
+  Tag,
+  Status,
 } from "@neoboard/components";
 import {
   FilterLine,
@@ -273,10 +275,14 @@ export default function UsersPage() {
         title={u.name ?? u.email ?? "—"}
         description={u.name && u.email ? u.email : undefined}
         meta={[
-          roleLabel(u.role),
+          <Tag key="role">{roleLabel(u.role)}</Tag>,
           writeLabel(u),
           formatShortDate(u.createdAt),
-          u.disabledAt ? "Disabled" : "Active",
+          // The same tones the Connections list gives a verdict, a hollow
+          // shape for no live access.
+          <Status key="state" tone={u.disabledAt ? "none" : "good"}>
+            {u.disabledAt ? "Disabled" : "Active"}
+          </Status>,
         ]}
         menu={
           isAdmin && (

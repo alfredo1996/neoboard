@@ -332,6 +332,9 @@ test.describe("Dashboard CRUD", () => {
       ]);
       expect(duplicated.status()).toBe(201);
       copyId = (await duplicated.json()).data.id as string;
+      await expect(
+        page.getByText("Dashboard duplicated", { exact: true }),
+      ).toBeVisible();
 
       // The copy appears next to the original.
       await expect(page.getByText(copyName, { exact: true })).toBeVisible({

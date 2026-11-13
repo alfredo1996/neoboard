@@ -48,7 +48,15 @@ import {
   useParameterValues,
 } from "@/stores/parameter-store";
 import { shouldShowRefreshButton } from "@/lib/query/resolve-cache-options";
-import { RefreshCw, SlidersHorizontal } from "lucide-react";
+import {
+  Copy,
+  Download,
+  Pencil,
+  RefreshCw,
+  SlidersHorizontal,
+  Trash2,
+  Unlink,
+} from "lucide-react";
 import {
   buildCsvString,
   triggerDownload,
@@ -427,9 +435,17 @@ export function DashboardContainer({
     }
     if (exportChildren.length === 1) {
       const only = exportChildren[0];
-      actions.push({ label: `Export ${only.label}`, onClick: only.onClick });
+      actions.push({
+        label: `Export ${only.label}`,
+        icon: Download,
+        onClick: only.onClick,
+      });
     } else if (exportChildren.length > 1) {
-      actions.push({ label: "Export", children: exportChildren });
+      actions.push({
+        label: "Export",
+        icon: Download,
+        children: exportChildren,
+      });
     }
 
     // "Save to Widget Library" (formerly Widget Lab) moved to the widget
@@ -439,12 +455,14 @@ export function DashboardContainer({
     if (onEditWidget) {
       actions.push({
         label: "Edit Widget",
+        icon: Pencil,
         onClick: () => onEditWidget(widget),
       });
     }
     if (onDuplicateWidget) {
       actions.push({
         label: "Duplicate",
+        icon: Copy,
         onClick: () => onDuplicateWidget(widget.id),
       });
     }
@@ -452,6 +470,7 @@ export function DashboardContainer({
       if (isWidgetTemplateOutdated(widget, templateMap) && onSyncWidget) {
         actions.push({
           label: "Sync with template…",
+          icon: RefreshCw,
           onClick: () => {
             setDialogOpener({ el: focusedMenuTrigger(), fallback: null });
             setPendingSyncWidget(widget);
@@ -462,6 +481,7 @@ export function DashboardContainer({
       if (onDetachWidget) {
         actions.push({
           label: "Detach from template",
+          icon: Unlink,
           onClick: () => onDetachWidget(widget.id),
         });
       }
@@ -469,6 +489,7 @@ export function DashboardContainer({
     if (onRemoveWidget) {
       actions.push({
         label: "Remove widget…",
+        icon: Trash2,
         onClick: () => {
           setRemoveTarget({ widget, returnFocusTo: focusedMenuTrigger() });
           setRemoveOpen(true);

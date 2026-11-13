@@ -38,9 +38,11 @@ const idle = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
 const mockDelete = vi.fn();
 let dashboards: DashboardListItem[] | undefined = [DASHBOARD];
 let dashboardsLoading = false;
+let duplicateRefused = true;
 beforeEach(() => {
   dashboards = [DASHBOARD];
   dashboardsLoading = false;
+  duplicateRefused = true;
 });
 
 vi.mock("@/hooks/use-dashboards", () => ({
@@ -52,8 +54,16 @@ vi.mock("@/hooks/use-dashboards", () => ({
   // The server refuses the copy (#1816).
   useDuplicateDashboard: () => ({
     isPending: false,
-    mutate: (_id: string, options?: { onError?: (err: Error) => void }) =>
-      options?.onError?.(new Error(DENIED)),
+    mutate: (
+      _id: string,
+      options?: {
+        onError?: (err: Error) => void;
+        onSuccess?: () => void;
+      },
+    ) =>
+      duplicateRefused
+        ? options?.onError?.(new Error(DENIED))
+        : options?.onSuccess?.(),
   }),
 }));
 
@@ -235,6 +245,15 @@ describe("DashboardListPage first load", () => {
 });
 
 describe("DashboardListPage duplicate", () => {
+  it("says the copy exists (#2337)", () => {
+    duplicateRefused = false;
+    render(<DashboardListPage />);
+
+    fireEvent.click(screen.getByText("Duplicate"));
+
+    expect(mockToast).toHaveBeenCalledWith({ title: "Dashboard duplicated" });
+  });
+
   it("shows the server's reason when a duplicate is refused (#1816)", () => {
     render(<DashboardListPage />);
 

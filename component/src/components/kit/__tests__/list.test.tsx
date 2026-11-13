@@ -187,6 +187,26 @@ describe("ListRow title: opener and tooltip (#2254)", () => {
   );
 
   it.each([
+    ["a link", { href: "/d/1", onOpen: vi.fn() }, "link"],
+    ["a button", { onOpen: vi.fn() }, "button"],
+    ["plain text", {}, null],
+  ])(
+    "%s wraps to two lines instead of cutting the end of a twin name (#2337)",
+    (_, props, role) => {
+      render(
+        <List label="L" columns={["Name"]}>
+          <ListRow title="Ecommerce (demo, write)" {...props} />
+        </List>,
+      );
+      const el = role
+        ? screen.getByRole(role as "link" | "button")
+        : screen.getByText("Ecommerce (demo, write)");
+      expect(el).toHaveClass("line-clamp-2");
+      expect(el).not.toHaveClass("truncate");
+    },
+  );
+
+  it.each([
     ["link", { href: "/d/1" }],
     ["button", {}],
   ])("hands the %s it was opened from to onOpen", (role, props) => {

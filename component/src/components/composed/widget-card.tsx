@@ -29,6 +29,8 @@ import type { CardBackground } from "@/lib/card-background";
 
 export interface WidgetCardAction {
   label: string;
+  /** Drawn before the label, 16px with the list menus' gap (#2337). */
+  icon?: React.ComponentType<{ className?: string }>;
   /**
    * Click handler. Omit when `children` is set — the entry becomes a submenu
    * parent and clicks open the submenu instead of firing a callback.
@@ -288,6 +290,16 @@ function SourceLine({
   );
 }
 
+function ActionLabel({ action }: { readonly action: WidgetCardAction }) {
+  const Icon = action.icon;
+  return (
+    <>
+      {Icon && <Icon className="mr-2 h-4 w-4" />}
+      {action.label}
+    </>
+  );
+}
+
 function ActionItems({ actions }: { readonly actions: WidgetCardAction[] }) {
   return actions.map((action, index) => (
     <React.Fragment key={`${action.label}-${index}`}>
@@ -298,7 +310,7 @@ function ActionItems({ actions }: { readonly actions: WidgetCardAction[] }) {
             disabled={action.disabled}
             className={cn(action.disabled && "opacity-50 cursor-not-allowed")}
           >
-            {action.label}
+            <ActionLabel action={action} />
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
             {action.children.map((child) => (
@@ -312,7 +324,7 @@ function ActionItems({ actions }: { readonly actions: WidgetCardAction[] }) {
                   child.disabled && "opacity-50 cursor-not-allowed",
                 )}
               >
-                {child.label}
+                <ActionLabel action={child} />
               </DropdownMenuItem>
             ))}
           </DropdownMenuSubContent>
@@ -326,7 +338,7 @@ function ActionItems({ actions }: { readonly actions: WidgetCardAction[] }) {
             action.disabled && "opacity-50 cursor-not-allowed",
           )}
         >
-          {action.label}
+          <ActionLabel action={action} />
         </DropdownMenuItem>
       )}
     </React.Fragment>
