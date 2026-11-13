@@ -17,6 +17,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  FieldError,
   Input,
   LoadingButton,
 } from "@neoboard/components";
@@ -211,6 +212,10 @@ export function DashboardViewToolbar({
                           if (e.key === "Enter") handleCustomApply();
                         }}
                         className="h-7 text-xs"
+                        aria-invalid={customTooLow || undefined}
+                        aria-describedby={
+                          customTooLow ? "custom-interval-error" : undefined
+                        }
                         data-testid="custom-interval-input"
                       />
                       <Button
@@ -223,11 +228,9 @@ export function DashboardViewToolbar({
                         Set
                       </Button>
                     </div>
-                    {customTooLow && (
-                      <p role="alert" className="text-xs text-destructive">
-                        Minimum is 5 seconds
-                      </p>
-                    )}
+                    <FieldError id="custom-interval-error">
+                      {customTooLow && "Minimum is 5 seconds"}
+                    </FieldError>
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -94,6 +94,58 @@ test.describe("Dashboard page polish (#2334)", () => {
     }
   });
 
+  test("UX-9: a default value shows its label on load, with no click and no extra query", async ({
+    page,
+  }) => {
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Chip default ${uid()}`,
+    );
+    try {
+      await putLayout(
+        page.request,
+        id,
+        [
+          {
+            id: "sel",
+            chartType: "parameter-select",
+            connectionId: "conn-neo4j-001",
+            query: "",
+            settings: {
+              title: "Continent",
+              chartOptions: {
+                parameterType: "select",
+                parameterName: "continent",
+                defaultValue: "%",
+                seedQuery:
+                  "RETURN '%' AS value, 'All continents' AS label UNION RETURN 'EU' AS value, 'Europe' AS label",
+              },
+            },
+          },
+        ],
+        [{ i: "sel", x: 0, y: 0, w: 4, h: 3 }],
+      );
+      let queries = 0;
+      page.on("request", (req) => {
+        if (new URL(req.url()).pathname === "/api/query") queries++;
+      });
+      await page.goto(`/${id}`);
+      const strip = page.getByRole("region", {
+        name: "Active filters",
+        exact: true,
+      });
+      await expect(strip).toContainText("Continent: All continents", {
+        timeout: 10_000,
+      });
+      // Writing the label is display only: it must not refetch anything.
+      const settled = queries;
+      await page.waitForTimeout(1_500);
+      expect(queries).toBe(settled);
+    } finally {
+      await cleanup();
+    }
+  });
+
   test("DS-4: header, title and cards share one left and right edge, at 1440 and 1800", async ({
     page,
   }) => {
@@ -162,10 +214,24 @@ test.describe("Dashboard page polish (#2334)", () => {
       await page.getByRole("button", { name: "Share", exact: true }).click();
       const email = page.locator("#assign-email");
       await expect(email).toBeVisible({ timeout: 10_000 });
-      const fits = await email.evaluate(
-        (el: HTMLInputElement) => el.scrollWidth <= el.clientWidth,
+      // Chromium leaves placeholder overflow out of scrollWidth, so measure the
+      // placeholder's own text against the room the field has.
+      const { textWidth, room } = await email.evaluate(
+        (el: HTMLInputElement) => {
+          const cs = getComputedStyle(el);
+          const ctx = document.createElement("canvas").getContext("2d")!;
+          ctx.font = cs.font;
+          return {
+            textWidth: ctx.measureText(el.placeholder).width,
+            room:
+              el.clientWidth -
+              Number.parseFloat(cs.paddingLeft) -
+              Number.parseFloat(cs.paddingRight),
+          };
+        },
       );
-      expect(fits).toBe(true);
+      expect(textWidth).toBeGreaterThan(0);
+      expect(textWidth).toBeLessThanOrEqual(room);
       // Full row: Assign sits below, not beside, the email.
       const emailBox = (await email.boundingBox())!;
       const assign = (await page

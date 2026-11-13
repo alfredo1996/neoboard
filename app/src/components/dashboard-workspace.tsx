@@ -841,7 +841,7 @@ export function DashboardWorkspace({
       )}
 
       {editMode && saveError && (
-        <div className="px-6 pt-2">
+        <div className="px-4 pt-2 md:px-7">
           <Alert variant="destructive">
             <AlertDescription>{saveError}</AlertDescription>
           </Alert>

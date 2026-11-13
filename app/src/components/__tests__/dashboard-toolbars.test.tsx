@@ -155,7 +155,10 @@ describe("custom auto-refresh interval typing (#2293)", () => {
       await userEvent.type(screen.getByTestId("custom-interval-input"), typed);
       await userEvent.click(screen.getByTestId("custom-interval-apply"));
       expect(screen.getByText("Minimum is 5 seconds")).toBeInTheDocument();
-      expect(screen.getByTestId("custom-interval-input")).toBeInTheDocument();
+      // The input says it is invalid and points at the message (#2334).
+      const input = screen.getByTestId("custom-interval-input");
+      expect(input).toHaveAttribute("aria-invalid", "true");
+      expect(input).toHaveAccessibleDescription("Minimum is 5 seconds");
       expect(onApplyInterval).not.toHaveBeenCalled();
     },
   );

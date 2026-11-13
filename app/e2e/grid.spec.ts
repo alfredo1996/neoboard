@@ -61,8 +61,8 @@ test.describe("Dashboard grid", () => {
   });
 });
 
-// Container = viewport − sidebar (192) − page padding (48), so 1600 gives
-// ~1360 (at or above the lg breakpoint of 1200) and 1280 gives ~1040 (below
+// Container = viewport − sidebar (192) − page padding (56), so 1600 gives
+// ~1352 (at or above the lg breakpoint of 1200) and 1280 gives ~1032 (below
 // it). Both are asserted where they matter rather than assumed.
 const WIDE = { width: 1600, height: 1000 };
 const NARROW = { width: 1280, height: 1000 };

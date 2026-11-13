@@ -390,9 +390,16 @@ describe("useParameterStore", () => {
       expect(restored["year"].source).toBe("YearPicker");
     });
 
-    it("keeps a selector's label through save and restore, and drops it when the value is set again without one", () => {
-      const { setParameter, saveToDashboard, restoreFromDashboard } =
-        useParameterStore.getState();
+    it("keeps a label through save and restore; setParameterLabel only patches a set parameter; a later write drops it", () => {
+      const {
+        setParameter,
+        setParameterLabel,
+        saveToDashboard,
+        restoreFromDashboard,
+      } = useParameterStore.getState();
+      setParameterLabel("ghost", "Nobody");
+      expect(useParameterStore.getState().parameters["ghost"]).toBeUndefined();
+
       setParameter(
         "region",
         "%",
@@ -401,8 +408,8 @@ describe("useParameterStore", () => {
         "select",
         "selector-widget",
         "w1",
-        "All continents",
       );
+      setParameterLabel("region", "All continents");
       saveToDashboard("dash-label");
       restoreFromDashboard("dash-label");
       expect(useParameterStore.getState().parameters["region"].label).toBe(

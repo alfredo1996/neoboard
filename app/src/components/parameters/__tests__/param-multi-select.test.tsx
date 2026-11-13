@@ -61,6 +61,7 @@ function makeActions(value?: unknown, hasEntry = true): ParamActions {
     setCompanion: vi.fn(),
     clearCompanion: vi.fn(),
     retype: vi.fn(),
+    setLabel: vi.fn(),
     currentEntry,
   };
 }

@@ -62,8 +62,9 @@ interface ParameterState {
     type?: ParameterType,
     sourceType?: ParameterSource,
     sourceWidgetId?: string,
-    label?: string,
   ) => void;
+  /** Patches the label of a parameter that is set; a later `setParameter` drops it. */
+  setParameterLabel: (name: string, label: string) => void;
   /** Atomically set multiple parameters in a single state update (no intermediate renders). */
   setParametersBatch: (
     entries: Array<{
@@ -174,7 +175,6 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
     type = "text",
     sourceType = "click-action",
     sourceWidgetId?,
-    label?,
   ) => {
     const result = coerceValue(value, type);
     if (!result.ok) {
@@ -194,11 +194,19 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
           type,
           sourceType,
           sourceWidgetId,
-          label,
         },
       },
     }));
   },
+
+  setParameterLabel: (name, label) =>
+    set((state) => {
+      const entry = state.parameters[name];
+      if (!entry || entry.label === label) return state;
+      return {
+        parameters: { ...state.parameters, [name]: { ...entry, label } },
+      };
+    }),
 
   setParametersBatch: (entries) => {
     set((state) => {
