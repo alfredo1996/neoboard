@@ -466,6 +466,24 @@ function MarkdownWidget({
     [content, highlighterReady],
   );
 
+  // Is there more below the fold? Overlay scrollbars show nothing (#2335).
+  const sectionRef = React.useRef<HTMLElement>(null);
+  const [moreBelow, setMoreBelow] = React.useState(false);
+  const measure = React.useCallback(() => {
+    const el = sectionRef.current;
+    if (el) {
+      setMoreBelow(el.scrollHeight - el.clientHeight - el.scrollTop > 1);
+    }
+  }, []);
+  React.useLayoutEffect(() => {
+    measure();
+    const el = sectionRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measure, html]);
+
   if (!content) {
     return (
       <div data-testid="markdown-widget" className={cn("h-full", className)}>
@@ -479,29 +497,42 @@ function MarkdownWidget({
   }
 
   return (
-    <section
-      data-testid="markdown-widget"
-      // A scrollable region must be focusable or keyboard users cannot scroll
-      // it (axe scrollable-region-focusable, #1505); Sonar's S6842 disagrees.
-      tabIndex={0} // NOSONAR
-      aria-label="Markdown content"
-      className={cn(
-        "h-full overflow-auto p-4 max-w-none",
-        "font-body",
-        sizeKey ? [SIZE_CLASS[sizeKey], SCALED_HEADINGS] : "text-sm",
-        "leading-[1.6] text-foreground",
-        alignKey && ALIGN_CLASS[alignKey],
-        className,
+    <div className="relative h-full min-h-0">
+      <section
+        ref={sectionRef}
+        onScroll={measure}
+        data-testid="markdown-widget"
+        // A scrollable region must be focusable or keyboard users cannot scroll
+        // it (axe scrollable-region-focusable, #1505); Sonar's S6842 disagrees.
+        tabIndex={0} // NOSONAR
+        aria-label="Markdown content"
+        className={cn(
+          "h-full overflow-auto p-4 max-w-none",
+          "font-body",
+          sizeKey ? [SIZE_CLASS[sizeKey], SCALED_HEADINGS] : "text-sm",
+          "leading-[1.6] text-foreground",
+          alignKey && ALIGN_CLASS[alignKey],
+          className,
+        )}
+        style={
+          sizeKey
+            ? ({ "--md-scale": SIZE_SCALE[sizeKey] } as React.CSSProperties)
+            : undefined
+        }
+        // Safe: parseMarkdown escapes all user text via escapeHtml and validates
+        // URLs via isSafeLinkUrl/isSafeImageUrl. No raw user HTML reaches the DOM.
+        dangerouslySetInnerHTML={{ __html: html! }} // NOSONAR
+      />
+      {moreBelow && (
+        <div
+          data-testid="markdown-fade"
+          aria-hidden="true"
+          // The card's own surface (--card follows a tinted card, #2394), so it
+          // reads in both themes; it never takes a click or a wheel.
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent"
+        />
       )}
-      style={
-        sizeKey
-          ? ({ "--md-scale": SIZE_SCALE[sizeKey] } as React.CSSProperties)
-          : undefined
-      }
-      // Safe: parseMarkdown escapes all user text via escapeHtml and validates
-      // URLs via isSafeLinkUrl/isSafeImageUrl. No raw user HTML reaches the DOM.
-      dangerouslySetInnerHTML={{ __html: html! }} // NOSONAR
-    />
+    </div>
   );
 }
 

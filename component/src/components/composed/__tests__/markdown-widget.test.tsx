@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { MarkdownWidget, parseMarkdown } from "../markdown-widget";
 
 /**
@@ -136,10 +136,8 @@ describe("MarkdownWidget", () => {
   });
 
   it("applies custom className", () => {
-    const { container } = render(
-      <MarkdownWidget content="test" className="custom-class" />,
-    );
-    expect(container.firstChild).toHaveClass("custom-class");
+    render(<MarkdownWidget content="test" className="custom-class" />);
+    expect(screen.getByTestId("markdown-widget")).toHaveClass("custom-class");
   });
 
   it("has data-testid for testing", () => {
@@ -884,5 +882,52 @@ describe("MarkdownWidget text size and alignment (#2392)", () => {
     expect(root()).toHaveClass("text-sm");
     expect(root().className).not.toContain("text-justify");
     expect(root().getAttribute("style")).toBeNull();
+  });
+
+  // The saved widget can be shorter than its text; overlay scrollbars then say
+  // nothing about the rest (#2335, DS-6).
+  describe("fade while there is more below", () => {
+    const sizes = (scrollHeight: number, clientHeight: number) => {
+      vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(
+        scrollHeight,
+      );
+      vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(
+        clientHeight,
+      );
+    };
+    afterEach(() => vi.restoreAllMocks());
+
+    it("shows when the content overflows", () => {
+      sizes(500, 200);
+      render(<MarkdownWidget content="long" />);
+      expect(screen.getByTestId("markdown-fade")).toBeInTheDocument();
+    });
+
+    it("is absent when the content fits", () => {
+      sizes(200, 200);
+      render(<MarkdownWidget content="short" />);
+      expect(screen.queryByTestId("markdown-fade")).toBeNull();
+    });
+
+    it("goes away at the end of the scroll and returns when scrolled back", () => {
+      sizes(500, 200);
+      render(<MarkdownWidget content="long" />);
+      const section = screen.getByTestId("markdown-widget");
+      section.scrollTop = 300;
+      fireEvent.scroll(section);
+      expect(screen.queryByTestId("markdown-fade")).toBeNull();
+      section.scrollTop = 100;
+      fireEvent.scroll(section);
+      expect(screen.getByTestId("markdown-fade")).toBeInTheDocument();
+    });
+
+    it("never intercepts the pointer and fades to the card surface", () => {
+      sizes(500, 200);
+      render(<MarkdownWidget content="long" />);
+      const fade = screen.getByTestId("markdown-fade");
+      expect(fade).toHaveClass("pointer-events-none");
+      expect(fade).toHaveClass("from-card");
+      expect(fade).toHaveAttribute("aria-hidden", "true");
+    });
   });
 });

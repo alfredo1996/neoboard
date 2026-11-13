@@ -36,14 +36,7 @@ import React, {
   useLayoutEffect,
   useState,
 } from "react";
-import {
-  AlertCircle,
-  CircleStop,
-  Clock,
-  Play,
-  Square,
-  Unplug,
-} from "lucide-react";
+import { AlertCircle, CircleStop, Clock, Play, Square } from "lucide-react";
 import {
   QueueFullError,
   ClientQueueTimeoutError,
@@ -67,6 +60,7 @@ import {
   substituteParamsInUrl,
 } from "@neoboard/components";
 import { ChartRenderer } from "./chart-renderer";
+import { WidgetErrorState } from "./widget-error-state";
 import { highlightedNames } from "@/lib/widget/highlighted-names";
 
 /** Chart types that support column mapping overlays. */
@@ -207,45 +201,13 @@ function ConnectorUnavailable({
   detail?: string;
   onRetry?: () => void;
 }>) {
-  // Not the boxed destructive Alert the query errors use: that overflowed a
-  // KPI-sized card and cut the hint mid-sentence, and a wall of red boxes
-  // read as twelve failures where there is one — the connector (#1888).
-  // Centered and quiet like the other "nothing to draw" states. The hint is
-  // clamped, and squeezed out entirely in the smallest cards, so `title` on
-  // the root keeps the whole sentence reachable from anywhere in the card.
   return (
-    <div
-      role="alert"
-      title={hint}
-      className="flex h-full min-h-0 flex-col items-center justify-center gap-1.5 overflow-hidden p-3 text-center"
-    >
-      <p className="flex items-center gap-1.5 text-sm font-medium">
-        <Unplug className="h-4 w-4 shrink-0 text-destructive" aria-hidden />
-        Connector unavailable
-      </p>
-      {/* First to give way: a KPI-sized card keeps the title and Retry. */}
-      <p className="line-clamp-2 min-h-0 max-w-sm text-xs text-muted-foreground">
-        {hint}
-      </p>
-      {detail && (
-        <p
-          title={detail}
-          className="line-clamp-2 max-w-sm font-mono text-xs text-muted-foreground/70"
-        >
-          {detail}
-        </p>
-      )}
-      {onRetry && (
-        <Button
-          variant="secondary"
-          size="sm"
-          className="mt-1 h-7 shrink-0 px-2.5 text-xs"
-          onClick={onRetry}
-        >
-          Retry
-        </Button>
-      )}
-    </div>
+    <WidgetErrorState
+      heading="Connector unavailable"
+      hint={hint}
+      detail={detail}
+      onRetry={onRetry}
+    />
   );
 }
 
@@ -499,11 +461,17 @@ export function CardContainer({
     chartConfig.capabilities.requiresQuery &&
     Array.isArray(rows) &&
     rows.length === 0;
+  // The widget's own emptyMessage (#2335) wins for every chart type; blank or
+  // non-string falls back to the generic text.
+  const customEmpty =
+    typeof chartOptions.emptyMessage === "string"
+      ? chartOptions.emptyMessage.trim()
+      : "";
   const noDataState = (
     <EmptyState
       role="status"
-      title="No data"
-      description="No data returned from the query."
+      title={customEmpty || "No data"}
+      description={customEmpty ? undefined : "No data returned from the query."}
       className="py-6"
     />
   );

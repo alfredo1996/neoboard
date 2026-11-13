@@ -993,6 +993,7 @@
                   "label": "Category",
                   "parameterName": "pg_category",
                   "parameterType": "text",
+                  "required": true,
                   "placeholder": "e.g. shipping, ui, support"
                 },
                 {

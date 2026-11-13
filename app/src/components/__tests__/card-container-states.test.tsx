@@ -818,6 +818,39 @@ describe("CardContainer", () => {
       expect(screen.queryByTestId("chart-renderer")).toBeNull();
     });
 
+    it.each([
+      [
+        "the widget's own message",
+        "Nothing to show here yet.",
+        "Nothing to show here yet.",
+      ],
+      ["trimmed", "  Nothing yet  ", "Nothing yet"],
+      ["blank falls back", "   ", "No data"],
+      ["empty falls back", "", "No data"],
+      ["non-string falls back", 42, "No data"],
+    ])("empty result, emptyMessage: %s (#2335)", (_n, emptyMessage, title) => {
+      mockUseWidgetQuery.mockReturnValue({
+        isPending: false,
+        fetchStatus: "idle",
+        isError: false,
+        data: { data: [], columns: [] },
+        missingParams: [],
+      });
+
+      render(
+        <CardContainer
+          widget={makeWidget({ settings: { chartOptions: { emptyMessage } } })}
+        />,
+      );
+
+      expect(screen.getByRole("status").textContent).toContain(title);
+      // A custom message replaces the generic sentence; the generic title
+      // and sentence stay together when it falls back.
+      expect(
+        screen.queryByText("No data returned from the query.") === null,
+      ).toBe(title !== "No data");
+    });
+
     it('shows "No data" when the editor preview has no rows', () => {
       mockUseWidgetQuery.mockReturnValue({
         isPending: false,
