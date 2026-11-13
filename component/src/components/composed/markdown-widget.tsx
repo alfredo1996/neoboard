@@ -466,6 +466,32 @@ function MarkdownWidget({
     [content, highlighterReady],
   );
 
+  // Is there more below the fold? Overlay scrollbars show nothing (#2335).
+  const sectionRef = React.useRef<HTMLElement>(null);
+  const [moreBelow, setMoreBelow] = React.useState(false);
+  const measure = React.useCallback(() => {
+    const el = sectionRef.current;
+    if (el) {
+      setMoreBelow(el.scrollHeight - el.clientHeight - el.scrollTop > 1);
+    }
+  }, []);
+  React.useLayoutEffect(() => {
+    measure();
+    const el = sectionRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    // The observer sees the section box, not its content: an image or font that
+    // loads later grows the content without resizing the box. `load` does not
+    // bubble, so listen in the capture phase.
+    el.addEventListener("load", measure, true);
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("load", measure, true);
+    };
+    // sizeKey and alignKey change the text's height without touching the box.
+  }, [measure, html, sizeKey, alignKey]);
+
   if (!content) {
     return (
       <div data-testid="markdown-widget" className={cn("h-full", className)}>
@@ -479,29 +505,38 @@ function MarkdownWidget({
   }
 
   return (
-    <section
-      data-testid="markdown-widget"
-      // A scrollable region must be focusable or keyboard users cannot scroll
-      // it (axe scrollable-region-focusable, #1505); Sonar's S6842 disagrees.
-      tabIndex={0} // NOSONAR
-      aria-label="Markdown content"
-      className={cn(
-        "h-full overflow-auto p-4 max-w-none",
-        "font-body",
-        sizeKey ? [SIZE_CLASS[sizeKey], SCALED_HEADINGS] : "text-sm",
-        "leading-[1.6] text-foreground",
-        alignKey && ALIGN_CLASS[alignKey],
-        className,
-      )}
-      style={
-        sizeKey
-          ? ({ "--md-scale": SIZE_SCALE[sizeKey] } as React.CSSProperties)
-          : undefined
-      }
-      // Safe: parseMarkdown escapes all user text via escapeHtml and validates
-      // URLs via isSafeLinkUrl/isSafeImageUrl. No raw user HTML reaches the DOM.
-      dangerouslySetInnerHTML={{ __html: html! }} // NOSONAR
-    />
+    <div className="relative h-full min-h-0">
+      <section
+        ref={sectionRef}
+        onScroll={measure}
+        data-testid="markdown-widget"
+        // A scrollable region must be focusable or keyboard users cannot scroll
+        // it (axe scrollable-region-focusable, #1505); Sonar's S6842 disagrees.
+        tabIndex={0} // NOSONAR
+        aria-label="Markdown content"
+        className={cn(
+          "h-full overflow-auto p-4 max-w-none",
+          "font-body",
+          sizeKey ? [SIZE_CLASS[sizeKey], SCALED_HEADINGS] : "text-sm",
+          "leading-[1.6] text-foreground",
+          moreBelow &&
+            "[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]",
+          alignKey && ALIGN_CLASS[alignKey],
+          className,
+        )}
+        data-more-below={moreBelow ? "" : undefined}
+        // The fade is a mask on the text itself, so it works on any surface
+        // (card, tinted card, the fullscreen dialog) and takes no pointer.
+        style={
+          sizeKey
+            ? ({ "--md-scale": SIZE_SCALE[sizeKey] } as React.CSSProperties)
+            : undefined
+        }
+        // Safe: parseMarkdown escapes all user text via escapeHtml and validates
+        // URLs via isSafeLinkUrl/isSafeImageUrl. No raw user HTML reaches the DOM.
+        dangerouslySetInnerHTML={{ __html: html! }} // NOSONAR
+      />
+    </div>
   );
 }
 

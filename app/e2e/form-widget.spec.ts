@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import {
   test,
   expect,
@@ -1318,5 +1320,44 @@ test.describe("Form field labels, database errors and text drafts (#1409, #1410,
     await expect(form.getByText("Form submitted successfully")).toBeVisible({
       timeout: 15_000,
     });
+  });
+});
+
+test.describe("Required form field (#2335)", () => {
+  test("UX-11: the Category field of the gallery form is required, and empty submit says so on it", async ({
+    authPage,
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await authPage.login(ALICE.email, ALICE.password);
+    const payload = JSON.parse(
+      fs.readFileSync(
+        path.resolve(__dirname, "../../scripts/demo/chart-gallery.json"),
+        "utf-8",
+      ),
+    );
+    const res = await page.request.post("/api/dashboards/import", {
+      data: { payload, skippedConnections: Object.keys(payload.connections) },
+    });
+    expect(res.status()).toBe(201);
+    const id = (await res.json()).data.id as string;
+    try {
+      await page.goto(`/${id}`);
+      await page
+        .getByRole("tab", { name: "11. Form (write)", exact: true })
+        .click();
+      const category = page.getByLabel("Category", { exact: true });
+      await expect(category).toBeVisible({ timeout: 15_000 });
+      // The label is the field's name alone: the server rejects it empty.
+      await expect(
+        page.getByText("Category (optional)", { exact: true }),
+      ).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "Submit feedback", exact: true })
+        .click();
+      await expect(category).toHaveAttribute("aria-invalid", "true");
+    } finally {
+      await page.request.delete(`/api/dashboards/${id}`);
+    }
   });
 });

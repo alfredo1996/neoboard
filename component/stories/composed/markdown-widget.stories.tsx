@@ -148,6 +148,38 @@ export const DefaultDark: Story = {
   globals: { theme: "dark" },
 };
 
+/** Longer than its card: a fade at the bottom edge says there is more (#2335). */
+export const Overflowing: Story = {
+  decorators: [
+    (Story) => (
+      <div
+        data-card-fill="citrine"
+        className="bg-card"
+        style={{ width: "100%", height: 160 }}
+      >
+        <Story />
+      </div>
+    ),
+  ],
+  args: {
+    content: `## I cluster di marketing
+
+Each cluster groups customers who behave alike.
+
+- Cluster A: frequent weekend visitors who book early.
+- Cluster B: families travelling in school holidays.
+- Cluster C: last-minute bookers who stay two nights.
+- Cluster D: long-stay guests who return every year.
+
+The last line is only visible after scrolling.`,
+  },
+};
+
+export const OverflowingDark: Story = {
+  ...Overflowing,
+  globals: { theme: "dark" },
+};
+
 export const CodeBlocksDark: Story = {
   ...CodeBlocks,
   globals: { theme: "dark" },

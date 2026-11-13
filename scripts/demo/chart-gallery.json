@@ -581,6 +581,7 @@
                   "label": "Category",
                   "parameterName": "category",
                   "parameterType": "text",
+                  "required": true,
                   "placeholder": "e.g. shipping, ui, support"
                 },
                 {

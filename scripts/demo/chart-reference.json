@@ -3420,6 +3420,7 @@
                   "label": "Category",
                   "parameterName": "rf1_category",
                   "parameterType": "text",
+                  "required": true,
                   "placeholder": "e.g. shipping"
                 },
                 {
@@ -3459,6 +3460,7 @@
                   "label": "Category",
                   "parameterName": "rf2_category",
                   "parameterType": "text",
+                  "required": true,
                   "placeholder": "Topic"
                 },
                 {

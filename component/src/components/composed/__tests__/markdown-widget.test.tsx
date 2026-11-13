@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { MarkdownWidget, parseMarkdown } from "../markdown-widget";
 
 /**
@@ -136,10 +136,8 @@ describe("MarkdownWidget", () => {
   });
 
   it("applies custom className", () => {
-    const { container } = render(
-      <MarkdownWidget content="test" className="custom-class" />,
-    );
-    expect(container.firstChild).toHaveClass("custom-class");
+    render(<MarkdownWidget content="test" className="custom-class" />);
+    expect(screen.getByTestId("markdown-widget")).toHaveClass("custom-class");
   });
 
   it("has data-testid for testing", () => {
@@ -884,5 +882,84 @@ describe("MarkdownWidget text size and alignment (#2392)", () => {
     expect(root()).toHaveClass("text-sm");
     expect(root().className).not.toContain("text-justify");
     expect(root().getAttribute("style")).toBeNull();
+  });
+});
+
+// The saved widget can be shorter than its text; overlay scrollbars then say
+// nothing about the rest (#2335, DS-6).
+describe("MarkdownWidget fade while there is more below", () => {
+  const sizes = (scrollHeight: number, clientHeight: number) => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(
+      scrollHeight,
+    );
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(
+      clientHeight,
+    );
+  };
+  afterEach(() => vi.restoreAllMocks());
+
+  it("shows when the content overflows", () => {
+    sizes(500, 200);
+    render(<MarkdownWidget content="long" />);
+    expect(screen.getByTestId("markdown-widget")).toHaveAttribute(
+      "data-more-below",
+    );
+  });
+
+  it("is absent when the content fits", () => {
+    sizes(200, 200);
+    render(<MarkdownWidget content="short" />);
+    expect(screen.getByTestId("markdown-widget")).not.toHaveAttribute(
+      "data-more-below",
+    );
+  });
+
+  it("goes away at the end of the scroll and returns when scrolled back", () => {
+    sizes(500, 200);
+    render(<MarkdownWidget content="long" />);
+    const section = screen.getByTestId("markdown-widget");
+    section.scrollTop = 300;
+    fireEvent.scroll(section);
+    expect(screen.getByTestId("markdown-widget")).not.toHaveAttribute(
+      "data-more-below",
+    );
+    section.scrollTop = 100;
+    fireEvent.scroll(section);
+    expect(screen.getByTestId("markdown-widget")).toHaveAttribute(
+      "data-more-below",
+    );
+  });
+
+  it("masks the text itself, so it fades on any surface", () => {
+    sizes(500, 200);
+    render(<MarkdownWidget content="long" />);
+    const section = screen.getByTestId("markdown-widget");
+    expect(section.className).toContain("[mask-image:");
+    expect(screen.queryByTestId("markdown-fade")).toBeNull();
+  });
+
+  it("re-measures when an image inside loads after mount", () => {
+    sizes(200, 200);
+    render(<MarkdownWidget content="![x](https://example.com/a.png)" />);
+    const section = screen.getByTestId("markdown-widget");
+    expect(section).not.toHaveAttribute("data-more-below");
+    vi.restoreAllMocks();
+    sizes(500, 200);
+    fireEvent.load(section.querySelector("img")!);
+    expect(section).toHaveAttribute("data-more-below");
+  });
+
+  it("re-measures when only the text size changes", () => {
+    sizes(200, 200);
+    const { rerender } = render(<MarkdownWidget content="same" />);
+    expect(screen.getByTestId("markdown-widget")).not.toHaveAttribute(
+      "data-more-below",
+    );
+    vi.restoreAllMocks();
+    sizes(500, 200);
+    rerender(<MarkdownWidget content="same" textSize="lg" />);
+    expect(screen.getByTestId("markdown-widget")).toHaveAttribute(
+      "data-more-below",
+    );
   });
 });

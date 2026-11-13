@@ -5,6 +5,7 @@ import {
   expect,
   ALICE,
   createTestDashboard,
+  putPage,
   uid,
   editingCrumb,
 } from "./fixtures";
@@ -18,6 +19,8 @@ type SeedPage = {
   }[];
   gridLayout: { i: string }[];
 };
+
+const HEALTHY_PG = "conn-pg-001";
 
 test.describe("Content-only widgets (Markdown & iFrame)", () => {
   let dashboardCleanup: (() => Promise<void>) | undefined;
@@ -182,5 +185,56 @@ test.describe("Content-only widgets (Markdown & iFrame)", () => {
     await expect(
       dialog.locator('iframe[title="Embedded content"]'),
     ).toHaveAttribute("sandbox", "allow-scripts");
+  });
+});
+
+test.describe("Markdown overflow (#2335)", () => {
+  test("DS-6: a markdown card with more text than room shows a fade until the end", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Markdown fade ${uid()}`,
+    );
+    try {
+      const lines = Array.from({ length: 30 }, (_, i) => `Line ${i + 1}`);
+      await putPage(
+        page.request,
+        id,
+        [
+          {
+            id: "md",
+            chartType: "markdown",
+            connectionId: HEALTHY_PG,
+            query: "",
+            settings: {
+              title: "Long",
+              cardBackground: "citrine",
+              chartOptions: { content: lines.join("\n\n") },
+            },
+          },
+        ],
+        [{ i: "md", x: 0, y: 0, w: 6, h: 3 }],
+      );
+      await page.goto(`/${id}`);
+      const section = page.getByRole("region", {
+        name: "Markdown content",
+        exact: true,
+      });
+      // The fade is a mask on the section itself, readable as computed style.
+      const mask = () =>
+        section.evaluate((el) => getComputedStyle(el).maskImage);
+      await expect(section).toHaveAttribute("data-more-below", "", {
+        timeout: 15_000,
+      });
+      expect(await mask()).toContain("linear-gradient");
+      await section.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+      await expect(section).not.toHaveAttribute("data-more-below");
+      expect(await mask()).toBe("none");
+    } finally {
+      await cleanup();
+    }
   });
 });

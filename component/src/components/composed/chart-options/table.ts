@@ -59,7 +59,9 @@ export const tableOptions: ChartOptionDef[] = [
     key: "emptyMessage",
     label: "Empty Message",
     type: "text",
-    default: "No results",
+    // No default: unset shows the card's own "No data", and the panel says so.
+    default: undefined,
+    placeholder: "No data",
     category: "Rows",
     description: "Text displayed when the query returns no rows.",
   },
