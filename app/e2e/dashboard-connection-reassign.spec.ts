@@ -486,49 +486,52 @@ test.describe("Per-dashboard connection reassignment", () => {
     const sourceName = `Count Source ${stamp}`;
     const targetName = `Count Target ${stamp}`;
     const ids: string[] = [];
-    for (const name of [sourceName, targetName]) {
-      const res = await page.request.post("/api/connections", {
-        data: { name, type: "neo4j", config: connConfig },
-      });
-      expect(res.status()).toBe(201);
-      ids.push((await res.json()).data.id as string);
-    }
-    const [sourceId, targetId] = ids;
-
-    const { id, cleanup } = await createTestDashboard(
-      page.request,
-      `Count Dash ${stamp}`,
-    );
-    const dashName = `Count Dash ${stamp}`;
-    const query = (n: number) => ({
-      id: `q${n}`,
-      chartType: "table",
-      connectionId: sourceId,
-      query: "RETURN 1 AS n",
-      settings: { title: `Query ${n}` },
-    });
-    const note = (n: number) => ({
-      id: `md${n}`,
-      chartType: "markdown",
-      connectionId: sourceId,
-      query: "",
-      settings: { title: `Note ${n}`, content: "text" },
-    });
-    const widgets = [query(1), query(2), note(1), note(2)];
-    await putPage(
-      page.request,
-      id,
-      widgets,
-      widgets.map((w, i) => ({
-        i: w.id,
-        x: (i % 2) * 6,
-        y: Math.floor(i / 2) * 4,
-        w: 6,
-        h: 4,
-      })),
-    );
-
+    let cleanup: (() => Promise<void>) | undefined;
     try {
+      for (const name of [sourceName, targetName]) {
+        const res = await page.request.post("/api/connections", {
+          data: { name, type: "neo4j", config: connConfig },
+        });
+        expect(res.status()).toBe(201);
+        ids.push((await res.json()).data.id as string);
+      }
+      const [sourceId, targetId] = ids;
+
+      const created = await createTestDashboard(
+        page.request,
+        `Count Dash ${stamp}`,
+      );
+      cleanup = created.cleanup;
+      const id = created.id;
+      const dashName = `Count Dash ${stamp}`;
+      const query = (n: number) => ({
+        id: `q${n}`,
+        chartType: "table",
+        connectionId: sourceId,
+        query: "RETURN 1 AS n",
+        settings: { title: `Query ${n}` },
+      });
+      const note = (n: number) => ({
+        id: `md${n}`,
+        chartType: "markdown",
+        connectionId: sourceId,
+        query: "",
+        settings: { title: `Note ${n}`, content: "text" },
+      });
+      const widgets = [query(1), query(2), note(1), note(2)];
+      await putPage(
+        page.request,
+        id,
+        widgets,
+        widgets.map((w, i) => ({
+          i: w.id,
+          x: (i % 2) * 6,
+          y: Math.floor(i / 2) * 4,
+          w: 6,
+          h: 4,
+        })),
+      );
+
       // 1. The connection's delete dialog.
       await page.goto("/connections");
       const card = page
@@ -583,7 +586,7 @@ test.describe("Per-dashboard connection reassignment", () => {
         dialog.getByText(`Moved 4 widgets to ${targetName}.`, { exact: true }),
       ).toBeVisible({ timeout: 20_000 });
     } finally {
-      await cleanup();
+      await cleanup?.();
       for (const cid of ids) {
         await page.request.delete(`/api/connections/${cid}?force=true`);
       }

@@ -197,7 +197,7 @@ describe("DashboardConnectionDialog — source buckets", () => {
 
   // dashboard-export writes markdown/iframe widgets as connectionId:"" even
   // though they never wanted a connection, so counting them would invent work.
-  it("excludes content-only widgets from every count", () => {
+  it("leaves content-only widgets with no connection out of the Unassigned row", () => {
     mockDashboard = {
       layoutJson: layout([
         widget({ id: "w1" }),
