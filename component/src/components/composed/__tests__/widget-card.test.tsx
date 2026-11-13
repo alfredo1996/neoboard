@@ -247,6 +247,34 @@ describe("WidgetCard", () => {
     ).toBeInTheDocument();
   });
 
+  it("draws an action's icon in its item, 16px with the list menus' gap (#2337)", async () => {
+    const user = userEvent.setup();
+    const Icon = ({ className }: { className?: string }) => (
+      <svg data-testid="act-icon" className={className} />
+    );
+    render(
+      <WidgetCard
+        title="Sales"
+        actions={[
+          { label: "Edit", icon: Icon, onClick: vi.fn() },
+          { label: "Bare", onClick: vi.fn() },
+        ]}
+      >
+        Content
+      </WidgetCard>,
+    );
+    await user.click(screen.getByRole("button", { name: "Widget actions" }));
+    const icon = within(
+      screen.getByRole("menuitem", { name: "Edit" }),
+    ).getByTestId("act-icon");
+    expect(icon).toHaveClass("mr-2", "h-4", "w-4");
+    expect(
+      within(screen.getByRole("menuitem", { name: "Bare" })).queryByTestId(
+        "act-icon",
+      ),
+    ).toBeNull();
+  });
+
   // ── disabled action ───────────────────────────────────────────────────────
 
   it("renders a disabled action item with disabled attribute", async () => {

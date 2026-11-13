@@ -1196,17 +1196,23 @@ export default function DashboardListPage() {
                               {canDuplicate && (
                                 <DropdownMenuItem
                                   onClick={() =>
-                                    duplicateDashboard.mutate(d.id, {
+                                    // mutateAsync, not per-call callbacks: TanStack v5
+                                    // fires those for the latest call only.
+                                    duplicateDashboard.mutateAsync(d.id).then(
+                                      () =>
+                                        toast({
+                                          title: "Dashboard duplicated",
+                                        }),
                                       // A refusal must not look like a
                                       // click that did nothing (#1816).
-                                      onError: (err) =>
+                                      (err: Error) =>
                                         toast({
                                           title:
                                             "Failed to duplicate dashboard",
                                           description: err.message,
                                           variant: "destructive",
                                         }),
-                                    })
+                                    )
                                   }
                                   disabled={duplicateDashboard.isPending}
                                 >
