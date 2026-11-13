@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import React from "react";
 import type { DashboardListItem } from "@/hooks/use-dashboards";
 import {
@@ -39,10 +45,15 @@ const mockDelete = vi.fn();
 let dashboards: DashboardListItem[] | undefined = [DASHBOARD];
 let dashboardsLoading = false;
 let duplicateRefused = true;
+// Per-id outcome of a duplicate; defaults to the flag above.
+let duplicateResult = (_id: string): Promise<unknown> =>
+  duplicateRefused ? Promise.reject(new Error(DENIED)) : Promise.resolve({});
 beforeEach(() => {
   dashboards = [DASHBOARD];
   dashboardsLoading = false;
   duplicateRefused = true;
+  duplicateResult = (_id) =>
+    duplicateRefused ? Promise.reject(new Error(DENIED)) : Promise.resolve({});
 });
 
 vi.mock("@/hooks/use-dashboards", () => ({
@@ -54,16 +65,7 @@ vi.mock("@/hooks/use-dashboards", () => ({
   // The server refuses the copy (#1816).
   useDuplicateDashboard: () => ({
     isPending: false,
-    mutate: (
-      _id: string,
-      options?: {
-        onError?: (err: Error) => void;
-        onSuccess?: () => void;
-      },
-    ) =>
-      duplicateRefused
-        ? options?.onError?.(new Error(DENIED))
-        : options?.onSuccess?.(),
+    mutateAsync: (id: string) => duplicateResult(id),
   }),
 }));
 
@@ -245,24 +247,48 @@ describe("DashboardListPage first load", () => {
 });
 
 describe("DashboardListPage duplicate", () => {
-  it("says the copy exists (#2337)", () => {
+  it("says the copy exists (#2337)", async () => {
     duplicateRefused = false;
     render(<DashboardListPage />);
 
     fireEvent.click(screen.getByText("Duplicate"));
 
-    expect(mockToast).toHaveBeenCalledWith({ title: "Dashboard duplicated" });
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith({ title: "Dashboard duplicated" }),
+    );
   });
 
-  it("shows the server's reason when a duplicate is refused (#1816)", () => {
+  it("shows the server's reason when a duplicate is refused (#1816)", async () => {
     render(<DashboardListPage />);
 
     fireEvent.click(screen.getByText("Duplicate"));
 
-    expect(mockToast).toHaveBeenCalledWith({
-      title: "Failed to duplicate dashboard",
-      description: DENIED,
-      variant: "destructive",
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith({
+        title: "Failed to duplicate dashboard",
+        description: DENIED,
+        variant: "destructive",
+      }),
+    );
+  });
+
+  it("keeps the first copy's toast when a second duplicate is refused", async () => {
+    dashboards = [DASHBOARD, { ...DASHBOARD, id: "d-2", name: "Second" }];
+    duplicateResult = (id) =>
+      id === DASHBOARD.id
+        ? Promise.resolve({})
+        : Promise.reject(new Error(DENIED));
+    render(<DashboardListPage />);
+
+    const [first, second] = screen.getAllByText("Duplicate");
+    fireEvent.click(first);
+    fireEvent.click(second);
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({ title: "Dashboard duplicated" });
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Failed to duplicate dashboard" }),
+      );
     });
   });
 });

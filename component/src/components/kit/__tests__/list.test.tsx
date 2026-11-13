@@ -203,6 +203,8 @@ describe("ListRow title: opener and tooltip (#2254)", () => {
         : screen.getByText("Ecommerce (demo, write)");
       expect(el).toHaveClass("line-clamp-2");
       expect(el).not.toHaveClass("truncate");
+      // block sets display after line-clamp's -webkit-box and cancels the clamp.
+      expect(el).not.toHaveClass("block");
     },
   );
 

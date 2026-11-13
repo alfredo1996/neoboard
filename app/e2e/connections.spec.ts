@@ -268,7 +268,7 @@ test.describe("Connections", () => {
   test("twin names stay apart at 1024 px: the row wraps instead of cutting the end (#2337)", async ({
     page,
   }) => {
-    const base = `PostgreSQL Ecommerce ${uid().slice(-8)}`;
+    const base = `Ecommerce ${uid().slice(-6)}`;
     const ids: string[] = [];
     try {
       for (const side of ["read", "write"]) {

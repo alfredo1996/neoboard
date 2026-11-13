@@ -365,4 +365,28 @@ test.describe("Dashboard CRUD", () => {
       await cleanup();
     }
   });
+
+  test("a long dashboard name stops at two lines in the list (#2337)", async ({
+    page,
+  }) => {
+    const name = `Quarterly regional revenue and churn review ${uid()} for the whole commercial organisation across every market and product line we operate`;
+    const { id, cleanup } = await createTestDashboard(page.request, name);
+    try {
+      await page.setViewportSize({ width: 1024, height: 800 });
+      await page.reload();
+      const title = page.getByRole("link", { name, exact: true });
+      await expect(title).toBeVisible();
+      // block would cancel the clamp (the browser reports a live clamp as
+      // flow-root, not block).
+      await expect(title).not.toHaveCSS("display", "block");
+      const lines = await title.evaluate(
+        (el) =>
+          el.getBoundingClientRect().height /
+          Number.parseFloat(getComputedStyle(el).lineHeight),
+      );
+      expect(lines).toBeLessThanOrEqual(2.01);
+    } finally {
+      await page.request.delete(`/api/dashboards/${id}`);
+    }
+  });
 });

@@ -528,18 +528,18 @@ export default function ConnectionsPage() {
               loadingText="Re-assigning…"
               disabled={!reassignChoice || reassignConnection.isPending}
               onClick={async () => {
-                if (!reassignTarget || !reassignChoice) return;
+                const target = connections?.find(
+                  (c) => c.id === reassignChoice,
+                );
+                if (!reassignTarget || !target) return;
                 setReassignError(null);
                 try {
                   const result = await reassignConnection.mutateAsync({
                     fromId: reassignTarget,
                     targetConnectionId: reassignChoice,
                   });
-                  const target = connections?.find(
-                    (c) => c.id === reassignChoice,
-                  );
                   toast({
-                    title: `Moved ${pluralWidgets(result.widgetsReassigned)} to ${target?.name ?? "the other connection"}`,
+                    title: `Moved ${pluralWidgets(result.widgetsReassigned)} to ${target.name}`,
                   });
                   setReassignTarget(null);
                   setReassignChoice("");
