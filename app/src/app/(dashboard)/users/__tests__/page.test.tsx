@@ -25,6 +25,19 @@ const mockUpdateRole = vi.fn();
 const mockUpdateCanWrite = vi.fn();
 const mockToast = vi.fn();
 const mockResetPassword = vi.fn();
+const mockDeleteUser = vi.fn();
+// As TanStack v5: mutate's per-call callbacks fire for the LATEST call only.
+let latestDelete = 0;
+const deleteMutate = (
+  id: string,
+  cb?: { onSuccess?: (r: unknown) => void; onError?: (e: Error) => void },
+) => {
+  const mine = ++latestDelete;
+  mockDeleteUser(id).then(
+    (r: unknown) => mine === latestDelete && cb?.onSuccess?.(r),
+    (e: Error) => mine === latestDelete && cb?.onError?.(e),
+  );
+};
 
 function user(overrides: Partial<UserListItem>): UserListItem {
   return {
@@ -59,7 +72,10 @@ vi.mock("@/hooks/use-users", () => {
       error: mockError,
     }),
     useCreateUser: () => result(noop),
-    useDeleteUser: () => result(noop),
+    useDeleteUser: () => ({
+      ...result(mockDeleteUser),
+      mutate: deleteMutate,
+    }),
     useUpdateUserRole: () => result(mockUpdateRole),
     useUpdateUserCanWrite: () => result(mockUpdateCanWrite),
     useResetPassword: () => result(mockResetPassword),
@@ -257,6 +273,9 @@ beforeEach(() => {
   mockUpdateRole.mockReset();
   mockUpdateCanWrite.mockReset();
   mockToast.mockReset();
+  mockDeleteUser.mockReset();
+  mockDeleteUser.mockResolvedValue({});
+  latestDelete = 0;
   mockSetDisabled.mockResolvedValue({});
   mockUsers = [
     user({ id: ME, name: "Alice", email: "alice@example.com", role: "admin" }),
@@ -525,6 +544,34 @@ describe("UsersPage — where focus goes after a question (#2086)", () => {
       expect(menuTrigger).toHaveFocus();
     },
   );
+
+  it("keeps the first delete's failure toast when a second delete succeeds (#2476)", async () => {
+    mockDeleteUser.mockImplementation((id: string) =>
+      id === "u2" ? Promise.reject(new Error("nope")) : Promise.resolve({}),
+    );
+    render(<UsersPage />);
+
+    for (const [id, name] of [
+      ["u2", "Dana"],
+      ["u3", "Eve"],
+    ]) {
+      fireEvent.click(row(id).getByRole("menuitem", { name: "Delete…" }));
+      fireEvent.click(
+        within(
+          screen.getByRole("dialog", { name: `Delete ${name}` }),
+        ).getByRole("button", { name: "Delete user" }),
+      );
+    }
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Failed to delete user" }),
+      );
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "User deleted" }),
+      );
+    });
+  });
 
   it("a confirmed Delete puts focus on the page heading: the row is leaving", () => {
     render(<UsersPage />);

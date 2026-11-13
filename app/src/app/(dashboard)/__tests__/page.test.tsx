@@ -41,7 +41,22 @@ const DASHBOARD: DashboardListItem = {
 };
 
 const idle = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false };
-const mockDelete = vi.fn();
+// Per-id outcome of a delete.
+let deleteResult = (_id: string): Promise<unknown> =>
+  Promise.resolve({ alreadyDeleted: false });
+const mockDelete = vi.fn((id: string) => deleteResult(id));
+// As TanStack v5: mutate's per-call callbacks fire for the LATEST call only.
+let latestMutate = 0;
+const deleteMutate = (
+  id: string,
+  cb?: { onSuccess?: (r: never) => void; onError?: (e: Error) => void },
+) => {
+  const mine = ++latestMutate;
+  mockDelete(id).then(
+    (r) => mine === latestMutate && cb?.onSuccess?.(r as never),
+    (e) => mine === latestMutate && cb?.onError?.(e as Error),
+  );
+};
 let dashboards: DashboardListItem[] | undefined = [DASHBOARD];
 let dashboardsLoading = false;
 let duplicateRefused = true;
@@ -52,6 +67,8 @@ beforeEach(() => {
   dashboards = [DASHBOARD];
   dashboardsLoading = false;
   duplicateRefused = true;
+  deleteResult = (_id) => Promise.resolve({ alreadyDeleted: false });
+  latestMutate = 0;
   duplicateResult = (_id) =>
     duplicateRefused ? Promise.reject(new Error(DENIED)) : Promise.resolve({});
 });
@@ -59,7 +76,11 @@ beforeEach(() => {
 vi.mock("@/hooks/use-dashboards", () => ({
   useDashboards: () => ({ data: dashboards, isLoading: dashboardsLoading }),
   useCreateDashboard: () => idle,
-  useDeleteDashboard: () => ({ ...idle, mutate: mockDelete }),
+  useDeleteDashboard: () => ({
+    ...idle,
+    mutate: deleteMutate,
+    mutateAsync: mockDelete,
+  }),
   useUpdateDashboard: () => idle,
   useImportDashboard: () => idle,
   // The server refuses the copy (#1816).
@@ -620,6 +641,36 @@ describe("DashboardListPage delete — where focus goes (#2086)", () => {
     ).toBeVisible();
   });
 
+  it("keeps the first delete's failure toast when a second delete succeeds (#2476)", async () => {
+    dashboards = [
+      { ...DASHBOARD, role: "owner" },
+      { ...DASHBOARD, id: "d-2", name: "Second", role: "owner" },
+    ];
+    deleteResult = (id) =>
+      id === DASHBOARD.id
+        ? Promise.reject(new Error(DENIED))
+        : Promise.resolve({ alreadyDeleted: false });
+    render(<DashboardListPage />);
+
+    for (const card of screen.getAllByText("Delete…")) {
+      fireEvent.click(card);
+      fireEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", {
+          name: "Delete dashboard",
+        }),
+      );
+    }
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Failed to delete dashboard" }),
+      );
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Dashboard deleted" }),
+      );
+    });
+  });
+
   it("a confirmed Delete puts focus on the page heading: the card is leaving", () => {
     render(<DashboardListPage />);
 
@@ -630,7 +681,7 @@ describe("DashboardListPage delete — where focus goes (#2086)", () => {
       }),
     );
 
-    expect(mockDelete).toHaveBeenCalledWith("d1", expect.anything());
+    expect(mockDelete).toHaveBeenCalledWith("d1");
     expect(screen.getByRole("heading", { name: "Dashboards" })).toHaveFocus();
   });
 });
