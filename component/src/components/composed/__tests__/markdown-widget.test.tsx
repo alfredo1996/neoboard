@@ -948,4 +948,18 @@ describe("MarkdownWidget fade while there is more below", () => {
     fireEvent.load(section.querySelector("img")!);
     expect(section).toHaveAttribute("data-more-below");
   });
+
+  it("re-measures when only the text size changes", () => {
+    sizes(200, 200);
+    const { rerender } = render(<MarkdownWidget content="same" />);
+    expect(screen.getByTestId("markdown-widget")).not.toHaveAttribute(
+      "data-more-below",
+    );
+    vi.restoreAllMocks();
+    sizes(500, 200);
+    rerender(<MarkdownWidget content="same" textSize="lg" />);
+    expect(screen.getByTestId("markdown-widget")).toHaveAttribute(
+      "data-more-below",
+    );
+  });
 });

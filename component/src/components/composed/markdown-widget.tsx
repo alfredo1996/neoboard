@@ -489,7 +489,8 @@ function MarkdownWidget({
       ro.disconnect();
       el.removeEventListener("load", measure, true);
     };
-  }, [measure, html]);
+    // sizeKey and alignKey change the text's height without touching the box.
+  }, [measure, html, sizeKey, alignKey]);
 
   if (!content) {
     return (
