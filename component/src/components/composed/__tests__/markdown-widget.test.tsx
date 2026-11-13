@@ -839,11 +839,6 @@ describe("MarkdownWidget text size and alignment (#2392)", () => {
   const MD = "# Title\n\nBody";
   const root = () => screen.getByTestId("markdown-widget");
 
-  it("sets strong at semibold, never the preflight's 700 (#2336)", () => {
-    render(<MarkdownWidget content={MD} />);
-    expect(root().className).toContain("[&_strong]:font-semibold");
-  });
-
   it("renders exactly today's classes and headings with neither prop, or with the defaults", () => {
     const today =
       "h-full overflow-auto p-4 max-w-none font-body text-sm leading-[1.6] text-foreground [&_strong]:font-semibold";

@@ -530,15 +530,14 @@ html {
 
 /* The container is the basemap when Tile Layer is "none" (#1685), and shows
    through while tiles load otherwise. Leaflet paints it #ddd — a light-grey
-   slab on a charcoal dashboard. Same surface as the zoom control. */
+   slab on a charcoal dashboard. */
 .dark .leaflet-container {
   background-color: hsl(220 13% 11%);
 }
 
-/* Leaflet's own furniture in dark mode (#1154). It lived in
-   `component/src/index.css`, which only Storybook loads — so it reviewed fine
-   there and did nothing in the product, where a dark map still carried white
-   zoom buttons and a white attribution bar (#1399). Guarded by
+/* Leaflet's popups and tooltips in dark mode (#1154). They lived in
+   `component/src/index.css`, which only Storybook loads — so they reviewed
+   fine there and did nothing in the product (#1399). Guarded by
    dark-leaflet-chrome.test.ts. */
 /* Zoom buttons and the attribution strip are themed from the tokens in
    src/charts/map-chart.css (#2336), both themes. */
@@ -548,8 +547,7 @@ html {
    block of text distinguished only by colour — and no link colour can reach
    3:1 against Leaflet's #333 text while staying 4.5:1 on its white strip, so
    the underline is the only thing that can fix axe's link-in-text-block.
-   Theme-neutral: the dark rules below only recolour. `.leaflet-container`
-   is needed for the same reason as the dark strip below — Leaflet's own
+   Theme-neutral. `.leaflet-container` is needed because Leaflet's own
    `.leaflet-control-attribution a { text-decoration: none }` ties a bare
    selector on specificity and loads later. */
 .leaflet-container .leaflet-control-attribution a {

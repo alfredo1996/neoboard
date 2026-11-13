@@ -45,7 +45,7 @@
 }
 
 .leaflet-container .leaflet-control-attribution {
-  background-color: hsl(var(--field) / 0.85);
+  background-color: hsl(var(--field));
   color: hsl(var(--muted-foreground));
   font-family: var(--font-body);
   font-size: 0.75rem;

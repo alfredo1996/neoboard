@@ -3,10 +3,12 @@ import { describe, it, expect } from "vitest";
 import tokens from "../../design-tokens.css?raw";
 import storybookOnly from "../index.css?raw";
 import mapCss from "../charts/map-chart.css?raw";
+import mapChart from "../charts/map-chart.tsx?raw";
 
 /**
- * Dark styling for Leaflet's own furniture — zoom buttons, attribution strip,
- * popups, tooltips (#1154, #1399).
+ * Dark styling for Leaflet's own furniture — popups and tooltips here; the
+ * zoom buttons and attribution strip are themed from tokens in
+ * `charts/map-chart.css` (#1154, #1399, #2336).
  *
  * It was written into `component/src/index.css`, which only Storybook loads:
  * the app imports `globals.css` → `design-tokens.css` and nothing else from
@@ -54,5 +56,20 @@ describe("dark Leaflet chrome (#1399)", () => {
       /\.leaflet-control-attribution a\s*\{[^}]*hsl\(var\(--ring\)\)/,
     );
     expect(tokens).not.toContain(".dark .leaflet-control-zoom a");
+  });
+
+  it("paints the attribution strip on an opaque ground (#2336)", () => {
+    // A translucent ground lets dark tile pixels through and drops the text
+    // below 4.5:1.
+    const strip =
+      /\.leaflet-control-attribution\s*\{([^}]*)\}/.exec(mapCss)?.[1] ?? "";
+    expect(strip).toMatch(/background-color:\s*hsl\(var\(--field\)\)\s*;/);
+  });
+
+  it("MapChart imports the sheet after leaflet's own (#1399)", () => {
+    const leaflet = mapChart.indexOf('import "leaflet/dist/leaflet.css"');
+    const ours = mapChart.indexOf('import "./map-chart.css"');
+    expect(leaflet).toBeGreaterThan(-1);
+    expect(ours).toBeGreaterThan(leaflet);
   });
 });
