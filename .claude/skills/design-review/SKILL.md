@@ -32,7 +32,7 @@ The redesign system (epic #2210, tokens from #2215). Code you read may still car
 ## Typography
 
 - Faces: IBM Plex Sans (`font-body`, `font-display`) for everything, titles and wordmark included; Source Serif 4 only as a widget card's optional `titleFont="serif"` and on pages not yet on the kit; IBM Plex Mono (`font-mono`) for code and query text only.
-- Scale: page title 24/600 (`PageHeader`), `text-stat` 36/600, `text-section` 15/600, `text-body` 14, `text-widget-title` 14/600, `text-meta` 12, and the kit steps `text-caption` 13, `text-figure` 24/600, `text-wordmark` 18/600. No other sizes. `text-h1` to `text-h3` are legacy.
+- Scale: page title 24/600 (`PageHeader`), `text-stat` 36/600, `text-section` 15/600, `text-body` 14, `text-widget-title` 14/600, `text-meta` 12, and the kit steps `text-caption` 13, `text-figure` 24/600, `text-kpi` 34/600, `text-wordmark` 18/600. No other sizes. `text-h1`-`h3` legacy.
 - `font-medium` for interactive elements, `font-semibold` for titles, `font-bold` never.
 
 ## Radius, borders

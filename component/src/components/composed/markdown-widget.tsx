@@ -518,7 +518,7 @@ function MarkdownWidget({
           "h-full overflow-auto p-4 max-w-none",
           "font-body",
           sizeKey ? [SIZE_CLASS[sizeKey], SCALED_HEADINGS] : "text-sm",
-          "leading-[1.6] text-foreground",
+          "leading-[1.6] text-foreground [&_strong]:font-semibold",
           moreBelow &&
             "[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]",
           alignKey && ALIGN_CLASS[alignKey],

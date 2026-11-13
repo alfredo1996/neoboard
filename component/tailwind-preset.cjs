@@ -124,6 +124,8 @@ module.exports = {
         // Page kit steps (#2225): meta lines, the Stat number, the wordmark.
         caption: ["0.8125rem", { lineHeight: "1.4" }],
         figure: ["1.5rem", { lineHeight: "1.2", fontWeight: "600" }],
+        // The single-value figure (#2336), 34 px from the approved chart mock.
+        kpi: ["2.125rem", { lineHeight: "1.1", fontWeight: "600" }],
         wordmark: ["1.125rem", { lineHeight: "1.2", fontWeight: "600" }],
         h1: [
           "1.875rem",

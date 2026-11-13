@@ -283,7 +283,7 @@ Checkbox, Radio, Switch and Slider share one look; `SegmentedControl` replaces p
 
 ### Type scale utilities
 
-`text-title` (36/1.1/600, legacy, with `font-serif` on pages not yet moved to the kit), `text-stat` (36/1/600), `text-section` (15/600), `text-body` (14), `text-widget-title` (14/1.3/600) `text-meta` (12) and the kit steps `text-caption` (13/1.4, meta lines), `text-figure` (24/1.2/600, the `Stat` number) and `text-wordmark` (18/1.2/600) are in the Tailwind preset (and in `cn()`'s `CUSTOM_TEXT_SIZES`). `text-h1` to `text-h3` remain only for the card stat and markdown headings until those components migrate.
+`text-title` (36/1.1/600, legacy, with `font-serif` on pages not yet moved to the kit), `text-stat` (36/1/600), `text-section` (15/600), `text-body` (14), `text-widget-title` (14/1.3/600) `text-meta` (12) and the kit steps `text-caption` (13/1.4, meta lines), `text-figure` (24/1.2/600, the `Stat` number), `text-kpi` (34/1.1/600, the single-value figure) and `text-wordmark` (18/1.2/600) are in the Tailwind preset (and in `cn()`'s `CUSTOM_TEXT_SIZES`). `text-h1` to `text-h3` remain only for the card stat and markdown headings until those components migrate.
 
 ### Border Rules
 

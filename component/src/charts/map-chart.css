@@ -1,0 +1,56 @@
+/* Leaflet's own control chrome, on the design tokens (#2336). Imported after
+   leaflet.css so these win. Semantic tokens only, so both themes follow. */
+.leaflet-container {
+  font-family: var(--font-body);
+}
+
+.leaflet-bar,
+.leaflet-touch .leaflet-bar {
+  border: 1px solid hsl(var(--rule));
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+
+.leaflet-bar a,
+.leaflet-touch .leaflet-bar a {
+  background-color: hsl(var(--field));
+  color: hsl(var(--foreground));
+  border-bottom-color: hsl(var(--rule));
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.leaflet-bar a.leaflet-disabled {
+  background-color: hsl(var(--field));
+  color: hsl(var(--muted-foreground));
+}
+
+.leaflet-bar a:first-child,
+.leaflet-touch .leaflet-bar a:first-child {
+  border-top-left-radius: var(--radius-sm);
+  border-top-right-radius: var(--radius-sm);
+}
+
+.leaflet-bar a:last-child,
+.leaflet-touch .leaflet-bar a:last-child {
+  border-bottom: none;
+  border-bottom-left-radius: var(--radius-sm);
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+.leaflet-container .leaflet-control-attribution {
+  background-color: hsl(var(--field) / 0.85);
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  color: hsl(var(--ring));
+}

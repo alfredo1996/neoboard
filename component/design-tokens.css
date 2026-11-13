@@ -540,15 +540,8 @@ html {
    there and did nothing in the product, where a dark map still carried white
    zoom buttons and a white attribution bar (#1399). Guarded by
    dark-leaflet-chrome.test.ts. */
-/* Leaflet control overrides for dark mode */
-.dark .leaflet-control-zoom a {
-  background-color: hsl(220 13% 11%);
-  color: hsl(220 14% 96%);
-  border-color: hsl(220 13% 17%);
-}
-.dark .leaflet-control-zoom a:hover {
-  background-color: hsl(220 13% 17%);
-}
+/* Zoom buttons and the attribution strip are themed from the tokens in
+   src/charts/map-chart.css (#2336), both themes. */
 /* Tailwind's preflight strips the UA underline from every <a>, and Leaflet
    colours attribution links without restoring it. With a plain-text
    attribution (a bring-your-own tileset, #1685) the "Leaflet" credit sits in a
@@ -561,26 +554,6 @@ html {
    selector on specificity and loads later. */
 .leaflet-container .leaflet-control-attribution a {
   text-decoration: underline;
-}
-/* Needs .leaflet-container in the selector: Leaflet's own
-   `.leaflet-container .leaflet-control-attribution { background: … }` ties a
-   bare `.dark .leaflet-control-attribution` on specificity and loads later
-   (map-chart imports leaflet.css lazily), so Leaflet's white strip won —
-   leaving amber links on a white bar in dark mode (#1154). */
-.dark .leaflet-container .leaflet-control-attribution {
-  background-color: hsl(220 13% 8% / 0.8);
-  color: hsl(220 9% 62%);
-}
-.dark .leaflet-container .leaflet-control-attribution a {
-  /* Reads the token rather than copying it: this literal was the dark --ring
-     and would have stayed amber when the ring moved to azure (#1553). */
-  color: hsl(var(--ring));
-}
-/* Disabled zoom button (e.g. − at min zoom) — Leaflet's light-grey disabled
-   style glares against the dark control stack (#1154). */
-.dark .leaflet-bar a.leaflet-disabled {
-  background-color: hsl(220 13% 8%);
-  color: hsl(220 9% 40%);
 }
 .dark .leaflet-popup-content-wrapper,
 .dark .leaflet-popup-tip {

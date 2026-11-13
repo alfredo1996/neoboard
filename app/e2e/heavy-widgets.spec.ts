@@ -141,6 +141,40 @@ test.describe("Heavy widget rendering", () => {
     await expect(
       page.locator("[data-testid='widget-card'] .leaflet-container"),
     ).toBeVisible({ timeout: 15_000 });
+
+    // #2336: the zoom buttons and attribution follow the tokens, both themes.
+    const zoomIn = page.locator(".leaflet-control-zoom-in").first();
+    const attribution = page.locator(".leaflet-control-attribution a").first();
+    await expect(attribution).toBeVisible({ timeout: 10_000 });
+    for (const theme of ["light", "dark"]) {
+      await page.evaluate(
+        (t) => document.documentElement.classList.toggle("dark", t === "dark"),
+        theme,
+      );
+      const zoom = await zoomIn.evaluate((el) => {
+        const s = getComputedStyle(el);
+        return { family: s.fontFamily, bg: s.backgroundColor };
+      });
+      expect(
+        await zoomIn.evaluate((el) => getComputedStyle(el).borderTopLeftRadius),
+      ).toBe("6px");
+      expect(zoom.family).toContain("IBM Plex Sans");
+      // The ground is the --field token, resolved through a probe element.
+      const expected = await page.evaluate(() => {
+        const p = document.createElement("i");
+        p.style.cssText =
+          "background-color:hsl(var(--field));color:hsl(var(--ring))";
+        document.body.append(p);
+        const s = getComputedStyle(p);
+        const r = { bg: s.backgroundColor, ink: s.color };
+        p.remove();
+        return r;
+      });
+      expect(zoom.bg).toBe(expected.bg);
+      expect(
+        await attribution.evaluate((el) => getComputedStyle(el).color),
+      ).toBe(expected.ink);
+    }
   });
 
   // ── Choropleth (#2230) ──────────────────────────────────────────────

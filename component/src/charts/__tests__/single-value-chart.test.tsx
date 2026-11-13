@@ -193,9 +193,10 @@ describe("SingleValueChart", () => {
     expect(valueEl).toBeInTheDocument();
   });
 
-  it("sets the default figure at 34px on the card (#2228)", () => {
+  it("sets the default figure at the text-kpi step, not an arbitrary 34px (#2228, #2336)", () => {
     const { container } = render(<SingleValueChart value={42} />);
-    const valueEl = container.querySelector(".text-\\[34px\\]");
+    const valueEl = container.querySelector(".text-kpi");
+    expect(container.querySelector(".text-\\[34px\\]")).toBeNull();
     expect(valueEl).toBeInTheDocument();
   });
 
