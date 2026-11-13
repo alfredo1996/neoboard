@@ -883,51 +883,69 @@ describe("MarkdownWidget text size and alignment (#2392)", () => {
     expect(root().className).not.toContain("text-justify");
     expect(root().getAttribute("style")).toBeNull();
   });
+});
 
-  // The saved widget can be shorter than its text; overlay scrollbars then say
-  // nothing about the rest (#2335, DS-6).
-  describe("fade while there is more below", () => {
-    const sizes = (scrollHeight: number, clientHeight: number) => {
-      vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(
-        scrollHeight,
-      );
-      vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(
-        clientHeight,
-      );
-    };
-    afterEach(() => vi.restoreAllMocks());
+// The saved widget can be shorter than its text; overlay scrollbars then say
+// nothing about the rest (#2335, DS-6).
+describe("MarkdownWidget fade while there is more below", () => {
+  const sizes = (scrollHeight: number, clientHeight: number) => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(
+      scrollHeight,
+    );
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(
+      clientHeight,
+    );
+  };
+  afterEach(() => vi.restoreAllMocks());
 
-    it("shows when the content overflows", () => {
-      sizes(500, 200);
-      render(<MarkdownWidget content="long" />);
-      expect(screen.getByTestId("markdown-fade")).toBeInTheDocument();
-    });
+  it("shows when the content overflows", () => {
+    sizes(500, 200);
+    render(<MarkdownWidget content="long" />);
+    expect(screen.getByTestId("markdown-widget")).toHaveAttribute(
+      "data-more-below",
+    );
+  });
 
-    it("is absent when the content fits", () => {
-      sizes(200, 200);
-      render(<MarkdownWidget content="short" />);
-      expect(screen.queryByTestId("markdown-fade")).toBeNull();
-    });
+  it("is absent when the content fits", () => {
+    sizes(200, 200);
+    render(<MarkdownWidget content="short" />);
+    expect(screen.getByTestId("markdown-widget")).not.toHaveAttribute(
+      "data-more-below",
+    );
+  });
 
-    it("goes away at the end of the scroll and returns when scrolled back", () => {
-      sizes(500, 200);
-      render(<MarkdownWidget content="long" />);
-      const section = screen.getByTestId("markdown-widget");
-      section.scrollTop = 300;
-      fireEvent.scroll(section);
-      expect(screen.queryByTestId("markdown-fade")).toBeNull();
-      section.scrollTop = 100;
-      fireEvent.scroll(section);
-      expect(screen.getByTestId("markdown-fade")).toBeInTheDocument();
-    });
+  it("goes away at the end of the scroll and returns when scrolled back", () => {
+    sizes(500, 200);
+    render(<MarkdownWidget content="long" />);
+    const section = screen.getByTestId("markdown-widget");
+    section.scrollTop = 300;
+    fireEvent.scroll(section);
+    expect(screen.getByTestId("markdown-widget")).not.toHaveAttribute(
+      "data-more-below",
+    );
+    section.scrollTop = 100;
+    fireEvent.scroll(section);
+    expect(screen.getByTestId("markdown-widget")).toHaveAttribute(
+      "data-more-below",
+    );
+  });
 
-    it("never intercepts the pointer and fades to the card surface", () => {
-      sizes(500, 200);
-      render(<MarkdownWidget content="long" />);
-      const fade = screen.getByTestId("markdown-fade");
-      expect(fade).toHaveClass("pointer-events-none");
-      expect(fade).toHaveClass("from-card");
-      expect(fade).toHaveAttribute("aria-hidden", "true");
-    });
+  it("masks the text itself, so it fades on any surface", () => {
+    sizes(500, 200);
+    render(<MarkdownWidget content="long" />);
+    const section = screen.getByTestId("markdown-widget");
+    expect(section.className).toContain("[mask-image:");
+    expect(screen.queryByTestId("markdown-fade")).toBeNull();
+  });
+
+  it("re-measures when an image inside loads after mount", () => {
+    sizes(200, 200);
+    render(<MarkdownWidget content="![x](https://example.com/a.png)" />);
+    const section = screen.getByTestId("markdown-widget");
+    expect(section).not.toHaveAttribute("data-more-below");
+    vi.restoreAllMocks();
+    sizes(500, 200);
+    fireEvent.load(section.querySelector("img")!);
+    expect(section).toHaveAttribute("data-more-below");
   });
 });

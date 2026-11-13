@@ -4,6 +4,7 @@ import {
   ALICE,
   TEST_PG_PORT,
   createTestDashboard,
+  putPage,
   uid,
   editingCrumb,
 } from "./fixtures";
@@ -354,6 +355,93 @@ test.describe("Dead connector recovery (#2167)", () => {
       ).toBeVisible({ timeout: 15_000 });
       await expect(page.getByText("Pick a choice…")).toBeVisible();
       await expect(unavailable).toHaveCount(0);
+    } finally {
+      await cleanup();
+    }
+  });
+});
+
+test.describe("Connector-unavailable state, selector next to chart (#2335)", () => {
+  test("a 4x2 selector keeps Retry inside its card and centres its title like the chart's", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Error alignment ${uid()}`,
+    );
+    try {
+      await putPage(
+        page.request,
+        id,
+        [
+          {
+            id: "sel",
+            chartType: "parameter-select",
+            connectionId: HEALTHY_PG,
+            query: "",
+            settings: {
+              title: "Choice",
+              chartOptions: {
+                parameterType: "select",
+                parameterName: "pick",
+                seedQuery: "SELECT 'a' AS value, 'A' AS label",
+              },
+            },
+          },
+          {
+            id: "tbl",
+            chartType: "table",
+            connectionId: HEALTHY_PG,
+            query: "SELECT 1 AS n",
+            settings: { title: "Plain" },
+          },
+        ],
+        [
+          { i: "sel", x: 0, y: 0, w: 4, h: 2 },
+          { i: "tbl", x: 4, y: 0, w: 4, h: 2 },
+        ],
+      );
+      await page.route("**/api/query", (route) =>
+        route.fulfill({
+          status: 502,
+          json: {
+            data: null,
+            error: {
+              code: "CONNECTOR_UNAVAILABLE",
+              message: "connect ECONNREFUSED",
+              details: { reason: "network" },
+            },
+            meta: null,
+          },
+        }),
+      );
+      await page.goto(`/${id}`);
+      const selCard = page.locator("[data-widget-id='sel']");
+      const tblCard = page.locator("[data-widget-id='tbl']");
+      const title = (card: typeof selCard) =>
+        card.getByText("Connector unavailable", { exact: true });
+      await expect(title(selCard)).toBeVisible({ timeout: 15_000 });
+      await expect(title(tblCard)).toBeVisible({ timeout: 15_000 });
+
+      // Retry is not clipped by the card's overflow.
+      const retry = (await selCard
+        .getByRole("button", { name: "Retry", exact: true })
+        .boundingBox())!;
+      const card = (await selCard.boundingBox())!;
+      expect(retry.y).toBeGreaterThanOrEqual(card.y);
+      expect(retry.y + retry.height).toBeLessThanOrEqual(card.y + card.height);
+
+      // Same card size, same state: the two titles sit on the same line and
+      // in the same middle.
+      const mid = async (card: typeof selCard) => {
+        const box = (await title(card).boundingBox())!;
+        return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      };
+      const [a, b] = [await mid(selCard), await mid(tblCard)];
+      expect(Math.abs(a.y - b.y)).toBeLessThanOrEqual(2);
+      expect(Math.abs(a.x - (card.x + card.width / 2))).toBeLessThanOrEqual(2);
     } finally {
       await cleanup();
     }

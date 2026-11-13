@@ -315,7 +315,7 @@ export function TableRenderer({
   );
 
   const emptyMessage =
-    (settings.emptyMessage as string | undefined) ?? "No results";
+    (settings.emptyMessage as string | undefined) ?? "No data";
   if (!records.length) {
     return <EmptyState title={emptyMessage} className="py-6" />;
   }

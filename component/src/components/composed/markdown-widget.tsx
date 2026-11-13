@@ -481,7 +481,14 @@ function MarkdownWidget({
     if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    // The observer sees the section box, not its content: an image or font that
+    // loads later grows the content without resizing the box. `load` does not
+    // bubble, so listen in the capture phase.
+    el.addEventListener("load", measure, true);
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("load", measure, true);
+    };
   }, [measure, html]);
 
   if (!content) {
@@ -511,9 +518,14 @@ function MarkdownWidget({
           "font-body",
           sizeKey ? [SIZE_CLASS[sizeKey], SCALED_HEADINGS] : "text-sm",
           "leading-[1.6] text-foreground",
+          moreBelow &&
+            "[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]",
           alignKey && ALIGN_CLASS[alignKey],
           className,
         )}
+        data-more-below={moreBelow ? "" : undefined}
+        // The fade is a mask on the text itself, so it works on any surface
+        // (card, tinted card, the fullscreen dialog) and takes no pointer.
         style={
           sizeKey
             ? ({ "--md-scale": SIZE_SCALE[sizeKey] } as React.CSSProperties)
@@ -523,15 +535,6 @@ function MarkdownWidget({
         // URLs via isSafeLinkUrl/isSafeImageUrl. No raw user HTML reaches the DOM.
         dangerouslySetInnerHTML={{ __html: html! }} // NOSONAR
       />
-      {moreBelow && (
-        <div
-          data-testid="markdown-fade"
-          aria-hidden="true"
-          // The card's own surface (--card follows a tinted card, #2394), so it
-          // reads in both themes; it never takes a click or a wheel.
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-card to-transparent"
-        />
-      )}
     </div>
   );
 }

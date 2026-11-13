@@ -192,7 +192,8 @@ describe("getDefaultChartSettings", () => {
     expect(d.enableGlobalFilter).toBe(false);
     // Auto: no saved page size, so the grid fits rows to the card (#2356).
     expect("pageSize" in d).toBe(false);
-    expect(d.emptyMessage).toBe("No results");
+    // Unset: the card says "No data" and the panel shows that as a placeholder.
+    expect(d.emptyMessage).toBeUndefined();
     expect(d.enableColumnFilters).toBeUndefined();
     // Automatic, not a number format an author never chose (#2222).
     expect(d.numberFormat).toBe("auto");

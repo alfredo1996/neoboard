@@ -38,7 +38,7 @@ function ParameterSelectPluginComponent({
   }
   return (
     // No padding of its own: the card body already pads (#2357).
-    <div {...fieldLookAttrs(settings)}>
+    <div className="h-full" {...fieldLookAttrs(settings)}>
       <ParameterWidgetRenderer
         parameterName={settings.parameterName}
         parameterType={settings.parameterType as ParameterType}

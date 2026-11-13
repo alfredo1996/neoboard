@@ -1,12 +1,26 @@
+import fs from "node:fs";
+import path from "node:path";
 import {
   test,
   expect,
   ALICE,
   createTestDashboard,
+  putPage,
   typeInEditor,
   uid,
   editingCrumb,
 } from "./fixtures";
+
+function readSeed(file: string) {
+  return JSON.parse(
+    fs.readFileSync(
+      path.resolve(__dirname, "../../scripts/demo", file),
+      "utf-8",
+    ),
+  );
+}
+
+const HEALTHY_PG = "conn-pg-001";
 
 test.describe("Widget editor", () => {
   // Each test's own dashboard, deleted by id afterwards (#1784).
@@ -821,5 +835,43 @@ test.describe("Cache forever mode", () => {
     await queryPromise;
     await expect(page.locator("td").first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Query Failed")).not.toBeVisible();
+  });
+});
+
+test.describe("Empty Message (#2335)", () => {
+  test("UX-6: a table with no rows shows the Empty Message it was configured with", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    // The seeded Chart Reference widget, moved onto the test database.
+    const reference = readSeed("chart-reference.json");
+    const seeded = reference.layout.pages
+      .flatMap((p: { widgets: { id: string }[] }) => p.widgets)
+      .find((w: { id: string }) => w.id === "page-table-v-67");
+    expect(seeded.settings.chartOptions.emptyMessage).toBe(
+      "Nothing to show here yet.",
+    );
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Empty message ${uid()}`,
+    );
+    try {
+      await putPage(
+        page.request,
+        id,
+        [{ ...seeded, connectionId: HEALTHY_PG }],
+        [{ i: seeded.id, x: 0, y: 0, w: 6, h: 4 }],
+      );
+      await page.goto(`/${id}`);
+      await expect(
+        page.getByText("Nothing to show here yet.", { exact: true }),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(
+        page.getByText("No data returned from the query.", { exact: true }),
+      ).toHaveCount(0);
+    } finally {
+      await cleanup();
+    }
   });
 });

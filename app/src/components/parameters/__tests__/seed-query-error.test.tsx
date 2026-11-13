@@ -3,8 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { SeedQueryError } from "../seed-query-error";
 import { ConnectorUnavailableError } from "@/lib/api/api-client";
 
-// #2335 (DS-5): a selector card and a chart card on the same dead connector
-// drew the same state with different alignment.
 describe("SeedQueryError", () => {
   it("is centred like the chart cards' connector-unavailable state", () => {
     render(

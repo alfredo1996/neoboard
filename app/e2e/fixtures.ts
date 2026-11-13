@@ -199,3 +199,21 @@ export async function createTestDashboard(
     },
   };
 }
+
+/** Replaces a dashboard's layout with one page of the given widgets. */
+export async function putPage(
+  request: APIRequestContext,
+  id: string,
+  widgets: unknown[],
+  gridLayout: unknown[],
+) {
+  const put = await request.put(`/api/dashboards/${id}`, {
+    data: {
+      layoutJson: {
+        version: 2,
+        pages: [{ id: "p1", title: "Main", widgets, gridLayout }],
+      },
+    },
+  });
+  expect(put.ok(), await put.text()).toBe(true);
+}
