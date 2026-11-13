@@ -562,7 +562,7 @@ test.describe("Widget editor UX", () => {
     });
     expect((await response.json()).data.data).toHaveLength(25);
     await expect(dialog.getByText("Preview shows up to 25 rows")).toHaveText(
-      /^Preview shows up to 25 rows · \d+ ms$/,
+      /^Preview shows up to 25 rows · \d+ ms(, \d+ queued)?$/,
       { timeout: 15_000 },
     );
     await expect(dialog.getByText(/Showing first .* rows/)).toHaveCount(0);
