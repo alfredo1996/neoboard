@@ -27,6 +27,7 @@ import { useParameterValues } from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
 import { useWriteQueryExecution } from "@/hooks/use-write-query-execution";
 import { useSeedQuery } from "@/hooks/use-seed-query";
+import { useSavedQueryRef } from "@/hooks/use-saved-query-ref";
 import {
   buildSeedExtraParams,
   seedFiltersOnServer,
@@ -74,6 +75,8 @@ interface FieldInputProps {
   onChange: (name: string, value: unknown) => void;
   connectionId: string;
   database?: string;
+  /** The form's saved id: a saved field seed is sent by reference (#2477). */
+  widgetId?: string;
   tenantId?: string;
   // The current local values map, used by cascading-select for parent lookup
   localValues: Record<string, unknown>;
@@ -88,6 +91,7 @@ function FieldInput({
   onChange,
   connectionId,
   database,
+  widgetId,
   tenantId,
   localValues,
   textInputRef,
@@ -145,6 +149,11 @@ function FieldInput({
     [parentParams, field.searchable, field.seedQuery, debouncedSearch],
   );
 
+  const savedRef = useSavedQueryRef(
+    widgetId,
+    { connectionId, database, query: field.seedQuery },
+    { fieldId: field.id },
+  );
   const {
     options: seedOptions,
     loading,
@@ -156,6 +165,7 @@ function FieldInput({
     seedExtraParams,
     tenantId,
     database,
+    savedRef,
   );
 
   const options = hasStaticOptions ? staticOptionsList : seedOptions;
@@ -685,6 +695,7 @@ export function FormWidgetRenderer({
                     onChange={handleFieldChange}
                     connectionId={connectionId}
                     database={database}
+                    widgetId={widgetId}
                     tenantId={tenantId}
                     localValues={localValues}
                     textInputRef={

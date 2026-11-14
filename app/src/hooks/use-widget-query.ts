@@ -25,6 +25,7 @@ import {
   useConnectionStatusStore,
 } from "@/stores/connection-status-store";
 import { resolveRelativePreset } from "@/lib/shared/date-utils";
+import type { SavedQueryRef } from "@/lib/query/saved-query-ref";
 import type { RelativeDatePreset } from "@neoboard/components";
 
 interface WidgetQueryInput {
@@ -33,6 +34,11 @@ interface WidgetQueryInput {
   params?: Record<string, unknown>;
   /** Per-card database override. */
   database?: string;
+  /**
+   * The saved widget this query is, when it runs as saved: the request then
+   * names it and carries no query text (#2477).
+   */
+  savedRef?: SavedQueryRef;
 }
 
 interface QueryResult {
@@ -159,6 +165,16 @@ export function shouldRetryWidgetQuery(
 type WidgetQueryIdentity = Partial<
   Pick<WidgetQueryInput, "connectionId" | "database" | "query">
 >;
+
+/** The request body: a saved widget's reference stands in for its text (#2477). */
+function queryRequestBody({
+  savedRef,
+  ...input
+}: WidgetQueryInput): Record<string, unknown> {
+  if (!savedRef) return input;
+  const { connectionId, params } = input;
+  return { connectionId, ref: savedRef, ...(params ? { params } : {}) };
+}
 
 /**
  * The key prefix every cached result of one widget query shares, whatever its
@@ -348,7 +364,7 @@ export function useWidgetQuery(
         // connector own the browser's per-origin pool, and the next page's
         // payload queued behind them for 52 s (#1888).
         signal,
-        body: JSON.stringify(mergedInput),
+        body: JSON.stringify(queryRequestBody(mergedInput!)),
       });
       // mergedInput is non-null whenever the query is enabled (see below).
       const { data, meta } = await trackConnectorOutcome(

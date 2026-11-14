@@ -711,6 +711,10 @@ const SPEC = {
           "or an owner or editor share without edit access) runs only a query one of those dashboards saves (a widget's query, or a " +
           "parameter selector's or form field's seed query), on that widget's connection and saved database; anything else answers 403. " +
           "Without either, the answer is 404, the same as for a connection that does not exist.\n\n" +
+          "**A saved widget's query, by reference.** Send `ref` instead of `query` to run a query a dashboard saves, so the body stays small behind a proxy that caps request bodies at a few KB. " +
+          "The caller needs only view access to the dashboard, as for a saved query above; the server runs the saved text, read-only, on the widget's saved connection and database, and `database` is ignored. " +
+          'A dashboard the caller cannot open, an unknown widget, a widget saved on another connection than `connectionId`, a form\'s own (write) query and a widget with no such query all answer one 404, "Widget not found". ' +
+          "`query` and `ref` together, or neither, answer 400.\n\n" +
           "A non-empty `tenantId` in the body must equal the session's, or the answer is 403. Unknown body keys are stripped, not rejected.",
         parameters: [
           { $ref: "#/components/parameters/QueryPriorityHeader" },
@@ -2191,12 +2195,29 @@ const SPEC = {
       },
       QueryRequest: {
         type: "object",
-        required: ["connectionId", "query"],
+        required: ["connectionId"],
+        oneOf: [{ required: ["query"] }, { required: ["ref"] }],
         properties: {
           connectionId: { type: "string" },
           query: {
             type: "string",
             example: "MATCH (n:Movie) RETURN n.title LIMIT 10",
+          },
+          ref: {
+            type: "object",
+            required: ["dashboardId", "widgetId"],
+            description:
+              "A saved query, named instead of sent; exclusive with `query`. Without `seed`, the widget's own query.",
+            properties: {
+              dashboardId: { type: "string" },
+              widgetId: { type: "string" },
+              seed: {
+                type: "object",
+                description:
+                  "Names a seed query: empty for a parameter selector's, or with `fieldId` for that form field's.",
+                properties: { fieldId: { type: "string" } },
+              },
+            },
           },
           params: {
             type: "object",

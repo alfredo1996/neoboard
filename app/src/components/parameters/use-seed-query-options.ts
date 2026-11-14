@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useParameterStore } from "@/stores/parameter-store";
 import type { ParameterType } from "@/stores/parameter-store";
 import { useSeedQuery } from "@/hooks/use-seed-query";
+import { useSavedQueryRef } from "@/hooks/use-saved-query-ref";
 import { useConnectionStatusStore } from "@/stores/connection-status-store";
 import { ConnectorUnavailableError } from "@/lib/api/api-client";
 
@@ -127,6 +128,8 @@ export function useSeedQueryOptions(
   searchable = true,
   /** The selector widget's saved per-card database (#1824). */
   database?: string,
+  /** The widget's id: a saved seed is sent by reference (#2477). */
+  widgetId?: string,
 ): SeedQueryResult {
   const { parentValue, parentParams } = useCascadeParent(parentParameterName);
   const { data: session } = useSession();
@@ -188,6 +191,11 @@ export function useSeedQueryOptions(
     [parentParams, searchable, seedQuery, debouncedSearch],
   );
 
+  const savedRef = useSavedQueryRef(
+    widgetId,
+    { connectionId, database, query: seedQuery },
+    {},
+  );
   const { options, loading, error, refetch } = useSeedQuery(
     connectionId,
     seedQuery,
@@ -195,6 +203,7 @@ export function useSeedQueryOptions(
     seedExtraParams,
     tenantId,
     database,
+    savedRef,
   );
 
   // The dashboard's probe re-runs a parked seed (#2167), and a seed with no

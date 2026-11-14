@@ -27,6 +27,8 @@ export interface ChartMetaProps {
   /** The widget's saved per-card database, for requests a plugin makes (#1824). */
   database?: string;
   widgetId?: string;
+  /** The stored widget id, which `widgetId` loses to a view's suffix (#2477). */
+  savedWidgetId?: string;
   resultId?: string;
   /** The connector that ran the query (#2061). */
   connectorType?: string;
@@ -72,6 +74,7 @@ function ChartRendererInner({
     connectionId,
     database,
     widgetId,
+    savedWidgetId,
     resultId,
     connectorType,
     query,
@@ -102,6 +105,7 @@ function ChartRendererInner({
         connectionId={connectionId}
         database={database}
         widgetId={widgetId}
+        savedWidgetId={savedWidgetId}
         resultId={resultId}
         connectorType={connectorType}
         query={query}

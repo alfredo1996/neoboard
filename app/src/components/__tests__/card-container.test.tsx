@@ -335,6 +335,22 @@ describe("CardContainer", () => {
     });
   });
 
+  describe("a fullscreen selector keeps its stored id for the query reference (#2477)", () => {
+    it("meta.savedWidgetId is the stored id while widgetId carries the suffix", () => {
+      renderWithProviders(
+        <CardContainer
+          widget={createWidget({ chartType: "parameter-select" })}
+          widgetIdSuffix="fullscreen"
+        />,
+      );
+
+      expect(capturedChartProps.meta).toMatchObject({
+        widgetId: "widget-123--fullscreen",
+        savedWidgetId: "widget-123",
+      });
+    });
+  });
+
   describe("preview data path with widgetIdSuffix", () => {
     it("passes effectiveWidgetId through meta when rendering with previewData", () => {
       const widget = createWidget({ chartType: "bar" });

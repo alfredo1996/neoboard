@@ -20,6 +20,8 @@ export interface PluginProps {
   /** The widget's saved per-card database; missing is the connection default. */
   database?: string;
   widgetId?: string;
+  /** The stored widget id, which `widgetId` loses to a view's suffix (#2477). */
+  savedWidgetId?: string;
   resultId?: string;
   /** The connector that ran the query (#2061). */
   connectorType?: string;

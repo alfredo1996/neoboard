@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { test as base, expect, type APIRequestContext } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  type APIRequestContext,
+  type Page,
+  type Response,
+} from "@playwright/test";
 import { collectClientCoverage } from "nextcov/playwright";
 import { nextcov } from "../playwright.config";
 import * as dotenv from "dotenv";
@@ -39,6 +45,32 @@ export const SEEDED_PG_OPTION = /^Movies DB \(PostgreSQL\)/;
  */
 export function uid(): string {
   return `${Date.now().toString(36)}_${randomUUID().slice(0, 8)}`;
+}
+
+/**
+ * The next POST /api/query from `page` that asks for a saved widget's query by
+ * reference (#2477): `widgetId`, and `seed` when it is a selector's or a form
+ * field's seed. The request carries no query text and no database.
+ */
+export function queryRefResponse(
+  page: Page,
+  widgetId: string,
+  seed?: { fieldId?: string },
+): Promise<Response> {
+  return page.waitForResponse(
+    (r) => {
+      if (!r.url().endsWith("/api/query") || r.request().method() !== "POST")
+        return false;
+      const body = r.request().postDataJSON() ?? {};
+      return (
+        body.query === undefined &&
+        body.database === undefined &&
+        body.ref?.widgetId === widgetId &&
+        JSON.stringify(body.ref.seed) === JSON.stringify(seed)
+      );
+    },
+    { timeout: 20_000 },
+  );
 }
 
 type Fixtures = {

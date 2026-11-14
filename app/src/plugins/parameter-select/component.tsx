@@ -20,6 +20,7 @@ function ParameterSelectPluginComponent({
   settings: raw,
   connectionId,
   widgetId,
+  savedWidgetId,
   database,
 }: Readonly<PluginProps>) {
   const settings = safeParseSettings(
@@ -52,6 +53,7 @@ function ParameterSelectPluginComponent({
         placeholder={settings.placeholder || undefined}
         searchable={settings.searchable}
         widgetId={widgetId}
+        savedWidgetId={savedWidgetId}
       />
     </div>
   );

@@ -108,12 +108,13 @@ async function withViewerShare(
   }
 }
 
+/** The page's request for a saved seed query, by reference (#2477). */
 function seedResponse(page: Page): Promise<Response> {
   return page.waitForResponse(
     (r) =>
       r.url().endsWith("/api/query") &&
       r.request().method() === "POST" &&
-      r.request().postDataJSON()?.query === SEED,
+      !!r.request().postDataJSON()?.ref?.seed,
     { timeout: 20_000 },
   );
 }

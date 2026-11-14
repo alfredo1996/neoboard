@@ -4,6 +4,7 @@ import {
   ALICE,
   TEST_PG_PORT,
   createTestDashboard,
+  queryRefResponse,
   uid,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
@@ -103,16 +104,10 @@ test.describe("Viewer share runs a saved query on its saved database only", () =
 
         // The dashboard still works for the viewer: its widget asks for the
         // saved database and gets that database's answer.
-        const shown = viewer.waitForResponse(
-          (r) =>
-            r.url().endsWith("/api/query") &&
-            r.request().method() === "POST" &&
-            r.request().postDataJSON()?.query === QUERY,
-          { timeout: 20_000 },
-        );
+        const shown = queryRefResponse(viewer, "w-db");
         await viewer.goto(`/${dashboardId}`);
         const widget = await shown;
-        expect(widget.request().postDataJSON().database).toBe("movies");
+        expect(widget.request().postDataJSON()).not.toHaveProperty("database");
         expect(widget.status()).toBe(200);
         expect((await widget.json()).data.data).toEqual([{ db: "movies" }]);
 
