@@ -228,7 +228,9 @@ test.describe("A filter shows what it drives (#2369)", () => {
       release = resolve;
     });
     await page.route("**/api/query", async (route) => {
-      if (held && (route.request().postData() ?? "").includes("AS title")) {
+      // The films table runs by reference to its saved widget (#2477).
+      const ref = route.request().postDataJSON()?.ref;
+      if (held && ref?.widgetId === "t-films") {
         await gate;
       }
       await route.continue();

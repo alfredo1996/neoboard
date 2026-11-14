@@ -651,6 +651,43 @@ describe("FormWidgetRenderer — runs where the form is saved (#1824)", () => {
     }
   });
 
+  it("asks for a saved field's options by reference to its dashboard, widget and field (#2477)", () => {
+    const field = makeField({
+      id: "f1",
+      parameterName: "region",
+      parameterType: "select",
+      seedQuery: "SELECT current_database()",
+    });
+    useDashboardStore.getState().setLayout({
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "P",
+          widgets: [
+            {
+              id: "w-form",
+              chartType: "form",
+              connectionId: "conn-1",
+              database: "neoboard",
+              query: "CREATE (n) RETURN n",
+              params: {},
+              settings: { formFields: [field] },
+            },
+          ],
+          gridLayout: [],
+        },
+      ],
+    } as never);
+    renderForm([field], {}, { database: "neoboard", widgetId: "w-form" });
+    expect(seedQueryCalls.at(-1)?.[6]).toEqual({
+      dashboardId: "dash-1",
+      widgetId: "w-form",
+      seed: { fieldId: "f1" },
+    });
+    useDashboardStore.getState().reset();
+  });
+
   it("submits the ids of the stored form and its dashboard, and never a database", () => {
     renderForm(
       [makeField({ id: "f1", parameterName: "v", parameterType: "text" })],

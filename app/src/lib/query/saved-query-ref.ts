@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { DashboardWidget } from "@/lib/db/schema";
+import type { DashboardLayout, DashboardWidget } from "@/lib/db/schema";
+import { migrateLayout } from "@/lib/dashboard/migrate-layout";
 
 /**
  * A saved widget's query, named instead of sent (#2477): a proxy that caps
@@ -44,4 +45,19 @@ export function savedQueryText(
     ? (settings.formFields as Array<SeedHolder | null>)
     : [];
   return nonEmpty(fields.find((f) => f?.id === seed.fieldId)?.seedQuery);
+}
+
+/**
+ * The saved widget with `widgetId` on `connectionId`, read as the client reads
+ * it (a v1 layout, or a page saved without `widgets`, is fine). One lookup for
+ * every route that takes a widget by id (#2477, #1832).
+ */
+export function findSavedWidget(
+  layout: DashboardLayout | null | undefined,
+  widgetId: string,
+  connectionId: string,
+): DashboardWidget | undefined {
+  return migrateLayout(layout)
+    .pages.flatMap((p) => p.widgets ?? [])
+    .find((w) => w.id === widgetId && w.connectionId === connectionId);
 }

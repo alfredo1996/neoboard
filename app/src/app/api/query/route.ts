@@ -31,13 +31,10 @@ import { recordCancellation } from "@/lib/metrics";
 import {
   savedQueryRefSchema,
   savedQueryText,
+  findSavedWidget,
   type SavedQueryRef,
 } from "@/lib/query/saved-query-ref";
-import type {
-  DashboardLayoutV2,
-  DashboardWidget,
-  UserRole,
-} from "@/lib/db/schema";
+import type { UserRole } from "@/lib/db/schema";
 import { resolveDashboardAccess } from "@/lib/dashboard/access";
 import { logRoute } from "@/lib/api/log-route";
 import type { QueryPriority } from "@/lib/query/scheduler";
@@ -373,14 +370,9 @@ async function resolveSavedQuery(
     userRole: caller.role,
     required: "viewer",
   });
-  const layout = access?.dashboard.layoutJson as
-    DashboardLayoutV2 | null | undefined;
-  const widget = layout?.pages
-    ?.flatMap((p) => p.widgets)
-    .find(
-      (w: DashboardWidget) =>
-        w.id === ref.widgetId && w.connectionId === connectionId,
-    );
+  const widget =
+    access &&
+    findSavedWidget(access.dashboard.layoutJson, ref.widgetId, connectionId);
   const query = widget && savedQueryText(widget, ref.seed);
   if (!widget || !query) return undefined;
   return { query, database: widget.database || undefined };

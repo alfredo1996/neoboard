@@ -66,6 +66,15 @@ test.describe("A saved widget with a long query loads behind a body-size cap (#2
       });
       expect(sizes.length).toBeGreaterThan(0);
       expect(Math.max(...sizes)).toBeLessThan(1024);
+
+      // Edit mode runs the same saved widget the same way.
+      sizes.length = 0;
+      await page.goto(`/${id}/edit`);
+      await expect(page.locator("table").first()).toBeVisible({
+        timeout: 30_000,
+      });
+      expect(sizes.length).toBeGreaterThan(0);
+      expect(Math.max(...sizes)).toBeLessThan(1024);
     } finally {
       await cleanup();
     }

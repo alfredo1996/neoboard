@@ -38,11 +38,10 @@ export function useSavedQueryRef(
       savedQueryText(w, isSeed ? { fieldId } : undefined) === query
     );
   });
-  return useMemo(
-    () =>
-      saved && dashboardId && widgetId
-        ? { dashboardId, widgetId, ...(isSeed ? { seed: { fieldId } } : {}) }
-        : undefined,
-    [saved, dashboardId, widgetId, isSeed, fieldId],
-  );
+  return useMemo(() => {
+    if (!saved || !dashboardId || !widgetId) return undefined;
+    return isSeed
+      ? { dashboardId, widgetId, seed: { fieldId } }
+      : { dashboardId, widgetId };
+  }, [saved, dashboardId, widgetId, isSeed, fieldId]);
 }

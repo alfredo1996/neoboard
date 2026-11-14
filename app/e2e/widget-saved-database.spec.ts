@@ -5,6 +5,7 @@ import {
   ALICE,
   TEST_PG_PORT,
   createTestDashboard,
+  queryRefResponse,
   saveDashboard,
   typeInEditor,
   uid,
@@ -49,23 +50,15 @@ async function createConnection(
   return (await res.json()).data.id as string;
 }
 
-/** The response to the dashboard's request for `query`. */
-function queryResponse(page: Page, query: string): Promise<Response> {
-  return page.waitForResponse(
-    (r) =>
-      r.url().endsWith("/api/query") &&
-      r.request().method() === "POST" &&
-      r.request().postDataJSON()?.query === query,
-    { timeout: 20_000 },
-  );
-}
-
-/** The request asked for the neoboard database, and neoboard answered. */
+/**
+ * The request names the widget and no database, and neoboard answered: the
+ * server picks the saved database (#1824, #2477).
+ */
 async function expectAnsweredByNeoboard(
   response: Response,
   rows: Record<string, unknown>[],
 ) {
-  expect(response.request().postDataJSON().database).toBe("neoboard");
+  expect(response.request().postDataJSON()).not.toHaveProperty("database");
   expect(response.status()).toBe(200);
   expect((await response.json()).data.data).toEqual(rows);
 }
@@ -172,7 +165,7 @@ test.describe("Widgets run on their saved database (#1824)", () => {
       expect(put.ok()).toBeTruthy();
 
       // The field's options come from the form's database.
-      const fieldSeed = queryResponse(page, FORM_SEED);
+      const fieldSeed = queryRefResponse(page, "w-form", { fieldId: "f-db" });
       await page.goto(`/${dashboardId}`);
       await expectAnsweredByNeoboard(await fieldSeed, [
         { value: "neoboard", label: "form field" },
@@ -232,8 +225,8 @@ test.describe("Widgets run on their saved database (#1824)", () => {
 
     /** Open the dashboard: both option lists come from neoboard. */
     async function expectNeoboardOptions(page: Page) {
-      const selectorSeed = queryResponse(page, SELECT_SEED);
-      const fieldSeed = queryResponse(page, FORM_SEED);
+      const selectorSeed = queryRefResponse(page, "w-select", {});
+      const fieldSeed = queryRefResponse(page, "w-form", { fieldId: "f-db" });
       await page.goto(`/${dashboardId}`);
       await expectAnsweredByNeoboard(await selectorSeed, [
         { value: "neoboard" },

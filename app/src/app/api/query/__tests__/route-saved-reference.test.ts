@@ -104,7 +104,7 @@ describe("POST /api/query with a saved-query reference (#2477)", () => {
     vi.clearAllMocks();
     mockRequireSession.mockResolvedValue(session);
     mockAccess.mockResolvedValue({
-      dashboard: { layoutJson: { pages: [{ widgets }] } },
+      dashboard: { layoutJson: { version: 2, pages: [{ widgets }] } },
     });
     mockDb.select.mockReturnValue(chain([connection]));
     mockDecryptJson.mockReturnValue({ uri: "bolt://x", database: "neo4j" });
@@ -165,6 +165,15 @@ describe("POST /api/query with a saved-query reference (#2477)", () => {
     expect(res.status).toBe(404);
     expect((await res.json()).error.message).toBe("Widget not found");
     expect(mockExecuteQuery).not.toHaveBeenCalled();
+  });
+
+  it("ignores a request database: the saved widget's own choice, here the connection default, runs (#1822)", async () => {
+    const res = await post({
+      ref: ref({ widgetId: "w-param", seed: {} }),
+      database: "other",
+    });
+    expect(res.status).toBe(200);
+    expect(mockExecuteQuery.mock.calls[0][1].database).toBe("neo4j");
   });
 
   it("refuses a connection other than the one the widget is saved on", async () => {

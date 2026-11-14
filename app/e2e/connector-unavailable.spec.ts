@@ -139,14 +139,25 @@ async function createDashboard(
   return { id, cleanup };
 }
 
-/** Timestamps of every POST /api/query, keyed by the query text. */
+/**
+ * Timestamps of every POST /api/query, keyed by the query text, or for a saved
+ * widget's reference (#2477) by its widget id, "#seed" added for a seed.
+ */
+function refKey(ref: { widgetId: string; seed?: object }) {
+  return ref.seed ? `${ref.widgetId}#seed` : ref.widgetId;
+}
+
 function recordQueryRequests(page: Page) {
   const hits = new Map<string, number[]>();
   page.on("request", (req) => {
     if (req.method() !== "POST" || !req.url().includes("/api/query")) return;
     let key = "?";
     try {
-      key = (req.postDataJSON() as { query?: string })?.query ?? "?";
+      const body = req.postDataJSON() as {
+        query?: string;
+        ref?: { widgetId: string; seed?: object };
+      };
+      key = body?.query ?? (body?.ref ? refKey(body.ref) : "?");
     } catch {
       // not JSON — leave it under "?"
     }
@@ -198,13 +209,13 @@ test.describe("Dead connector (#1678)", () => {
       const windowMs = 2 * REFRESH_SECONDS * 1000 + CONNECT_TIMEOUT_MS;
       await page.waitForTimeout(windowMs);
       const allowed = Math.floor(windowMs / (REFRESH_SECONDS * 1000)) + 1;
-      expect(requestsFor(DEAD_PLAIN, settledAt)).toBeLessThanOrEqual(allowed);
-      expect(requestsFor(HEALTHY, settledAt)).toBeLessThanOrEqual(allowed);
+      expect(requestsFor("w-dead", settledAt)).toBeLessThanOrEqual(allowed);
+      expect(requestsFor("w-ok", settledAt)).toBeLessThanOrEqual(allowed);
       // The seed query has no interval and no retry: exactly one, ever.
-      expect(requestsFor(DEAD_SEED)).toBe(1);
+      expect(requestsFor("p-dead#seed")).toBe(1);
       // Gated on a parameter that never arrived: never ran.
-      expect(requestsFor(DEAD_DEPENDENT)).toBe(0);
-      expect(requestsFor(HEALTHY_DEPENDENT)).toBe(0);
+      expect(requestsFor("w-dep")).toBe(0);
+      expect(requestsFor("w-dep-ok")).toBe(0);
 
       // Still interactive, no reload: edit mode and the widget editor open.
       await page.getByRole("button", { name: "Edit", exact: true }).click();
@@ -232,7 +243,7 @@ test.describe("Dead connector (#1678)", () => {
         },
       });
       expect(repoint.ok(), await repoint.text()).toBe(true);
-      const seedsBeforeRetry = requestsFor(DEAD_SEED);
+      const seedsBeforeRetry = requestsFor("p-dead#seed");
       await page
         .locator('[data-widget-id="p-dead"]')
         .getByRole("button", { name: "Retry" })
@@ -255,7 +266,7 @@ test.describe("Dead connector (#1678)", () => {
       if (await plainRetry.isVisible()) await plainRetry.click();
       await expect(plainRow).toBeVisible({ timeout: 15_000 });
       await expect(unavailable).toHaveCount(0);
-      expect(requestsFor(DEAD_SEED)).toBe(seedsBeforeRetry + 1);
+      expect(requestsFor("p-dead#seed")).toBe(seedsBeforeRetry + 1);
     } finally {
       await cleanup();
       await page.request.delete(`/api/connections/${deadId}`);

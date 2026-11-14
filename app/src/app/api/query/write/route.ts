@@ -2,7 +2,8 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections } from "@/lib/db/schema";
-import type { DashboardLayoutV2, DashboardWidget } from "@/lib/db/schema";
+import type { DashboardWidget } from "@/lib/db/schema";
+import { findSavedWidget } from "@/lib/query/saved-query-ref";
 import { requireSession } from "@/lib/auth/session";
 import { resolveDashboardAccess } from "@/lib/dashboard/access";
 import { decryptJson } from "@/lib/crypto/crypto";
@@ -119,14 +120,9 @@ async function handleWriteQuery(request: Request): Promise<Response> {
         userRole: role,
         required: "viewer",
       });
-      const layout = access?.dashboard.layoutJson as
-        DashboardLayoutV2 | null | undefined;
-      widget = layout?.pages
-        ?.flatMap((p) => p.widgets)
-        .find(
-          (w: DashboardWidget) =>
-            w.id === widgetId && w.connectionId === connectionId,
-        );
+      widget = access
+        ? findSavedWidget(access.dashboard.layoutJson, widgetId, connectionId)
+        : undefined;
 
       // One refusal for a missing or unopenable dashboard, a missing widget or
       // one on another connection, and a form saved with other query text than

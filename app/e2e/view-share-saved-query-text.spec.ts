@@ -4,10 +4,10 @@ import {
   ALICE,
   TEST_PG_PORT,
   createTestDashboard,
+  queryRefResponse,
   uid,
 } from "./fixtures";
 import { AuthPage } from "./pages/auth";
-import type { Page, Response } from "@playwright/test";
 
 /**
  * A viewer share runs only the queries its dashboard contains (#972), each as
@@ -44,17 +44,6 @@ const SELECTOR_SEED =
   "SELECT n AS value\r\nFROM generate_series(1, 3) AS n  \r\n";
 const FORM_SEED =
   "SELECT n AS value -- field options\nFROM generate_series(4, 6) AS n\n";
-
-/** The next POST /api/query from `page` that sends exactly `query`. */
-function sends(page: Page, query: string): Promise<Response> {
-  return page.waitForResponse(
-    (r) =>
-      r.url().endsWith("/api/query") &&
-      r.request().method() === "POST" &&
-      r.request().postDataJSON()?.query === query,
-    { timeout: 20_000 },
-  );
-}
 
 test.describe("Viewer share runs each saved query as its exact saved text", () => {
   test.describe.configure({ timeout: 90_000 });
@@ -185,10 +174,12 @@ test.describe("Viewer share runs each saved query as its exact saved text", () =
         const viewer = await viewerCtx.newPage();
         await new AuthPage(viewer).login(email, password);
 
-        // Every client path sends its saved text exactly as saved, and runs.
-        const loads = [SAVED, SELECTOR_SEED, FORM_SEED].map((query) =>
-          sends(viewer, query),
-        );
+        // Every saved widget path names its query (#2477); the server runs it.
+        const loads = [
+          queryRefResponse(viewer, "w-years"),
+          queryRefResponse(viewer, "w-pick", {}),
+          queryRefResponse(viewer, "w-form", { fieldId: "f-choice" }),
+        ];
         await viewer.goto(`/${dashboardId}`);
         const [widget, ...seeds] = await Promise.all(loads);
         expect(widget.status()).toBe(200);
@@ -199,8 +190,8 @@ test.describe("Viewer share runs each saved query as its exact saved text", () =
         ]);
         for (const seed of seeds) expect(seed.status()).toBe(200);
 
-        // A refresh sends the saved text again.
-        const refreshed = sends(viewer, SAVED);
+        // A refresh names it again.
+        const refreshed = queryRefResponse(viewer, "w-years");
         await viewer
           .getByTestId("widget-card")
           .filter({ hasText: "Years" })

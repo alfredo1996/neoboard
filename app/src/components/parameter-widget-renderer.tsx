@@ -44,6 +44,8 @@ export interface ParameterWidgetConfig {
   className?: string;
   /** The widget ID that owns this renderer — propagated to sourceWidgetId on setParameter. */
   widgetId?: string;
+  /** The stored id of the widget, for a seed sent by reference (#2477). */
+  savedWidgetId?: string;
 }
 
 // ─── Main renderer (thin dispatcher) ─────────────────────────────────────────
@@ -68,6 +70,7 @@ export function ParameterWidgetRenderer({
   searchable = true,
   className,
   widgetId,
+  savedWidgetId,
 }: ParameterWidgetConfig) {
   const actions = useParamActions(parameterName, parameterType, widgetId);
   const seed = useSeedQueryOptions(
@@ -77,7 +80,7 @@ export function ParameterWidgetRenderer({
     parentParameterName,
     searchable,
     database,
-    widgetId,
+    savedWidgetId,
   );
   useCascadingClear(parameterName, parentParameterName, seed.parentValue);
 

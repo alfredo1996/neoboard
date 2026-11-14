@@ -589,6 +589,7 @@ export function CardContainer({
           connectionId: widget.connectionId,
           database: widget.database,
           widgetId: effectiveWidgetId,
+          savedWidgetId: widget.id,
         }}
       />
     );
