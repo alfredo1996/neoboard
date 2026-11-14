@@ -449,3 +449,28 @@ describe("envelope error details (#1409)", () => {
     });
   });
 });
+
+describe("a refusal from a proxy in front of the server (#2480)", () => {
+  const html = () =>
+    new Response("<html><body>403 ERROR</body></html>", {
+      status: 403,
+      headers: { "content-type": "text/html" },
+    });
+
+  it.each([
+    ["unwrapResponse", unwrapResponse],
+    ["unwrapFullResponse", unwrapFullResponse],
+  ])("%s says the request never reached the server", async (_n, unwrap) => {
+    await expect(unwrap(html())).rejects.toThrow(
+      /refused before it reached the server \(HTTP 403\)/,
+    );
+  });
+
+  it("still reads a NeoBoard envelope error as before", async () => {
+    const res = fakeResponse(
+      { data: null, error: { code: "FORBIDDEN", message: "Nope" }, meta: null },
+      403,
+    );
+    await expect(unwrapResponse(res)).rejects.toThrow("Nope");
+  });
+});
