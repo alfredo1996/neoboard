@@ -117,6 +117,40 @@ export class RequestBodyTooLargeError extends RequestBodyError {
 }
 
 /**
+ * A gzip body (#2481), inflated while it streams: the cap is checked per chunk,
+ * so a few KB that expand without limit are cut at the cap, never held whole.
+ * The cap is the proxy's own, so an inflated body is no larger than a plain one
+ * may be. Only gzip is decoded; any other encoding is not a body we can read.
+ */
+async function inflatedBody(
+  request: Request,
+  encoding: string,
+): Promise<string> {
+  if (encoding !== "gzip" || !request.body) throw new InvalidJsonBodyError();
+  const reader = request.body
+    .pipeThrough(new DecompressionStream("gzip"))
+    .getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > PROXY_BODY_LIMIT_BYTES) {
+        await reader.cancel();
+        throw new RequestBodyTooLargeError();
+      }
+      chunks.push(value);
+    }
+  } catch (error) {
+    if (error instanceof RequestBodyError) throw error;
+    throw new InvalidJsonBodyError(); // corrupt or truncated gzip
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
+/**
  * The request's JSON body. A bare `request.json()` threw a SyntaxError that
  * answered 500 as a server fault. A body declared larger than the proxy passes
  * on was cut short, so whatever arrived — parsable or not — is not the body
@@ -130,6 +164,10 @@ export async function readJsonBody(request: Request): Promise<unknown> {
   const declared = Number(request.headers.get("content-length"));
   if (declared > PROXY_BODY_LIMIT_BYTES) throw new RequestBodyTooLargeError();
   try {
+    const encoding = request.headers.get("content-encoding")?.trim();
+    if (encoding && encoding !== "identity") {
+      return JSON.parse(await inflatedBody(request, encoding));
+    }
     return await request.json();
   } catch (error) {
     // Only a parse failure is the caller's; an unusable body is ours.

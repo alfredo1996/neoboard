@@ -58,11 +58,44 @@ export function _resetLimitedFetch(): void {
   waiting.length = 0;
 }
 
+/**
+ * A proxy may refuse a request body over 8 KB (AWS WAF's Core rule set), and a
+ * draft query has no saved copy to name instead (#2481), so a text body over
+ * this size travels gzipped. Cypher and SQL shrink about 4x.
+ * ponytail: no CompressionStream (older browsers) sends it plain, as before.
+ */
+const GZIP_OVER_BYTES = 2048;
+
+async function gzipLongBody(
+  init?: RequestInit,
+): Promise<RequestInit | undefined> {
+  const body = init?.body;
+  if (
+    typeof body !== "string" ||
+    body.length <= GZIP_OVER_BYTES ||
+    typeof CompressionStream === "undefined"
+  ) {
+    return init;
+  }
+  let zipped: ArrayBuffer;
+  try {
+    zipped = await new Response(
+      new Blob([body]).stream().pipeThrough(new CompressionStream("gzip")),
+    ).arrayBuffer();
+  } catch {
+    return init; // a half-implemented stream API: plain beats failing
+  }
+  const headers = new Headers(init?.headers);
+  headers.set("Content-Encoding", "gzip");
+  return { ...init, headers, body: zipped };
+}
+
 /** `fetch`, but at most QUERY_FETCH_LIMIT calls run at once. */
 export async function limitedFetch(
   input: RequestInfo | URL,
-  init?: RequestInit,
+  rawInit?: RequestInit,
 ): Promise<Response> {
+  const init = await gzipLongBody(rawInit);
   const mine = epoch; // before acquire: its slot is counted in this epoch
   await acquire(init?.signal);
   try {
