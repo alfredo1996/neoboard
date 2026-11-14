@@ -517,13 +517,15 @@ export default function UsersPage() {
           if (deleteTarget) {
             // The row leaves once the list refetches: land on the heading.
             setReturnFocusTo(headingRef.current);
-            deleteUser.mutate(deleteTarget, {
-              onSuccess: () =>
+            // mutateAsync, not per-call callbacks: TanStack v5 fires those
+            // for the latest call only (#2476).
+            deleteUser.mutateAsync(deleteTarget).then(
+              () =>
                 toast({
                   title: "User deleted",
                   description: "The user has been removed.",
                 }),
-              onError: (err) =>
+              (err: unknown) =>
                 toast({
                   title: "Failed to delete user",
                   description:
@@ -532,7 +534,7 @@ export default function UsersPage() {
                       : "Something went wrong.",
                   variant: "destructive",
                 }),
-            });
+            );
             setDeleteTarget(null);
           }
         }}

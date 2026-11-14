@@ -1040,10 +1040,12 @@ export default function DashboardListPage() {
             // Success feedback for a destructive action (#1046) — matches the
             // users-page convention (name-free description: the name in a
             // toast would linger after the card disappears and read as stale).
-            deleteDashboard.mutate(deleteTarget.id, {
-              onSuccess: ({ alreadyDeleted }) =>
+            // mutateAsync, not per-call callbacks: TanStack v5 fires those
+            // for the latest call only (#2476).
+            deleteDashboard.mutateAsync(deleteTarget.id).then(
+              ({ alreadyDeleted }) =>
                 toast(deleteDashboardToast(alreadyDeleted)),
-              onError: (err) =>
+              (err: unknown) =>
                 toast({
                   title: "Failed to delete dashboard",
                   description:
@@ -1052,7 +1054,7 @@ export default function DashboardListPage() {
                       : "Something went wrong.",
                   variant: "destructive",
                 }),
-            });
+            );
             setDeleteTarget(null);
           }
         }}

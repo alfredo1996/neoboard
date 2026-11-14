@@ -164,8 +164,10 @@ export default function WidgetLibraryPage() {
 
   function handleDuplicate(template: WidgetTemplate) {
     const baseName = template.name.replace(/\s*\(copy(?:\s\d+)?\)$/, "");
-    createTemplate.mutate(
-      {
+    // mutateAsync, not per-call callbacks: TanStack v5 fires those for the
+    // latest call only (#2476).
+    createTemplate
+      .mutateAsync({
         name: `${baseName} (copy)`,
         description: template.description ?? undefined,
         tags: template.tags ?? undefined,
@@ -175,22 +177,21 @@ export default function WidgetLibraryPage() {
         connectionId: template.connectionId ?? undefined,
         query: template.query,
         settings: (template.settings as Record<string, unknown>) ?? undefined,
-      },
-      {
-        onSuccess: () =>
+      })
+      .then(
+        () =>
           toast({
             title: "Template duplicated",
             description: `"${baseName} (copy)" has been created.`,
           }),
-        onError: (err) =>
+        (err: unknown) =>
           toast({
             title: "Failed to duplicate template",
             description:
               err instanceof Error ? err.message : "Something went wrong.",
             variant: "destructive",
           }),
-      },
-    );
+      );
   }
 
   async function handleTestQuery(template: WidgetTemplate) {
