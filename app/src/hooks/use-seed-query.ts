@@ -5,6 +5,7 @@ import type { QueryKey } from "@tanstack/react-query";
 import { unwrapFullResponse } from "@/lib/api/api-client";
 import { trackConnectorOutcome } from "@/stores/connection-status-store";
 import type { ParamSelectorOption } from "@neoboard/components";
+import type { SavedQueryRef } from "@/lib/query/saved-query-ref";
 import { seedRowToOption } from "@/lib/parameter/seed-option";
 
 interface SeedQueryData {
@@ -45,6 +46,8 @@ export function useSeedQuery(
   extraParams?: Record<string, unknown>,
   tenantId?: string,
   database?: string,
+  /** The saved seed this query is: sent instead of its text (#2477). */
+  savedRef?: SavedQueryRef,
 ): {
   options: ParamSelectorOption[];
   loading: boolean;
@@ -73,10 +76,10 @@ export function useSeedQuery(
         signal,
         body: JSON.stringify({
           connectionId,
-          query,
+          ...(savedRef ? { ref: savedRef } : { query }),
           params: extraParams ?? {},
           ...(tenantId ? { tenantId } : {}),
-          ...(database ? { database } : {}),
+          ...(database && !savedRef ? { database } : {}),
         }),
       });
       // connectionId is non-empty whenever the query is enabled (see below).

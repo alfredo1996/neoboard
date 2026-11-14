@@ -3,6 +3,8 @@ import { renderHook, act } from "@testing-library/react";
 import { useParameterStore } from "@/stores/parameter-store";
 import { useConnectionStatusStore } from "@/stores/connection-status-store";
 import { ConnectorUnavailableError } from "@/lib/api/api-client";
+import { useDashboardStore } from "@/stores/dashboard-store";
+import type { DashboardLayoutV2 } from "@/lib/db/schema";
 import {
   useSeedQueryOptions,
   seedFiltersOnServer,
@@ -11,6 +13,7 @@ import {
 
 // next-auth's useSession is consulted for the tenant id; the seed query
 // itself is mocked so we can inspect the params it receives.
+vi.mock("next/navigation", () => ({ useParams: () => ({ id: "d1" }) }));
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ data: { user: { tenantId: "test-tenant" } } }),
 }));
@@ -22,6 +25,7 @@ type SeedSpyArgs = [
   extraParams: Record<string, unknown> | undefined,
   tenantId: string | undefined,
   database: string | undefined,
+  savedRef: unknown,
 ];
 type SeedSpyReturn = {
   options: { value: string; label: string }[];
@@ -592,5 +596,68 @@ describe("useSeedQueryOptions — exposes serverFiltered (#1411)", () => {
       useSeedQueryOptions("select", "conn-1", "SELECT 1", undefined, true),
     );
     expect(result.current.serverFiltered).toBe(false);
+  });
+});
+
+describe("useSeedQueryOptions — a saved seed goes by reference (#2477)", () => {
+  const saved = (seedQuery: string) =>
+    ({
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "P",
+          gridLayout: [],
+          widgets: [
+            {
+              id: "sel",
+              chartType: "parameter-select",
+              connectionId: "conn-1",
+              query: "",
+              settings: { chartOptions: { seedQuery } },
+            },
+          ],
+        },
+      ],
+    }) as unknown as DashboardLayoutV2;
+
+  beforeEach(() => {
+    seedQuerySpy.mockClear();
+    useParameterStore.getState().clearAll();
+    useDashboardStore.getState().setLayout(saved("SELECT 1"));
+  });
+
+  it("hands useSeedQuery the widget's reference when its seed is as saved", () => {
+    renderHook(() =>
+      useSeedQueryOptions(
+        "select",
+        "conn-1",
+        "SELECT 1",
+        undefined,
+        false,
+        undefined,
+        "sel",
+      ),
+    );
+    expect(lastCallArgs()[6]).toEqual({
+      dashboardId: "d1",
+      widgetId: "sel",
+      seed: {},
+    });
+  });
+
+  it("sends the text of a seed edited since the last save", () => {
+    renderHook(() =>
+      useSeedQueryOptions(
+        "select",
+        "conn-1",
+        "SELECT 2",
+        undefined,
+        false,
+        undefined,
+        "sel",
+      ),
+    );
+    expect(lastCallArgs()[6]).toBeUndefined();
   });
 });

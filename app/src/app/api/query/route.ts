@@ -28,6 +28,17 @@ import { apiSuccess } from "@/lib/api/api-response";
 import { layoutsAllowQuery } from "@/lib/query/dashboard-query-binding";
 import { usableConnection } from "@/lib/db/connection-access";
 import { recordCancellation } from "@/lib/metrics";
+import {
+  savedQueryRefSchema,
+  savedQueryText,
+  type SavedQueryRef,
+} from "@/lib/query/saved-query-ref";
+import type {
+  DashboardLayoutV2,
+  DashboardWidget,
+  UserRole,
+} from "@/lib/db/schema";
+import { resolveDashboardAccess } from "@/lib/dashboard/access";
 import { logRoute } from "@/lib/api/log-route";
 import type { QueryPriority } from "@/lib/query/scheduler";
 
@@ -43,21 +54,27 @@ function readPriorityHeader(raw: string | null): QueryPriority {
   return 2;
 }
 
-const querySchema = z.object({
-  connectionId: z.string().min(1),
-  query: z.string().min(1),
-  params: z.record(z.string(), z.unknown()).optional(),
-  /** Optional defense-in-depth field: when provided, must match the session tenant. */
-  tenantId: z.string().optional(),
-  /** Per-card database override — used when the connection allows per-card DB selection. */
-  database: z.string().optional(),
-  /**
-   * Fewer rows than the connection allows, for this run only (#1896; the
-   * editor preview asks for 25). `executeQuery` clamps it to the connection's
-   * `maxRows`, so it can lower the cap and never raise it.
-   */
-  rowLimit: z.number().int().positive().optional(),
-});
+const querySchema = z
+  .object({
+    connectionId: z.string().min(1),
+    /** The query text, or `ref` for a saved widget's query, never both (#2477). */
+    query: z.string().min(1).optional(),
+    ref: savedQueryRefSchema.optional(),
+    params: z.record(z.string(), z.unknown()).optional(),
+    /** Optional defense-in-depth field: when provided, must match the session tenant. */
+    tenantId: z.string().optional(),
+    /** Per-card database override — used when the connection allows per-card DB selection. */
+    database: z.string().optional(),
+    /**
+     * Fewer rows than the connection allows, for this run only (#1896; the
+     * editor preview asks for 25). `executeQuery` clamps it to the connection's
+     * `maxRows`, so it can lower the cap and never raise it.
+     */
+    rowLimit: z.number().int().positive().optional(),
+  })
+  .refine((b) => (b.query === undefined) !== (b.ref === undefined), {
+    message: "Send either query or ref",
+  });
 
 export async function POST(request: Request) {
   return logRoute(request, "query", () => handleReadQuery(request));
@@ -82,17 +99,33 @@ async function handleReadQuery(request: Request): Promise<Response> {
 
     const {
       connectionId,
-      query,
       params,
       tenantId: bodyTenantId,
-      database: databaseOverride,
       rowLimit: requestedRowLimit,
+      ref,
     } = validation.data;
+    let query = validation.data.query ?? "";
+    let databaseOverride = validation.data.database;
 
     // Defense-in-depth: if the caller explicitly passes a tenantId,
     // assert it matches the session to catch misconfigured clients early.
     if (bodyTenantId && bodyTenantId !== sessionTenantId) {
       return forbidden("Tenant mismatch");
+    }
+
+    // A saved widget's query by reference (#2477): the server loads the text
+    // from the saved dashboard, which the caller must be able to open, on the
+    // widget's saved connection and database. That is what the view-level
+    // binding below grants for the same text; the request chooses neither.
+    if (ref) {
+      const saved = await resolveSavedQuery(ref, connectionId, {
+        userId,
+        tenantId: sessionTenantId,
+        role,
+      });
+      if (!saved) return notFound("Widget not found");
+      query = saved.query;
+      databaseOverride = saved.database;
     }
 
     // 1. Direct access: the caller owns the connection, it is shared with the
@@ -105,7 +138,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
         and(
           eq(connections.id, connectionId),
           eq(connections.tenantId, sessionTenantId),
-          usableConnection(userId, role),
+          ref ? undefined : usableConnection(userId, role),
         ),
       )
       .limit(1);
@@ -120,7 +153,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
     //    authoring widgets requires running novel queries. It holds only while
     //    the caller may write and the dashboard's owner can use the connection
     //    (#1816).
-    if (!connection) {
+    if (!connection && !ref) {
       const access = await dashboardAccessToConnection(
         userId,
         connectionId,
@@ -325,4 +358,30 @@ async function dashboardAccessToConnection(
   );
   if (canWrite && authors) return { level: "edit" };
   return { level: "view", layouts: rows.map((r) => r.layoutJson) };
+}
+
+/** The saved query a reference names, or undefined for every refusal (#2477). */
+async function resolveSavedQuery(
+  ref: SavedQueryRef,
+  connectionId: string,
+  caller: { userId: string; tenantId: string; role: UserRole },
+): Promise<{ query: string; database?: string } | undefined> {
+  const access = await resolveDashboardAccess({
+    dashboardId: ref.dashboardId,
+    userId: caller.userId,
+    tenantId: caller.tenantId,
+    userRole: caller.role,
+    required: "viewer",
+  });
+  const layout = access?.dashboard.layoutJson as
+    DashboardLayoutV2 | null | undefined;
+  const widget = layout?.pages
+    ?.flatMap((p) => p.widgets)
+    .find(
+      (w: DashboardWidget) =>
+        w.id === ref.widgetId && w.connectionId === connectionId,
+    );
+  const query = widget && savedQueryText(widget, ref.seed);
+  if (!widget || !query) return undefined;
+  return { query, database: widget.database || undefined };
 }

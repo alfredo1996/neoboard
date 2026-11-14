@@ -77,6 +77,7 @@ export function ParameterWidgetRenderer({
     parentParameterName,
     searchable,
     database,
+    widgetId,
   );
   useCascadingClear(parameterName, parentParameterName, seed.parentValue);
 

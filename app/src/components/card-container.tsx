@@ -1,6 +1,7 @@
 "use client";
 
 import { useWidgetQuery } from "@/hooks/use-widget-query";
+import { useSavedQueryRef } from "@/hooks/use-saved-query-ref";
 import { useClickAction } from "@/hooks/use-click-action";
 import { resolveWidgetCacheOptions } from "@/lib/query/resolve-cache-options";
 import {
@@ -346,6 +347,8 @@ export function CardContainer({
   // Only fire the query when there's no previewData — useWidgetQuery handles
   // caching so navigating view->edit won't re-run the same query.
   // Parameter-select and form widgets skip query execution entirely.
+  // A widget saved as it runs asks for its query by reference (#2477).
+  const savedRef = useSavedQueryRef(widget.id, widget);
   const queryInput =
     previewData !== undefined ||
     mismatch !== null ||
@@ -358,6 +361,7 @@ export function CardContainer({
           query: widget.query,
           params: widget.params as Record<string, unknown> | undefined,
           database: widget.database,
+          savedRef,
         };
   const manualEnabled = isManualRun ? hasEverRun : true;
   const { missingParams, ...widgetQuery } = useWidgetQuery(queryInput, {
