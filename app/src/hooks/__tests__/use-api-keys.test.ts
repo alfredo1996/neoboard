@@ -42,7 +42,7 @@ describe("use-api-keys", () => {
     it("returns envelope data when response uses envelope format", async () => {
       const keys = [{ id: "1", name: "key" }];
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-        mockResponse({ data: keys }),
+        mockResponse({ data: keys, error: null, meta: null }),
       );
       const config = useApiKeys() as unknown as {
         queryFn: () => Promise<unknown>;
@@ -54,7 +54,11 @@ describe("use-api-keys", () => {
     it("throws on error response", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         mockResponse(
-          { error: { message: "Unauthorized", code: "UNAUTHORIZED" } },
+          {
+            data: null,
+            error: { message: "Unauthorized", code: "UNAUTHORIZED" },
+            meta: null,
+          },
           401,
         ),
       );
@@ -63,9 +67,34 @@ describe("use-api-keys", () => {
       };
       await expect(config.queryFn()).rejects.toThrow("Unauthorized");
     });
+
+    it("names a proxy when a 403 answers with HTML (#2487)", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: () => Promise.reject(new SyntaxError("Unexpected token <")),
+      } as Response);
+      const config = useApiKeys() as unknown as {
+        queryFn: () => Promise<unknown>;
+      };
+      await expect(config.queryFn()).rejects.toThrow(
+        /response could not be read \(HTTP 403\)/,
+      );
+    });
   });
 
   describe("useCreateApiKey mutationFn", () => {
+    it("returns the one-time key from the apiSuccess envelope the route sends (#2487)", async () => {
+      const created = { id: "2", name: "k", key: "sk-abc" };
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse({ data: created, error: null, meta: null }, 201),
+      );
+      const config = useCreateApiKey() as unknown as {
+        mutationFn: (input: { name: string }) => Promise<unknown>;
+      };
+      expect(await config.mutationFn({ name: "k" })).toEqual(created);
+    });
+
     it("POSTs to /api/keys with name and expiresAt", async () => {
       const created = {
         id: "2",
@@ -95,7 +124,11 @@ describe("use-api-keys", () => {
     it("throws on error response", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         mockResponse(
-          { error: { message: "Validation failed", code: "VALIDATION" } },
+          {
+            data: null,
+            error: { message: "Validation failed", code: "VALIDATION" },
+            meta: null,
+          },
           400,
         ),
       );
@@ -126,7 +159,11 @@ describe("use-api-keys", () => {
     it("throws on error response", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
         mockResponse(
-          { error: { message: "Not found", code: "NOT_FOUND" } },
+          {
+            data: null,
+            error: { message: "Not found", code: "NOT_FOUND" },
+            meta: null,
+          },
           404,
         ),
       );

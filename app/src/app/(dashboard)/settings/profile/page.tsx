@@ -15,6 +15,7 @@ import { PageHeader, SettingsSection } from "@neoboard/components/kit";
 import type { UserRole } from "@/lib/db/schema";
 import { effectiveCanWrite } from "@/lib/auth/can-write";
 import { PASSWORD_HINT } from "@/lib/auth/password-schema";
+import { unwrapResponse } from "@/lib/api/api-client";
 import { roleLabel } from "../../users/user-list";
 import { SettingsTabs } from "../settings-tabs";
 
@@ -46,15 +47,23 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState("");
 
   useEffect(() => {
-    void fetch("/api/users/me")
-      .then((r) => r.json())
-      .then((body) => {
-        if (body.data) {
-          setProfile(body.data);
-          setName(body.data.name ?? "");
+    fetch("/api/users/me")
+      .then((r) => unwrapResponse<UserProfile | null>(r))
+      .then((data) => {
+        if (data) {
+          setProfile(data);
+          setName(data.name ?? "");
         }
       })
+      .catch((e: unknown) =>
+        toast({
+          title: "Failed to load profile",
+          description: e instanceof Error ? e.message : "Something went wrong.",
+          variant: "destructive",
+        }),
+      )
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once; toast identity is not a trigger
   }, []);
 
   async function handleSaveName(e: React.SubmitEvent<HTMLFormElement>) {
@@ -67,10 +76,11 @@ export default function ProfilePage() {
         body: JSON.stringify({ name }),
       });
       if (!res.ok) {
-        const body = await res.json();
+        const err = await unwrapResponse(res).catch((e: unknown) => e);
         toast({
           title: "Failed to update name",
-          description: body.error?.message ?? "Something went wrong.",
+          description:
+            err instanceof Error ? err.message : "Something went wrong.",
           variant: "destructive",
         });
       } else {
@@ -113,8 +123,10 @@ export default function ProfilePage() {
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       if (!res.ok) {
-        const body = await res.json();
-        setPasswordError(body.error?.message ?? "Failed to change password");
+        const err = await unwrapResponse(res).catch((e: unknown) => e);
+        setPasswordError(
+          err instanceof Error ? err.message : "Failed to change password",
+        );
         setSavingPassword(false);
       } else {
         // The change bumps passwordChangedAt, which the auth layer uses to
