@@ -65,7 +65,10 @@ describe("use-query-execution", () => {
       });
       expect(globalThis.fetch).toHaveBeenCalledWith("/api/query", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-query-priority": "1",
+        },
         body: JSON.stringify(input),
         signal: expect.any(AbortSignal),
       });

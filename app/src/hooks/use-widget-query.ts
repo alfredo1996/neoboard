@@ -2,8 +2,9 @@
 
 import { limitedFetch } from "@/lib/query/limited-fetch";
 import { isParamUnset } from "@/lib/parameter/is-param-unset";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
+  hashKey,
   useQuery,
   useQueryClient,
   type PlaceholderDataFunction,
@@ -353,13 +354,26 @@ export function useWidgetQuery(
 
   const queryClient = useQueryClient();
   const queryKey = widgetQueryKey(mergedInput, options?.staleTime);
+  // x-query-priority (#1795): the scheduler sheds tier 3 first under load.
+  // A fetch on a key this card already loaded, that no user asked for, is the
+  // refetch interval: tier 3. A user's refetch is tier 1, anything else 2.
+  // Param changes land as tier 2 (a new key), still above the refresh tier.
+  const userFetch = useRef(false);
+  const loadedKey = useRef<string | undefined>(undefined);
   const queryResult = useQuery<QueryResult, Error>({
     queryKey,
     queryFn: async ({ signal }) => {
       const fetchStart = performance.now();
+      const hashed = hashKey(queryKey);
+      let priority = loadedKey.current === hashed ? "3" : "2";
+      if (userFetch.current) priority = "1";
+      userFetch.current = false;
       const res = await limitedFetch("/api/query", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-query-priority": priority,
+        },
         // Leaving a dashboard must free its requests: six hung on a dead
         // connector own the browser's per-origin pool, and the next page's
         // payload queued behind them for 52 s (#1888).
@@ -375,6 +389,7 @@ export function useWidgetQuery(
         ...data,
         ...meta,
       } as QueryResult;
+      loadedKey.current = hashed;
       if (process.env.NODE_ENV === "development") {
         const roundTripMs = Math.round(performance.now() - fetchStart);
         console.debug(
@@ -450,5 +465,10 @@ export function useWidgetQuery(
     [mergedInput, allParameters],
   );
 
-  return { ...queryResult, missingParams, stopped, stop };
+  const refetch: typeof queryResult.refetch = (o) => {
+    userFetch.current = true;
+    return queryResult.refetch(o);
+  };
+
+  return { ...queryResult, refetch, missingParams, stopped, stop };
 }
