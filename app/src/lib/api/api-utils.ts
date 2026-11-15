@@ -136,20 +136,25 @@ async function inflatedBody(
     .getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
+  let tooLarge = false;
   try {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
       if (size > INFLATED_BODY_LIMIT_BYTES) {
-        await reader.cancel();
-        throw new RequestBodyTooLargeError();
+        tooLarge = true;
+        break;
       }
       chunks.push(value);
     }
-  } catch (error) {
-    if (error instanceof RequestBodyError) throw error;
+  } catch {
     throw new InvalidJsonBodyError(); // corrupt or truncated gzip
+  }
+  if (tooLarge) {
+    // Stop inflating: nothing past the cap is read or held.
+    await reader.cancel().catch(() => undefined);
+    throw new RequestBodyTooLargeError();
   }
   return new TextDecoder().decode(Buffer.concat(chunks));
 }
