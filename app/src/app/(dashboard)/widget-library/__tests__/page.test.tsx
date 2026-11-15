@@ -295,6 +295,32 @@ describe("WidgetLibraryPage duplicate", () => {
   });
 });
 
+describe("WidgetLibraryPage — Test query behind a proxy (#2480)", () => {
+  it("shows a readable message when a proxy answers with HTML", async () => {
+    templates = [{ ...BASE_TEMPLATES[0], connectionId: "c1" }];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("<html>403 ERROR</html>", {
+          status: 403,
+          headers: { "content-type": "text/html" },
+        }),
+      ),
+    );
+    render(<WidgetLibraryPage />);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Test query" }));
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Query failed",
+          description: expect.stringContaining("HTTP 403"),
+        }),
+      ),
+    );
+    vi.unstubAllGlobals();
+  });
+});
+
 describe("WidgetLibraryPage — connector facts come from the descriptor list (#1899)", () => {
   it("offers one connector filter option per installed connector, by label", () => {
     render(<WidgetLibraryPage />);

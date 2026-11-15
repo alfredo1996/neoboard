@@ -182,9 +182,26 @@ function throwRawError(res: Response, body: unknown): never {
   );
 }
 
+/**
+ * Read the JSON body. A non-ok response whose body is not JSON did not come
+ * from NeoBoard's own handlers (a proxy or firewall likely answered it), so say
+ * that, with the status, instead of leaking the SyntaxError (#2480). It does
+ * not claim the request never arrived: a proxy timeout answers after it ran.
+ */
+async function readBody(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch (err) {
+    if (res.ok) throw err;
+    const hint = RAW_STATUS_HINTS[res.status];
+    const message = `The server's response could not be read (HTTP ${res.status}). A proxy or firewall in front of NeoBoard may have answered instead.`;
+    throw new Error(hint ? `${message} ${hint}.` : message);
+  }
+}
+
 export async function unwrapResponse<T = unknown>(res: Response): Promise<T> {
   await throwIfBackpressure(res);
-  const body = await res.json();
+  const body = await readBody(res);
 
   // Envelope format: { data, error, meta }
   if (isEnvelope(body)) {
@@ -209,7 +226,7 @@ export async function unwrapFullResponse<T = unknown>(
   res: Response,
 ): Promise<{ data: T; meta: Record<string, unknown> | null }> {
   await throwIfBackpressure(res);
-  const body = await res.json();
+  const body = await readBody(res);
 
   if (isEnvelope(body)) {
     if (body.error) {

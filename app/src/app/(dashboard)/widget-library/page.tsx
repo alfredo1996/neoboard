@@ -1,5 +1,6 @@
 "use client";
 
+import { unwrapResponse } from "@/lib/api/api-client";
 import { limitedFetch } from "@/lib/query/limited-fetch";
 import { returnFocus } from "@/lib/return-focus";
 import { useState, useMemo, useRef, type MouseEventHandler } from "react";
@@ -208,19 +209,11 @@ export default function WidgetLibraryPage() {
         }),
         signal: AbortSignal.timeout(30_000),
       });
-      if (res.ok) {
-        toast({
-          title: "Query executed successfully",
-          description: `Template "${template.name}" query returned a valid response.`,
-        });
-      } else {
-        const err = await res.json();
-        toast({
-          title: "Query failed",
-          description: err.error?.message ?? res.statusText,
-          variant: "destructive",
-        });
-      }
+      await unwrapResponse(res);
+      toast({
+        title: "Query executed successfully",
+        description: `Template "${template.name}" query returned a valid response.`,
+      });
     } catch (e) {
       const isTimeout = e instanceof DOMException && e.name === "TimeoutError";
       toast({
