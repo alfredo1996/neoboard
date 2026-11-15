@@ -715,6 +715,8 @@ const SPEC = {
           "The caller needs only view access to the dashboard, as for a saved query above; the server runs the saved text, read-only, on the widget's saved connection and database, and `database` is ignored. " +
           'A dashboard the caller cannot open, an unknown widget, a widget saved on another connection than `connectionId`, a form\'s own (write) query and a widget with no such query all answer one 404, "Widget not found". ' +
           "`query` and `ref` together, or neither, answer 400.\n\n" +
+          "**A long draft query.** The editor sends a body over 2 KB with `Content-Encoding: gzip`, so a draft of about 30 KB passes a proxy that caps bodies at 8 KB. " +
+          "Only gzip is decoded here (another encoding answers 400); a body that inflates past 1 MiB answers 413.\n\n" +
           "A non-empty `tenantId` in the body must equal the session's, or the answer is 403. Unknown body keys are stripped, not rejected.",
         parameters: [
           { $ref: "#/components/parameters/QueryPriorityHeader" },

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { gunzipSync } from "node:zlib";
 import {
   limitedFetch,
   QUERY_FETCH_LIMIT,
@@ -152,5 +153,55 @@ describe("limitedFetch", () => {
       await flush();
     }
     expect(fetchMock.mock.calls.map((c) => c[0])).toContain("/new-waiter");
+  });
+
+  describe("request bodies (#2481)", () => {
+    const sentInit = async (body: string) => {
+      const p = limitedFetch("/api/query", { method: "POST", body }).catch(
+        () => undefined,
+      );
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      const init = fetchMock.mock.calls[0][1] as RequestInit;
+      pending.splice(0).forEach((x) => x.resolve(new Response("{}")));
+      await p;
+      return init;
+    };
+
+    it("gzips a body over the threshold, and says so", async () => {
+      const text = JSON.stringify({ query: "MATCH (n) ".repeat(1000) });
+      const init = await sentInit(text);
+      expect((init.headers as Headers).get("Content-Encoding")).toBe("gzip");
+      const sent = Buffer.from(init.body as ArrayBuffer);
+      expect(sent.length).toBeLessThan(2048);
+      expect(gunzipSync(sent).toString()).toBe(text);
+    });
+
+    it("leaves a small body as it is", async () => {
+      const init = await sentInit('{"ref":{"w":1}}');
+      expect(init.body).toBe('{"ref":{"w":1}}');
+      expect(init.headers).toBeUndefined();
+    });
+
+    it("sends a long body as it is when the browser cannot compress", async () => {
+      vi.stubGlobal("CompressionStream", undefined);
+      const text = "x".repeat(10_000);
+      const init = await sentInit(text);
+      expect(init.body).toBe(text);
+      expect(init.headers).toBeUndefined();
+    });
+
+    it("keeps the caller's headers", async () => {
+      const p = limitedFetch("/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-a": "1" },
+        body: "x".repeat(10_000),
+      }).catch(() => undefined);
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+      const h = (fetchMock.mock.calls[0][1] as RequestInit).headers as Headers;
+      expect(h.get("content-type")).toBe("application/json");
+      expect(h.get("x-a")).toBe("1");
+      pending.splice(0).forEach((x) => x.resolve(new Response("{}")));
+      await p;
+    });
   });
 });

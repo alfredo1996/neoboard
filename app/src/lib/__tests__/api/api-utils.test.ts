@@ -20,7 +20,9 @@ import {
   readJsonBody,
   InvalidJsonBodyError,
   RequestBodyTooLargeError,
+  INFLATED_BODY_LIMIT_BYTES,
 } from "@/lib/api/api-utils";
+import { gzipSync } from "node:zlib";
 import { UnauthorizedError, ForbiddenError } from "@/lib/auth/errors";
 import {
   ConnectorError,
@@ -766,6 +768,54 @@ describe("sanitizeErrorMessage", () => {
     );
     expect(out).not.toContain("Tr0ub4dor-hunter2");
     expect(out).toContain("syntax error at or near");
+  });
+});
+
+describe("readJsonBody with a gzip body (#2481)", () => {
+  const GZIP = { gzip: true };
+  const gz = (body: Buffer | string, encoding = "gzip") =>
+    new Request("http://localhost/api/x", {
+      method: "POST",
+      headers: { "content-encoding": encoding },
+      body: body as BodyInit,
+    });
+
+  it("inflates the body and parses it", async () => {
+    await expect(
+      readJsonBody(gz(gzipSync(JSON.stringify({ a: "é".repeat(50) }))), GZIP),
+    ).resolves.toEqual({ a: "é".repeat(50) });
+  });
+
+  it("answers a malformed gzip body as InvalidJsonBodyError (400), not a 500", async () => {
+    await expect(
+      readJsonBody(gz("not gzip at all"), GZIP),
+    ).rejects.toBeInstanceOf(InvalidJsonBodyError);
+  });
+
+  it("refuses a body that inflates past the cap, from a few KB on the wire", async () => {
+    const bomb = gzipSync(Buffer.alloc(INFLATED_BODY_LIMIT_BYTES + 1, "a"));
+    expect(bomb.length).toBeLessThan(64 * 1024);
+    await expect(readJsonBody(gz(bomb), GZIP)).rejects.toBeInstanceOf(
+      RequestBodyTooLargeError,
+    );
+  });
+
+  it("accepts a body that inflates to exactly the cap", async () => {
+    const pad = INFLATED_BODY_LIMIT_BYTES - '{"a":""}'.length;
+    const body = gzipSync(JSON.stringify({ a: "a".repeat(pad) }));
+    await expect(readJsonBody(gz(body), GZIP)).resolves.toMatchObject({});
+  });
+
+  it("refuses gzip on a route that did not opt in", async () => {
+    await expect(readJsonBody(gz(gzipSync('{"a":1}')))).rejects.toBeInstanceOf(
+      InvalidJsonBodyError,
+    );
+  });
+
+  it("refuses an encoding it does not decode", async () => {
+    await expect(readJsonBody(gz("{}", "br"), GZIP)).rejects.toBeInstanceOf(
+      InvalidJsonBodyError,
+    );
   });
 });
 

@@ -6,6 +6,7 @@
  * route and executor together and reads what reaches the connector.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { gzipSync } from "node:zlib";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 
@@ -90,4 +91,31 @@ describe("POST /api/query — rowLimit reaches the connector clamped (#1896)", (
       expect(sent.params).toMatchObject({ query: QUERY });
     },
   );
+
+  // #2481: a long draft arrives gzipped; the connector gets the text untouched.
+  it("runs a gzip body's query exactly as written", async () => {
+    connectionMaxRows(1000);
+    const long = `/* ${"x".repeat(20_000)} */ ${QUERY}`;
+    const res = await POST(
+      new Request("http://localhost/api/query", {
+        method: "POST",
+        headers: { "content-encoding": "gzip" },
+        body: gzipSync(JSON.stringify({ connectionId: "c1", query: long })),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(sent.params).toMatchObject({ query: long });
+  });
+
+  it("refuses a gzip body that inflates past the cap, and runs nothing", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/query", {
+        method: "POST",
+        headers: { "content-encoding": "gzip" },
+        body: gzipSync(Buffer.alloc(1024 * 1024 + 1, "a")),
+      }),
+    );
+    expect(res.status).toBe(413);
+    expect(mockRunQuery).not.toHaveBeenCalled();
+  });
 });

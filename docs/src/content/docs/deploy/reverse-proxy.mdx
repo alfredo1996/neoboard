@@ -112,6 +112,16 @@ For AWS ALB / GCP HTTPS LB, the same three rules apply:
 3. Terminate TLS at the LB and make sure `X-Forwarded-Proto: https` reaches
    the app (both ALB and GCP LB do this by default).
 
+## Request-body rules (WAF)
+
+Some proxies and WAFs (AWS WAF's core rule set, for one) refuse a request body
+over 8 KB. NeoBoard keeps saved widgets under that limit by sending a
+reference, and gzips an unsaved draft query before an editor preview runs it
+(`Content-Encoding: gzip` on `/api/query`). Editor previews of drafts up to
+about 30 KB of typical query text work behind an 8 KB request-body rule; longer
+drafts still need the rule relaxed for `/api/query`. A WAF that inspects bodies
+sees the compressed bytes on that one route.
+
 ## Checklist
 
 - [ ] `NEXTAUTH_URL` matches the public HTTPS URL exactly
