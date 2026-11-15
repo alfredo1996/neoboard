@@ -194,9 +194,8 @@ async function readBody(res: Response): Promise<unknown> {
   } catch (err) {
     if (res.ok) throw err;
     const hint = RAW_STATUS_HINTS[res.status];
-    throw new Error(
-      `The server's response could not be read (HTTP ${res.status}). A proxy or firewall in front of NeoBoard may have answered instead.${hint ? ` ${hint}.` : ""}`,
-    );
+    const message = `The server's response could not be read (HTTP ${res.status}). A proxy or firewall in front of NeoBoard may have answered instead.`;
+    throw new Error(hint ? `${message} ${hint}.` : message);
   }
 }
 
