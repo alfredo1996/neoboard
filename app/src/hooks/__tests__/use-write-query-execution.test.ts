@@ -54,6 +54,27 @@ describe("use-write-query-execution", () => {
       });
     });
 
+    it("sends no query text for a saved form, so a 12 KB query stays under 1 KB (#2486)", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse({ data: {}, error: null, meta: {} }),
+      );
+      const config = useWriteQueryExecution() as unknown as {
+        mutationFn: (i: Record<string, unknown>) => Promise<unknown>;
+      };
+      await config.mutationFn({
+        connectionId: "c1",
+        query: `/*${"x".repeat(12_000)}*/ CREATE (n)`,
+        params: { a: 1 },
+        widgetId: "w1",
+        dashboardId: "d1",
+      });
+      const init = vi.mocked(globalThis.fetch).mock.calls[0][1] as {
+        body: string;
+      };
+      expect(init.body.length).toBeLessThan(1024);
+      expect(JSON.parse(init.body)).not.toHaveProperty("query");
+    });
+
     it("works without params", async () => {
       const input = {
         connectionId: "c2",

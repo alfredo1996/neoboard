@@ -24,7 +24,13 @@ export function useWriteQueryExecution() {
       const res = await fetch("/api/query/write", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+        // A saved form runs the text it saves; sending it too would put a
+        // long query over a proxy's body cap (#2486).
+        body: JSON.stringify(
+          input.widgetId && input.dashboardId
+            ? { ...input, query: undefined }
+            : input,
+        ),
       });
       const { data, meta } = await unwrapFullResponse(res);
       const metaObj = (meta as Record<string, unknown>) ?? {};

@@ -215,9 +215,10 @@ test.describe("Anyone who can open a dashboard can submit its forms, and only pe
           form.getByRole("button", { name: "Submit" }).click(),
         ]);
 
-        expect(response.request().postDataJSON()).toMatchObject({
+        // The form's text is saved on the server: a submit names the form and
+        // sends none (#2486).
+        expect(response.request().postDataJSON()).toEqual({
           connectionId: formConnectionId,
-          query: formQuery,
           params: { param_tag: readerTag },
           widgetId: "w-form",
           dashboardId,

@@ -1152,6 +1152,33 @@ describe("POST /api/query/write", () => {
       },
     );
 
+    it("runs the saved form when the submit sends no query text (#2486)", async () => {
+      mockRequireSession.mockResolvedValue(writerSession);
+      queueSelects(storedForm(), perCardConnection());
+      const { query: _omitted, ...noQuery } = formSubmit;
+
+      const res = await POST(makeRequest(noQuery));
+
+      expect(res.status).toBe(200);
+      expect(mockExecuteQuery).toHaveBeenCalledWith(
+        "neo4j",
+        expect.anything(),
+        { query: FORM_QUERY, params: { param_tag: "t" } },
+        { accessMode: "WRITE" },
+      );
+    });
+
+    it("refuses a write that names a saved chart and sends no query text (#2486)", async () => {
+      mockRequireSession.mockResolvedValue(writerSession);
+      queueSelects(storedForm({ chartType: "table", allowWrites: true }));
+      const { query: _omitted, ...noQuery } = formSubmit;
+
+      const res = await POST(makeRequest(noQuery));
+
+      expect(res.status).toBe(400);
+      expect(mockExecuteQuery).not.toHaveBeenCalled();
+    });
+
     it("looks for the dashboard in the caller's own tenant", async () => {
       mockRequireSession.mockResolvedValue({
         ...writerSession,

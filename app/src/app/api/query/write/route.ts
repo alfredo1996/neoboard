@@ -32,7 +32,9 @@ import { apiLogger } from "@/lib/logger";
 
 const writeQuerySchema = z.object({
   connectionId: z.string().min(1),
-  query: z.string().min(1),
+  /** Required for a write that is not a saved form's: a form runs its saved
+   *  text, so its submit sends none (#2486). */
+  query: z.string().min(1).optional(),
   params: z.record(z.string(), z.unknown()).optional(),
   /** Widget ID — the stored widget is checked, and its saved database used. */
   widgetId: z.string().min(1).optional(),
@@ -127,7 +129,12 @@ async function handleWriteQuery(request: Request): Promise<Response> {
       // One refusal for a missing or unopenable dashboard, a missing widget or
       // one on another connection, and a form saved with other query text than
       // the request sends: an unsaved form, a stale page, or tampering.
-      if (!widget || (widget.chartType === "form" && widget.query !== query)) {
+      if (
+        !widget ||
+        (widget.chartType === "form" &&
+          query !== undefined &&
+          widget.query !== query)
+      ) {
         return notFound("Widget not found");
       }
     }
@@ -138,6 +145,9 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     const form = widget?.chartType === "form" ? widget : undefined;
     if (!form && !canWrite) {
       return forbidden("Write permission required");
+    }
+    if (!form && query === undefined) {
+      return apiError("VALIDATION_ERROR", "query is required");
     }
 
     // Tenant-scoped. A form's connection is the one it is saved on (matched
@@ -197,7 +207,7 @@ async function handleWriteQuery(request: Request): Promise<Response> {
 
     const ctx: QueryContext = {
       // A form runs its saved query, binding only its own fields' values.
-      query: form ? form.query : query,
+      query: form ? form.query : (query as string),
       params: form ? formParams(form, params) : (params ?? {}),
       connectionId,
       connectionType: connection.type,
