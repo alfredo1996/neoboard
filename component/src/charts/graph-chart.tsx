@@ -549,8 +549,8 @@ function GraphChartInner({
         toNvlNode(
           {
             ...n,
-            x: n.x ?? seedPositions?.[n.id]?.x,
-            y: n.y ?? seedPositions?.[n.id]?.y,
+            x: seedPositions?.[n.id]?.x ?? n.x,
+            y: seedPositions?.[n.id]?.y ?? n.y,
           },
           i,
           nodes.length,

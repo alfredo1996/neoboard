@@ -867,6 +867,24 @@ describe("GraphChart", () => {
       ]);
     });
 
+    it("saved positions win over the node's own coordinates, and a saved 0 is kept (#1509)", () => {
+      render(
+        <GraphChart
+          nodes={[
+            { id: "1", label: "A", x: 0, y: 0 },
+            { id: "2", label: "B", x: 5, y: 5 },
+          ]}
+          edges={[]}
+          initialPositions={{ "1": { x: 100, y: 200 }, "2": { x: 0, y: 7 } }}
+        />,
+      );
+      const nvlNodes = capturedProps.nodes as NvlNode[];
+      expect(nvlNodes.map((n) => [n.x, n.y])).toEqual([
+        [100, 200],
+        [0, 7],
+      ]);
+    });
+
     it("still shows the overlay when a node has no stored position (#1509)", () => {
       render(
         <GraphChart
