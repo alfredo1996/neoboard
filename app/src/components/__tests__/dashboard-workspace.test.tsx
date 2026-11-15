@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { dirtyFormWidgets } from "@/lib/dashboard/page-mount-cache";
+import { pinForm } from "@/lib/dashboard/page-mount-cache";
 import {
   render,
   screen,
@@ -783,24 +783,64 @@ describe("DashboardWorkspace", () => {
       expect(screen.getAllByTestId("dashboard-container")).toHaveLength(3);
     });
 
+    const mountedWidgets = () =>
+      screen
+        .getAllByTestId("dashboard-container")
+        .map((el) => el.getAttribute("data-widget"));
+    const visit = async (...tabs: number[]) => {
+      for (const i of tabs) {
+        await userEvent.click(screen.getAllByTestId("page-tab")[i]);
+      }
+    };
+
     it("keeps a page whose form holds unsaved input", async () => {
       dashboard = makeDashboard(5);
-      dirtyFormWidgets.add("w1");
+      const release = pinForm("w1");
       try {
         render(<DashboardWorkspace id="d1" editMode={false} />);
-        for (const i of [1, 2, 3]) {
-          await userEvent.click(screen.getAllByTestId("page-tab")[i]);
-        }
+        await visit(1, 2, 3);
         // w1 pinned + the two most recent; page 2 was evicted instead.
-        expect(screen.getAllByTestId("dashboard-container")).toHaveLength(3);
-        expect(
-          screen
-            .getAllByTestId("dashboard-container")
-            .map((el) => el.getAttribute("data-widget")),
-        ).toEqual(["w1", "w3", "w4"]);
+        expect(mountedWidgets()).toEqual(["w1", "w3", "w4"]);
       } finally {
-        dirtyFormWidgets.delete("w1");
+        release();
       }
+    });
+
+    it("keeps a dirty page after an earlier page is deleted", async () => {
+      dashboard = makeDashboard(5);
+      const release = pinForm("w2");
+      try {
+        render(<DashboardWorkspace id="d1" editMode={true} />);
+        await visit(1, 2);
+        act(() => useDashboardStore.getState().removePage(0));
+        await visit(2, 3);
+        expect(mountedWidgets()).toEqual(["w2", "w4", "w5"]);
+      } finally {
+        release();
+      }
+    });
+
+    it("keeps a dirty page after pages are reordered", async () => {
+      dashboard = makeDashboard(5);
+      const release = pinForm("w2");
+      try {
+        render(<DashboardWorkspace id="d1" editMode={true} />);
+        await visit(1, 2);
+        act(() => useDashboardStore.getState().reorderPages(4, 0));
+        await visit(3, 4);
+        expect(mountedWidgets()).toContain("w2");
+        expect(mountedWidgets()).toHaveLength(3);
+      } finally {
+        release();
+      }
+    });
+
+    it("counts a page opened by a clamped ?page= as visited", async () => {
+      dashboard = makeDashboard(5);
+      searchParams = new URLSearchParams("page=99");
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+      await visit(0);
+      expect(mountedWidgets()).toEqual(["w1", "w5"]);
     });
   });
 

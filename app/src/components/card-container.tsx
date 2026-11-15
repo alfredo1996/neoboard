@@ -1,5 +1,6 @@
 "use client";
 
+import { useWidgetRunStore } from "@/stores/widget-run-store";
 import { useWidgetQuery } from "@/hooks/use-widget-query";
 import { useSavedQueryRef } from "@/hooks/use-saved-query-ref";
 import { useClickAction } from "@/hooks/use-click-action";
@@ -342,7 +343,8 @@ export function CardContainer({
   // changes automatically re-execute the query (different queryKey = fresh
   // fetch in TanStack Query), so no overlay re-appears.
   const isManualRun = chartOptions.manualRun === true;
-  const [hasEverRun, setHasEverRun] = useState(false);
+  const hasEverRun = useWidgetRunStore((s) => s.ran[widget.id] === true);
+  const markRan = useWidgetRunStore((s) => s.markRan);
 
   // Only fire the query when there's no previewData — useWidgetQuery handles
   // caching so navigating view->edit won't re-run the same query.
@@ -681,7 +683,7 @@ export function CardContainer({
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setHasEverRun(true)}
+            onClick={() => markRan(widget.id)}
           >
             <Play className="mr-2 h-4 w-4" />
             Run Query

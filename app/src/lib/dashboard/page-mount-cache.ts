@@ -7,24 +7,37 @@
  */
 export const PAGE_MOUNT_CAP = 3;
 
-/**
- * Widget ids of form widgets holding input that is not submitted yet. That
- * input lives in the renderer's local state, so unmounting its page loses it.
- */
-export const dirtyFormWidgets = new Set<string>();
+const dirtyForms = new Map<string, number>();
 
 /**
- * `order` is the mounted pages, least recently visited first. Returns it with
- * `index` made most recent, then drops the oldest pages beyond the cap, except
- * `index` itself and any page `isDirty` reports.
+ * Pins a form widget whose input is not submitted yet; that input lives in the
+ * renderer's local state, so unmounting its page loses it. Counted, because
+ * the fullscreen copy shares the widget id. Returns the release.
+ */
+export function pinForm(widgetId: string): () => void {
+  dirtyForms.set(widgetId, (dirtyForms.get(widgetId) ?? 0) + 1);
+  return () => {
+    const n = (dirtyForms.get(widgetId) ?? 1) - 1;
+    if (n > 0) dirtyForms.set(widgetId, n);
+    else dirtyForms.delete(widgetId);
+  };
+}
+
+export const isFormDirty = (widgetId: string) => dirtyForms.has(widgetId);
+
+/**
+ * `order` is the mounted page ids, least recently visited first. Returns it
+ * with `id` made most recent, then drops the oldest pages beyond the cap,
+ * except `id` itself and any page `isDirty` reports.
  */
 export function touchPage(
-  order: number[],
-  index: number,
-  isDirty: (page: number) => boolean,
-): number[] {
-  const next = [...order.filter((p) => p !== index), index];
-  for (let i = 0; next.length > PAGE_MOUNT_CAP && i < next.length - 1;) {
+  order: string[],
+  id: string,
+  isDirty: (pageId: string) => boolean,
+): string[] {
+  const next = [...order.filter((p) => p !== id), id];
+  let i = 0;
+  while (next.length > PAGE_MOUNT_CAP && i < next.length - 1) {
     if (isDirty(next[i])) i++;
     else next.splice(i, 1);
   }

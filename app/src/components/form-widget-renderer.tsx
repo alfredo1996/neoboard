@@ -1,6 +1,6 @@
 "use client";
 
-import { dirtyFormWidgets } from "@/lib/dashboard/page-mount-cache";
+import { pinForm } from "@/lib/dashboard/page-mount-cache";
 import { useConnectionName } from "@/components/connection-names-context";
 import React, {
   useState,
@@ -454,13 +454,13 @@ export function FormWidgetRenderer({
   useEffect(() => {
     const isDirty = Object.entries(localValues).some(
       ([name, v]) =>
-        touchedFields.current.has(name) && v !== undefined && v !== "",
+        touchedFields.current.has(name) &&
+        v !== undefined &&
+        v !== "" &&
+        !(Array.isArray(v) && v.length === 0),
     );
     if (!widgetId || !isDirty) return;
-    dirtyFormWidgets.add(widgetId);
-    return () => {
-      dirtyFormWidgets.delete(widgetId);
-    };
+    return pinForm(widgetId);
   }, [widgetId, localValues]);
 
   // Stable key of external param values for fields in this form. JSON, not a
@@ -587,9 +587,13 @@ export function FormWidgetRenderer({
         onSuccess: () => {
           const msg = chartOptions.successMessage as string | undefined;
           setSuccessMessage(msg || "Form submitted successfully");
-          if (chartOptions.resetOnSuccess !== false) {
-            setLocalValues({});
-          }
+          // Submitted input is no longer unsaved, kept or reset.
+          touchedFields.current.clear();
+          // A fresh object, so the pin effect re-reads dirtiness even when
+          // the values are kept.
+          setLocalValues(
+            chartOptions.resetOnSuccess !== false ? {} : (v) => ({ ...v }),
+          );
           // Widget queries are keyed by what they run, never by widget id
           // (#1799): resolve each id to its widget and invalidate the prefix
           // the card's refresh button uses (dashboard-container.tsx).
