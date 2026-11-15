@@ -109,24 +109,29 @@ describe("useWidgetQuery x-query-priority (#1795)", () => {
   });
 
   it("a shed background refresh keeps the last result and is not retried", async () => {
-    const { result } = renderHook(
-      () =>
-        useWidgetQuery(
-          { connectionId: "c1", query: "Q" },
-          { refetchInterval: 40 },
-        ),
-      { wrapper },
-    );
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    fetchMock.mockClear();
-    fetchMock.mockImplementation(() => Promise.resolve(busy()));
-    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(0));
-    await new Promise((r) => setTimeout(r, 30));
-    expect(priorities()[0]).toBe("3");
-    expect(result.current.isError).toBe(false);
-    expect(result.current.data).toBeDefined();
-    // a retry would have repeated the 503 within the 40 ms tick
-    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(
+        () =>
+          useWidgetQuery(
+            { connectionId: "c1", query: "Q" },
+            { refetchInterval: 10_000 },
+          ),
+        { wrapper },
+      );
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(result.current.isSuccess).toBe(true);
+      fetchMock.mockClear();
+      fetchMock.mockImplementation(() => Promise.resolve(busy()));
+      // one tick, then the whole retry window (5 s cap) short of the next tick
+      await act(() => vi.advanceTimersByTimeAsync(10_000));
+      await act(() => vi.advanceTimersByTimeAsync(5_000));
+      expect(priorities()).toEqual(["3"]);
+      expect(result.current.isError).toBe(false);
+      expect(result.current.data).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it("a user fetch keeps its tier when its card moves to another key whose interval fires (CR1)", async () => {
     const reqQuery = (c: Parameters<typeof fetch>) =>
@@ -159,11 +164,13 @@ describe("useWidgetQuery x-query-priority (#1795)", () => {
     );
     await waitFor(() => expect(priorities()).toContain("3"));
     release();
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.filter((c) => reqQuery(c) === "A").length,
-      ).toBeGreaterThan(1),
-    );
+    const aTiers = () =>
+      fetchMock.mock.calls
+        .map((c, i) => [reqQuery(c), priorities()[i]])
+        .filter(([q]) => q === "A")
+        .map(([, t]) => t);
+    await waitFor(() => expect(aTiers().length).toBeGreaterThan(1));
+    expect(aTiers()).toEqual(["1", "1"]);
   });
 
   it("rows survive a parameter change after a shed refresh (CR2)", async () => {
