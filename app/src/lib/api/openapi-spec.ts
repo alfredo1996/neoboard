@@ -747,8 +747,9 @@ const SPEC = {
         description:
           "Executes a write query against a connected database. " +
           "A form submit sends `widgetId` and `dashboardId`: anyone who can open that dashboard may submit a form it saves, whatever their `canWrite` and whoever owns the connection. " +
-          "The server runs the form's saved query, which `query` must equal exactly, on the form's saved connection and database, and binds only the parameters of the form's own fields, ignoring any other. " +
-          "A dashboard the caller cannot open, a widget it does not hold or holds on another connection, and a form saved with other query text answer 404, the same as a dashboard that does not exist. " +
+          "The server runs the form's saved query on the form's saved connection and database, and binds only the parameters of the form's own fields, ignoring any other. " +
+          "The submit names the query text the page shows, either as `query` (which must equal the saved text exactly) or as `queryHash`, the SHA-256 hex of that text, which keeps a long query under a proxy's body cap; it sends one of the two. " +
+          "A dashboard the caller cannot open, a widget it does not hold or holds on another connection, a form saved with an empty query or with other query text than the one named, and a form submit that names none answer 404, the same as a dashboard that does not exist. " +
           "Any other write requires `canWrite` and a connection the caller owns; a stored widget that is not a form also needs write mode on, and runs on its saved database when its connection allows a per-card database. " +
           "A database constraint the submitted values violate is the caller's error, not the server's: a NOT NULL, " +
           "foreign-key, check, exclusion, length, format or date/time violation, or a graph constraint violation, answers 400 (a NOT NULL violation names its column in " +
@@ -2247,10 +2248,19 @@ const SPEC = {
       },
       WriteQueryRequest: {
         type: "object",
-        required: ["connectionId", "query"],
+        required: ["connectionId"],
         properties: {
           connectionId: { type: "string" },
-          query: { type: "string" },
+          query: {
+            type: "string",
+            description:
+              "Required for a write that is not a form submit (400 without it). A form submit sends either this, equal to the saved text, or `queryHash`.",
+          },
+          queryHash: {
+            type: "string",
+            description:
+              "A form submit's alternative to `query`: the SHA-256 hex (64 characters) of the query text the page shows. The route compares it with the hash of the saved text and answers 404 on a mismatch, a stale page.",
+          },
           params: {
             type: "object",
             additionalProperties: true,
@@ -2262,7 +2272,7 @@ const SPEC = {
             description:
               "The stored widget this write comes from, sent with `dashboardId`; the two count only together, and one alone is a plain write. " +
               "With both, the widget must be on a dashboard the caller can open and on this connection, or the answer is 404. " +
-              "A form runs its saved query (the `query` sent must match it) for anyone who can open the dashboard. " +
+              "A form runs its saved query (the `query` or `queryHash` sent must match it) for anyone who can open the dashboard. " +
               "Any other widget needs write permission, the caller's own connection and write mode on the widget, or the answer is 403. " +
               "Either way it runs on the widget's saved database when the connection allows a per-card one.",
           },

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { toConnectorError, type ConnectorError } from "@neoboard/connection";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
@@ -1152,12 +1153,16 @@ describe("POST /api/query/write", () => {
       },
     );
 
-    it("runs the saved form when the submit sends no query text (#2486)", async () => {
+    const sha = (t: string) => createHash("sha256").update(t).digest("hex");
+    const { query: _omitted, ...hashed } = formSubmit;
+
+    it("runs the saved form when the submit sends the hash of the text the page shows (#2486)", async () => {
       mockRequireSession.mockResolvedValue(writerSession);
       queueSelects(storedForm(), perCardConnection());
-      const { query: _omitted, ...noQuery } = formSubmit;
 
-      const res = await POST(makeRequest(noQuery));
+      const res = await POST(
+        makeRequest({ ...hashed, queryHash: sha(FORM_QUERY) }),
+      );
 
       expect(res.status).toBe(200);
       expect(mockExecuteQuery).toHaveBeenCalledWith(
@@ -1168,12 +1173,80 @@ describe("POST /api/query/write", () => {
       );
     });
 
+    // A stale page, a form saved without a query, and a submit that names no
+    // text at all get the refusal of a form that does not exist.
+    it.each([
+      [
+        "a hash of text the form no longer saves",
+        {},
+        { queryHash: sha("old") },
+      ],
+      [
+        "a form saved with an empty query",
+        { query: "" },
+        { queryHash: sha("") },
+      ],
+      ["neither text nor hash", {}, {}],
+      ["text that is not the saved text", {}, { query: "old" }],
+    ])(
+      "refuses a form submit with %s, and runs nothing (#2486)",
+      async (_, saved, sent) => {
+        mockRequireSession.mockResolvedValue(writerSession);
+        queueSelects(storedForm(saved), perCardConnection());
+
+        const res = await POST(makeRequest({ ...hashed, ...sent }));
+
+        expect(res.status).toBe(404);
+        expect(mockExecuteQuery).not.toHaveBeenCalled();
+      },
+    );
+
+    // Without text the route still refuses before it reads the connection.
+    it.each([
+      [
+        "a dashboard the caller cannot open",
+        otherWriter,
+        [storedForm(), shares()],
+      ],
+      [
+        "a form on another connection",
+        writerSession,
+        [storedForm({ connectionId: "c-other" })],
+      ],
+    ])(
+      "refuses %s the same with a hash and no text (#2486)",
+      async (_, session, dashboardSelects) => {
+        mockRequireSession.mockResolvedValue(session);
+        queueSelects(...dashboardSelects);
+
+        const res = await POST(
+          makeRequest({ ...hashed, queryHash: sha(FORM_QUERY) }),
+        );
+
+        expect(res.status).toBe(404);
+        expect(mockExecuteQuery).not.toHaveBeenCalled();
+        expect(lookups().map(({ table }) => table)).not.toContain("connection");
+      },
+    );
+
+    it("refuses a write without write permission 403 before the missing query 400 (#2486)", async () => {
+      mockRequireSession.mockResolvedValue({
+        ...writerSession,
+        canWrite: false,
+      });
+      queueSelects(storedForm({ chartType: "table", allowWrites: true }));
+
+      const res = await POST(makeRequest(hashed));
+
+      expect(res.status).toBe(403);
+      expect(mockExecuteQuery).not.toHaveBeenCalled();
+    });
+
     it("refuses a write that names a saved chart and sends no query text (#2486)", async () => {
       mockRequireSession.mockResolvedValue(writerSession);
       queueSelects(storedForm({ chartType: "table", allowWrites: true }));
-      const { query: _omitted, ...noQuery } = formSubmit;
 
-      const res = await POST(makeRequest(noQuery));
+      const res = await POST(makeRequest(hashed));
 
       expect(res.status).toBe(400);
       expect(mockExecuteQuery).not.toHaveBeenCalled();
