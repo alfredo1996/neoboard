@@ -18,6 +18,7 @@ import React from "react";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import type { DashboardWidget } from "@/lib/db/schema";
 import { useDashboardStore } from "@/stores/dashboard-store";
+import { dirtyFormWidgets } from "@/lib/dashboard/page-mount-cache";
 
 /* ---------- mocks (declared before imports) ---------- */
 
@@ -283,6 +284,21 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
     const input = screen.getByTestId("input-name");
     expect(input).toBeDefined();
     expect((input as HTMLInputElement).placeholder).toBe("type name");
+  });
+
+  it("pins its page while input is unsubmitted, and releases it on unmount (#1475)", () => {
+    const { unmount } = renderForm(
+      [makeField({ id: "f1", parameterName: "name", parameterType: "text" })],
+      {},
+      { widgetId: "wf" },
+    );
+    expect(dirtyFormWidgets.has("wf")).toBe(false);
+    fireEvent.change(screen.getByTestId("input-name"), {
+      target: { value: "x" },
+    });
+    expect(dirtyFormWidgets.has("wf")).toBe(true);
+    unmount();
+    expect(dirtyFormWidgets.has("wf")).toBe(false);
   });
 
   it("marks only an optional field, in words, and never with an asterisk", () => {

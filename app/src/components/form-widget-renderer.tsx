@@ -1,5 +1,6 @@
 "use client";
 
+import { dirtyFormWidgets } from "@/lib/dashboard/page-mount-cache";
 import { useConnectionName } from "@/components/connection-names-context";
 import React, {
   useState,
@@ -449,6 +450,18 @@ export function FormWidgetRenderer({
   // Fields the user has manually changed are NOT overwritten by external params.
   const allParams = useParameterValues();
   const touchedFields = useRef(new Set<string>());
+  // Unsubmitted input pins this widget's page in the mount cache (#1475).
+  useEffect(() => {
+    const isDirty = Object.entries(localValues).some(
+      ([name, v]) =>
+        touchedFields.current.has(name) && v !== undefined && v !== "",
+    );
+    if (!widgetId || !isDirty) return;
+    dirtyFormWidgets.add(widgetId);
+    return () => {
+      dirtyFormWidgets.delete(widgetId);
+    };
+  }, [widgetId, localValues]);
 
   // Stable key of external param values for fields in this form. JSON, not a
   // template literal: a date range is an object and read "[object Object]" (#2103).

@@ -1,5 +1,6 @@
 "use client";
 
+import { dirtyFormWidgets, touchPage } from "@/lib/dashboard/page-mount-cache";
 import { effectiveCanWrite } from "@/lib/auth/can-write";
 import React, {
   useCallback,
@@ -333,17 +334,23 @@ export function DashboardWorkspace({
   );
 
   // ── Pages ───────────────────────────────────────────────────────────
-  const [visitedPages, setVisitedPages] = useState<Set<number>>(
-    () => new Set([Math.max(0, initialPage)]),
-  );
+  // Mounted pages, least recently visited first, capped (#1475).
+  const [visitedPages, setVisitedPages] = useState<number[]>(() => [
+    Math.max(0, initialPage),
+  ]);
+  const layoutRef = useRef(activeLayout);
+  useEffect(() => {
+    layoutRef.current = activeLayout;
+  }, [activeLayout]);
 
   const markVisited = useCallback((index: number) => {
-    setVisitedPages((prev) => {
-      if (prev.has(index)) return prev;
-      const next = new Set(prev);
-      next.add(index);
-      return next;
-    });
+    setVisitedPages((prev) =>
+      touchPage(prev, index, (page) =>
+        layoutRef.current.pages[page]?.widgets.some((w) =>
+          dirtyFormWidgets.has(w.id),
+        ),
+      ),
+    );
   }, []);
 
   const handleSelectPage = useCallback(
@@ -929,7 +936,7 @@ export function DashboardWorkspace({
                 );
               }
               if (page.widgets.length === 0) return null;
-              if (!isActive && !visitedPages.has(index)) return null;
+              if (!isActive && !visitedPages.includes(index)) return null;
               return (
                 <div
                   key={page.id}

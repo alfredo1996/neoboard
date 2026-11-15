@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { dirtyFormWidgets } from "@/lib/dashboard/page-mount-cache";
 import {
   render,
   screen,
@@ -61,6 +62,7 @@ vi.mock("@/components/dashboard-container", () => ({
       <div
         data-testid="dashboard-container"
         data-instance={String(instance)}
+        data-widget={w.id}
         data-editable={String(!!editable)}
         data-refetch-interval={String(refetchInterval)}
       >
@@ -769,6 +771,37 @@ describe("DashboardWorkspace", () => {
         .getByTestId("dashboard-container")
         .getAttribute("data-refetch-interval"),
     ).toBe("false");
+  });
+
+  describe("the mounted page cache is bounded (#1475)", () => {
+    it("unmounts the least recently visited page past the cap", async () => {
+      dashboard = makeDashboard(5);
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+      for (const i of [1, 2, 3]) {
+        await userEvent.click(screen.getAllByTestId("page-tab")[i]);
+      }
+      expect(screen.getAllByTestId("dashboard-container")).toHaveLength(3);
+    });
+
+    it("keeps a page whose form holds unsaved input", async () => {
+      dashboard = makeDashboard(5);
+      dirtyFormWidgets.add("w1");
+      try {
+        render(<DashboardWorkspace id="d1" editMode={false} />);
+        for (const i of [1, 2, 3]) {
+          await userEvent.click(screen.getAllByTestId("page-tab")[i]);
+        }
+        // w1 pinned + the two most recent; page 2 was evicted instead.
+        expect(screen.getAllByTestId("dashboard-container")).toHaveLength(3);
+        expect(
+          screen
+            .getAllByTestId("dashboard-container")
+            .map((el) => el.getAttribute("data-widget")),
+        ).toEqual(["w1", "w3", "w4"]);
+      } finally {
+        dirtyFormWidgets.delete("w1");
+      }
+    });
   });
 
   // #1419 — visited pages stay mounted so tab switching is instant, but they
