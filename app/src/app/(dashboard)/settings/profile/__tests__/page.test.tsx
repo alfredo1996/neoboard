@@ -285,6 +285,87 @@ describe("ProfilePage shows the API's error message (#2011)", () => {
   });
 });
 
+describe("ProfilePage load failures (#2487)", () => {
+  it("names a proxy in a toast when the profile load gets HTML", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: () => Promise.reject(new SyntaxError("Unexpected token <")),
+    }) as unknown as typeof fetch;
+    render(<ProfilePage />);
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Failed to load profile",
+          description: expect.stringMatching(
+            /response could not be read \(HTTP 403\)/,
+          ),
+        }),
+      ),
+    );
+  });
+
+  it("shows the envelope's own message when the profile load is refused", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        data: null,
+        error: { code: "UNAUTHORIZED", message: "Session expired" },
+        meta: null,
+      }),
+    }) as unknown as typeof fetch;
+    render(<ProfilePage />);
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ description: "Session expired" }),
+      ),
+    );
+  });
+});
+
+describe("ProfilePage fallback messages (#2487)", () => {
+  it("falls back to a plain message when the password error carries none", async () => {
+    await renderLoaded();
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "oldpassword" },
+    });
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "newpass123" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: "newpass123" },
+    });
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ data: null, error: null, meta: null }),
+    } as Response);
+    fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Failed to change password",
+    );
+  });
+
+  it("falls back to a plain message when the error carries none", async () => {
+    await renderLoaded();
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Bob" },
+    });
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ data: null, error: null, meta: null }),
+    } as Response);
+    fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ description: "Something went wrong." }),
+      ),
+    );
+  });
+});
+
 describe("ProfilePage sections (#2255)", () => {
   it("says who is signed in and lays the page out as Account, Display name, Password", async () => {
     await renderLoaded();

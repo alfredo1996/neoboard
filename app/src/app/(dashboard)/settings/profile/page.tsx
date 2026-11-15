@@ -47,15 +47,23 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState("");
 
   useEffect(() => {
-    void fetch("/api/users/me")
-      .then((r) => r.json())
-      .then((body) => {
-        if (body.data) {
-          setProfile(body.data);
-          setName(body.data.name ?? "");
+    fetch("/api/users/me")
+      .then((r) => unwrapResponse<UserProfile | null>(r))
+      .then((data) => {
+        if (data) {
+          setProfile(data);
+          setName(data.name ?? "");
         }
       })
+      .catch((e: unknown) =>
+        toast({
+          title: "Failed to load profile",
+          description: e instanceof Error ? e.message : "Something went wrong.",
+          variant: "destructive",
+        }),
+      )
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once; toast identity is not a trigger
   }, []);
 
   async function handleSaveName(e: React.SubmitEvent<HTMLFormElement>) {

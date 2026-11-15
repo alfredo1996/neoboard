@@ -114,6 +114,29 @@ describe("ChangePasswordPage (#2011)", () => {
       /response could not be read \(HTTP 403\)/,
     );
   });
+
+  it("falls back to a plain message when the error carries none", async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ data: null, error: null, meta: null }),
+    } as Response);
+    render(<ChangePasswordPage />);
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "wrongpass1" },
+    });
+    fireEvent.change(screen.getByLabelText("New password", { exact: true }), {
+      target: { value: "newpass123" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: "newpass123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Failed to change password",
+    );
+  });
 });
 
 // #2160: the change ends every session signed in before it, this one too, so
