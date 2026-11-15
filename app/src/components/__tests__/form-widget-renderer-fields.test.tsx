@@ -12,14 +12,12 @@ import {
   render,
   screen,
   fireEvent,
-  act,
   within,
 } from "@testing-library/react";
 import React from "react";
 import type { FormFieldDef } from "@/lib/widget/form-field-def";
 import type { DashboardWidget } from "@/lib/db/schema";
 import { useDashboardStore } from "@/stores/dashboard-store";
-import { isFormDirty } from "@/lib/dashboard/page-mount-cache";
 
 /* ---------- mocks (declared before imports) ---------- */
 
@@ -285,68 +283,6 @@ describe("FormWidgetRenderer — FieldInput per type", () => {
     const input = screen.getByTestId("input-name");
     expect(input).toBeDefined();
     expect((input as HTMLInputElement).placeholder).toBe("type name");
-  });
-
-  describe("pins its page while input is unsubmitted (#1475)", () => {
-    const textField = () => [
-      makeField({ id: "f1", parameterName: "name", parameterType: "text" }),
-    ];
-    const type = () =>
-      fireEvent.change(screen.getByTestId("input-name"), {
-        target: { value: "x" },
-      });
-
-    it("pins on input and releases on unmount", () => {
-      const { unmount } = renderForm(textField(), {}, { widgetId: "wf" });
-      expect(isFormDirty("wf")).toBe(false);
-      type();
-      expect(isFormDirty("wf")).toBe(true);
-      unmount();
-      expect(isFormDirty("wf")).toBe(false);
-    });
-
-    it("stays pinned while another copy of the form (fullscreen) closes", () => {
-      renderForm(textField(), {}, { widgetId: "wf" });
-      type();
-      const fullscreen = renderForm(textField(), {}, { widgetId: "wf" });
-      fullscreen.unmount();
-      expect(isFormDirty("wf")).toBe(true);
-    });
-
-    it("releases after a successful submit that keeps the values", () => {
-      mockMutate.mockImplementation(
-        (_p: unknown, opts: { onSuccess?: () => void }) => opts.onSuccess?.(),
-      );
-      renderForm(
-        textField(),
-        { chartOptions: { resetOnSuccess: false } },
-        { widgetId: "wf" },
-      );
-      type();
-      expect(isFormDirty("wf")).toBe(true);
-      fireEvent.click(screen.getByRole("button", { name: "Submit" }));
-      expect(isFormDirty("wf")).toBe(false);
-    });
-
-    it("treats a multi-select cleared back to [] as clean", () => {
-      renderForm(
-        [
-          makeField({
-            id: "f1",
-            parameterName: "tags",
-            parameterType: "multi-select",
-          }),
-        ],
-        {},
-        { widgetId: "wf" },
-      );
-      fireEvent.click(screen.getByTestId("param-multi-tags"));
-      expect(isFormDirty("wf")).toBe(true);
-      act(() =>
-        (paramMultiProps.at(-1)!.onChange as (v: string[]) => void)([]),
-      );
-      expect(isFormDirty("wf")).toBe(false);
-    });
   });
 
   it("marks only an optional field, in words, and never with an asterisk", () => {

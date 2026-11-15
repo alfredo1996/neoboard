@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { pinForm } from "@/lib/dashboard/page-mount-cache";
 import {
   render,
   screen,
@@ -793,46 +792,51 @@ describe("DashboardWorkspace", () => {
       }
     };
 
-    it("keeps a page whose form holds unsaved input", async () => {
-      dashboard = makeDashboard(5);
-      const release = pinForm("w1");
-      try {
-        render(<DashboardWorkspace id="d1" editMode={false} />);
-        await visit(1, 2, 3);
-        // w1 pinned + the two most recent; page 2 was evicted instead.
-        expect(mountedWidgets()).toEqual(["w1", "w3", "w4"]);
-      } finally {
-        release();
-      }
+    const withForm = (
+      d: ReturnType<typeof makeDashboard>,
+      pageIndex: number,
+    ) => {
+      d.layoutJson.pages[pageIndex].widgets[0].chartType = "form";
+    };
+
+    it("keeps a page with a form, however many pages are visited after it", async () => {
+      dashboard = makeDashboard(6);
+      withForm(dashboard, 0);
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+      await visit(1, 2, 3, 4, 5);
+      expect(mountedWidgets()).toEqual(["w1", "w4", "w5", "w6"]);
     });
 
-    it("keeps a dirty page after an earlier page is deleted", async () => {
+    it("keeps every page with a form, none counting against the cap", async () => {
       dashboard = makeDashboard(5);
-      const release = pinForm("w2");
-      try {
-        render(<DashboardWorkspace id="d1" editMode={true} />);
-        await visit(1, 2);
-        act(() => useDashboardStore.getState().removePage(0));
-        await visit(2, 3);
-        expect(mountedWidgets()).toEqual(["w2", "w4", "w5"]);
-      } finally {
-        release();
-      }
+      withForm(dashboard, 0);
+      withForm(dashboard, 1);
+      withForm(dashboard, 2);
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+      await visit(1, 2, 3, 4);
+      expect(mountedWidgets()).toEqual(["w1", "w2", "w3", "w4", "w5"]);
     });
 
-    it("keeps a dirty page after pages are reordered", async () => {
+    it("keeps a form page after an earlier page is deleted", async () => {
       dashboard = makeDashboard(5);
-      const release = pinForm("w2");
-      try {
-        render(<DashboardWorkspace id="d1" editMode={true} />);
-        await visit(1, 2);
-        act(() => useDashboardStore.getState().reorderPages(4, 0));
-        await visit(3, 4);
-        expect(mountedWidgets()).toContain("w2");
-        expect(mountedWidgets()).toHaveLength(3);
-      } finally {
-        release();
-      }
+      withForm(dashboard, 1);
+      render(<DashboardWorkspace id="d1" editMode={true} />);
+      await visit(1, 2);
+      act(() => useDashboardStore.getState().removePage(0));
+      await visit(2, 3);
+      expect(mountedWidgets()).toContain("w2");
+      expect(mountedWidgets()).toHaveLength(4);
+    });
+
+    it("keeps a form page after pages are reordered", async () => {
+      dashboard = makeDashboard(5);
+      withForm(dashboard, 1);
+      render(<DashboardWorkspace id="d1" editMode={true} />);
+      await visit(1, 2);
+      act(() => useDashboardStore.getState().reorderPages(4, 0));
+      await visit(3, 4);
+      expect(mountedWidgets()).toContain("w2");
+      expect(mountedWidgets()).toHaveLength(4);
     });
 
     it("counts a page opened by a clamped ?page= as visited", async () => {

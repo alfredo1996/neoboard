@@ -1,6 +1,6 @@
 "use client";
 
-import { isFormDirty, touchPage } from "@/lib/dashboard/page-mount-cache";
+import { touchPage } from "@/lib/dashboard/page-mount-cache";
 import { effectiveCanWrite } from "@/lib/auth/can-write";
 import React, {
   useCallback,
@@ -335,7 +335,7 @@ export function DashboardWorkspace({
 
   // ── Pages ───────────────────────────────────────────────────────────
   // Mounted page ids, least recently visited first, capped (#1475). Ids, not
-  // indices: deleting or reordering a page shifts indices under a dirty form.
+  // indices: deleting or reordering a page shifts indices. Form pages are exempt.
   const [visitedPages, setVisitedPages] = useState<string[]>([]);
   const layoutRef = useRef(activeLayout);
   useEffect(() => {
@@ -355,7 +355,7 @@ export function DashboardWorkspace({
         (id) =>
           pages
             .find((p) => p.id === id)
-            ?.widgets.some((w) => isFormDirty(w.id)) ?? false,
+            ?.widgets.some((w) => w.chartType === "form") ?? false,
       ),
     );
   }, [activePageId]);

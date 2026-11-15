@@ -7,39 +7,29 @@
  */
 export const PAGE_MOUNT_CAP = 3;
 
-const dirtyForms = new Map<string, number>();
-
-/**
- * Pins a form widget whose input is not submitted yet; that input lives in the
- * renderer's local state, so unmounting its page loses it. Counted, because
- * the fullscreen copy shares the widget id. Returns the release.
- */
-export function pinForm(widgetId: string): () => void {
-  dirtyForms.set(widgetId, (dirtyForms.get(widgetId) ?? 0) + 1);
-  return () => {
-    const n = (dirtyForms.get(widgetId) ?? 1) - 1;
-    if (n > 0) dirtyForms.set(widgetId, n);
-    else dirtyForms.delete(widgetId);
-  };
-}
-
-export const isFormDirty = (widgetId: string) => dirtyForms.has(widgetId);
-
 /**
  * `order` is the mounted page ids, least recently visited first. Returns it
- * with `id` made most recent, then drops the oldest pages beyond the cap,
- * except `id` itself and any page `isDirty` reports.
+ * with `id` made most recent, then drops the oldest form-free pages beyond the
+ * cap. The page just opened is never dropped.
+ *
+ * ponytail: a page with a form widget is never dropped and does not count
+ * against the cap. A form keeps unsubmitted input and an in-flight submit in
+ * its own state, and tracking "dirty" precisely missed cases (cleared
+ * external values, a field edited mid-submit). Forms are cheap to keep; the
+ * memory is in tiles, canvases and graphs. Ceiling: a dashboard where every
+ * page has a form keeps every page mounted, as before #1475. Upgrade path:
+ * track dirtiness again only if that dashboard shows up.
  */
 export function touchPage(
   order: string[],
   id: string,
-  isDirty: (pageId: string) => boolean,
+  hasForm: (pageId: string) => boolean,
 ): string[] {
   const next = [...order.filter((p) => p !== id), id];
-  let i = 0;
-  while (next.length > PAGE_MOUNT_CAP && i < next.length - 1) {
-    if (isDirty(next[i])) i++;
-    else next.splice(i, 1);
-  }
-  return next;
+  let excess = next.filter((p) => !hasForm(p)).length - PAGE_MOUNT_CAP;
+  return next.filter((p) => {
+    if (excess <= 0 || p === id || hasForm(p)) return true;
+    excess--;
+    return false;
+  });
 }
