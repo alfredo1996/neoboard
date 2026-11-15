@@ -7,6 +7,7 @@
  * back to the plain GraphChart component.
  */
 
+import { useEffect, useState } from "react";
 import { Skeleton, getChartOptions } from "@neoboard/components";
 import type { GraphNode, GraphEdge, StylingRule } from "@neoboard/components";
 import { GraphExplorationWrapper } from "@/components/graph-exploration-wrapper";
@@ -17,6 +18,14 @@ import { transformToGraphData, validateGraphData } from "./transform";
 import { type PluginProps } from "../utils";
 import { graphSettingsSchema } from "./settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
+
+/**
+ * An expanded graph (autoFit) mounts inside the dialog's 200ms zoom-in. NVL
+ * reads the canvas size at mount, so mid-animation it measures ~95% of the
+ * final size and its hit-test is permanently offset. Wait the animation out
+ * here, in the one widget that cares, so tables and charts open at once.
+ */
+const DIALOG_SETTLE_MS = 250;
 
 function GraphPluginComponent({
   data,
@@ -31,6 +40,12 @@ function GraphPluginComponent({
   connectorType,
   autoFit,
 }: Readonly<PluginProps>) {
+  const [settled, setSettled] = useState(!autoFit);
+  useEffect(() => {
+    if (settled) return;
+    const t = setTimeout(() => setSettled(true), DIALOG_SETTLE_MS);
+    return () => clearTimeout(t);
+  }, [settled]);
   const settings = safeParseSettings(graphSettingsSchema, raw, "graph");
   const graphData = (data ?? { nodes: [], edges: [] }) as {
     nodes: GraphNode[];
@@ -77,11 +92,12 @@ function GraphPluginComponent({
   return (
     <LazyVisible
       className="w-full h-full"
+      initiallyVisible={autoFit}
       fallback={
         <Skeleton className="w-full h-full" data-testid="graph-skeleton" />
       }
     >
-      {graph}
+      {settled ? graph : null}
     </LazyVisible>
   );
 }

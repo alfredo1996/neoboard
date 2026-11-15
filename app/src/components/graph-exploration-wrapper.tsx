@@ -207,6 +207,9 @@ export function GraphExplorationWrapper({
     useState<InspectedElement>(null);
   const storeSetState = useGraphWidgetStore((s) => s.setState);
   const stored = useGraphWidgetStore((s) => s.states[widgetId]);
+  // The expanded copy is `<id>--fullscreen`; its tile is `<id>` (#1509).
+  const tileId = widgetId.split("--")[0];
+  const tile = useGraphWidgetStore((s) => s.states[tileId]);
 
   // If the stored state was built from a different query (different resultId),
   // discard it so the graph resets to the new data instead of showing stale
@@ -214,6 +217,11 @@ export function GraphExplorationWrapper({
   // a full query run), always use the incoming data.
   const storedIsValid =
     stored != null && resultId != null && stored.resultId === resultId;
+
+  // Where the same query's graph already settled: the copy's own, else the tile's.
+  const seedPositions = [stored, tile].find(
+    (st) => st?.resultId === resultId && resultId != null && st.positions,
+  )?.positions;
 
   // How to expand a node is the connector's to say, in its own query language
   // (#2061). The connector is the one the query result names, so whoever could
@@ -327,6 +335,13 @@ export function GraphExplorationWrapper({
     [storeSetState, widgetId],
   );
 
+  const handlePositionsChange = useCallback(
+    (positions: Record<string, { x: number; y: number }>) => {
+      storeSetState(widgetId, { positions });
+    },
+    [storeSetState, widgetId],
+  );
+
   const handleCaptionMapChange = useCallback(
     (captionMap: Record<string, string>) => {
       storeSetState(widgetId, { captionMap });
@@ -349,6 +364,8 @@ export function GraphExplorationWrapper({
         onRelationshipClick={handleRelationshipClick}
         layout={settings.layout as "force" | "circular" | undefined}
         initialLayout={storedIsValid ? stored.layout : undefined}
+        initialPositions={seedPositions}
+        onPositionsChange={handlePositionsChange}
         initialCaptionMap={storedIsValid ? stored.captionMap : undefined}
         showLabels={settings.showLabels as boolean | undefined}
         showRelationshipLabels={

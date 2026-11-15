@@ -18,6 +18,12 @@ interface LazyVisibleProps {
   /** Rendered while the content is not mounted (keeps the slot's size stable). */
   fallback?: ReactNode;
   className?: string;
+  /**
+   * Mount the children at once, with no fallback, for a slot already known to
+   * be on screen (the expanded dialog): the observer's first report would only
+   * delay it behind a skeleton (#1509).
+   */
+  initiallyVisible?: boolean;
 }
 
 /**
@@ -37,9 +43,10 @@ export function LazyVisible({
   rootMargin = "300px",
   fallback,
   className,
+  initiallyVisible = false,
 }: LazyVisibleProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(initiallyVisible);
   // This slot's entry in the page-wide budget. Created in a state initialiser,
   // not a ref, because writing a ref during render is forbidden here (#975).
   // `onScreen` starts true so that only a real IntersectionObserver report can

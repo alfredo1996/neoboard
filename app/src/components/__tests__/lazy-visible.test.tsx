@@ -181,6 +181,16 @@ describe("LazyVisible", () => {
     expect(screen.getByText("heavy-graph")).toBeDefined();
   });
 
+  it("mounts at once, with no fallback, when initiallyVisible (#1509)", () => {
+    render(
+      <LazyVisible initiallyVisible fallback={<div>placeholder</div>}>
+        <div>heavy-graph</div>
+      </LazyVisible>,
+    );
+    expect(screen.getByText("heavy-graph")).toBeDefined();
+    expect(screen.queryByText("placeholder")).toBeNull();
+  });
+
   it("disconnects the observer on unmount", () => {
     const { unmount } = render(
       <LazyVisible fallback={<div>placeholder</div>}>
