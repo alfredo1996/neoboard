@@ -1173,6 +1173,23 @@ describe("POST /api/query/write", () => {
       );
     });
 
+    it("runs the saved form for a reader without write permission when the hash matches, as the text path does (#1831, #2486)", async () => {
+      mockRequireSession.mockResolvedValue(readerSession);
+      queueSelects(storedForm(), shares("viewer"), perCardConnection());
+
+      const res = await POST(
+        makeRequest({ ...hashed, queryHash: sha(FORM_QUERY) }),
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockExecuteQuery).toHaveBeenCalledWith(
+        "neo4j",
+        expect.anything(),
+        { query: FORM_QUERY, params: { param_tag: "t" } },
+        { accessMode: "WRITE" },
+      );
+    });
+
     // A stale page, a form saved without a query, and a submit that names no
     // text at all get the refusal of a form that does not exist.
     it.each([

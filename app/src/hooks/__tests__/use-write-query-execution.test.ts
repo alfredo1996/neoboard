@@ -81,6 +81,32 @@ describe("use-write-query-execution", () => {
       );
     });
 
+    it("sends the query text when crypto.subtle is missing, as on plain http (#2486)", async () => {
+      vi.stubGlobal("crypto", {});
+      try {
+        vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+          mockResponse({ data: {}, error: null, meta: {} }),
+        );
+        const config = useWriteQueryExecution() as unknown as {
+          mutationFn: (i: Record<string, unknown>) => Promise<unknown>;
+        };
+        await config.mutationFn({
+          connectionId: "c1",
+          query: "CREATE (n)",
+          widgetId: "w1",
+          dashboardId: "d1",
+        });
+        const init = vi.mocked(globalThis.fetch).mock.calls[0][1] as {
+          body: string;
+        };
+        const sent = JSON.parse(init.body);
+        expect(sent.query).toBe("CREATE (n)");
+        expect(sent).not.toHaveProperty("queryHash");
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
     it("works without params", async () => {
       const input = {
         connectionId: "c2",

@@ -34,11 +34,12 @@ export function useWriteQueryExecution() {
       const res = await fetch("/api/query/write", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // A saved form runs the text it saves; the page names the text it
-        // shows by hash, so a long query stays under a proxy's body cap and a
-        // stale page is refused (#2486).
+        // A saved form names the text it shows by hash, so a long query stays
+        // under a proxy's body cap and a stale page is refused (#2486).
+        // crypto.subtle exists only in secure contexts: on plain http the text
+        // goes as before, and the route's exact-text check refuses a stale page.
         body: JSON.stringify(
-          input.widgetId && input.dashboardId
+          input.widgetId && input.dashboardId && globalThis.crypto?.subtle
             ? {
                 ...input,
                 query: undefined,
