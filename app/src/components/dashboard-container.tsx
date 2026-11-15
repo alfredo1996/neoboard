@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CardContainer } from "./card-container";
 import { CardRefreshContext, useRefreshHold } from "./card-refresh-context";
@@ -277,44 +277,11 @@ export function DashboardContainer({
   const queryClient = useQueryClient();
   const [fullscreenWidget, setFullscreenWidget] =
     useState<DashboardWidget | null>(null);
-  // Defer fullscreen content render until the dialog animation (200ms zoom-in-95)
-  // settles.  Without this, NVL reads the canvas dimensions mid-animation
-  // (at ~95% of final size) and the hit-test coordinates are permanently offset.
-  const [fullscreenReady, setFullscreenReady] = useState(false);
-  // Track the deferred-ready timer so we can clear it on unmount or when the
-  // dialog is closed before the animation settles. Without this, the timer
-  // can fire after the component unmounts and call setState on a torn-down
-  // tree (jsdom: "window is not defined"; browser: React unmounted-update
-  // warning).
-  const fullscreenReadyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   const openFullscreen = useCallback((w: DashboardWidget) => {
-    setFullscreenReady(false);
     setFullscreenWidget(w);
-    if (fullscreenReadyTimerRef.current !== null) {
-      clearTimeout(fullscreenReadyTimerRef.current);
-    }
-    fullscreenReadyTimerRef.current = setTimeout(() => {
-      fullscreenReadyTimerRef.current = null;
-      setFullscreenReady(true);
-    }, 250);
   }, []);
   const closeFullscreen = useCallback(() => {
-    if (fullscreenReadyTimerRef.current !== null) {
-      clearTimeout(fullscreenReadyTimerRef.current);
-      fullscreenReadyTimerRef.current = null;
-    }
     setFullscreenWidget(null);
-    setFullscreenReady(false);
-  }, []);
-  useEffect(() => {
-    return () => {
-      if (fullscreenReadyTimerRef.current !== null) {
-        clearTimeout(fullscreenReadyTimerRef.current);
-        fullscreenReadyTimerRef.current = null;
-      }
-    };
   }, []);
   // Who opened the fullscreen or Sync dialog: neither has a Trigger, so focus
   // goes back here on close (#2148). The fallback is the card's fullscreen
@@ -651,23 +618,19 @@ export function DashboardContainer({
             </DialogDescription>
             {fullscreenWidget && (
               <div className="flex-1 min-h-0">
-                {
-                  fullscreenReady ? (
-                    <CardContainer
-                      key={`${fullscreenWidget.id}-fullscreen`}
-                      widget={fullscreenWidget}
-                      refetchInterval={refetchInterval}
-                      onNavigateToPage={onNavigateToPage}
-                      parameterSourceMap={parameterSourceMap}
-                      currentPageId={page.id}
-                      connector={
-                        connectorCapabilities?.[fullscreenWidget.connectionId]
-                      }
-                      autoFit
-                      widgetIdSuffix="fullscreen"
-                    />
-                  ) : null /* no spinner: the card was already rendered in its tile (#1509) */
-                }
+                <CardContainer
+                  key={`${fullscreenWidget.id}-fullscreen`}
+                  widget={fullscreenWidget}
+                  refetchInterval={refetchInterval}
+                  onNavigateToPage={onNavigateToPage}
+                  parameterSourceMap={parameterSourceMap}
+                  currentPageId={page.id}
+                  connector={
+                    connectorCapabilities?.[fullscreenWidget.connectionId]
+                  }
+                  autoFit
+                  widgetIdSuffix="fullscreen"
+                />
               </div>
             )}
           </FullscreenFrame>

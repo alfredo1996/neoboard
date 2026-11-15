@@ -20,6 +20,7 @@ import {
 } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GraphExplorationWrapper } from "../graph-exploration-wrapper";
+import { useGraphWidgetStore } from "@/stores/graph-widget-store";
 
 /** Props last handed to the stubbed GraphChart. */
 let chartProps: Record<string, unknown> = {};
@@ -449,5 +450,60 @@ describe("GraphExplorationWrapper — Expand only when the connector declares ho
     ).rejects.toThrow(
       "Your access to this dashboard covers its own queries, and expanding a node runs another.",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #1509 — the expanded copy opens from the tile's settled layout.
+// ---------------------------------------------------------------------------
+
+describe("GraphExplorationWrapper — expanded copy seeds from the tile (#1509)", () => {
+  const tile = { A: { x: 1, y: 2 }, B: { x: 3, y: 4 } };
+
+  function renderCopy(resultId: string) {
+    useGraphWidgetStore.setState({
+      states: {
+        w1: { nodes: graphNodes, edges: [], resultId: "r1", positions: tile },
+      },
+    });
+    render(
+      <GraphExplorationWrapper
+        widgetId="w1--fullscreen"
+        nodes={graphNodes}
+        edges={[]}
+        connectionId="c1"
+        connectorType={connectorType}
+        settings={{}}
+        resultId={resultId}
+      />,
+    );
+  }
+
+  afterEach(() => {
+    cleanup();
+    useGraphWidgetStore.setState({ states: {} });
+  });
+
+  it("hands the tile's positions to the chart", () => {
+    renderCopy("r1");
+    expect(chartProps.initialPositions).toEqual(tile);
+  });
+
+  it("ignores the tile's positions after the query changed", () => {
+    renderCopy("r2");
+    expect(chartProps.initialPositions).toBeUndefined();
+  });
+
+  it("stores the positions the chart reports under its own id", () => {
+    renderCopy("r1");
+    act(() =>
+      (chartProps.onPositionsChange as (p: unknown) => void)({
+        A: { x: 9, y: 9 },
+      }),
+    );
+    expect(
+      useGraphWidgetStore.getState().states["w1--fullscreen"]?.positions,
+    ).toEqual({ A: { x: 9, y: 9 } });
+    expect(useGraphWidgetStore.getState().states.w1?.positions).toEqual(tile);
   });
 });

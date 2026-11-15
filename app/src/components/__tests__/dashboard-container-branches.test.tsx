@@ -1226,7 +1226,7 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
     );
   });
 
-  it("shows no spinner while the dialog animation settles, then the card (#1509)", () => {
+  it("mounts the expanded card in the same commit, with no spinner and no wait (#1509)", () => {
     vi.useFakeTimers();
     try {
       renderWithProviders(<DashboardContainer page={makePage()} />);
@@ -1235,98 +1235,13 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
       });
       const dialog = screen.getByTestId("fullscreen-dialog");
       expect(dialog.querySelector(".animate-spin")).toBeNull();
-      act(() => {
-        vi.advanceTimersByTime(500);
-      });
       expect(
         dialog.querySelector(
           "[data-testid='card-container'][data-suffix='fullscreen']",
         ),
       ).not.toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("closes the fullscreen dialog and clears the pending ready timer", () => {
-    vi.useFakeTimers();
-    try {
-      renderWithProviders(<DashboardContainer page={makePage()} />);
-      const fullscreenBtn = screen.getByText("Fullscreen").closest("button");
-      act(() => {
-        fireEvent.click(fullscreenBtn!);
-      });
-      expect(screen.getByTestId("fullscreen-dialog")).toBeDefined();
-      // Close before the 250ms ready-timer fires — exercises closeFullscreen's
-      // clearTimeout branch.
-      act(() => {
-        fireEvent.click(screen.getByTestId("fullscreen-dialog-close"));
-      });
-      expect(screen.queryByTestId("fullscreen-dialog")).toBeNull();
-      // Advance past the ready-timer; if it weren't cleared it would attempt a
-      // setState on the now-closed dialog. No throw = success.
-      act(() => {
-        vi.advanceTimersByTime(500);
-      });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("re-arming fullscreen clears the previous ready timer", () => {
-    vi.useFakeTimers();
-    try {
-      // Two widgets so we can open fullscreen on each in succession.
-      renderWithProviders(
-        <DashboardContainer
-          page={makePage([
-            makeWidget({ id: "w1", settings: { title: "Widget One" } }),
-            makeWidget({ id: "w2", settings: { title: "Widget Two" } }),
-          ])}
-        />,
-      );
-      const buttons = screen.getAllByText("Fullscreen");
-      act(() => {
-        fireEvent.click(buttons[0].closest("button")!);
-      });
-      expect(screen.getByTestId("fullscreen-title").textContent).toBe(
-        "Widget One",
-      );
-      // Re-arm before the first 250ms timer fires — exercises openFullscreen's
-      // clearTimeout branch (line: clear previous ref before setting new).
-      act(() => {
-        fireEvent.click(buttons[1].closest("button")!);
-      });
-      expect(screen.getByTestId("fullscreen-title").textContent).toBe(
-        "Widget Two",
-      );
-      act(() => {
-        vi.advanceTimersByTime(500);
-      });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("unmounting with a pending fullscreen-ready timer clears it cleanly", () => {
-    vi.useFakeTimers();
-    try {
-      const { unmount } = renderWithProviders(
-        <DashboardContainer page={makePage()} />,
-      );
-      const fullscreenBtn = screen.getByText("Fullscreen").closest("button");
-      act(() => {
-        fireEvent.click(fullscreenBtn!);
-      });
-      // Unmount before the 250ms timer fires — exercises the useEffect cleanup
-      // branch. Without it, the timer would call setState on a torn-down tree.
-      unmount();
-      // The cleanup branch is what this exercises, so assert the timer is
-      // actually gone rather than relying on the absence of a warning.
+      // Nothing left pending: the wait lives in the graph plugin now.
       expect(vi.getTimerCount()).toBe(0);
-      act(() => {
-        vi.advanceTimersByTime(500);
-      });
     } finally {
       vi.useRealTimers();
     }

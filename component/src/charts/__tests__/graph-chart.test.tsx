@@ -841,6 +841,71 @@ describe("GraphChart", () => {
       ).not.toBeInTheDocument();
     });
 
+    // #1509: a copy opened from the tile's settled layout must not replay it.
+    const settled = {
+      "1": { x: 10, y: 20 },
+      "2": { x: 30, y: 40 },
+      "3": { x: 50, y: 60 },
+    };
+
+    it("opens without the overlay, on the given positions, when every node has one (#1509)", () => {
+      render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={sampleEdges}
+          initialPositions={settled}
+        />,
+      );
+      expect(
+        screen.queryByTestId("graph-loading-overlay"),
+      ).not.toBeInTheDocument();
+      const nvlNodes = capturedProps.nodes as NvlNode[];
+      expect(nvlNodes.map((n) => [n.x, n.y])).toEqual([
+        [10, 20],
+        [30, 40],
+        [50, 60],
+      ]);
+    });
+
+    it("still shows the overlay when a node has no stored position (#1509)", () => {
+      render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={sampleEdges}
+          initialPositions={{ "1": settled["1"] }}
+        />,
+      );
+      expect(screen.getByTestId("graph-loading-overlay")).toBeInTheDocument();
+    });
+
+    it("reports NVL's node positions when the layout is done (#1509)", () => {
+      const onPositionsChange = vi.fn();
+      render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={sampleEdges}
+          onPositionsChange={onPositionsChange}
+        />,
+      );
+      (capturedProps.ref as { current: unknown }).current = {
+        fit: vi.fn(),
+        getNodePositions: () => [
+          { id: "1", x: 1, y: 2 },
+          { id: "2", x: 3, y: 4 },
+        ],
+      };
+      const callbacks = capturedProps.nvlCallbacks as {
+        onLayoutDone?: () => void;
+      };
+      act(() => {
+        callbacks.onLayoutDone?.();
+      });
+      expect(onPositionsChange).toHaveBeenCalledWith({
+        "1": { x: 1, y: 2 },
+        "2": { x: 3, y: 4 },
+      });
+    });
+
     it("removes loading overlay after onLayoutDone fires", () => {
       render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
       expect(screen.getByTestId("graph-loading-overlay")).toBeInTheDocument();

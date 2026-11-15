@@ -108,6 +108,16 @@ export interface GraphChartProps {
   layout?: GraphLayout;
   /** Seed the layout state (takes precedence over layout prop when provided) */
   initialLayout?: GraphLayout;
+  /**
+   * Where each node already sits, by node id (a settled copy of this graph,
+   * e.g. the tile an expanded view opens from). When it covers every node the
+   * chart opens on those positions with no loading overlay (#1509).
+   */
+  initialPositions?: Record<string, { x: number; y: number }>;
+  /** Called with NVL's node positions each time its layout settles. */
+  onPositionsChange?: (
+    positions: Record<string, { x: number; y: number }>,
+  ) => void;
   /** Show node labels (captions) */
   showLabels?: boolean;
   /** Show relationship/edge type labels */
@@ -413,6 +423,8 @@ function GraphChartInner({
   edges,
   layout: layoutProp = "force",
   initialLayout,
+  initialPositions,
+  onPositionsChange,
   showLabels = true,
   showRelationshipLabels = false,
   nodeSize = "medium",
@@ -440,7 +452,11 @@ function GraphChartInner({
     x: number;
     y: number;
   } | null>(null);
-  const [layoutReady, setLayoutReady] = useState(false);
+  // A seed, read once: later position reports must not move nodes under NVL.
+  const [seedPositions] = useState(initialPositions);
+  const [layoutReady, setLayoutReady] = useState(
+    () => nodes.length > 0 && nodes.every((n) => seedPositions?.[n.id] != null),
+  );
   const [layout, setLayout] = useState<GraphLayout>(
     initialLayout ?? layoutProp,
   );
@@ -513,6 +529,8 @@ function GraphChartInner({
   captionMapRef.current = captionMap;
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
+  const onPositionsChangeRef = useRef(onPositionsChange);
+  onPositionsChangeRef.current = onPositionsChange;
   const edgesRef = useRef(edges);
   edgesRef.current = edges;
   const selectedRef = useRef(selectedNodeIds);
@@ -529,7 +547,11 @@ function GraphChartInner({
     () =>
       nodes.map((n, i) =>
         toNvlNode(
-          n,
+          {
+            ...n,
+            x: n.x ?? seedPositions?.[n.id]?.x,
+            y: n.y ?? seedPositions?.[n.id]?.y,
+          },
           i,
           nodes.length,
           showLabels,
@@ -543,6 +565,7 @@ function GraphChartInner({
       ),
     [
       nodes,
+      seedPositions,
       showLabels,
       captionMap,
       labelColorMap,
@@ -696,6 +719,14 @@ function GraphChartInner({
   const nvlCallbacks = useMemo(
     () => ({
       onLayoutDone: () => {
+        const positions = nvlRef.current?.getNodePositions();
+        if (positions) {
+          onPositionsChangeRef.current?.(
+            Object.fromEntries(
+              positions.map((p) => [p.id, { x: p.x ?? 0, y: p.y ?? 0 }]),
+            ),
+          );
+        }
         fitGraph();
         setLayoutReady(true);
       },

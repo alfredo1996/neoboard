@@ -6,6 +6,8 @@ interface GraphWidgetState {
   nodes: GraphNode[];
   edges: GraphEdge[];
   layout?: GraphLayout;
+  /** Where NVL last settled each node, so an expanded copy opens from it (#1509). */
+  positions?: Record<string, { x: number; y: number }>;
   captionMap?: Record<string, string>;
   /**
    * Server-generated resultId from the last query execution: a hash of what
