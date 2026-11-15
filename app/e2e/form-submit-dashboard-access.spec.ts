@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { APIRequestContext, BrowserContext, Page } from "@playwright/test";
 import {
   test,
@@ -215,9 +215,11 @@ test.describe("Anyone who can open a dashboard can submit its forms, and only pe
           form.getByRole("button", { name: "Submit" }).click(),
         ]);
 
-        expect(response.request().postDataJSON()).toMatchObject({
+        // The form's text is saved on the server: a submit names the form and
+        // sends the hash of the text the page shows, not the text (#2486).
+        expect(response.request().postDataJSON()).toEqual({
           connectionId: formConnectionId,
-          query: formQuery,
+          queryHash: createHash("sha256").update(formQuery).digest("hex"),
           params: { param_tag: readerTag },
           widgetId: "w-form",
           dashboardId,

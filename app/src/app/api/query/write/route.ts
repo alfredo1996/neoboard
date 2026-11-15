@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -32,7 +33,13 @@ import { apiLogger } from "@/lib/logger";
 
 const writeQuerySchema = z.object({
   connectionId: z.string().min(1),
-  query: z.string().min(1),
+  /** Required for a write that is not a saved form's: a form runs its saved
+   *  text, so its submit sends none (#2486). */
+  query: z.string().min(1).optional(),
+  /** SHA-256 hex of the query text the page shows. A form submit sends this
+   *  instead of the text, so a long query stays under a proxy's body cap
+   *  (#2486). */
+  queryHash: z.string().min(1).optional(),
   params: z.record(z.string(), z.unknown()).optional(),
   /** Widget ID — the stored widget is checked, and its saved database used. */
   widgetId: z.string().min(1).optional(),
@@ -94,6 +101,19 @@ function logWriteFailure(
   );
 }
 
+function formMatchesPage(
+  saved: string,
+  query: string | undefined,
+  queryHash: string | undefined,
+): boolean {
+  if (!saved || (query === undefined && queryHash === undefined)) return false;
+  if (query !== undefined && saved !== query) return false;
+  return (
+    queryHash === undefined ||
+    createHash("sha256").update(saved).digest("hex") === queryHash
+  );
+}
+
 async function handleWriteQuery(request: Request): Promise<Response> {
   const requestId = request.headers.get("x-request-id") ?? undefined;
   try {
@@ -103,7 +123,7 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     const validation = validateBody(writeQuerySchema, body);
     if (!validation.success) return validation.response;
 
-    const { connectionId, query, params, widgetId, dashboardId } =
+    const { connectionId, query, queryHash, params, widgetId, dashboardId } =
       validation.data;
 
     // A write that names a widget must name one on a dashboard the caller can
@@ -125,9 +145,15 @@ async function handleWriteQuery(request: Request): Promise<Response> {
         : undefined;
 
       // One refusal for a missing or unopenable dashboard, a missing widget or
-      // one on another connection, and a form saved with other query text than
-      // the request sends: an unsaved form, a stale page, or tampering.
-      if (!widget || (widget.chartType === "form" && widget.query !== query)) {
+      // one on another connection, a form with no saved query, and a form
+      // whose saved text is not the text the page shows: an unsaved form, a
+      // stale page, or tampering. A form submit names the text it saw, by its
+      // hash or in full; one that names neither is refused (#2486).
+      if (
+        !widget ||
+        (widget.chartType === "form" &&
+          !formMatchesPage(widget.query, query, queryHash))
+      ) {
         return notFound("Widget not found");
       }
     }
@@ -138,6 +164,9 @@ async function handleWriteQuery(request: Request): Promise<Response> {
     const form = widget?.chartType === "form" ? widget : undefined;
     if (!form && !canWrite) {
       return forbidden("Write permission required");
+    }
+    if (!form && query === undefined) {
+      return apiError("VALIDATION_ERROR", "query is required");
     }
 
     // Tenant-scoped. A form's connection is the one it is saved on (matched
@@ -197,7 +226,7 @@ async function handleWriteQuery(request: Request): Promise<Response> {
 
     const ctx: QueryContext = {
       // A form runs its saved query, binding only its own fields' values.
-      query: form ? form.query : query,
+      query: form ? form.query : (query as string),
       params: form ? formParams(form, params) : (params ?? {}),
       connectionId,
       connectionType: connection.type,

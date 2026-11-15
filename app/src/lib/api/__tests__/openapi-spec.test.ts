@@ -112,6 +112,34 @@ describe("POST /api/query/write description (#1831)", () => {
   });
 });
 
+describe("POST /api/query/write query and queryHash (#2486)", () => {
+  type Node = {
+    required?: string[];
+    properties?: Record<string, { description?: string }>;
+  };
+  const schemas = (
+    SPEC.components as unknown as { schemas: Record<string, Node> }
+  ).schemas;
+  const request = schemas.WriteQueryRequest;
+
+  it("does not require query, since a form submit sends queryHash instead", () => {
+    expect(request.required).not.toContain("query");
+    expect(request.properties).toHaveProperty("queryHash");
+  });
+
+  it("says query is required for a write that is not a form's", () => {
+    expect(request.properties?.query?.description).toMatch(/not a form/);
+  });
+
+  it("describes a form submit as the exact text or the hash", () => {
+    const paths = SPEC.paths as Record<
+      string,
+      { post?: { description?: string } }
+    >;
+    expect(paths["/api/query/write"].post?.description).toMatch(/`queryHash`/);
+  });
+});
+
 /**
  * #1913. The spec said results were capped at 10,000 rows. The cap is the
  * connection's maxRows, else DEFAULT_MAX_ROWS, and `rowLimit` can only lower

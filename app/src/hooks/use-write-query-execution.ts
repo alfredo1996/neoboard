@@ -18,13 +18,35 @@ interface WriteQueryResult {
   serverDurationMs: number;
 }
 
+async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text),
+  );
+  return Array.from(new Uint8Array(digest), (b) =>
+    b.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
 export function useWriteQueryExecution() {
   return useMutation<WriteQueryResult, Error, WriteQueryInput>({
     mutationFn: async (input) => {
       const res = await fetch("/api/query/write", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+        // A saved form names the text it shows by hash, so a long query stays
+        // under a proxy's body cap and a stale page is refused (#2486).
+        // crypto.subtle exists only in secure contexts: on plain http the text
+        // goes as before, and the route's exact-text check refuses a stale page.
+        body: JSON.stringify(
+          input.widgetId && input.dashboardId && globalThis.crypto?.subtle
+            ? {
+                ...input,
+                query: undefined,
+                queryHash: await sha256Hex(input.query),
+              }
+            : input,
+        ),
       });
       const { data, meta } = await unwrapFullResponse(res);
       const metaObj = (meta as Record<string, unknown>) ?? {};

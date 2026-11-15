@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock React Query -- we're testing the fetch logic, not the React wiring
@@ -52,6 +53,58 @@ describe("use-write-query-execution", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
+    });
+
+    it("sends the hash of a saved form's text, not the text, so a 12 KB query stays under 1 KB (#2486)", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse({ data: {}, error: null, meta: {} }),
+      );
+      const config = useWriteQueryExecution() as unknown as {
+        mutationFn: (i: Record<string, unknown>) => Promise<unknown>;
+      };
+      const query = `/*${"x".repeat(12_000)}*/ CREATE (n)`;
+      await config.mutationFn({
+        connectionId: "c1",
+        query,
+        params: { a: 1 },
+        widgetId: "w1",
+        dashboardId: "d1",
+      });
+      const init = vi.mocked(globalThis.fetch).mock.calls[0][1] as {
+        body: string;
+      };
+      expect(init.body.length).toBeLessThan(1024);
+      const sent = JSON.parse(init.body);
+      expect(sent).not.toHaveProperty("query");
+      expect(sent.queryHash).toBe(
+        createHash("sha256").update(query).digest("hex"),
+      );
+    });
+
+    it("sends the query text when crypto.subtle is missing, as on plain http (#2486)", async () => {
+      vi.stubGlobal("crypto", {});
+      try {
+        vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+          mockResponse({ data: {}, error: null, meta: {} }),
+        );
+        const config = useWriteQueryExecution() as unknown as {
+          mutationFn: (i: Record<string, unknown>) => Promise<unknown>;
+        };
+        await config.mutationFn({
+          connectionId: "c1",
+          query: "CREATE (n)",
+          widgetId: "w1",
+          dashboardId: "d1",
+        });
+        const init = vi.mocked(globalThis.fetch).mock.calls[0][1] as {
+          body: string;
+        };
+        const sent = JSON.parse(init.body);
+        expect(sent.query).toBe("CREATE (n)");
+        expect(sent).not.toHaveProperty("queryHash");
+      } finally {
+        vi.unstubAllGlobals();
+      }
     });
 
     it("works without params", async () => {
