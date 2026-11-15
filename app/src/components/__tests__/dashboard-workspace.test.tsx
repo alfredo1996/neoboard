@@ -56,7 +56,7 @@ vi.mock("@/components/dashboard-container", () => ({
         unmountCount += 1;
       };
     }, []);
-    const w = page.widgets[0];
+    const w = page.widgets[0] ?? { id: "" };
     return (
       <div
         data-testid="dashboard-container"
@@ -792,6 +792,14 @@ describe("DashboardWorkspace", () => {
       }
     };
 
+    // The mock stamps each mount with an id: same id = same instance, so the
+    // form's state survived; a remount would hand out a new one.
+    const instanceOf = (widget: string) =>
+      screen
+        .getAllByTestId("dashboard-container")
+        .find((el) => el.getAttribute("data-widget") === widget)
+        ?.getAttribute("data-instance");
+
     const withForm = (
       d: ReturnType<typeof makeDashboard>,
       pageIndex: number,
@@ -822,9 +830,11 @@ describe("DashboardWorkspace", () => {
       withForm(dashboard, 1);
       render(<DashboardWorkspace id="d1" editMode={true} />);
       await visit(1, 2);
+      const before = instanceOf("w2");
+      expect(before).toBeDefined();
       act(() => useDashboardStore.getState().removePage(0));
       await visit(2, 3);
-      expect(mountedWidgets()).toContain("w2");
+      expect(instanceOf("w2")).toBe(before);
       expect(mountedWidgets()).toHaveLength(4);
     });
 
@@ -833,10 +843,20 @@ describe("DashboardWorkspace", () => {
       withForm(dashboard, 1);
       render(<DashboardWorkspace id="d1" editMode={true} />);
       await visit(1, 2);
+      const before = instanceOf("w2");
+      expect(before).toBeDefined();
       act(() => useDashboardStore.getState().reorderPages(4, 0));
       await visit(3, 4);
-      expect(mountedWidgets()).toContain("w2");
+      expect(instanceOf("w2")).toBe(before);
       expect(mountedWidgets()).toHaveLength(4);
+    });
+
+    it("a page with no widgets mounts nothing and does not throw", async () => {
+      dashboard = makeDashboard(5);
+      dashboard.layoutJson.pages[1].widgets = [];
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+      await visit(1, 2, 3);
+      expect(mountedWidgets()).toEqual(["w3", "w4"]);
     });
 
     it("counts a page opened by a clamped ?page= as visited", async () => {
