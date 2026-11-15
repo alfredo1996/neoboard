@@ -3,7 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock React and React Query
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
-  return { ...actual, useMemo: vi.fn((fn: () => unknown) => fn()) };
+  return {
+    ...actual,
+    useMemo: vi.fn((fn: () => unknown) => fn()),
+    useRef: vi.fn((current: unknown) => ({ current })),
+    useEffect: vi.fn(),
+  };
 });
 
 vi.mock("@tanstack/react-query", () => ({
@@ -178,7 +183,10 @@ describe("useSeedQuery", () => {
 
       expect(globalThis.fetch).toHaveBeenCalledWith("/api/query", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-query-priority": "2",
+        },
         signal: expect.any(AbortSignal),
         body: JSON.stringify({
           connectionId: "conn-1",

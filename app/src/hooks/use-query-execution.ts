@@ -45,7 +45,11 @@ export function useQueryExecution() {
       previous.current = controller;
       const res = await limitedFetch("/api/query", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // The editor's Run is the user waiting: tier 1 (#1795).
+        headers: {
+          "Content-Type": "application/json",
+          "x-query-priority": "1",
+        },
         body: JSON.stringify(input),
         signal: controller.signal,
       });

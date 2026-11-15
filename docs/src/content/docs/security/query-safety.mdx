@@ -51,13 +51,13 @@ Results are consumed with a `MAX_ROWS + 1` pattern:
 
 Each connection gets its own **query scheduler** — a priority queue with per-user fairness and backpressure. It sits above the drivers' own connection pools.
 
-**Priority tiers** — the scheduler has three tiers, and P1 always beats P2, which always beats P3 (1 interactive, 2 load, 3 refresh). Write queries (`/api/query/write`) always run at P1. A read query on `/api/query` takes its tier from the optional `x-query-priority` header (`1`, `2` or `3`) and defaults to P2. The NeoBoard UI does not send that header today, so every read runs at P2: running a query, loading a dashboard and auto-refresh alike.
+**Priority tiers** — the scheduler has three tiers, and P1 always beats P2, which always beats P3 (1 interactive, 2 load, 3 refresh). Write queries (`/api/query/write`) always run at P1. A read query on `/api/query` takes its tier from the optional `x-query-priority` header (`1`, `2` or `3`) and defaults to P2. The NeoBoard UI sets it: a dashboard's first load runs at P2, auto-refresh at P3, and anything a user asks for (the editor's Run, a card's Refresh, a parameter change, a form submit) at P1.
 
 **Fairness** — within a tier, users take turns via round-robin dequeue, so one user running heavy queries cannot starve everyone else on the same connection.
 
 **Backpressure** — when the queue is full, new work is rejected fast (HTTP 503) rather than piling up. Waiting too long in the queue returns a timeout instead of hanging.
 
-**Priority shedding** — once the queue fill ratio crosses `QUERY_SHED_THRESHOLD`, new P3 work is rejected to protect higher tiers. Only requests that set `x-query-priority: 3` are P3, so the built-in UI's auto-refresh is not shed; it is queued with all other reads.
+**Priority shedding** — once the queue fill ratio crosses `QUERY_SHED_THRESHOLD`, new P3 work is rejected to protect higher tiers. Only requests that set `x-query-priority: 3` are P3, which in the built-in UI means auto-refresh: a shed refresh is not retried, and its card keeps the last result it showed.
 
 Tune with the `QUERY_*` variables — see [Configuration → Query scheduler](/deploy/configuration#query-scheduler).
 

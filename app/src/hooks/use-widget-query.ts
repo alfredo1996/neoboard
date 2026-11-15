@@ -2,7 +2,7 @@
 
 import { limitedFetch } from "@/lib/query/limited-fetch";
 import { isParamUnset } from "@/lib/parameter/is-param-unset";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useQuery,
   useQueryClient,
@@ -161,6 +161,9 @@ export function shouldRetryWidgetQuery(
     useConnectionStatusStore.getState().statuses[connectionId] !== "error"
   );
 }
+
+/** 503s that answered a background refresh (tier 3): the card keeps its rows. */
+const shedRefreshes = new WeakSet<Error>();
 
 type WidgetQueryIdentity = Partial<
   Pick<WidgetQueryInput, "connectionId" | "database" | "query">
@@ -353,13 +356,32 @@ export function useWidgetQuery(
 
   const queryClient = useQueryClient();
   const queryKey = widgetQueryKey(mergedInput, options?.staleTime);
+  // x-query-priority (#1795): the scheduler sheds tier 3 first under load, so
+  // 3 goes only to the interval below. A user's refetch is 1, and so is any
+  // other fetch once this card has shown data (invalidation from the card's
+  // Refresh or a form submit, a parameter change); the first load is 2.
+  // The tier is picked once per fetch (keyed by its signal) and kept through
+  // that fetch's retries; the catch reads its own fetch's tier, never a later
+  // fetch's of another key.
+  const trigger = useRef<"1" | "3" | null>(null);
+  const fetchTiers = useRef(new WeakMap<AbortSignal, string>());
+  const loaded = useRef(false);
   const queryResult = useQuery<QueryResult, Error>({
     queryKey,
     queryFn: async ({ signal }) => {
       const fetchStart = performance.now();
+      let priority = fetchTiers.current.get(signal);
+      if (priority === undefined) {
+        priority = trigger.current ?? (loaded.current ? "1" : "2");
+        fetchTiers.current.set(signal, priority);
+        trigger.current = null;
+      }
       const res = await limitedFetch("/api/query", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-query-priority": priority,
+        },
         // Leaving a dashboard must free its requests: six hung on a dead
         // connector own the browser's per-origin pool, and the next page's
         // payload queued behind them for 52 s (#1888).
@@ -370,7 +392,12 @@ export function useWidgetQuery(
       const { data, meta } = await trackConnectorOutcome(
         mergedInput!.connectionId,
         unwrapFullResponse<{ data: unknown }>(res),
-      );
+      ).catch((e: unknown) => {
+        if (priority === "3" && e instanceof QueueFullError) {
+          shedRefreshes.add(e);
+        }
+        throw e;
+      });
       const result: QueryResult = {
         ...data,
         ...meta,
@@ -392,12 +419,13 @@ export function useWidgetQuery(
     // When enableCache is true, callers pass cacheTtlMinutes * 60_000.
     staleTime: options?.staleTime ?? 0,
     gcTime: options?.gcTime,
-    refetchInterval: options?.refetchInterval,
     // Every alt-tab used to re-fire every widget on the dashboard; against a
     // dead connector that overlapped with the refresh cycle (#1678). The
     // interval and the manual refresh are the refresh paths.
     refetchOnWindowFocus: false,
+    // A shed refresh (tier 3) is not retried: that adds load during overload.
     retry: (failureCount, error) =>
+      !shedRefreshes.has(error) &&
       shouldRetryWidgetQuery(failureCount, error, mergedInput?.connectionId),
     // Honour the server's Retry-After hint when available; otherwise fall
     // back to exponential backoff (500ms, 1s, 2s) with a 5s cap.
@@ -412,9 +440,36 @@ export function useWidgetQuery(
     },
   });
 
+  const { data, refetch: rawRefetch } = queryResult;
+  useEffect(() => {
+    if (data !== undefined) loaded.current = true;
+  }, [data]);
+
+  // The refetch interval is ours, not TanStack's, so its fetches are known to
+  // be background ones. ponytail: no pause on a hidden tab beyond skipping the
+  // tick, which matches TanStack's default.
+  const intervalMs = options?.refetchInterval;
+  useEffect(() => {
+    if (!enabled || !intervalMs) return;
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      trigger.current = "3";
+      rawRefetch({ cancelRefetch: false }).catch(() => {});
+      trigger.current = null;
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, [enabled, intervalMs, rawRefetch]);
+
   // An error is a stretch with no result too: the next pick must not bring
   // back the rows from before it.
-  if (!waited && queryResult.status === "error") setWaited(true);
+  // A shed refresh is no such stretch: the card keeps its rows.
+  if (
+    !waited &&
+    queryResult.status === "error" &&
+    !shedRefreshes.has(queryResult.error)
+  ) {
+    setWaited(true);
+  }
   if (
     waited &&
     enabled &&
@@ -450,5 +505,29 @@ export function useWidgetQuery(
     [mergedInput, allParameters],
   );
 
-  return { ...queryResult, missingParams, stopped, stop };
+  const refetch: typeof queryResult.refetch = (o) => {
+    trigger.current = "1";
+    const p = rawRefetch(o);
+    trigger.current = null;
+    return p;
+  };
+
+  // A refresh the server shed keeps the card on its last good result (#1795).
+  const shedRefresh =
+    queryResult.isError &&
+    data !== undefined &&
+    shedRefreshes.has(queryResult.error);
+  // The cast: TanStack types an error result as having an error.
+  const shown = shedRefresh
+    ? ({
+        ...queryResult,
+        isError: false,
+        isRefetchError: false,
+        isSuccess: true,
+        error: null,
+        status: "success",
+      } as unknown as typeof queryResult)
+    : queryResult;
+
+  return { ...shown, refetch, missingParams, stopped, stop };
 }

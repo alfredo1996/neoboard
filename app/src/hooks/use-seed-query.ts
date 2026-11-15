@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { limitedFetch } from "@/lib/query/limited-fetch";
 import { hashKey, useQuery } from "@tanstack/react-query";
 import type { QueryKey } from "@tanstack/react-query";
@@ -67,12 +67,18 @@ export function useSeedQuery(
     tenantId,
     database,
   ];
+  // x-query-priority (#1795): the first load is 2; a run after this selector
+  // has shown options (a search term, a parent pick) is the user waiting: 1.
+  const loaded = useRef(false);
   const { data, isLoading, error, refetch } = useQuery<SeedQueryData>({
     queryKey,
     queryFn: async ({ signal }) => {
       const res = await limitedFetch("/api/query", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-query-priority": loaded.current ? "1" : "2",
+        },
         signal,
         body: JSON.stringify({
           connectionId,
@@ -104,6 +110,10 @@ export function useSeedQuery(
         ? previousData
         : undefined,
   });
+
+  useEffect(() => {
+    if (data !== undefined) loaded.current = true;
+  }, [data]);
 
   const options = useMemo((): ParamSelectorOption[] => {
     if (!data?.data) return [];
