@@ -92,7 +92,7 @@ async function gzipLongBody(
 
 /** `fetch`, but at most QUERY_FETCH_LIMIT calls run at once. */
 export async function limitedFetch(
-  input: RequestInfo | URL,
+  input: string | URL, // a Request's own headers would be lost to gzipLongBody's
   rawInit?: RequestInit,
 ): Promise<Response> {
   const init = await gzipLongBody(rawInit);

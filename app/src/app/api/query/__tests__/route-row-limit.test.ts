@@ -107,15 +107,15 @@ describe("POST /api/query — rowLimit reaches the connector clamped (#1896)", (
     expect(sent.params).toMatchObject({ query: long });
   });
 
-  it("answers a malformed gzip body 400 and runs nothing", async () => {
+  it("refuses a gzip body that inflates past the cap, and runs nothing", async () => {
     const res = await POST(
       new Request("http://localhost/api/query", {
         method: "POST",
         headers: { "content-encoding": "gzip" },
-        body: "plainly not gzip",
+        body: gzipSync(Buffer.alloc(1024 * 1024 + 1, "a")),
       }),
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(413);
     expect(mockRunQuery).not.toHaveBeenCalled();
   });
 });

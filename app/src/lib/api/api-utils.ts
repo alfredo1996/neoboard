@@ -119,9 +119,13 @@ export class RequestBodyTooLargeError extends RequestBodyError {
 /**
  * A gzip body (#2481), inflated while it streams: the cap is checked per chunk,
  * so a few KB that expand without limit are cut at the cap, never held whole.
- * The cap is the proxy's own, so an inflated body is no larger than a plain one
- * may be. Only gzip is decoded; any other encoding is not a body we can read.
+ * Only gzip is decoded; any other encoding is not a body we can read.
  */
+// ponytail: a draft query is about 30 KB; saved widgets travel by reference
+// (#2477), so 1 MiB inflated is generous and bounds the amplification of one
+// request. Raise it only if a real draft outgrows it.
+export const INFLATED_BODY_LIMIT_BYTES = 1024 * 1024;
+
 async function inflatedBody(
   request: Request,
   encoding: string,
@@ -137,7 +141,7 @@ async function inflatedBody(
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > PROXY_BODY_LIMIT_BYTES) {
+      if (size > INFLATED_BODY_LIMIT_BYTES) {
         await reader.cancel();
         throw new RequestBodyTooLargeError();
       }
@@ -155,8 +159,14 @@ async function inflatedBody(
  * answered 500 as a server fault. A body declared larger than the proxy passes
  * on was cut short, so whatever arrived — parsable or not — is not the body
  * that was sent: too large, checked before parsing.
+ * A gzip body is read only where the route opts in (`gzip: true`, #2481):
+ * everywhere else it answers 400, as before, and a WAF inspecting that route's
+ * bodies still sees them.
  */
-export async function readJsonBody(request: Request): Promise<unknown> {
+export async function readJsonBody(
+  request: Request,
+  options: { gzip?: boolean } = {},
+): Promise<unknown> {
   // ponytail: a chunked body declares no length, so one cut at the limit
   // parses as malformed (400, not 413). Next drops the whole chunk that
   // crosses the limit, so the bytes that arrive don't mark the cut either.
@@ -165,7 +175,7 @@ export async function readJsonBody(request: Request): Promise<unknown> {
   if (declared > PROXY_BODY_LIMIT_BYTES) throw new RequestBodyTooLargeError();
   try {
     const encoding = request.headers.get("content-encoding")?.trim();
-    if (encoding && encoding !== "identity") {
+    if (options.gzip && encoding && encoding !== "identity") {
       return JSON.parse(await inflatedBody(request, encoding));
     }
     return await request.json();

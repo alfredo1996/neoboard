@@ -90,7 +90,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
     const priority = readPriorityHeader(
       request.headers.get("x-query-priority"),
     );
-    const body = await readJsonBody(request);
+    const body = await readJsonBody(request, { gzip: true });
     const validation = validateBody(querySchema, body);
     if (!validation.success) return validation.response;
 
