@@ -784,6 +784,27 @@ describe("CardContainer", () => {
     expect(screen.getByRole("button", { name: /run query/i })).toBeDefined();
   });
 
+  it("a manual-run widget stays run after its page is unmounted and back (#1475)", () => {
+    mockUseWidgetQuery.mockReturnValue({
+      isPending: true,
+      fetchStatus: "idle",
+      isError: false,
+      data: undefined,
+      missingParams: [],
+    });
+    const widget = makeWidget({
+      id: "manual-remount",
+      settings: { chartOptions: { manualRun: true } },
+    });
+
+    const first = render(<CardContainer widget={widget} />);
+    fireEvent.click(screen.getByRole("button", { name: /run query/i }));
+    first.unmount();
+    render(<CardContainer widget={widget} />);
+
+    expect(screen.queryByTestId("manual-run-overlay")).toBeNull();
+  });
+
   // ----- No data state -----
 
   it('shows "No data" when query returns null data', () => {

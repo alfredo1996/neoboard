@@ -56,11 +56,12 @@ vi.mock("@/components/dashboard-container", () => ({
         unmountCount += 1;
       };
     }, []);
-    const w = page.widgets[0];
+    const w = page.widgets[0] ?? { id: "" };
     return (
       <div
         data-testid="dashboard-container"
         data-instance={String(instance)}
+        data-widget={w.id}
         data-editable={String(!!editable)}
         data-refetch-interval={String(refetchInterval)}
       >
@@ -769,6 +770,102 @@ describe("DashboardWorkspace", () => {
         .getByTestId("dashboard-container")
         .getAttribute("data-refetch-interval"),
     ).toBe("false");
+  });
+
+  describe("the mounted page cache is bounded (#1475)", () => {
+    it("unmounts the least recently visited page past the cap", async () => {
+      dashboard = makeDashboard(5);
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+      for (const i of [1, 2, 3]) {
+        await userEvent.click(screen.getAllByTestId("page-tab")[i]);
+      }
+      expect(screen.getAllByTestId("dashboard-container")).toHaveLength(3);
+    });
+
+    const mountedWidgets = () =>
+      screen
+        .getAllByTestId("dashboard-container")
+        .map((el) => el.getAttribute("data-widget"));
+    const visit = async (...tabs: number[]) => {
+      for (const i of tabs) {
+        await userEvent.click(screen.getAllByTestId("page-tab")[i]);
+      }
+    };
+
+    // The mock stamps each mount with an id: same id = same instance, so the
+    // form's state survived; a remount would hand out a new one.
+    const instanceOf = (widget: string) =>
+      screen
+        .getAllByTestId("dashboard-container")
+        .find((el) => el.getAttribute("data-widget") === widget)
+        ?.getAttribute("data-instance");
+
+    const withForm = (
+      d: ReturnType<typeof makeDashboard>,
+      pageIndex: number,
+    ) => {
+      d.layoutJson.pages[pageIndex].widgets[0].chartType = "form";
+    };
+
+    it("keeps a page with a form, however many pages are visited after it", async () => {
+      dashboard = makeDashboard(6);
+      withForm(dashboard, 0);
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+      await visit(1, 2, 3, 4, 5);
+      expect(mountedWidgets()).toEqual(["w1", "w4", "w5", "w6"]);
+    });
+
+    it("keeps every page with a form, none counting against the cap", async () => {
+      dashboard = makeDashboard(5);
+      withForm(dashboard, 0);
+      withForm(dashboard, 1);
+      withForm(dashboard, 2);
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+      await visit(1, 2, 3, 4);
+      expect(mountedWidgets()).toEqual(["w1", "w2", "w3", "w4", "w5"]);
+    });
+
+    it("keeps a form page after an earlier page is deleted", async () => {
+      dashboard = makeDashboard(5);
+      withForm(dashboard, 1);
+      render(<DashboardWorkspace id="d1" editMode={true} />);
+      await visit(1, 2);
+      const before = instanceOf("w2");
+      expect(before).toBeDefined();
+      act(() => useDashboardStore.getState().removePage(0));
+      await visit(2, 3);
+      expect(instanceOf("w2")).toBe(before);
+      expect(mountedWidgets()).toHaveLength(4);
+    });
+
+    it("keeps a form page after pages are reordered", async () => {
+      dashboard = makeDashboard(5);
+      withForm(dashboard, 1);
+      render(<DashboardWorkspace id="d1" editMode={true} />);
+      await visit(1, 2);
+      const before = instanceOf("w2");
+      expect(before).toBeDefined();
+      act(() => useDashboardStore.getState().reorderPages(4, 0));
+      await visit(3, 4);
+      expect(instanceOf("w2")).toBe(before);
+      expect(mountedWidgets()).toHaveLength(4);
+    });
+
+    it("a page with no widgets mounts nothing and does not throw", async () => {
+      dashboard = makeDashboard(5);
+      dashboard.layoutJson.pages[1].widgets = [];
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+      await visit(1, 2, 3);
+      expect(mountedWidgets()).toEqual(["w3", "w4"]);
+    });
+
+    it("counts a page opened by a clamped ?page= as visited", async () => {
+      dashboard = makeDashboard(5);
+      searchParams = new URLSearchParams("page=99");
+      render(<DashboardWorkspace id="d1" editMode={false} />);
+      await visit(0);
+      expect(mountedWidgets()).toEqual(["w1", "w5"]);
+    });
   });
 
   // #1419 — visited pages stay mounted so tab switching is instant, but they

@@ -1,5 +1,6 @@
 "use client";
 
+import { touchPage } from "@/lib/dashboard/page-mount-cache";
 import { effectiveCanWrite } from "@/lib/auth/can-write";
 import React, {
   useCallback,
@@ -333,49 +334,43 @@ export function DashboardWorkspace({
   );
 
   // ── Pages ───────────────────────────────────────────────────────────
-  const [visitedPages, setVisitedPages] = useState<Set<number>>(
-    () => new Set([Math.max(0, initialPage)]),
-  );
+  // Mounted page ids, least recently visited first, capped (#1475). Ids, not
+  // indices: deleting or reordering a page shifts indices. Form pages are exempt.
+  const [visitedPages, setVisitedPages] = useState<string[]>([]);
+  const layoutRef = useRef(activeLayout);
+  useEffect(() => {
+    layoutRef.current = activeLayout;
+  }, [activeLayout]);
 
-  const markVisited = useCallback((index: number) => {
-    setVisitedPages((prev) => {
-      if (prev.has(index)) return prev;
-      const next = new Set(prev);
-      next.add(index);
-      return next;
-    });
-  }, []);
-
-  const handleSelectPage = useCallback(
-    (index: number) => {
-      markVisited(index);
-      setActivePage(index);
-    },
-    [markVisited, setActivePage],
-  );
-
-  // After reorderPages the store adjusts activePageIndex. Mark the new index
-  // as visited so the page stays in the DOM when switching away.
-  const handleReorderPages = useCallback(
-    (fromIndex: number, toIndex: number) => {
-      reorderPages(fromIndex, toIndex);
-      markVisited(useDashboardStore.getState().activePageIndex);
-    },
-    [reorderPages, markVisited],
-  );
+  // The resolved active page, wherever it came from (tab, ?page=, reload,
+  // addPage, reorder), is the most recent one.
+  const activePageId = activeLayout.pages[safeIndex]?.id;
+  useEffect(() => {
+    if (!activePageId) return;
+    const pages = layoutRef.current.pages;
+    setVisitedPages((prev) =>
+      touchPage(
+        prev.filter((id) => pages.some((p) => p.id === id)),
+        activePageId,
+        (id) =>
+          pages
+            .find((p) => p.id === id)
+            ?.widgets.some((w) => w.chartType === "form") ?? false,
+      ),
+    );
+  }, [activePageId]);
 
   const handleNavigateToPage = useCallback(
     (pageId: string, scrollToWidgetId?: string) => {
       const index = activeLayout.pages.findIndex((p) => p.id === pageId);
       if (index >= 0) {
-        markVisited(index);
         setActivePage(index);
         if (scrollToWidgetId) {
           scrollToWidgetWhenReady(scrollToWidgetId);
         }
       }
     },
-    [activeLayout, markVisited, setActivePage],
+    [activeLayout, setActivePage],
   );
 
   // The header Filters button (#2297): a row jumps to the selector, across pages.
@@ -724,11 +719,11 @@ export function DashboardWorkspace({
         pages={activeLayout.pages}
         activeIndex={safeIndex}
         editable={editMode}
-        onSelect={handleSelectPage}
+        onSelect={setActivePage}
         onAdd={editMode ? addPage : undefined}
         onRemove={editMode ? removePage : undefined}
         onRename={editMode ? renamePage : undefined}
-        onReorder={editMode ? handleReorderPages : undefined}
+        onReorder={editMode ? reorderPages : undefined}
       />
     ) : undefined;
 
@@ -929,7 +924,7 @@ export function DashboardWorkspace({
                 );
               }
               if (page.widgets.length === 0) return null;
-              if (!isActive && !visitedPages.has(index)) return null;
+              if (!isActive && !visitedPages.includes(page.id)) return null;
               return (
                 <div
                   key={page.id}

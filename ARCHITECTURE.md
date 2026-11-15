@@ -177,7 +177,7 @@ app/src/
 │   └── api/                # 40 API routes
 ├── components/             # App-level React components
 ├── hooks/                  # TanStack Query hooks (20+)
-├── stores/                 # Zustand stores (7)
+├── stores/                 # Zustand stores (8)
 ├── plugins/                # Chart plugin definitions (18)
 │   ├── transforms/         # Data transform functions
 │   └── settings/           # Zod settings schemas
