@@ -2,9 +2,8 @@
 
 import { limitedFetch } from "@/lib/query/limited-fetch";
 import { isParamUnset } from "@/lib/parameter/is-param-unset";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  hashKey,
   useQuery,
   useQueryClient,
   type PlaceholderDataFunction,
@@ -162,6 +161,9 @@ export function shouldRetryWidgetQuery(
     useConnectionStatusStore.getState().statuses[connectionId] !== "error"
   );
 }
+
+/** 503s that answered a background refresh (tier 3): the card keeps its rows. */
+const shedRefreshes = new WeakSet<Error>();
 
 type WidgetQueryIdentity = Partial<
   Pick<WidgetQueryInput, "connectionId" | "database" | "query">
@@ -354,25 +356,33 @@ export function useWidgetQuery(
 
   const queryClient = useQueryClient();
   const queryKey = widgetQueryKey(mergedInput, options?.staleTime);
-  // x-query-priority (#1795): the scheduler sheds tier 3 first under load.
-  // A fetch on a key this card already loaded, that no user asked for, is the
-  // refetch interval: tier 3. A user's refetch is tier 1, anything else 2.
-  // Param changes land as tier 2 (a new key), still above the refresh tier.
-  const userFetch = useRef(false);
-  const loadedKey = useRef<string | undefined>(undefined);
+  // x-query-priority (#1795): the scheduler sheds tier 3 first under load, so
+  // 3 goes only to the interval below. A user's refetch is 1, and so is any
+  // other fetch once this card has shown data (invalidation from the card's
+  // Refresh or a form submit, a parameter change); the first load is 2.
+  // The tier is picked once per fetch (keyed by its signal) and kept through
+  // that fetch's retries.
+  const trigger = useRef<"1" | "3" | null>(null);
+  const fetchTier = useRef<{ signal?: AbortSignal; priority: string }>({
+    priority: "2",
+  });
+  const loaded = useRef(false);
   const queryResult = useQuery<QueryResult, Error>({
     queryKey,
     queryFn: async ({ signal }) => {
       const fetchStart = performance.now();
-      const hashed = hashKey(queryKey);
-      let priority = loadedKey.current === hashed ? "3" : "2";
-      if (userFetch.current) priority = "1";
-      userFetch.current = false;
+      if (fetchTier.current.signal !== signal) {
+        fetchTier.current = {
+          signal,
+          priority: trigger.current ?? (loaded.current ? "1" : "2"),
+        };
+        trigger.current = null;
+      }
       const res = await limitedFetch("/api/query", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-query-priority": priority,
+          "x-query-priority": fetchTier.current.priority,
         },
         // Leaving a dashboard must free its requests: six hung on a dead
         // connector own the browser's per-origin pool, and the next page's
@@ -384,12 +394,16 @@ export function useWidgetQuery(
       const { data, meta } = await trackConnectorOutcome(
         mergedInput!.connectionId,
         unwrapFullResponse<{ data: unknown }>(res),
-      );
+      ).catch((e: unknown) => {
+        if (fetchTier.current.priority === "3" && e instanceof QueueFullError) {
+          shedRefreshes.add(e);
+        }
+        throw e;
+      });
       const result: QueryResult = {
         ...data,
         ...meta,
       } as QueryResult;
-      loadedKey.current = hashed;
       if (process.env.NODE_ENV === "development") {
         const roundTripMs = Math.round(performance.now() - fetchStart);
         console.debug(
@@ -407,12 +421,13 @@ export function useWidgetQuery(
     // When enableCache is true, callers pass cacheTtlMinutes * 60_000.
     staleTime: options?.staleTime ?? 0,
     gcTime: options?.gcTime,
-    refetchInterval: options?.refetchInterval,
     // Every alt-tab used to re-fire every widget on the dashboard; against a
     // dead connector that overlapped with the refresh cycle (#1678). The
     // interval and the manual refresh are the refresh paths.
     refetchOnWindowFocus: false,
+    // A shed refresh (tier 3) is not retried: that adds load during overload.
     retry: (failureCount, error) =>
+      !shedRefreshes.has(error) &&
       shouldRetryWidgetQuery(failureCount, error, mergedInput?.connectionId),
     // Honour the server's Retry-After hint when available; otherwise fall
     // back to exponential backoff (500ms, 1s, 2s) with a 5s cap.
@@ -426,6 +441,26 @@ export function useWidgetQuery(
       return Math.min(500 * 2 ** attemptIndex, 5000);
     },
   });
+
+  const { data, refetch: rawRefetch } = queryResult;
+  useEffect(() => {
+    if (data !== undefined) loaded.current = true;
+  }, [data]);
+
+  // The refetch interval is ours, not TanStack's, so its fetches are known to
+  // be background ones. ponytail: no pause on a hidden tab beyond skipping the
+  // tick, which matches TanStack's default.
+  const intervalMs = options?.refetchInterval;
+  useEffect(() => {
+    if (!enabled || !intervalMs) return;
+    const id = setInterval(() => {
+      if (document.hidden) return;
+      trigger.current = "3";
+      rawRefetch({ cancelRefetch: false }).catch(() => {});
+      trigger.current = null;
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, [enabled, intervalMs, rawRefetch]);
 
   // An error is a stretch with no result too: the next pick must not bring
   // back the rows from before it.
@@ -466,9 +501,28 @@ export function useWidgetQuery(
   );
 
   const refetch: typeof queryResult.refetch = (o) => {
-    userFetch.current = true;
-    return queryResult.refetch(o);
+    trigger.current = "1";
+    const p = rawRefetch(o);
+    trigger.current = null;
+    return p;
   };
 
-  return { ...queryResult, refetch, missingParams, stopped, stop };
+  // A refresh the server shed keeps the card on its last good result (#1795).
+  const shedRefresh =
+    queryResult.isError &&
+    data !== undefined &&
+    shedRefreshes.has(queryResult.error);
+  // The cast: TanStack types an error result as having an error.
+  const shown = shedRefresh
+    ? ({
+        ...queryResult,
+        isError: false,
+        isRefetchError: false,
+        isSuccess: true,
+        error: null,
+        status: "success",
+      } as unknown as typeof queryResult)
+    : queryResult;
+
+  return { ...shown, refetch, missingParams, stopped, stop };
 }

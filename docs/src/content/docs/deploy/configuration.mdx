@@ -95,7 +95,7 @@ Each connection gets its own priority queue with per-user fairness and backpress
 | `QUERY_MAX_PER_USER` | Max parallel queries per user, per connection | `5` |
 | `QUERY_MAX_QUEUE_DEPTH` | Queued queries before new work is rejected with HTTP 503 | `200` |
 | `QUERY_QUEUE_TIMEOUT_MS` | Max wait in the queue before giving up | `15000` |
-| `QUERY_SHED_THRESHOLD` | Queue fill ratio (0–1) above which new P3 work (requests sent with `x-query-priority: 3`) is shed to protect higher tiers. The UI sends no priority header, so its reads are never shed | `0.8` |
+| `QUERY_SHED_THRESHOLD` | Queue fill ratio (0–1) above which new P3 work (requests sent with `x-query-priority: 3`) is shed to protect higher tiers. The UI sends 3 only for auto-refresh, so that is what is shed first | `0.8` |
 
 Invalid values fall back to the default rather than failing the boot.
 

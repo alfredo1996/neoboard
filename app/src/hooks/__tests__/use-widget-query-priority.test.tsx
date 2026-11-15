@@ -1,9 +1,17 @@
 /** x-query-priority (#1795): load 2, background interval refresh 3, user refetch 1. */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  type MockInstance,
+} from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
-import { useWidgetQuery } from "../use-widget-query";
+import { useWidgetQuery, widgetQueryKeyPrefix } from "../use-widget-query";
 import { useParameterStore } from "@/stores/parameter-store";
 
 let queryClient: QueryClient;
@@ -13,7 +21,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 const body = { data: { data: [], fields: [] }, error: null, meta: {} };
-let fetchMock: { mock: { calls: unknown[][] } };
+let fetchMock: MockInstance<typeof fetch>;
 const priorities = () =>
   fetchMock.mock.calls.map(
     (c) =>
@@ -54,5 +62,70 @@ describe("useWidgetQuery x-query-priority (#1795)", () => {
     expect(p[0]).toBe("2");
     expect(p[1]).toBe("3");
     expect(p.at(-1)).toBe("1");
+  });
+
+  const busy = () =>
+    new Response(JSON.stringify({ error: { message: "busy" } }), {
+      status: 503,
+      headers: { "Retry-After": "0" },
+    });
+
+  it("tags an invalidation (card Refresh, form submit) 1, never 3", async () => {
+    const input = { connectionId: "c1", query: "Q" };
+    const { result } = renderHook(() => useWidgetQuery(input), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await act(async () => {
+      await queryClient.invalidateQueries({
+        queryKey: widgetQueryKeyPrefix(input),
+      });
+    });
+    expect(priorities()).toEqual(["2", "1"]);
+  });
+
+  it("tags a refetch after a parameter change 1", async () => {
+    const input = { connectionId: "c1", query: "RETURN $param_x" };
+    act(() => useParameterStore.getState().setParameter("x", 1, "s", "f"));
+    const { result } = renderHook(() => useWidgetQuery(input), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    act(() => useParameterStore.getState().setParameter("x", 2, "s", "f"));
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(2));
+    expect(priorities()).toEqual(["2", "1"]);
+  });
+
+  it("keeps a user fetch's tier through its retries", async () => {
+    const { result } = renderHook(
+      () => useWidgetQuery({ connectionId: "c1", query: "Q" }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    fetchMock.mockClear();
+    fetchMock
+      .mockImplementationOnce(() => Promise.resolve(busy()))
+      .mockImplementationOnce(() => Promise.resolve(busy()));
+    await act(async () => {
+      await result.current.refetch();
+    });
+    expect(priorities().slice(0, 3)).toEqual(["1", "1", "1"]);
+  });
+
+  it("a shed background refresh keeps the last result and is not retried", async () => {
+    const { result } = renderHook(
+      () =>
+        useWidgetQuery(
+          { connectionId: "c1", query: "Q" },
+          { refetchInterval: 40 },
+        ),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    fetchMock.mockClear();
+    fetchMock.mockImplementation(() => Promise.resolve(busy()));
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(0));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(priorities()[0]).toBe("3");
+    expect(result.current.isError).toBe(false);
+    expect(result.current.data).toBeDefined();
+    // a retry would have repeated the 503 within the 40 ms tick
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
   });
 });

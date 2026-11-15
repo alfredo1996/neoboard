@@ -110,4 +110,18 @@ describe("useSeedQuery — a new search term keeps the options on screen (#1742)
     expect(result.current.loading).toBe(true);
     expect(result.current.options).toEqual([]);
   });
+
+  it("sends tier 2 for the first load and tier 1 once options were shown (#1795)", async () => {
+    const { result, rerender } = renderSeedQuery({ param_country: "US" });
+    await waitFor(() => expect(result.current.options).toEqual([KEANU]));
+    rerender({ extraParams: { param_country: "US", param_search: "Kea" } });
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(2));
+    const tiers = vi
+      .mocked(globalThis.fetch)
+      .mock.calls.map(
+        ([, init]) =>
+          (init?.headers as Record<string, string>)["x-query-priority"],
+      );
+    expect(tiers).toEqual(["2", "1"]);
+  });
 });

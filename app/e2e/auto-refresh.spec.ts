@@ -111,13 +111,13 @@ test.describe("Auto-refresh", () => {
         },
       );
 
-      // Wait for the auto-refresh to trigger at least one query cycle
-      await page.waitForResponse(
-        (resp) =>
-          resp.url().includes("/api/query") &&
-          resp.request().method() === "POST",
+      // Wait for the auto-refresh to trigger at least one query cycle; the
+      // interval's request is the scheduler's shed tier (#1795).
+      const refresh = await page.waitForRequest(
+        (req) => req.url().includes("/api/query") && req.method() === "POST",
         { timeout: 10_000 },
       );
+      expect(refresh.headers()["x-query-priority"]).toBe("3");
       await expect(page.getByTestId("auto-refresh-trigger")).toContainText(
         "5s",
       );
@@ -327,7 +327,8 @@ test.describe("Manual refresh and disable auto-refresh", () => {
         .locator("[data-testid='widget-card']")
         .getByRole("button", { name: "Refresh" })
         .click();
-      await queryRequest;
+      // The user asked for it: the scheduler's first tier (#1795).
+      expect((await queryRequest).headers()["x-query-priority"]).toBe("1");
 
       await expect(page.locator("table")).toBeVisible({ timeout: 10_000 });
     } finally {
