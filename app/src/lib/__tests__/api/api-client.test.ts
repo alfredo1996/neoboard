@@ -450,26 +450,49 @@ describe("envelope error details (#1409)", () => {
   });
 });
 
-describe("a refusal from a proxy in front of the server (#2480)", () => {
-  const html = () =>
-    new Response("<html><body>403 ERROR</body></html>", {
-      status: 403,
+describe("a non-JSON answer from a proxy in front of the server (#2480)", () => {
+  const html = (status: number) =>
+    new Response("<html><body>ERROR</body></html>", {
+      status,
       headers: { "content-type": "text/html" },
     });
 
   it.each([
     ["unwrapResponse", unwrapResponse],
     ["unwrapFullResponse", unwrapFullResponse],
-  ])("%s says the request never reached the server", async (_n, unwrap) => {
-    await expect(unwrap(html())).rejects.toThrow(
-      /refused before it reached the server \(HTTP 403\)/,
+  ])(
+    "%s names the status and does not claim the request never arrived",
+    async (_n, unwrap) => {
+      const err = await unwrap(html(403)).catch((e: Error) => e);
+      expect((err as Error).message).toMatch(/could not be read \(HTTP 403\)/);
+      expect((err as Error).message).toMatch(/proxy or firewall/);
+      expect((err as Error).message).not.toMatch(/before it reached/);
+    },
+  );
+
+  it("appends the status hint where one exists", async () => {
+    await expect(unwrapResponse(html(504))).rejects.toThrow(
+      /Gateway timeout — the query took too long/,
     );
   });
 
-  it("still reads a NeoBoard envelope error as before", async () => {
-    const res = fakeResponse(
-      { data: null, error: { code: "FORBIDDEN", message: "Nope" }, meta: null },
-      403,
+  it.each([
+    ["unwrapResponse", unwrapResponse],
+    ["unwrapFullResponse", unwrapFullResponse],
+  ])("%s keeps the SyntaxError of an ok non-JSON body", async (_n, unwrap) => {
+    await expect(
+      unwrap(new Response("<html>", { status: 200 })),
+    ).rejects.toThrow(SyntaxError);
+  });
+
+  it("reads a NeoBoard envelope error through the real parse", async () => {
+    const res = new Response(
+      JSON.stringify({
+        data: null,
+        error: { code: "FORBIDDEN", message: "Nope" },
+        meta: null,
+      }),
+      { status: 403 },
     );
     await expect(unwrapResponse(res)).rejects.toThrow("Nope");
   });

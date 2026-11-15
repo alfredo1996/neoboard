@@ -183,17 +183,19 @@ function throwRawError(res: Response, body: unknown): never {
 }
 
 /**
- * Read the JSON body. A non-ok response whose body is not JSON never came from
- * NeoBoard (a proxy or firewall answered it), so say that, with the status,
- * instead of leaking the SyntaxError (#2480).
+ * Read the JSON body. A non-ok response whose body is not JSON did not come
+ * from NeoBoard's own handlers (a proxy or firewall likely answered it), so say
+ * that, with the status, instead of leaking the SyntaxError (#2480). It does
+ * not claim the request never arrived: a proxy timeout answers after it ran.
  */
 async function readBody(res: Response): Promise<unknown> {
   try {
     return await res.json();
   } catch (err) {
     if (res.ok) throw err;
+    const hint = RAW_STATUS_HINTS[res.status];
     throw new Error(
-      `The request was refused before it reached the server (HTTP ${res.status}). A proxy or firewall in front of the server answered it.`,
+      `The server's response could not be read (HTTP ${res.status}). A proxy or firewall in front of NeoBoard may have answered instead.${hint ? ` ${hint}.` : ""}`,
     );
   }
 }
