@@ -361,28 +361,26 @@ export function useWidgetQuery(
   // other fetch once this card has shown data (invalidation from the card's
   // Refresh or a form submit, a parameter change); the first load is 2.
   // The tier is picked once per fetch (keyed by its signal) and kept through
-  // that fetch's retries.
+  // that fetch's retries; the catch reads its own fetch's tier, never a later
+  // fetch's of another key.
   const trigger = useRef<"1" | "3" | null>(null);
-  const fetchTier = useRef<{ signal?: AbortSignal; priority: string }>({
-    priority: "2",
-  });
+  const fetchTiers = useRef(new WeakMap<AbortSignal, string>());
   const loaded = useRef(false);
   const queryResult = useQuery<QueryResult, Error>({
     queryKey,
     queryFn: async ({ signal }) => {
       const fetchStart = performance.now();
-      if (fetchTier.current.signal !== signal) {
-        fetchTier.current = {
-          signal,
-          priority: trigger.current ?? (loaded.current ? "1" : "2"),
-        };
+      let priority = fetchTiers.current.get(signal);
+      if (priority === undefined) {
+        priority = trigger.current ?? (loaded.current ? "1" : "2");
+        fetchTiers.current.set(signal, priority);
         trigger.current = null;
       }
       const res = await limitedFetch("/api/query", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-query-priority": fetchTier.current.priority,
+          "x-query-priority": priority,
         },
         // Leaving a dashboard must free its requests: six hung on a dead
         // connector own the browser's per-origin pool, and the next page's
@@ -395,7 +393,7 @@ export function useWidgetQuery(
         mergedInput!.connectionId,
         unwrapFullResponse<{ data: unknown }>(res),
       ).catch((e: unknown) => {
-        if (fetchTier.current.priority === "3" && e instanceof QueueFullError) {
+        if (priority === "3" && e instanceof QueueFullError) {
           shedRefreshes.add(e);
         }
         throw e;
@@ -464,7 +462,14 @@ export function useWidgetQuery(
 
   // An error is a stretch with no result too: the next pick must not bring
   // back the rows from before it.
-  if (!waited && queryResult.status === "error") setWaited(true);
+  // A shed refresh is no such stretch: the card keeps its rows.
+  if (
+    !waited &&
+    queryResult.status === "error" &&
+    !shedRefreshes.has(queryResult.error)
+  ) {
+    setWaited(true);
+  }
   if (
     waited &&
     enabled &&

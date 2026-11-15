@@ -128,4 +128,67 @@ describe("useWidgetQuery x-query-priority (#1795)", () => {
     // a retry would have repeated the 503 within the 40 ms tick
     expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
   });
+  it("a user fetch keeps its tier when its card moves to another key whose interval fires (CR1)", async () => {
+    const reqQuery = (c: Parameters<typeof fetch>) =>
+      JSON.parse((c[1] as RequestInit).body as string).query as string;
+    const A = { connectionId: "c1", query: "A" };
+    const B = { connectionId: "c1", query: "B" };
+    // a second card keeps key A observed, so A's request stays in flight
+    renderHook(() => useWidgetQuery(A), { wrapper });
+    const { result, rerender } = renderHook(
+      ({ q }: { q: typeof A }) =>
+        useWidgetQuery(q, q === B ? { refetchInterval: 30 } : undefined),
+      { wrapper, initialProps: { q: A } },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    let release!: () => void;
+    fetchMock.mockClear();
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((r) => {
+          release = () => r(busy());
+        }),
+    );
+    act(() => {
+      void result.current.refetch();
+    });
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(1));
+    rerender({ q: B });
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some((c) => reqQuery(c) === "B")).toBe(true),
+    );
+    await waitFor(() => expect(priorities()).toContain("3"));
+    release();
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter((c) => reqQuery(c) === "A").length,
+      ).toBeGreaterThan(1),
+    );
+  });
+
+  it("rows survive a parameter change after a shed refresh (CR2)", async () => {
+    const input = { connectionId: "c1", query: "RETURN $param_x" };
+    const rows = {
+      data: { data: [{ n: 1 }], fields: ["n"] },
+      error: null,
+      meta: {},
+    };
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify(rows))),
+    );
+    act(() => useParameterStore.getState().setParameter("x", 1, "s", "f"));
+    const { result } = renderHook(
+      () => useWidgetQuery(input, { refetchInterval: 40 }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    fetchMock.mockImplementation(() => Promise.resolve(busy()));
+    await waitFor(() => expect(priorities().at(-1)).toBe("3"));
+    await new Promise((r) => setTimeout(r, 30));
+    fetchMock.mockImplementation(() => new Promise(() => {}));
+    act(() => useParameterStore.getState().setParameter("x", 2, "s", "f"));
+    await waitFor(() => expect(result.current.isFetching).toBe(true));
+    expect(result.current.isPlaceholderData).toBe(true);
+    expect(result.current.data).toBeDefined();
+  });
 });
