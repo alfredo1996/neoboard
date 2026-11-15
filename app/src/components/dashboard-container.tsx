@@ -651,25 +651,23 @@ export function DashboardContainer({
             </DialogDescription>
             {fullscreenWidget && (
               <div className="flex-1 min-h-0">
-                {fullscreenReady ? (
-                  <CardContainer
-                    key={`${fullscreenWidget.id}-fullscreen`}
-                    widget={fullscreenWidget}
-                    refetchInterval={refetchInterval}
-                    onNavigateToPage={onNavigateToPage}
-                    parameterSourceMap={parameterSourceMap}
-                    currentPageId={page.id}
-                    connector={
-                      connectorCapabilities?.[fullscreenWidget.connectionId]
-                    }
-                    autoFit
-                    widgetIdSuffix="fullscreen"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
-                  </div>
-                )}
+                {
+                  fullscreenReady ? (
+                    <CardContainer
+                      key={`${fullscreenWidget.id}-fullscreen`}
+                      widget={fullscreenWidget}
+                      refetchInterval={refetchInterval}
+                      onNavigateToPage={onNavigateToPage}
+                      parameterSourceMap={parameterSourceMap}
+                      currentPageId={page.id}
+                      connector={
+                        connectorCapabilities?.[fullscreenWidget.connectionId]
+                      }
+                      autoFit
+                      widgetIdSuffix="fullscreen"
+                    />
+                  ) : null /* no spinner: the card was already rendered in its tile (#1509) */
+                }
               </div>
             )}
           </FullscreenFrame>

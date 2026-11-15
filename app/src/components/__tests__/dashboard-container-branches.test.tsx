@@ -1226,6 +1226,28 @@ describe("DashboardContainer — refresh + fullscreen + sync dialogs", () => {
     );
   });
 
+  it("shows no spinner while the dialog animation settles, then the card (#1509)", () => {
+    vi.useFakeTimers();
+    try {
+      renderWithProviders(<DashboardContainer page={makePage()} />);
+      act(() => {
+        fireEvent.click(screen.getByText("Fullscreen").closest("button")!);
+      });
+      const dialog = screen.getByTestId("fullscreen-dialog");
+      expect(dialog.querySelector(".animate-spin")).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      expect(
+        dialog.querySelector(
+          "[data-testid='card-container'][data-suffix='fullscreen']",
+        ),
+      ).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("closes the fullscreen dialog and clears the pending ready timer", () => {
     vi.useFakeTimers();
     try {
