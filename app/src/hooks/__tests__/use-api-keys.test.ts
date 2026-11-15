@@ -84,6 +84,17 @@ describe("use-api-keys", () => {
   });
 
   describe("useCreateApiKey mutationFn", () => {
+    it("returns the one-time key from the apiSuccess envelope the route sends (#2487)", async () => {
+      const created = { id: "2", name: "k", key: "sk-abc" };
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        mockResponse({ data: created, error: null, meta: null }, 201),
+      );
+      const config = useCreateApiKey() as unknown as {
+        mutationFn: (input: { name: string }) => Promise<unknown>;
+      };
+      expect(await config.mutationFn({ name: "k" })).toEqual(created);
+    });
+
     it("POSTs to /api/keys with name and expiresAt", async () => {
       const created = {
         id: "2",
