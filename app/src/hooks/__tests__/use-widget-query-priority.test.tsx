@@ -88,7 +88,7 @@ describe("useWidgetQuery x-query-priority (#1795)", () => {
     const { result } = renderHook(() => useWidgetQuery(input), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     act(() => useParameterStore.getState().setParameter("x", 2, "s", "f"));
-    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(2));
+    await waitFor(() => expect(fetchMock.mock.calls).toHaveLength(2));
     expect(priorities()).toEqual(["2", "1"]);
   });
 
@@ -157,7 +157,7 @@ describe("useWidgetQuery x-query-priority (#1795)", () => {
     act(() => {
       void result.current.refetch();
     });
-    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(1));
+    await waitFor(() => expect(fetchMock.mock.calls).toHaveLength(1));
     rerender({ q: B });
     await waitFor(() =>
       expect(fetchMock.mock.calls.some((c) => reqQuery(c) === "B")).toBe(true),
