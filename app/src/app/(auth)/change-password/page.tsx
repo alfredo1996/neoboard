@@ -12,6 +12,7 @@ import {
 import { signOut } from "next-auth/react";
 import { AuthCard } from "../auth-card";
 import { PASSWORD_HINT } from "@/lib/auth/password-schema";
+import { unwrapResponse } from "@/lib/api/api-client";
 
 /** The rule `newPasswordSchema` enforces (app/src/lib/auth/password-schema.ts). */
 
@@ -43,8 +44,10 @@ export default function ChangePasswordPage() {
       });
 
       if (!res.ok) {
-        const body = await res.json();
-        setError(body.error?.message ?? "Failed to change password");
+        const err = await unwrapResponse(res).catch((e: unknown) => e);
+        setError(
+          err instanceof Error ? err.message : "Failed to change password",
+        );
         setLoading(false);
         return;
       }

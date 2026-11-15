@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { unwrapResponse } from "@/lib/api/api-client";
 
 export interface ApiKeyListItem {
   id: string;
@@ -28,14 +29,7 @@ export interface CreatedApiKey {
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
-  const body = await res.json();
-  if (!res.ok) {
-    throw new Error(
-      body?.error?.message ?? body?.error ?? `Request failed: ${res.status}`,
-    );
-  }
-  // Support envelope format { data, error, meta }
-  return (body?.data === undefined ? body : body.data) as T;
+  return unwrapResponse<T>(res);
 }
 
 export function useApiKeys() {

@@ -96,6 +96,15 @@ function failNextFetch(status: number, code: string, message: string) {
   } as Response);
 }
 
+/** The next fetch answers a proxy's HTML page (#2487). */
+function failNextFetchWithHtml(status: number) {
+  vi.mocked(global.fetch).mockResolvedValueOnce({
+    ok: false,
+    status,
+    json: () => Promise.reject(new SyntaxError("Unexpected token <")),
+  } as Response);
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -232,6 +241,44 @@ describe("ProfilePage shows the API's error message (#2011)", () => {
         expect.objectContaining({
           title: "Failed to update name",
           description: "Name is required",
+        }),
+      ),
+    );
+  });
+
+  it("names a proxy when the password change gets HTML (#2487)", async () => {
+    await renderLoaded();
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "wrongpassword" },
+    });
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "newpass123" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: "newpass123" },
+    });
+    failNextFetchWithHtml(403);
+    fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+
+    expect(
+      await screen.findByText(/response could not be read \(HTTP 403\)/),
+    ).toBeInTheDocument();
+  });
+
+  it("names a proxy in the toast when saving the name gets HTML (#2487)", async () => {
+    await renderLoaded();
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Bob" },
+    });
+    failNextFetchWithHtml(403);
+    fireEvent.click(screen.getByRole("button", { name: "Save name" }));
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: expect.stringMatching(
+            /response could not be read \(HTTP 403\)/,
+          ),
         }),
       ),
     );
