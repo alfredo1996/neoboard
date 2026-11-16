@@ -200,7 +200,9 @@ describe.skipIf(SKIP)("CLI Demo Flow — Integration", () => {
       "default",
       "default",
     ]);
-  });
+    // A full seed run took 5.1 s on CI, past vitest's 5 s default; the first
+    // seed gets the same 120 s budget in beforeAll.
+  }, 120_000);
 
   // -------------------------------------------------------------------
   // Health
