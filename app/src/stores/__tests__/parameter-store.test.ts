@@ -235,6 +235,35 @@ describe("useParameterStore", () => {
     expect(useParameterStore.getState().parameters).toEqual({});
   });
 
+  describe("clearAll with configured defaults (#1851)", () => {
+    const seeds = [
+      { name: "region", value: "EU", type: "select" as const, widgetId: "w1" },
+      { name: "year", value: 2024, type: "select" as const, widgetId: "w2" },
+    ];
+    afterEach(() => useParameterStore.getState().setDefaultSeeds([]));
+
+    it("puts defaults back, restores a changed one, and clears a hand-set one", () => {
+      const st = useParameterStore.getState();
+      st.setDefaultSeeds(seeds);
+      st.seedDefaults();
+      st.setParameter(
+        "region",
+        "US",
+        "W",
+        "region",
+        "select",
+        "selector-widget",
+      );
+      st.setParameter("other", "x", "W", "other");
+      st.clearAll();
+      const p = useParameterStore.getState().parameters;
+      expect(p.region.value).toBe("EU");
+      expect(p.region.sourceType).toBe("default");
+      expect(p.year.value).toBe(2024);
+      expect(p.other).toBeUndefined();
+    });
+  });
+
   // ── sourceWidgetId ───────────────────────────────────────────────
 
   it("stores sourceWidgetId when provided", () => {

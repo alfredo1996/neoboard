@@ -232,3 +232,37 @@ test("defaults leave the bar empty until a filter is changed (#1851)", async ({
     await cleanup();
   }
 });
+
+test("Clear all resets to the defaults: bar empty, a changed default back (#1851)", async ({
+  authPage,
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1280, height: 1024 });
+  await authPage.login(ALICE.email, ALICE.password);
+  // f1 and f2 have defaults; f3 has none.
+  const { id, cleanup } = await seed(page.request, 3, 2);
+  try {
+    await page.goto(`/${id}`);
+    await expect(page.locator("#param-text-f2")).toHaveValue("value 2", {
+      timeout: 15_000,
+    });
+    await page.locator("#param-text-f2").fill("changed");
+    await page.locator("#param-text-f3").fill("hand set");
+    await expect(strip(page)).toContainText("changed");
+    await expect(strip(page)).toContainText("hand set");
+
+    await strip(page)
+      .getByRole("button", { name: "Clear all", exact: true })
+      .click();
+
+    // The bar is empty, the changed default is back, the hand-set one is gone,
+    // and the untouched default stays applied.
+    await expect(strip(page)).toHaveCount(0);
+    await expect(page.locator("#param-text-f2")).toHaveValue("value 2");
+    await expect(page.locator("#param-text-f1")).toHaveValue("value 1");
+    await expect(page.locator("#param-text-f3")).toHaveValue("");
+  } finally {
+    await cleanup();
+  }
+});

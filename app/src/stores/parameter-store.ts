@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ParamSeed } from "@/lib/parameter/apply-param-defaults";
 
 /**
  * The 8 parameter widget types supported by the parameter selector system.
@@ -78,7 +79,13 @@ interface ParameterState {
     }>,
   ) => void;
   clearParameter: (name: string) => void;
+  /** Resets to "as designed": drops everything set, then re-seeds the defaults (#1851). */
   clearAll: () => void;
+  /** The dashboard's configured defaults, the one source `clearAll` and the load seed share. */
+  defaultSeeds: ParamSeed[];
+  setDefaultSeeds: (seeds: ParamSeed[]) => void;
+  /** Seeds every default whose parameter is not already set. */
+  seedDefaults: () => void;
   /** Save current parameters to localStorage for the given dashboard. */
   saveToDashboard: (dashboardId: string) => void;
   /** Restore parameters from localStorage for the given dashboard. Clears current state first. */
@@ -240,7 +247,29 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
       return { parameters: next };
     }),
 
-  clearAll: () => set({ parameters: {} }),
+  defaultSeeds: [],
+  setDefaultSeeds: (seeds) => set({ defaultSeeds: seeds }),
+
+  seedDefaults: () => {
+    const { defaultSeeds, parameters, setParameter } = get();
+    for (const seed of defaultSeeds) {
+      if (parameters[seed.name] !== undefined) continue;
+      setParameter(
+        seed.name,
+        seed.value,
+        "Default value",
+        seed.name,
+        seed.type,
+        "default",
+        seed.widgetId,
+      );
+    }
+  },
+
+  clearAll: () => {
+    set({ parameters: {} });
+    get().seedDefaults();
+  },
 
   saveToDashboard: (dashboardId) => {
     const { parameters } = get();
