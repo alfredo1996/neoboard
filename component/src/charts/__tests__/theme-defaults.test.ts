@@ -77,6 +77,19 @@ describe.each(["neoboard-light", "neoboard-dark"])(
       );
     });
 
+    it("radar spokes and rings share the one themed grid colour (#1406)", () => {
+      const radar = theme.radar as Record<string, Record<string, unknown>>;
+      const colour = (k: string) =>
+        (radar[k].lineStyle as { color: string }).color;
+      expect(colour("axisLine")).toBe(colour("splitLine"));
+      expect(colour("splitLine")).toBe(
+        (
+          (theme.valueAxis as Record<string, Record<string, unknown>>).splitLine
+            .lineStyle as { color: string }
+        ).color,
+      );
+    });
+
     it("visualMap legend text uses a readable theme color (#1154)", () => {
       // Choropleth's visualMap text doesn't inherit textStyle either.
       const vm = theme.visualMap as Record<string, Record<string, unknown>>;
