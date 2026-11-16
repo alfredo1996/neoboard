@@ -1776,6 +1776,7 @@ const SPEC = {
               "updatedByName",
               "connectorCapabilities",
               "connectionNames",
+              "unusableConnectionIds",
             ],
             properties: {
               role: {
@@ -1792,6 +1793,14 @@ const SPEC = {
                   "The name of each connection the layout names, keyed by connection id, for the line under a widget title. " +
                   "The name only, never its config, host or user, so it is sent to anyone who can open the dashboard.",
                 additionalProperties: { type: "string" },
+              },
+              unusableConnectionIds: {
+                type: "array",
+                items: { type: "string" },
+                description:
+                  "The connection ids, among those the layout names, that the caller cannot use directly. " +
+                  "Graph expansion runs on the caller's own right to a connection, so the client offers it " +
+                  "on these only to someone who can edit the dashboard. Ids from this layout only.",
               },
               connectorCapabilities: {
                 type: "object",

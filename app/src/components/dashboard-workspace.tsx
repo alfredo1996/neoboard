@@ -649,6 +649,14 @@ export function DashboardWorkspace({
     (dashboard?.role === "owner" ||
       dashboard?.role === "editor" ||
       dashboard?.role === "admin");
+  // Graph Expand is offered where the server accepts it: an editor, or a
+  // connection this user can use directly (#1828).
+  const unusableConnections = dashboard?.unusableConnectionIds;
+  const canExpandGraph = useCallback(
+    (connectionId: string) =>
+      canEdit || !unusableConnections?.includes(connectionId),
+    [canEdit, unusableConnections],
+  );
 
   const leaveEditMode = useCallback(() => {
     // Route through the unsaved-changes guard (same as the Back button).
@@ -970,6 +978,7 @@ export function DashboardWorkspace({
                     parameterSourceMap={parameterSourceMap}
                     connectorCapabilities={dashboard?.connectorCapabilities}
                     connectionNames={dashboard?.connectionNames}
+                    canExpandGraph={canExpandGraph}
                   />
                 </div>
               );

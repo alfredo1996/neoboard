@@ -262,7 +262,8 @@ describe("GET /api/dashboards/[id]", () => {
       )
       .mockReturnValueOnce(makeSelectChain([]))
       .mockReturnValueOnce(makeSelectChain([{ updatedByName: null }]))
-      .mockReturnValueOnce(connectionsChain);
+      .mockReturnValueOnce(connectionsChain)
+      .mockReturnValueOnce(makeSelectChain([]));
     const body = await (await GET({} as Request, makeParams("d1"))).json();
     // c2's connector is not installed: unknown, not incapable, so it is left
     // out and the card agrees with the editor, which finds no descriptor.
@@ -309,7 +310,8 @@ describe("GET /api/dashboards/[id]", () => {
       )
       .mockReturnValueOnce(makeSelectChain([]))
       .mockReturnValueOnce(makeSelectChain([{ updatedByName: null }]))
-      .mockReturnValueOnce(makeSelectChain(rows));
+      .mockReturnValueOnce(makeSelectChain(rows))
+      .mockReturnValueOnce(makeSelectChain([]));
     const res = await GET({} as Request, makeParams("d1"));
     const text = JSON.stringify(await res.json());
     const body = JSON.parse(text);
@@ -318,6 +320,73 @@ describe("GET /api/dashboards/[id]", () => {
     expect(body.data.connectionNames.c119).toBe("Name c119");
     expect(text).not.toContain("SECRET-CONFIG");
     expect(text).not.toContain("someone-else");
+  });
+
+  // #1828: the client offers graph Expand exactly where the server accepts it,
+  // which is on a connection the user can use directly (or on an editable
+  // dashboard). The ids are the layout's own, never other connections.
+  it.each([
+    ["a reader on a private connection", "reader", ["c1"], ["c1"]],
+    ["a user on a shared connection", "creator", [], []],
+  ])(
+    "lists the layout connections %s cannot use",
+    async (_label, role, unusable, expected) => {
+      mockRequireSession.mockResolvedValue({
+        ...SESSION,
+        userId: "user-2",
+        role,
+      });
+      const layoutJson = {
+        version: 2,
+        pages: [
+          {
+            id: "p1",
+            title: "Main",
+            widgets: [
+              { id: "w1", chartType: "graph", connectionId: "c1", query: "" },
+            ],
+            gridLayout: [],
+          },
+        ],
+      };
+      const unusableChain = makeSelectChain(unusable.map((id) => ({ id })));
+      mockDb.select
+        .mockReturnValueOnce(
+          makeSelectChain([{ ...OWNER_DASHBOARD, isPublic: true, layoutJson }]),
+        )
+        .mockReturnValueOnce(makeSelectChain([]))
+        .mockReturnValueOnce(makeSelectChain([{ updatedByName: null }]))
+        .mockReturnValueOnce(makeSelectChain([]))
+        .mockReturnValueOnce(unusableChain);
+      const body = await (await GET({} as Request, makeParams("d1"))).json();
+      expect(body.data.unusableConnectionIds).toEqual(expected);
+      expect(sqlValues(unusableChain.calls.where[0][0])).toEqual(
+        expect.arrayContaining(["tenant-1", "c1"]),
+      );
+    },
+  );
+
+  it("lists nothing for an admin, who can use every connection", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, role: "admin" });
+    const layoutJson = {
+      version: 2,
+      pages: [
+        {
+          id: "p1",
+          title: "Main",
+          widgets: [{ id: "w1", chartType: "graph", connectionId: "c1" }],
+          gridLayout: [],
+        },
+      ],
+    };
+    mockDb.select
+      .mockReturnValueOnce(
+        makeSelectChain([{ ...OWNER_DASHBOARD, layoutJson }]),
+      )
+      .mockReturnValueOnce(makeSelectChain([{ updatedByName: null }]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    const body = await (await GET({} as Request, makeParams("d1"))).json();
+    expect(body.data.unusableConnectionIds).toEqual([]);
   });
 
   it("returns updatedByName when updatedBy is set", async () => {

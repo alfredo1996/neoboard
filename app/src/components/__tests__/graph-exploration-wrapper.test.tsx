@@ -20,6 +20,7 @@ import {
 } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GraphExplorationWrapper } from "../graph-exploration-wrapper";
+import { GraphExpansionAccessProvider } from "../graph-expansion-access-context";
 import { useGraphWidgetStore } from "@/stores/graph-widget-store";
 
 /** Props last handed to the stubbed GraphChart. */
@@ -438,6 +439,36 @@ describe("GraphExplorationWrapper — Expand only when the connector declares ho
         },
       ]),
     );
+  });
+
+  // #1828: Expand is offered where the server accepts it, per connection.
+  it.each([
+    ["a viewer on a connection they can use", ["other"], true],
+    ["a viewer on a connection they cannot use", ["c1"], false],
+  ])("%s: Expand offered is %s", (_label, unusable, offered) => {
+    render(
+      <GraphExpansionAccessProvider value={(id) => !unusable.includes(id)}>
+        <GraphExplorationWrapper
+          widgetId="w1"
+          nodes={graphNodes}
+          edges={[]}
+          connectionId="c1"
+          connectorType={connectorType}
+          settings={{}}
+          resultId="r1"
+        />
+      </GraphExpansionAccessProvider>,
+    );
+    act(() =>
+      (
+        chartProps.onNodeRightClick as (e: {
+          node: { id: string };
+          position: { x: number; y: number };
+        }) => void
+      )({ node: graphNodes[0], position: { x: 1, y: 1 } }),
+    );
+    expect(screen.getByRole("button", { name: "Properties" })).toBeVisible();
+    expect(!!screen.queryByRole("button", { name: "Expand" })).toBe(offered);
   });
 
   // A viewer bound to the dashboard's own queries (#972) is offered Expand and

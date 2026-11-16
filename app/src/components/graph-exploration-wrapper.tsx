@@ -21,6 +21,7 @@ import type {
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { useGraphWidgetStore } from "@/stores/graph-widget-store";
 import { useConnector } from "@/hooks/use-connectors";
+import { useCanExpandGraph } from "@/components/graph-expansion-access-context";
 
 interface GraphExplorationWrapperProps {
   widgetId: string;
@@ -227,7 +228,9 @@ export function GraphExplorationWrapper({
   // (#2061). The connector is the one the query result names, so whoever could
   // run the query can expand it, listed connection or not. Undefined while the
   // connectors load and for a connector that declares none: then no Expand.
-  const expansion = useConnector(connectorType)?.graphExpansion;
+  const declared = useConnector(connectorType)?.graphExpansion;
+  // Offered only where the server would accept it (#1828).
+  const expansion = useCanExpandGraph(connectionId) ? declared : undefined;
 
   const fetchNeighbors = useCallback(
     async (node: GraphNode): Promise<FetchNeighborsResult> => {
