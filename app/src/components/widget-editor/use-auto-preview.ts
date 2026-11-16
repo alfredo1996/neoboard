@@ -24,6 +24,8 @@ interface UseAutoPreviewOptions {
   open: boolean;
   mode: "add" | "edit" | "lab-edit" | "lab-create";
   connectionId: string;
+  /** Per-card database override; empty means the connection's default (#1813). */
+  database?: string;
   query: string;
   chartType: string;
   allParamValues: Record<string, unknown>;
@@ -32,6 +34,8 @@ interface UseAutoPreviewOptions {
   /** The query `initialPreviewData` is the result of. The editor loads it into
    *  the store after opening; that load is not an edit to preview. */
   initialPreviewQuery?: string;
+  /** The database `initialPreviewData` ran on, loaded the same way (#1813). */
+  initialPreviewDatabase?: string;
   /** Mutation object from useQueryExecution */
   previewQuery: {
     mutate: (
@@ -39,6 +43,7 @@ interface UseAutoPreviewOptions {
         connectionId: string;
         query: string;
         params?: Record<string, unknown>;
+        database?: string;
         rowLimit?: number;
       },
       options?: {
@@ -56,17 +61,20 @@ export function useAutoPreview({
   open,
   mode,
   connectionId,
+  database = "",
   query,
   chartType,
   allParamValues,
   initialPreviewData,
   initialPreviewQuery,
+  initialPreviewDatabase = "",
   previewQuery,
   buildWidgetForSave,
   onSave,
   onOpenChange,
 }: UseAutoPreviewOptions) {
   const connectionIdRef = useRef(connectionId);
+  const databaseRef = useRef(database);
   const queryRef = useRef(query);
   const allParamValuesRef = useRef(allParamValues);
   const previewQueryRef = useRef(previewQuery);
@@ -78,6 +86,7 @@ export function useAutoPreview({
 
   useLayoutEffect(() => {
     connectionIdRef.current = connectionId;
+    databaseRef.current = database;
     queryRef.current = query;
     allParamValuesRef.current = allParamValues;
     previewQueryRef.current = previewQuery;
@@ -111,6 +120,7 @@ export function useAutoPreview({
     const referenced = extractReferencedParams(q, allParamValuesRef.current);
     return {
       connectionId: cId,
+      database: databaseRef.current || undefined,
       query: q,
       params: Object.keys(referenced).length > 0 ? referenced : undefined,
       rowLimit: PREVIEW_ROW_LIMIT,
@@ -184,6 +194,32 @@ export function useAutoPreview({
     runPreview,
     initialPreviewData,
     initialPreviewQuery,
+  ]);
+
+  // Re-run when the per-card database changes (#1813). The ref is kept in step
+  // while closed, and a database the editor loads with an already-shown result
+  // is not a change to preview.
+  const prevDatabaseRef = useRef(database);
+  useEffect(() => {
+    if (prevDatabaseRef.current === database) return;
+    prevDatabaseRef.current = database;
+    if (!open || !connectionId || !query.trim()) return;
+    if (
+      initialPreviewData &&
+      database === initialPreviewDatabase &&
+      lastRunRef.current === null
+    ) {
+      return;
+    }
+    runPreview(true);
+  }, [
+    open,
+    database,
+    connectionId,
+    query,
+    runPreview,
+    initialPreviewData,
+    initialPreviewDatabase,
   ]);
 
   // CMD+Shift+Enter: run query, then save on success. Save only if it runs:

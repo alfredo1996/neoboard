@@ -358,6 +358,139 @@ describe("useAutoPreview", () => {
     });
   });
 
+  // ── Per-card database (#1813) ────────────────────────────────────
+
+  describe("per-card database (#1813)", () => {
+    const keydown = () =>
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          metaKey: true,
+          shiftKey: true,
+        }),
+      );
+
+    it("sends the database on the open auto-run", () => {
+      const opts = createDefaults({ database: "other" });
+      renderHook(() => useAutoPreview(opts));
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      expect(opts.previewQuery.mutate).toHaveBeenCalledWith(
+        expect.objectContaining({ database: "other" }),
+      );
+    });
+
+    it("sends the database on the debounced query-change run", () => {
+      const opts = createDefaults({ database: "other" });
+      const { rerender } = renderHook((p) => useAutoPreview(p), {
+        initialProps: opts,
+      });
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      rerender({ ...opts, query: "MATCH (m) RETURN m" });
+      act(() => {
+        vi.advanceTimersByTime(800);
+      });
+      expect(opts.previewQuery.mutate).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          query: "MATCH (m) RETURN m",
+          database: "other",
+        }),
+      );
+    });
+
+    it("sends the database on handlePreview", () => {
+      const opts = createDefaults({ database: "other" });
+      const { result } = renderHook(() => useAutoPreview(opts));
+      act(() => {
+        result.current.handlePreview();
+      });
+      expect(opts.previewQuery.mutate).toHaveBeenCalledWith(
+        expect.objectContaining({ database: "other" }),
+      );
+    });
+
+    it("sends the database on run-and-save", () => {
+      const opts = createDefaults({ database: "other" });
+      renderHook(() => useAutoPreview(opts));
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      vi.mocked(opts.previewQuery.mutate).mockClear();
+      act(keydown);
+      expect(opts.previewQuery.mutate).toHaveBeenCalledWith(
+        expect.objectContaining({ database: "other" }),
+        expect.anything(),
+      );
+    });
+
+    it("sends no database key for an empty database", () => {
+      const opts = createDefaults({ database: "" });
+      const { result } = renderHook(() => useAutoPreview(opts));
+      act(() => {
+        result.current.handlePreview();
+      });
+      const [input] = vi.mocked(opts.previewQuery.mutate).mock.calls[0];
+      expect("database" in input && input.database !== undefined).toBe(false);
+    });
+
+    const shown = { data: [], resultId: "r1" };
+
+    it("re-runs when the user picks another database over a shown result", () => {
+      const opts = createDefaults({
+        database: "a",
+        initialPreviewData: shown,
+        initialPreviewDatabase: "a",
+      });
+      const { rerender } = renderHook((p) => useAutoPreview(p), {
+        initialProps: opts,
+      });
+      rerender({ ...opts, database: "b" });
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      expect(opts.previewQuery.mutate).toHaveBeenCalledWith(
+        expect.objectContaining({ database: "b" }),
+      );
+    });
+
+    it("does not re-run when the editor loads the opened widget's database over a shown result", () => {
+      const opts = createDefaults({
+        database: "",
+        initialPreviewData: shown,
+        initialPreviewDatabase: "a",
+      });
+      const { rerender } = renderHook((p) => useAutoPreview(p), {
+        initialProps: opts,
+      });
+      rerender({ ...opts, database: "a" });
+      act(() => {
+        vi.advanceTimersByTime(900);
+      });
+      expect(opts.previewQuery.mutate).not.toHaveBeenCalled();
+    });
+
+    it("re-runs when the database changes while open", () => {
+      const opts = createDefaults({ database: "a" });
+      const { rerender } = renderHook((p) => useAutoPreview(p), {
+        initialProps: opts,
+      });
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      rerender({ ...opts, database: "b" });
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      expect(opts.previewQuery.mutate).toHaveBeenCalledTimes(2);
+      expect(opts.previewQuery.mutate).toHaveBeenLastCalledWith(
+        expect.objectContaining({ database: "b" }),
+      );
+    });
+  });
+
   // ── Duplicate auto-runs (#1762) ──────────────────────────────────
   //
   // The preview is a mutation: a run empties its data until the result lands,

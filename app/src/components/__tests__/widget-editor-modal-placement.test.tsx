@@ -39,8 +39,12 @@ vi.mock("@/hooks/use-widget-templates", () => ({
 vi.mock("@/hooks/use-connectors", () => ({
   useConnectors: () => ({ data: [] }),
 }));
+const autoPreview = vi.hoisted(() => vi.fn());
 vi.mock("../widget-editor/use-auto-preview", () => ({
-  useAutoPreview: () => ({ handlePreview: vi.fn(), saveStatus: "idle" }),
+  useAutoPreview: (opts: unknown) => {
+    autoPreview(opts);
+    return { handlePreview: vi.fn(), saveStatus: "idle" };
+  },
 }));
 vi.mock("../widget-editor/widget-preview-panel", () => ({
   WidgetPreviewPanel: () => <div />,
@@ -248,5 +252,12 @@ describe("WidgetEditorModal — a template carries the card options (#2394)", ()
     const st = useWidgetEditorStore.getState();
     expect(st.cardBackground).toBe("rose");
     expect(st.description).toBe("From the template");
+  });
+
+  it("the preview runs on the widget's per-card database (#1813)", () => {
+    renderEditor({ chartType: "table", query: "SELECT 1", database: "other" });
+    expect(autoPreview).toHaveBeenLastCalledWith(
+      expect.objectContaining({ database: "other" }),
+    );
   });
 });
