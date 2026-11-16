@@ -240,6 +240,8 @@ function WidgetSlot({
   );
 }
 
+const expandAnywhere = () => true;
+
 interface DashboardContainerProps {
   page: DashboardPage;
   editable?: boolean;
@@ -252,8 +254,8 @@ interface DashboardContainerProps {
   connectorCapabilities?: Record<string, ConnectorCapabilities>;
   /** Each widget connection's own name, by id, for the source line (#2247). */
   connectionNames?: Record<string, string>;
-  /** False for a view-level viewer: graph nodes offer no Expand (#1828). */
-  canExpandGraphs?: boolean;
+  /** Whether graph nodes on a connection offer Expand (#1828). */
+  canExpandGraph?: (connectionId: string) => boolean;
 }
 
 // getWidgetTitle → imported as getWidgetDisplayTitle from @/lib/widget/widget-utils
@@ -267,7 +269,7 @@ export function DashboardContainer({
   parameterSourceMap,
   connectorCapabilities,
   connectionNames,
-  canExpandGraphs = true,
+  canExpandGraph = expandAnywhere,
 }: Readonly<DashboardContainerProps>) {
   const {
     onRemoveWidget,
@@ -473,7 +475,7 @@ export function DashboardContainer({
 
   return (
     <ConnectionNamesProvider value={connectionNames}>
-      <GraphExpansionAccessProvider value={canExpandGraphs}>
+      <GraphExpansionAccessProvider value={canExpandGraph}>
         {barShown && (
           <FilterStrip
             className="mb-3"

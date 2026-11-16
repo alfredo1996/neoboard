@@ -10,9 +10,10 @@ import { AuthPage } from "./pages/auth";
 import type { Page } from "@playwright/test";
 
 /**
- * A viewer share may run only the dashboard's saved queries (#972), and no
- * dashboard saves the neighbour query behind Expand, so the viewer's node menu
- * must not offer it (#1828). The owner's still does.
+ * The neighbour query behind Expand is saved by no dashboard, so the server
+ * accepts it only from an editor or a user of the connection (#972). The node
+ * menu offers it on the same terms (#1828): the owner always, a viewer once the
+ * connection is shared with them.
  */
 
 /** Right-click the one node until its menu offers Properties, return the menu. */
@@ -40,7 +41,9 @@ async function openNodeMenu(page: Page) {
 test.describe("Graph node menu by access level (#1828)", () => {
   test.describe.configure({ timeout: 90_000 });
 
-  test("a viewer is not offered Expand, the owner is", async ({ browser }) => {
+  test("Expand is offered where the connection is usable, to the owner always", async ({
+    browser,
+  }) => {
     const suffix = uid();
     const aliceCtx = await browser.newContext();
     const alice = await aliceCtx.newPage();
@@ -110,23 +113,49 @@ test.describe("Graph node menu by access level (#1828)", () => {
       );
       expect(share.ok()).toBeTruthy();
 
-      // The owner's menu offers Expand.
+      // The owner's menu offers Expand, and it adds the node's neighbours.
       await alice.goto(`/${dashboardId}`);
       const ownerMenu = await openNodeMenu(alice);
-      await expect(
-        ownerMenu.getByRole("button", { name: "Expand", exact: true }),
-      ).toBeVisible();
+      await ownerMenu
+        .getByRole("button", { name: "Expand", exact: true })
+        .click();
+      await expect(alice.getByTestId("graph-reset-button")).toBeVisible({
+        timeout: 15_000,
+      });
 
-      // The viewer's menu has the node's Properties and no Expand.
       const viewerCtx = await browser.newContext();
       try {
         const viewer = await viewerCtx.newPage();
         await new AuthPage(viewer).login(email, password);
+
+        // A private connection the viewer cannot use: the menu has Properties
+        // and no Expand. Wait for the connectors, or the absence is just a
+        // page that has not loaded them yet (#1748).
+        const connectors = viewer.waitForResponse(
+          (r) => r.url().endsWith("/api/connectors") && r.ok(),
+        );
         await viewer.goto(`/${dashboardId}`);
+        await connectors;
         const viewerMenu = await openNodeMenu(viewer);
         await expect(
           viewerMenu.getByRole("button", { name: "Expand", exact: true }),
         ).toHaveCount(0);
+
+        // Once the connection is shared the server accepts the expansion, so
+        // the viewer is offered it, and it works.
+        const patch = await alice.request.patch(
+          `/api/connections/${connectionId}`,
+          { data: { visibility: "shared" } },
+        );
+        expect(patch.ok()).toBeTruthy();
+        await viewer.reload();
+        const sharedMenu = await openNodeMenu(viewer);
+        await sharedMenu
+          .getByRole("button", { name: "Expand", exact: true })
+          .click();
+        await expect(viewer.getByTestId("graph-reset-button")).toBeVisible({
+          timeout: 15_000,
+        });
       } finally {
         await viewerCtx.close();
       }

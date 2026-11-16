@@ -441,10 +441,13 @@ describe("GraphExplorationWrapper — Expand only when the connector declares ho
     );
   });
 
-  // #1828: a view-level viewer can never expand, so the menu does not offer it.
-  it("offers a view-level viewer no Expand", () => {
+  // #1828: Expand is offered where the server accepts it, per connection.
+  it.each([
+    ["a viewer on a connection they can use", ["other"], true],
+    ["a viewer on a connection they cannot use", ["c1"], false],
+  ])("%s: Expand offered is %s", (_label, unusable, offered) => {
     render(
-      <GraphExpansionAccessProvider value={false}>
+      <GraphExpansionAccessProvider value={(id) => !unusable.includes(id)}>
         <GraphExplorationWrapper
           widgetId="w1"
           nodes={graphNodes}
@@ -465,9 +468,7 @@ describe("GraphExplorationWrapper — Expand only when the connector declares ho
       )({ node: graphNodes[0], position: { x: 1, y: 1 } }),
     );
     expect(screen.getByRole("button", { name: "Properties" })).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "Expand" }),
-    ).not.toBeInTheDocument();
+    expect(!!screen.queryByRole("button", { name: "Expand" })).toBe(offered);
   });
 
   // A viewer bound to the dashboard's own queries (#972) is offered Expand and

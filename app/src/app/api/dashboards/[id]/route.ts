@@ -140,6 +140,12 @@ export async function GET(
       role: access.role,
       updatedByName: metadata?.updatedByName ?? null,
       ...(await layoutConnectionFacts(access.dashboard.layoutJson, tenantId)),
+      // The layout's own connections this user cannot use directly: the client
+      // offers graph Expand only where the server would accept it (#1828).
+      unusableConnectionIds: await unusableConnectionIds(
+        layoutConnectionIds(access.dashboard.layoutJson),
+        { userId, tenantId, role: userRole },
+      ),
     });
   } catch (error) {
     return handleRouteError(error, "Failed to fetch dashboard");
