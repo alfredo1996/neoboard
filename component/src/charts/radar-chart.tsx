@@ -152,11 +152,10 @@ function RadarChart({
                         value: unknown;
                         dimensionIndex: number;
                       };
-                      if (v == null) return "";
+                      if (typeof v !== "number")
+                        return typeof v === "string" ? v : "";
                       const max = data.indicators[dimensionIndex]?.max;
-                      if (typeof v === "number" && max && v / max < 0.1)
-                        return "";
-                      return String(v);
+                      return max && v / max < 0.1 ? "" : String(v);
                     },
                   }
                 : { show: false },
