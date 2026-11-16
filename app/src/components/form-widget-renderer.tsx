@@ -25,6 +25,7 @@ import {
 } from "@neoboard/components";
 import { useParameterValues } from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
+import { WIDGET_NOT_FOUND_MESSAGE } from "@/lib/api/widget-not-found";
 import { useWriteQueryExecution } from "@/hooks/use-write-query-execution";
 import { useSeedQuery } from "@/hooks/use-seed-query";
 import { useSavedQueryRef } from "@/hooks/use-saved-query-ref";
@@ -58,6 +59,8 @@ export interface FormWidgetRendererProps {
 
 const STALE_FORM_MESSAGE =
   "This form changed since this page loaded. Reload to get the current version.";
+const UNSAVED_FORM_MESSAGE =
+  "Save the dashboard to submit this form with your changes.";
 
 // ─── Per-field input renderer (local state, no global store) ──────────────────
 
@@ -628,10 +631,18 @@ export function FormWidgetRenderer({
             // The route refuses a changed form with the same 404 as a missing
             // one (#1831), so a page older than a save gets only that; say what
             // to do. The server's refusal stays as it is, nothing new leaks.
+            // With unsaved edits the editor's own form is the likelier cause,
+            // and a reload would throw those edits away: ask for a save.
             const stale =
               (err as { code?: unknown }).code === "NOT_FOUND" &&
-              err.message === "Widget not found";
-            setErrorMessage(stale ? STALE_FORM_MESSAGE : err.message);
+              err.message === WIDGET_NOT_FOUND_MESSAGE;
+            let shown = err.message;
+            if (stale) {
+              shown = useDashboardStore.getState().hasUnsavedChanges()
+                ? UNSAVED_FORM_MESSAGE
+                : STALE_FORM_MESSAGE;
+            }
+            setErrorMessage(shown);
           }
         },
       },

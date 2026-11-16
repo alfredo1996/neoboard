@@ -6,6 +6,7 @@ import { connections } from "@/lib/db/schema";
 import type { DashboardWidget } from "@/lib/db/schema";
 import { findSavedWidget } from "@/lib/query/saved-query-ref";
 import { requireSession } from "@/lib/auth/session";
+import { WIDGET_NOT_FOUND_MESSAGE } from "@/lib/api/widget-not-found";
 import { resolveDashboardAccess } from "@/lib/dashboard/access";
 import { decryptJson } from "@/lib/crypto/crypto";
 import {
@@ -154,7 +155,7 @@ async function handleWriteQuery(request: Request): Promise<Response> {
         (widget.chartType === "form" &&
           !formMatchesPage(widget.query, query, queryHash))
       ) {
-        return notFound("Widget not found");
+        return notFound(WIDGET_NOT_FOUND_MESSAGE);
       }
     }
 

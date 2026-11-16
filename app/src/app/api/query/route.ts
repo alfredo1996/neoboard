@@ -8,6 +8,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
+import { WIDGET_NOT_FOUND_MESSAGE } from "@/lib/api/widget-not-found";
 import { decryptJson } from "@/lib/crypto/crypto";
 import {
   executeQuery,
@@ -120,7 +121,7 @@ async function handleReadQuery(request: Request): Promise<Response> {
         tenantId: sessionTenantId,
         role,
       });
-      if (!saved) return notFound("Widget not found");
+      if (!saved) return notFound(WIDGET_NOT_FOUND_MESSAGE);
       query = saved.query;
       databaseOverride = saved.database;
     }
