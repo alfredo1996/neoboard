@@ -478,6 +478,9 @@ test.describe("Widgets run on their saved database (#1824)", () => {
 
       await page.goto(`/${dashboardId}/edit`);
       const card = page.locator("[data-widget-id='w-db']");
+      // The saved card shows neoboard before the editor opens, so the
+      // editor's own open-run cannot be mistaken for the default run below.
+      await expect(card.getByText("neoboard", { exact: true })).toBeVisible();
       await card.hover();
       await card
         .getByRole("button", { name: "Widget actions", exact: true })
@@ -500,6 +503,11 @@ test.describe("Widgets run on their saved database (#1824)", () => {
       const second = await rerun;
       expect(second.request().postDataJSON()).not.toHaveProperty("database");
       expect((await second.json()).data.data).toEqual([{ db: "movies" }]);
+      await expect(
+        dialog
+          .getByTestId("widget-preview")
+          .getByText("movies", { exact: true }),
+      ).toBeVisible();
 
       // Pick neoboard: the preview runs there, as the saved card does.
       const third = page.waitForResponse(isPreview, { timeout: 15_000 });
@@ -508,6 +516,11 @@ test.describe("Widgets run on their saved database (#1824)", () => {
       const picked = await third;
       expect(picked.request().postDataJSON().database).toBe("neoboard");
       expect((await picked.json()).data.data).toEqual([{ db: "neoboard" }]);
+      await expect(
+        dialog
+          .getByTestId("widget-preview")
+          .getByText("neoboard", { exact: true }),
+      ).toBeVisible();
     } finally {
       await page.request.delete(`/api/dashboards/${dashboardId}`);
     }

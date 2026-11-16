@@ -566,7 +566,8 @@ export function WidgetEditorModal({
     open,
     mode,
     connectionId,
-    database,
+    // A library template stores no database, so its preview runs on the default.
+    database: isLabMode ? undefined : database,
     query,
     chartType,
     allParamValues,

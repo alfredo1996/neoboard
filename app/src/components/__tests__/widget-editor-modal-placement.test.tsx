@@ -257,7 +257,20 @@ describe("WidgetEditorModal — a template carries the card options (#2394)", ()
   it("the preview runs on the widget's per-card database (#1813)", () => {
     renderEditor({ chartType: "table", query: "SELECT 1", database: "other" });
     expect(autoPreview).toHaveBeenLastCalledWith(
-      expect.objectContaining({ database: "other" }),
+      expect.objectContaining({
+        database: "other",
+        initialPreviewDatabase: "other",
+      }),
+    );
+  });
+
+  it("a library template has no database, so its preview sends none (#1813)", () => {
+    renderEditor(
+      { chartType: "table", query: "SELECT 1", database: "other" },
+      { mode: "lab-create" },
+    );
+    expect(autoPreview).toHaveBeenLastCalledWith(
+      expect.objectContaining({ database: undefined }),
     );
   });
 });
