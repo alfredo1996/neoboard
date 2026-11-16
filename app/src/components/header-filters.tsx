@@ -33,6 +33,7 @@ export function HeaderFilters({
         id: f.id,
         label: f.label,
         value: f.value,
+        isDefault: f.isDefault,
         where: f.where,
         onSelect: f.sourceWidgetId
           ? () => onJump(f.pageId, f.sourceWidgetId!)

@@ -32,6 +32,8 @@ export interface DashboardFilter {
   where?: string;
   sourceWidgetId?: string;
   pageId?: string;
+  /** Still on the value its selector was configured with: nobody set it (#1851). */
+  isDefault?: boolean;
   /** Hover text for a set filter: what set it. */
   title?: string;
 }
@@ -70,6 +72,7 @@ export function buildDashboardFilters(
         : undefined,
       sourceWidgetId: entry?.sourceWidgetId ?? source?.widgetId,
       pageId: source?.pageId,
+      isDefault: entry?.sourceType === "default",
       title: entry?.source ? `Set by ${entry.source}` : undefined,
     };
   };

@@ -49,6 +49,18 @@ describe("buildDashboardFilters", () => {
     ]);
   });
 
+  it("marks a filter still on its configured default, and no other", () => {
+    const f = buildDashboardFilters(map, {
+      decade: entry("1990s", "w2"),
+      region: { ...entry("EU", "w1"), sourceType: "selector-widget" },
+    });
+    expect(f.map((x) => [x.id, x.isDefault])).toEqual([
+      ["decade", true],
+      ["region", false],
+      ["actor", false],
+    ]);
+  });
+
   it("leaves the selector out of where when its title is the filter's name", () => {
     const same: ParameterSourceMap = {
       decade: [{ ...src("w2", "Decade", "Regions"), widgetTitle: "Decade" }],

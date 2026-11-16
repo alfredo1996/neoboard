@@ -326,17 +326,20 @@ export function DashboardContainer({
       if (onNavigateToPage) onNavigateToPage(pageId ?? page.id, widgetId);
       else scrollAndHighlight(widgetId);
     };
-    return buildDashboardFilters(parameterSourceMap ?? {}, parameters)
-      .filter((f) => f.value !== undefined)
-      .map((f) => ({
-        id: f.id,
-        label: f.label,
-        value: f.value ?? "",
-        title: f.title,
-        onSelect: f.sourceWidgetId
-          ? () => jump(f.pageId, f.sourceWidgetId!)
-          : undefined,
-      }));
+    return (
+      buildDashboardFilters(parameterSourceMap ?? {}, parameters)
+        // A chip means "differs from the dashboard as designed" (#1851).
+        .filter((f) => f.value !== undefined && !f.isDefault)
+        .map((f) => ({
+          id: f.id,
+          label: f.label,
+          value: f.value ?? "",
+          title: f.title,
+          onSelect: f.sourceWidgetId
+            ? () => jump(f.pageId, f.sourceWidgetId!)
+            : undefined,
+        }))
+    );
   }, [parameterSourceMap, parameters, onNavigateToPage, page.id]);
   const labelOf = (n: string) => paramLabel(n, parameterSourceMap);
   const displayTitle = (widget: DashboardWidget) =>

@@ -53,6 +53,12 @@ async function seed(
   return { id, cleanup };
 }
 
+// A default is not a filter someone set (#1851): the tests that need chips
+// set them from the link, which beats the default.
+const linked = (n: number) =>
+  "?" +
+  Array.from({ length: n }, (_, i) => `param_f${i + 1}=link${i + 1}`).join("&");
+
 const strip = (page: import("@playwright/test").Page) =>
   page.getByRole("region", { name: "Active filters" });
 
@@ -65,7 +71,7 @@ test("the header lists every filter, clears one and jumps to a selector", async 
   await authPage.login(ALICE.email, ALICE.password);
   const { id, cleanup } = await seed(page.request, SET + 1, SET);
   try {
-    await page.goto(`/${id}`);
+    await page.goto(`/${id}${linked(SET)}`);
     const button = page.getByRole("button", { name: /^Filters/ });
     await expect(button).toBeVisible({ timeout: 15_000 });
     await expect(button.getByLabel(`${SET} set`)).toBeVisible();
@@ -120,7 +126,7 @@ test("the strip stays one 44px line with 11 filters set, and scrolls", async ({
   await authPage.login(ALICE.email, ALICE.password);
   const { id, cleanup } = await seed(page.request, SET, SET);
   try {
-    await page.goto(`/${id}`);
+    await page.goto(`/${id}${linked(SET)}`);
     await expect(strip(page)).toBeVisible({ timeout: 15_000 });
     const box = await strip(page).boundingBox();
     expect(box!.height).toBe(44);
@@ -165,7 +171,7 @@ test("the filter bar can be hidden from the Filters menu, and stays hidden", asy
   await authPage.login(ALICE.email, ALICE.password);
   const { id, cleanup } = await seed(page.request, 3, 3);
   try {
-    await page.goto(`/${id}`);
+    await page.goto(`/${id}${linked(3)}`);
     const button = page.getByRole("button", { name: /^Filters/ });
     await expect(strip(page)).toBeVisible({ timeout: 15_000 });
 
@@ -178,7 +184,8 @@ test("the filter bar can be hidden from the Filters menu, and stays hidden", asy
     await expect(strip(page)).toHaveCount(0);
     await expect(button.getByLabel("3 set")).toBeVisible();
 
-    await page.reload();
+    // The link is stripped of what it brought: arrive by it again.
+    await page.goto(`/${id}${linked(3)}`);
     await expect(button.getByLabel("3 set")).toBeVisible({ timeout: 15_000 });
     await expect(strip(page)).toHaveCount(0);
 
@@ -188,6 +195,39 @@ test("the filter bar can be hidden from the Filters menu, and stays hidden", asy
       .getByRole("switch", { name: "Show filter bar", exact: true })
       .click();
     await expect(strip(page)).toBeVisible();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("defaults leave the bar empty until a filter is changed (#1851)", async ({
+  authPage,
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1280, height: 1024 });
+  await authPage.login(ALICE.email, ALICE.password);
+  const { id, cleanup } = await seed(page.request, 5, 5);
+  try {
+    await page.goto(`/${id}`);
+    const button = page.getByRole("button", { name: /^Filters/ });
+    await expect(page.locator("#param-text-f1")).toHaveValue("value 1", {
+      timeout: 15_000,
+    });
+    // Five defaults are in force, and none of them is a chip or a count.
+    await expect(strip(page)).toHaveCount(0);
+    await expect(button.getByLabel(/ set$/)).toHaveCount(0);
+    await button.click();
+    const list = page.getByRole("dialog", { name: "Filters", exact: true });
+    await expect(list.getByRole("listitem")).toHaveCount(5);
+    await expect(list.getByText("default", { exact: true })).toHaveCount(5);
+    await page.keyboard.press("Escape");
+
+    await page.locator("#param-text-f2").fill("changed");
+    await expect(strip(page)).toBeVisible();
+    await expect(strip(page)).toContainText("changed");
+    await expect(strip(page)).not.toContainText("value 1");
+    await expect(button.getByLabel("1 set")).toBeVisible();
   } finally {
     await cleanup();
   }

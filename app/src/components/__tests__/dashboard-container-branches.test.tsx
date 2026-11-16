@@ -329,7 +329,13 @@ vi.mock("@/lib/widget/widget-actions", () => ({
 const parametersState = {
   parameters: {} as Record<
     string,
-    { field: string; value: unknown; source?: string; sourceWidgetId?: string }
+    {
+      field: string;
+      value: unknown;
+      source?: string;
+      sourceType?: string;
+      sourceWidgetId?: string;
+    }
   >,
   clearParameter: vi.fn(),
   clearAll: vi.fn(),
@@ -738,6 +744,25 @@ describe("DashboardContainer — filter line", () => {
     );
     const line = screen.getByRole("region", { name: "Active filters" });
     expect(line).toHaveTextContent("Region: EU");
+    expect(line).not.toHaveTextContent("Gallery region");
+  });
+
+  it("makes no chip for a parameter still on its configured default, and one for a changed one (#1851)", () => {
+    parametersState.parameters = {
+      gallery_region: {
+        field: "gallery_region",
+        value: "EU",
+        sourceType: "default",
+      },
+      decade: {
+        field: "decade",
+        value: "1990s",
+        sourceType: "selector-widget",
+      },
+    };
+    renderWithProviders(<DashboardContainer page={makePage()} />);
+    const line = screen.getByRole("region", { name: "Active filters" });
+    expect(line).toHaveTextContent("Decade: 1990s");
     expect(line).not.toHaveTextContent("Gallery region");
   });
 
