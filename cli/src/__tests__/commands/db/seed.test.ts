@@ -105,12 +105,27 @@ describe("seedPostgres", () => {
     );
   });
 
-  it.each([
-    ["marker present", "Creating admin user\nNEOBOARD_DEMO_ADMIN_CREATED=1", true],
-    ["marker absent", "Using existing user abc", false],
-  ])("reports whether the seed created the admin: %s (#1863)", async (_n, out, created) => {
-    mockRun.mockReturnValueOnce(out);
-    expect(await seedPostgres()).toEqual({ adminCreated: created });
+  it("returns the demo accounts and owner the seed reports (#1863)", async () => {
+    mockRun.mockReturnValueOnce(
+      [
+        "    Using existing user abc",
+        "NEOBOARD_DEMO_OWNER=boss@example.com",
+        "NEOBOARD_DEMO_ACCOUNT=admin,admin@neoboard.local,absent",
+        "NEOBOARD_DEMO_ACCOUNT=creator,creator@neoboard.local,changed",
+      ].join("\n"),
+    );
+    expect(await seedPostgres()).toEqual({
+      owner: "boss@example.com",
+      accounts: [
+        { role: "admin", email: "admin@neoboard.local", status: "absent" },
+        { role: "creator", email: "creator@neoboard.local", status: "changed" },
+      ],
+    });
+  });
+
+  it("reports nothing confirmed when the seed prints no markers (#1863)", async () => {
+    mockRun.mockReturnValueOnce("");
+    expect(await seedPostgres()).toEqual({ owner: null, accounts: [] });
   });
 
   it("takes no dockerNetwork argument — docker vs local is derived inside buildSeedEnv", () => {

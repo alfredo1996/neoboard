@@ -113,7 +113,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.exitCode = 0;
   mockRunSetup.mockResolvedValue(true);
-  mockRunDbSeed.mockResolvedValue({ adminCreated: true });
+  mockRunDbSeed.mockResolvedValue({ owner: null, accounts: [] });
   vi.mocked(printResults).mockReset().mockReturnValue(false);
   vi.mocked(getMode).mockReturnValue("local");
 });
@@ -151,21 +151,22 @@ describe("runDemo", () => {
     });
   });
 
-  it("shows the admin login when the seed created that admin (#1863)", async () => {
-    mockRunDbSeed.mockResolvedValue({ adminCreated: true });
-    await runDemo();
-    expect(banner).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.stringContaining("admin@neoboard.local")]),
-    );
-  });
-
-  it("omits the admin login when the seed reused an existing user (#1863)", async () => {
-    mockRunDbSeed.mockResolvedValue({ adminCreated: false });
+  it("banner prints a login only when created or confirmed, and names the owner (#1863)", async () => {
+    mockRunDbSeed.mockResolvedValue({
+      owner: "boss@example.com",
+      accounts: [
+        { role: "admin", email: "admin@neoboard.local", status: "default" },
+        { role: "creator", email: "creator@neoboard.local", status: "changed" },
+        { role: "reader", email: "reader@neoboard.local", status: "created" },
+      ],
+    });
     await runDemo();
     const lines = vi.mocked(banner).mock.calls[0][0].join("\n");
-    expect(lines).not.toContain("admin@neoboard.local");
-    expect(lines).toContain("existing account");
-    expect(lines).toContain("creator@neoboard.local");
+    expect(lines).toContain("admin@neoboard.local / admin123");
+    expect(lines).toContain("reader@neoboard.local / reader123");
+    expect(lines).toContain("creator@neoboard.local (password changed since");
+    expect(lines).not.toContain("creator123");
+    expect(lines).toContain("showcases belong to boss@example.com");
   });
 
   // #2057: start leaves this check to demo. The seed re-encrypts the demo
