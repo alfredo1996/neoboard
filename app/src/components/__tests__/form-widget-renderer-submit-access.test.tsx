@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 
 /* ---------- mocks (must be declared before imports) ---------- */
@@ -279,6 +279,30 @@ describe("FormWidgetRenderer — a form the page no longer matches asks for a re
       ),
     ).toBeDefined();
     expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
+  });
+
+  it("swaps Reload for the save message when an edit lands after the error", () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    submitWith(
+      Object.assign(new Error("Widget not found"), { code: "NOT_FOUND" }),
+    );
+    expect(screen.getByRole("button", { name: "Reload" })).toBeDefined();
+
+    act(() => {
+      useDashboardStore.setState({
+        savedLayout: { version: 2, pages: [] } as never, // dirty needs a saved copy
+        _dirty: true,
+      });
+    });
+
+    expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
+    expect(
+      screen.getByText(
+        "Save the dashboard to submit this form with your changes.",
+      ),
+    ).toBeDefined();
+    expect(reload).not.toHaveBeenCalled();
   });
 
   it("leaves a NOT_FOUND about something else as the route worded it", () => {

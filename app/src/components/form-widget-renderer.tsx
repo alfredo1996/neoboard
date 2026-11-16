@@ -439,6 +439,7 @@ export function FormWidgetRenderer({
   // the query saved there (#1831). Edit mode shows the working copy: until it
   // is saved, a form missing from the saved layout, or saved on another
   // connection, database or query, waits for Save.
+  const dirty = useDashboardStore((s) => s.hasUnsavedChanges());
   const needsSave = useDashboardStore((s) => {
     if (!widgetId || !s.hasUnsavedChanges()) return false;
     const saved = s.savedLayout?.pages
@@ -636,13 +637,9 @@ export function FormWidgetRenderer({
             const stale =
               (err as { code?: unknown }).code === "NOT_FOUND" &&
               err.message === WIDGET_NOT_FOUND_MESSAGE;
-            let shown = err.message;
-            if (stale) {
-              shown = useDashboardStore.getState().hasUnsavedChanges()
-                ? UNSAVED_FORM_MESSAGE
-                : STALE_FORM_MESSAGE;
-            }
-            setErrorMessage(shown);
+            // Only "a stale 404 happened" is kept; which message and whether
+            // Reload is offered follow the dashboard's state at render.
+            setErrorMessage(stale ? STALE_FORM_MESSAGE : err.message);
           }
         },
       },
@@ -659,6 +656,8 @@ export function FormWidgetRenderer({
     refreshWidgetIds,
     queryClient,
   ]);
+
+  const staleShown = messages.errorMessage === STALE_FORM_MESSAGE;
 
   if (fields.length === 0) {
     return (
@@ -748,14 +747,21 @@ export function FormWidgetRenderer({
           </output>
         )}
         {messages.errorMessage && (
-          <p className="text-sm text-destructive">{messages.errorMessage}</p>
+          <p className="text-sm text-destructive">
+            {staleShown && dirty ? UNSAVED_FORM_MESSAGE : messages.errorMessage}
+          </p>
         )}
-        {messages.errorMessage === STALE_FORM_MESSAGE && (
+        {staleShown && !dirty && (
           <Button
             type="button"
             variant="secondary"
             size="sm"
-            onClick={() => globalThis.location.reload()}
+            onClick={() => {
+              // Edits made after the error would be lost by a reload.
+              if (!useDashboardStore.getState().hasUnsavedChanges()) {
+                globalThis.location.reload();
+              }
+            }}
           >
             Reload
           </Button>
