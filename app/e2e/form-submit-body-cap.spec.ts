@@ -128,7 +128,13 @@ test("a form submitted from a page whose saved query has since changed is refuse
 
     expect(response.status()).toBe(404);
     await expect(
-      page.getByText("Widget not found", { exact: true }),
+      page.getByText(
+        "This form changed since this page loaded. Reload to get the current version.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Reload", exact: true }),
     ).toBeVisible();
   } finally {
     await cleanup();

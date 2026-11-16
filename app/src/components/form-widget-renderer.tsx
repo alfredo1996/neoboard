@@ -56,6 +56,9 @@ export interface FormWidgetRendererProps {
   settings?: Record<string, unknown>;
 }
 
+const STALE_FORM_MESSAGE =
+  "This form changed since this page loaded. Reload to get the current version.";
+
 // ─── Per-field input renderer (local state, no global store) ──────────────────
 
 interface FieldInputProps {
@@ -622,7 +625,13 @@ export function FormWidgetRenderer({
           if (field && blank) {
             setServerFieldErrors({ [field.parameterName]: REQUIRED_MESSAGE });
           } else {
-            setErrorMessage(err.message);
+            // The route refuses a changed form with the same 404 as a missing
+            // one (#1831), so a page older than a save gets only that; say what
+            // to do. The server's refusal stays as it is, nothing new leaks.
+            const stale =
+              (err as { code?: unknown }).code === "NOT_FOUND" &&
+              err.message === "Widget not found";
+            setErrorMessage(stale ? STALE_FORM_MESSAGE : err.message);
           }
         },
       },
@@ -729,6 +738,16 @@ export function FormWidgetRenderer({
         )}
         {messages.errorMessage && (
           <p className="text-sm text-destructive">{messages.errorMessage}</p>
+        )}
+        {messages.errorMessage === STALE_FORM_MESSAGE && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => globalThis.location.reload()}
+          >
+            Reload
+          </Button>
         )}
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
