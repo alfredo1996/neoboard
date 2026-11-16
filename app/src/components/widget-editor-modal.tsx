@@ -723,8 +723,8 @@ export function WidgetEditorModal({
         connections={connections}
       />
       {/* Per-card database selector. A selector's option list loads from it
-          too (#1824). */}
-      {selectedConnection?.allowPerCardDb && connectionId && (
+          too (#1824). A template stores no database, so the library has none (#1813). */}
+      {!isLabMode && selectedConnection?.allowPerCardDb && connectionId && (
         <DatabaseSelector
           connectionId={connectionId}
           database={database}

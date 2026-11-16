@@ -495,7 +495,11 @@ test.describe("Widgets run on their saved database (#1824)", () => {
       await expect(dialog).toBeVisible({ timeout: 10_000 });
 
       // Back to the connection's default (movies): the preview follows.
-      const rerun = page.waitForResponse(isPreview, { timeout: 15_000 });
+      const rerun = page.waitForResponse(
+        (r) =>
+          isPreview(r) && r.request().postDataJSON().database === undefined,
+        { timeout: 15_000 },
+      );
       await dialog.getByRole("combobox", { name: /Database/ }).click();
       await page
         .getByRole("option", { name: "Connection default", exact: true })
@@ -510,7 +514,11 @@ test.describe("Widgets run on their saved database (#1824)", () => {
       ).toBeVisible();
 
       // Pick neoboard: the preview runs there, as the saved card does.
-      const third = page.waitForResponse(isPreview, { timeout: 15_000 });
+      const third = page.waitForResponse(
+        (r) =>
+          isPreview(r) && r.request().postDataJSON().database === "neoboard",
+        { timeout: 15_000 },
+      );
       await dialog.getByRole("combobox", { name: /Database/ }).click();
       await page.getByRole("option", { name: "neoboard", exact: true }).click();
       const picked = await third;
