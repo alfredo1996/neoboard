@@ -105,6 +105,14 @@ describe("seedPostgres", () => {
     );
   });
 
+  it.each([
+    ["marker present", "Creating admin user\nNEOBOARD_DEMO_ADMIN_CREATED=1", true],
+    ["marker absent", "Using existing user abc", false],
+  ])("reports whether the seed created the admin: %s (#1863)", async (_n, out, created) => {
+    mockRun.mockReturnValueOnce(out);
+    expect(await seedPostgres()).toEqual({ adminCreated: created });
+  });
+
   it("takes no dockerNetwork argument — docker vs local is derived inside buildSeedEnv", () => {
     // Regression guard for #1039: the old signature let callers (db seed,
     // db reset) forget the flag and silently skip the encryption key.

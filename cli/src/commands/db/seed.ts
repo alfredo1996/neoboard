@@ -59,7 +59,7 @@ export async function seedNeo4j(): Promise<void> {
   spinner.succeed("Neo4j seeded with demo data");
 }
 
-export async function seedPostgres(): Promise<void> {
+export async function seedPostgres(): Promise<{ adminCreated: boolean }> {
   const config = readProjectConfig();
   assertSafePath(config.seed.script, "seed.script");
   const spinner = createSpinner("Seeding PostgreSQL demo data...");
@@ -72,18 +72,21 @@ export async function seedPostgres(): Promise<void> {
 
   // Quote the path so a project checked out under a directory with a space
   // still runs the seed script. (#MEDIUM)
-  run(`node "${paths.root}/${config.seed.script}"`, {
+  const out = run(`node "${paths.root}/${config.seed.script}"`, {
     cwd: paths.root,
     env,
   });
   spinner.succeed("PostgreSQL seeded with demo data");
+  // The seed reuses the oldest user when one exists; only it knows (#1863).
+  return { adminCreated: out?.includes("NEOBOARD_DEMO_ADMIN_CREATED=1") ?? false };
 }
 
 export async function runDbSeed(opts?: {
   neo4j?: boolean;
   demo?: boolean;
-}): Promise<void> {
+}): Promise<{ adminCreated: boolean }> {
   assertCheckout("db seed");
+  let adminCreated = false;
   const seedNeo4jOnly = opts?.neo4j && !opts?.demo;
   const seedDemoOnly = opts?.demo && !opts?.neo4j;
   const seedBoth = (!opts?.neo4j && !opts?.demo) || (opts?.neo4j && opts?.demo);
@@ -95,8 +98,9 @@ export async function runDbSeed(opts?: {
   if (seedBoth || seedDemoOnly) {
     // Docker vs local is derived inside seedPostgres (via getMode), so no
     // caller can forget to thread the encryption key (#1039).
-    await seedPostgres();
+    adminCreated = (await seedPostgres()).adminCreated;
   }
 
   success("Seeding complete");
+  return { adminCreated };
 }

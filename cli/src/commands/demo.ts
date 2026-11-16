@@ -33,7 +33,7 @@ export async function runDemo(opts?: {
     process.exitCode = 1;
     return;
   }
-  await runDbSeed({ neo4j: true, demo: true });
+  const { adminCreated } = await runDbSeed({ neo4j: true, demo: true });
 
   // Asked here, not in start (#2057): the seed has just re-encrypted the demo
   // connections with the current key, which repairs a re-run on stale
@@ -49,7 +49,14 @@ export async function runDemo(opts?: {
     "Demo environment ready!",
     "",
     "Login credentials:",
-    "  admin:    admin@neoboard.local / admin123",
+    // The seed reuses the oldest user when one exists, so the admin login is
+    // only known to be valid when this run created it (#1863).
+    ...(adminCreated
+      ? ["  admin:    admin@neoboard.local / admin123"]
+      : [
+          "  admin:    not created, the showcases belong to the first",
+          "            existing account on this install; sign in with it",
+        ]),
     "  creator:  creator@neoboard.local / creator123",
     "  reader:   reader@neoboard.local / reader123 (read-only)",
   ]);
@@ -58,7 +65,7 @@ export async function runDemo(opts?: {
 }
 
 /**
- * Reseed the 4 demo showcases without restarting Docker or reseeding Neo4j.
+ * Reseed the demo showcases without restarting Docker or reseeding Neo4j.
  * Invokes `scripts/seed-demo.mjs` with an optional `--only=<keys>` filter.
  */
 export async function runDemoSeed(opts?: { only?: string }): Promise<void> {

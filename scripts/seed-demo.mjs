@@ -220,6 +220,9 @@ async function main() {
       console.log(
         "    Creating admin user (admin@neoboard.local / admin123)...",
       );
+      // Read by the CLI (seedPostgres) so the banner prints the admin login
+      // only when this run created it (#1863).
+      console.log("NEOBOARD_DEMO_ADMIN_CREATED=1");
       adminId = uuid();
       const hash = bcrypt.hashSync("admin123", 10);
       await sql`
