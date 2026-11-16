@@ -970,6 +970,7 @@ export function DashboardWorkspace({
                     parameterSourceMap={parameterSourceMap}
                     connectorCapabilities={dashboard?.connectorCapabilities}
                     connectionNames={dashboard?.connectionNames}
+                    canExpandGraphs={canEdit}
                   />
                 </div>
               );

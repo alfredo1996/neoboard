@@ -20,6 +20,7 @@ import {
 } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GraphExplorationWrapper } from "../graph-exploration-wrapper";
+import { GraphExpansionAccessProvider } from "../graph-expansion-access-context";
 import { useGraphWidgetStore } from "@/stores/graph-widget-store";
 
 /** Props last handed to the stubbed GraphChart. */
@@ -438,6 +439,35 @@ describe("GraphExplorationWrapper — Expand only when the connector declares ho
         },
       ]),
     );
+  });
+
+  // #1828: a view-level viewer can never expand, so the menu does not offer it.
+  it("offers a view-level viewer no Expand", () => {
+    render(
+      <GraphExpansionAccessProvider value={false}>
+        <GraphExplorationWrapper
+          widgetId="w1"
+          nodes={graphNodes}
+          edges={[]}
+          connectionId="c1"
+          connectorType={connectorType}
+          settings={{}}
+          resultId="r1"
+        />
+      </GraphExpansionAccessProvider>,
+    );
+    act(() =>
+      (
+        chartProps.onNodeRightClick as (e: {
+          node: { id: string };
+          position: { x: number; y: number };
+        }) => void
+      )({ node: graphNodes[0], position: { x: 1, y: 1 } }),
+    );
+    expect(screen.getByRole("button", { name: "Properties" })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Expand" }),
+    ).not.toBeInTheDocument();
   });
 
   // A viewer bound to the dashboard's own queries (#972) is offered Expand and
