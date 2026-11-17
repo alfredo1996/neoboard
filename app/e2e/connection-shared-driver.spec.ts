@@ -57,12 +57,25 @@ test.describe("Connections with the same settings share a driver", () => {
 
       // The other user's query is running when Alice deletes her connection.
       const rows = 80_000_000;
+      // The suffix makes this run's transaction the only one the poll can
+      // match, however many copies of this spec run against the same Neo4j.
+      const answerKey = `answer_${suffix.replace(/\W/g, "_")}`;
+      const bQuery = `UNWIND range(1, ${rows}) AS x RETURN count(x) AS ${answerKey}`;
+      const running_n = async (request: typeof page.request, id: string) => {
+        const r = await request.post("/api/query", {
+          data: {
+            connectionId: id,
+            query: `SHOW TRANSACTIONS YIELD currentQuery WHERE currentQuery = '${bQuery}' RETURN count(*) AS n`,
+          },
+        });
+        return (await r.json()).data?.data?.[0]?.n;
+      };
       let queryDoneAt = 0;
       const running = other.request
         .post("/api/query", {
           data: {
             connectionId: otherConnection,
-            query: `UNWIND range(1, ${rows}) AS x RETURN count(x) AS answer`,
+            query: bQuery,
           },
           timeout: 60_000,
         })
@@ -72,24 +85,12 @@ test.describe("Connections with the same settings share a driver", () => {
         });
 
       // Delete only once the server reports the query running, so the test
-      // cannot pass because the delete landed before or after it. The
-      // STARTS WITH keeps the poll itself out of the count.
+      // cannot pass because the delete landed before it.
       await expect
-        .poll(
-          async () => {
-            const r = await page.request.post("/api/query", {
-              data: {
-                connectionId: aliceConnection,
-                query:
-                  "SHOW TRANSACTIONS YIELD currentQuery WHERE currentQuery STARTS WITH 'UNWIND range(1, " +
-                  rows +
-                  ")' RETURN count(*) AS n",
-              },
-            });
-            return (await r.json()).data?.data?.[0]?.n;
-          },
-          { timeout: 10_000, intervals: [50] },
-        )
+        .poll(() => running_n(page.request, aliceConnection!), {
+          timeout: 10_000,
+          intervals: [50],
+        })
         .toBe(1);
 
       const del = await page.request.delete(
@@ -99,13 +100,14 @@ test.describe("Connections with the same settings share a driver", () => {
       expect(del.ok()).toBeTruthy();
       aliceConnection = undefined;
 
+      // The database still lists the query, seen through the surviving
+      // connection, so it ran on the shared driver after the delete returned.
+      expect(await running_n(other.request, otherConnection)).toBe(1);
+
       const res = await running;
-      // The query was still running when the delete returned.
       expect(deleteDoneAt).toBeLessThan(queryDoneAt);
       expect(res.status()).toBe(200);
-      expect((await res.json()).data.data).toEqual([
-        expect.objectContaining({ answer: rows }),
-      ]);
+      expect((await res.json()).data.data).toEqual([{ [answerKey]: rows }]);
 
       // And the surviving connection still loads data afterwards.
       const after = await other.request.post("/api/query", {
