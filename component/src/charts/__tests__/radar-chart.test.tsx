@@ -171,8 +171,31 @@ describe("RadarChart", () => {
     // an unguarded String() would print the literal text "null" on the canvas.
     const fmt =
       mockSetOption.mock.calls[0][0].series[0].data[0].label.formatter;
-    expect(fmt({ value: 80 })).toBe("80");
-    expect(fmt({ value: null })).toBe("");
+    expect(fmt({ value: 80, dimensionIndex: 0 })).toBe("80");
+    expect(fmt({ value: null, dimensionIndex: 1 })).toBe("");
+  });
+
+  it("hides value labels for points near the centre of their axis (#1406)", () => {
+    const data = {
+      indicators: [
+        { name: "order_items", max: 6026 },
+        { name: "customers", max: 6026 },
+        { name: "products", max: 6026 },
+      ],
+      series: [{ name: "Counts", values: [6026, 2000, 100] }],
+    };
+    render(<RadarChart data={data} showValues />);
+    const fmt =
+      mockSetOption.mock.calls[0][0].series[0].data[0].label.formatter;
+    expect(fmt({ value: 6026, dimensionIndex: 0 })).toBe("6026");
+    expect(fmt({ value: 2000, dimensionIndex: 1 })).toBe("2000");
+    expect(fmt({ value: 100, dimensionIndex: 2 })).toBe("");
+  });
+
+  it("leaves the grid line colours to the theme (#1406)", () => {
+    render(<RadarChart data={sampleData} />);
+    const radar = mockSetOption.mock.calls[0][0].radar;
+    expect(radar.splitLine).toBeUndefined();
   });
 
   it("accepts paramValues prop without error", () => {

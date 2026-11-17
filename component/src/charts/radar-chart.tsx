@@ -114,7 +114,6 @@ function RadarChart({
             color: ["rgba(128,128,128,0.04)", "rgba(128,128,128,0.08)"],
           },
         },
-        splitLine: { lineStyle: { color: "rgba(128,128,128,0.2)" } },
       },
       series: [
         {
@@ -145,9 +144,18 @@ function RadarChart({
                     // steps 9-15 are what first put a null in here, and
                     // String(null) would paint the literal text "null" on an
                     // axis nobody measured (#1655).
+                    // A point within 10% of the centre of its axis is dropped:
+                    // one dominant axis crowds the rest into an unreadable
+                    // pile at the origin (#1406). The tooltip keeps the number.
                     formatter: (params: unknown) => {
-                      const v = (params as { value: unknown }).value;
-                      return v == null ? "" : String(v);
+                      const { value: v, dimensionIndex } = params as {
+                        value: unknown;
+                        dimensionIndex: number;
+                      };
+                      if (typeof v !== "number")
+                        return typeof v === "string" ? v : "";
+                      const max = data.indicators[dimensionIndex]?.max;
+                      return max && v / max < 0.1 ? "" : String(v);
                     },
                   }
                 : { show: false },

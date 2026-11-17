@@ -285,6 +285,7 @@ function seriesDefaults(
   fg: string,
   muted: string,
   surface: string,
+  grid: string,
 ) {
   return {
     bar: {
@@ -317,6 +318,10 @@ function seriesDefaults(
       // the dim axisName default and the dark-fill + halo value label are
       // both hard to read on the dark canvas (#1154, #2212).
       axisName: { color: muted },
+      // Spokes and rings are one grid: the spokes fell through to ECharts'
+      // #bbb while the rings were dim, inverting the hierarchy (#1406).
+      axisLine: { lineStyle: { color: grid, width: 1 } },
+      splitLine: { lineStyle: { color: grid, width: 1 } },
       label: { color: fg, textBorderWidth: 0 },
     },
     // Reference lines (bar and line) draw their label with the same halo
@@ -400,6 +405,7 @@ export function registerNeoboardThemes(
       "#14161a",
       "#686E7A",
       SURFACE_COLOR.light,
+      GRID_LINE_COLOR.light,
     ),
   });
 
@@ -436,6 +442,7 @@ export function registerNeoboardThemes(
       "#f3f4f6",
       "#959BA6",
       SURFACE_COLOR.dark,
+      GRID_LINE_COLOR.dark,
     ),
   });
 }

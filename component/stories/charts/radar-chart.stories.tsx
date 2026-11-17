@@ -126,6 +126,23 @@ export const WithValues: Story = {
   },
 };
 
+/** One dominant axis: the small ones sit near the centre (#1406). */
+export const DominantAxis: Story = {
+  args: {
+    data: {
+      indicators: [
+        { name: "order_items", max: 6026 },
+        { name: "orders", max: 6026 },
+        { name: "customers", max: 6026 },
+        { name: "products", max: 6026 },
+        { name: "feedback", max: 6026 },
+      ],
+      series: [{ name: "Rows", values: [6026, 2000, 100, 90, 60] }],
+    },
+    showValues: true,
+  },
+};
+
 export const Unfilled: Story = {
   args: {
     data: multiSeriesData,
