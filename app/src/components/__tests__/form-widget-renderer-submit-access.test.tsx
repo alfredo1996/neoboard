@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 
 /* ---------- mocks (must be declared before imports) ---------- */
@@ -88,6 +88,7 @@ vi.mock("@tanstack/react-query", async () => {
 
 /* ---------- import under test ---------- */
 import { FormWidgetRenderer } from "../form-widget-renderer";
+import { useDashboardStore } from "@/stores/dashboard-store";
 import { ConnectionNamesProvider } from "../connection-names-context";
 
 const baseProps = {
@@ -205,5 +206,118 @@ describe("FormWidgetRenderer — Submit fits its label (#2232)", () => {
   it("says nothing about a connection it has no name for", () => {
     render(<FormWidgetRenderer {...baseProps} />);
     expect(screen.queryByText(/Writes to/)).toBeNull();
+  });
+});
+
+// The route answers one 404 for a changed form and for a missing one (#1831),
+// so a page older than a save gets "Widget not found". The form says what to do.
+describe("FormWidgetRenderer — a form the page no longer matches asks for a reload (#1838)", () => {
+  const submitWith = (err: Error) => {
+    mockUseSession.mockReturnValue({ data: undefined });
+    mockMutate.mockImplementation(
+      (_p: unknown, opts: { onError: (e: Error) => void }) => opts.onError(err),
+    );
+    render(<FormWidgetRenderer {...baseProps} />);
+    fireEvent.change(screen.getByTestId("input-v"), {
+      target: { value: "x" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    useDashboardStore.setState({ savedLayout: null, _dirty: false });
+  });
+
+  it("shows a reload message and a Reload button that reloads the page", () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    submitWith(
+      Object.assign(new Error("Widget not found"), { code: "NOT_FOUND" }),
+    );
+
+    expect(screen.getByText(/changed since this page loaded/i)).toBeDefined();
+    expect(screen.queryByText("Widget not found")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks for a save, not a reload, while the dashboard has unsaved edits", () => {
+    // The saved copy holds this form as it is (so Submit is enabled); other
+    // edits are unsaved.
+    const saved = {
+      version: 2 as const,
+      pages: [
+        {
+          id: "p1",
+          title: "P",
+          widgets: [
+            {
+              id: baseProps.widgetId,
+              connectionId: baseProps.connectionId,
+              query: baseProps.query,
+            },
+          ],
+        },
+      ],
+    };
+    useDashboardStore.setState({
+      savedLayout: saved as never, // partial fixture: only what needsSave reads
+      _dirty: true,
+    });
+    submitWith(
+      Object.assign(new Error("Widget not found"), { code: "NOT_FOUND" }),
+    );
+
+    expect(
+      screen.getByText(
+        "Save the dashboard to submit this form with your changes.",
+      ),
+    ).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
+  });
+
+  it("swaps Reload for the save message when an edit lands after the error", () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    submitWith(
+      Object.assign(new Error("Widget not found"), { code: "NOT_FOUND" }),
+    );
+    expect(screen.getByRole("button", { name: "Reload" })).toBeDefined();
+
+    act(() => {
+      useDashboardStore.setState({
+        savedLayout: { version: 2, pages: [] } as never, // dirty needs a saved copy
+        _dirty: true,
+      });
+    });
+
+    expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
+    expect(
+      screen.getByText(
+        "Save the dashboard to submit this form with your changes.",
+      ),
+    ).toBeDefined();
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it("leaves a NOT_FOUND about something else as the route worded it", () => {
+    submitWith(
+      Object.assign(new Error("Connection not found"), { code: "NOT_FOUND" }),
+    );
+
+    expect(screen.getByText("Connection not found")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
+  });
+
+  it("leaves every other error as the route worded it", () => {
+    submitWith(new Error("write failed"));
+
+    expect(screen.getByText("write failed")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Reload" })).toBeNull();
   });
 });

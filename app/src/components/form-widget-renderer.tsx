@@ -25,6 +25,7 @@ import {
 } from "@neoboard/components";
 import { useParameterValues } from "@/stores/parameter-store";
 import { useDashboardStore } from "@/stores/dashboard-store";
+import { WIDGET_NOT_FOUND_MESSAGE } from "@/lib/api/widget-not-found";
 import { useWriteQueryExecution } from "@/hooks/use-write-query-execution";
 import { useSeedQuery } from "@/hooks/use-seed-query";
 import { useSavedQueryRef } from "@/hooks/use-saved-query-ref";
@@ -55,6 +56,11 @@ export interface FormWidgetRendererProps {
   query: string;
   settings?: Record<string, unknown>;
 }
+
+const STALE_FORM_MESSAGE =
+  "This form changed since this page loaded. Reload to get the current version.";
+const UNSAVED_FORM_MESSAGE =
+  "Save the dashboard to submit this form with your changes.";
 
 // ─── Per-field input renderer (local state, no global store) ──────────────────
 
@@ -433,6 +439,7 @@ export function FormWidgetRenderer({
   // the query saved there (#1831). Edit mode shows the working copy: until it
   // is saved, a form missing from the saved layout, or saved on another
   // connection, database or query, waits for Save.
+  const dirty = useDashboardStore((s) => s.hasUnsavedChanges());
   const needsSave = useDashboardStore((s) => {
     if (!widgetId || !s.hasUnsavedChanges()) return false;
     const saved = s.savedLayout?.pages
@@ -622,7 +629,17 @@ export function FormWidgetRenderer({
           if (field && blank) {
             setServerFieldErrors({ [field.parameterName]: REQUIRED_MESSAGE });
           } else {
-            setErrorMessage(err.message);
+            // The route refuses a changed form with the same 404 as a missing
+            // one (#1831), so a page older than a save gets only that; say what
+            // to do. The server's refusal stays as it is, nothing new leaks.
+            // With unsaved edits the editor's own form is the likelier cause,
+            // and a reload would throw those edits away: ask for a save.
+            const stale =
+              (err as { code?: unknown }).code === "NOT_FOUND" &&
+              err.message === WIDGET_NOT_FOUND_MESSAGE;
+            // Only "a stale 404 happened" is kept; which message and whether
+            // Reload is offered follow the dashboard's state at render.
+            setErrorMessage(stale ? STALE_FORM_MESSAGE : err.message);
           }
         },
       },
@@ -639,6 +656,8 @@ export function FormWidgetRenderer({
     refreshWidgetIds,
     queryClient,
   ]);
+
+  const staleShown = messages.errorMessage === STALE_FORM_MESSAGE;
 
   if (fields.length === 0) {
     return (
@@ -728,7 +747,24 @@ export function FormWidgetRenderer({
           </output>
         )}
         {messages.errorMessage && (
-          <p className="text-sm text-destructive">{messages.errorMessage}</p>
+          <p className="text-sm text-destructive">
+            {staleShown && dirty ? UNSAVED_FORM_MESSAGE : messages.errorMessage}
+          </p>
+        )}
+        {staleShown && !dirty && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              // Edits made after the error would be lost by a reload.
+              if (!useDashboardStore.getState().hasUnsavedChanges()) {
+                globalThis.location.reload();
+              }
+            }}
+          >
+            Reload
+          </Button>
         )}
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
