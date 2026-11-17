@@ -25,6 +25,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { parseDemoMarkers } from "../../commands/db/seed.js";
 
 // ---------------------------------------------------------------------------
 // Skip if Docker is not available or SKIP_INTEGRATION is set
@@ -128,6 +129,18 @@ async function waitForApp(timeoutMs = 60_000): Promise<void> {
 // ---------------------------------------------------------------------------
 
 describe.skipIf(SKIP)("CLI Demo Flow — Integration", () => {
+  let firstSeedOut = "";
+  const runSeed = (): string =>
+    execSync(`node scripts/seed-demo.mjs`, {
+      cwd: ROOT,
+      encoding: "utf-8",
+      env: {
+        ...process.env,
+        NEO4J_HOST: "neoboard-neo4j",
+        PG_HOST: "neoboard-postgres",
+      },
+    });
+
   beforeAll(async () => {
     // Ensure containers are running (don't rebuild — use current state)
     try {
@@ -159,15 +172,36 @@ describe.skipIf(SKIP)("CLI Demo Flow — Integration", () => {
     }
 
     // Run seed with Docker hostnames
-    execSync(`node scripts/seed-demo.mjs`, {
-      cwd: ROOT,
-      stdio: "pipe",
-      env: {
-        ...process.env,
-        NEO4J_HOST: "neoboard-neo4j",
-        PG_HOST: "neoboard-postgres",
-      },
-    });
+    firstSeedOut = runSeed();
+  }, 120_000);
+
+  // -------------------------------------------------------------------
+  // Seed markers — the contract the CLI banner reads (#1863)
+  // -------------------------------------------------------------------
+
+  it("the seed reports each demo account and the showcase owner", () => {
+    const { owner, accounts } = parseDemoMarkers(firstSeedOut);
+    expect(owner).toBeTruthy();
+    expect(accounts.map((a) => a.email)).toEqual([
+      "admin@neoboard.local",
+      "creator@neoboard.local",
+      "reader@neoboard.local",
+    ]);
+    // "created" on a fresh database; "default" when the volumes were reused.
+    for (const a of accounts) expect(["created", "default"]).toContain(a.status);
+    // Never a password or hash on the wire.
+    expect(firstSeedOut).not.toMatch(/\$2[aby]\$/);
+  });
+
+  it("a second seed run confirms every demo password as still default", () => {
+    const { accounts } = parseDemoMarkers(runSeed());
+    expect(accounts.map((a) => a.status)).toEqual([
+      "default",
+      "default",
+      "default",
+    ]);
+    // A full seed run took 5.1 s on CI, past vitest's 5 s default; the first
+    // seed gets the same 120 s budget in beforeAll.
   }, 120_000);
 
   // -------------------------------------------------------------------

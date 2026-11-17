@@ -12,8 +12,34 @@ import {
 import { confirm } from "../lib/prompt.js";
 import { loadShowcases } from "../lib/showcases.js";
 import { runSetup } from "./setup.js";
-import { runDbSeed } from "./db/seed.js";
+import { runDbSeed, type DemoSeedResult } from "./db/seed.js";
 import { checkCredentialDecryption, printResults } from "./doctor.js";
+
+// The defaults scripts/seed-demo.mjs creates; docs-accuracy pins them to the docs.
+const DEMO_LOGINS: Record<string, string> = {
+  admin: "admin@neoboard.local / admin123",
+  creator: "creator@neoboard.local / creator123",
+  reader: "reader@neoboard.local / reader123",
+};
+
+/**
+ * One banner line per demo account. A password is printed only when the seed
+ * created the account this run or confirmed the stored hash still matches the
+ * default; otherwise the email and a note (#1863).
+ */
+export function demoLoginLines({ owner, accounts }: DemoSeedResult): string[] {
+  const lines = accounts.map(({ role, email, status }) => {
+    const label = `  ${role}:`.padEnd(12);
+    if (status === "absent") return `${label}${email} (not on this install)`;
+    if (status !== "created" && status !== "default") {
+      return `${label}${email} (password changed since the demo created it)`;
+    }
+    const note = role === "reader" ? " (read-only)" : "";
+    return `${label}${DEMO_LOGINS[role]}${note}`;
+  });
+  if (owner) lines.push("", `The showcases belong to ${owner}.`);
+  return lines;
+}
 
 /**
  * Full demo bootstrap: setup + seed Neo4j + seed demo dashboards.
@@ -33,7 +59,7 @@ export async function runDemo(opts?: {
     process.exitCode = 1;
     return;
   }
-  await runDbSeed({ neo4j: true, demo: true });
+  const seeded = await runDbSeed({ neo4j: true, demo: true });
 
   // Asked here, not in start (#2057): the seed has just re-encrypted the demo
   // connections with the current key, which repairs a re-run on stale
@@ -49,16 +75,14 @@ export async function runDemo(opts?: {
     "Demo environment ready!",
     "",
     "Login credentials:",
-    "  admin:    admin@neoboard.local / admin123",
-    "  creator:  creator@neoboard.local / creator123",
-    "  reader:   reader@neoboard.local / reader123 (read-only)",
+    ...demoLoginLines(seeded),
   ]);
   const appPort = readProjectConfig().ports.app;
   success(`Open http://localhost:${appPort} to get started`);
 }
 
 /**
- * Reseed the 4 demo showcases without restarting Docker or reseeding Neo4j.
+ * Reseed the demo showcases without restarting Docker or reseeding Neo4j.
  * Invokes `scripts/seed-demo.mjs` with an optional `--only=<keys>` filter.
  */
 export async function runDemoSeed(opts?: { only?: string }): Promise<void> {

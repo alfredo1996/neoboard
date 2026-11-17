@@ -137,7 +137,7 @@ const demo = program
 demo
   .command("seed")
   .description(
-    "Reseed the 4 demo showcases without restarting Docker or reseeding Neo4j\n" +
+    "Reseed the demo showcases without restarting Docker or reseeding Neo4j\n" +
       "  --only <keys>  Comma-separated showcase keys (e.g. chart-gallery,click-actions)",
   )
   .option("--only <keys>", "Comma-separated showcase keys to seed")

@@ -163,6 +163,23 @@ async function resetDemo(sql, adminId) {
   console.log(`    Dropped schema ${DEMO_SCHEMA}.`);
 }
 
+// Marker lines the CLI parses (cli/src/commands/db/seed.ts, #1863).
+const MARKER_ACCOUNT = "NEOBOARD_DEMO_ACCOUNT";
+const MARKER_OWNER = "NEOBOARD_DEMO_OWNER";
+
+/**
+ * Whether the demo account's stored hash still matches the demo default:
+ * "default", "changed", or "absent" when no such account exists (#1863).
+ */
+async function demoAccountStatus(sql, email, password) {
+  const rows = await sql`
+    SELECT "passwordHash" FROM "user" WHERE email = ${email} LIMIT 1
+  `;
+  if (rows.length === 0) return "absent";
+  const stored = rows[0].passwordHash;
+  return stored && bcrypt.compareSync(password, stored) ? "default" : "changed";
+}
+
 // ─── Main ────────────────────────────────────────────────────────────
 
 async function main() {
@@ -210,11 +227,13 @@ async function main() {
   });
 
   try {
-    // 1. Ensure admin user exists
+    // 1. Ensure admin user exists. The showcases belong to the oldest user,
+    // which is the demo admin only on a fresh install (#1863).
     const users = await sql`
-      SELECT id FROM "user" ORDER BY "createdAt" ASC LIMIT 1
+      SELECT id, email FROM "user" ORDER BY "createdAt" ASC LIMIT 1
     `;
 
+    const accounts = [];
     let adminId;
     if (users.length === 0) {
       console.log(
@@ -226,9 +245,17 @@ async function main() {
         INSERT INTO "user" (id, name, email, "passwordHash", role, "createdAt")
         VALUES (${adminId}, ${"Admin"}, ${"admin@neoboard.local"}, ${hash}, ${"admin"}, NOW())
       `;
+      accounts.push(["admin", "admin@neoboard.local", "created"]);
+      console.log(`${MARKER_OWNER}=admin@neoboard.local`);
     } else {
       adminId = users[0].id;
       console.log(`    Using existing user ${adminId}`);
+      accounts.push([
+        "admin",
+        "admin@neoboard.local",
+        await demoAccountStatus(sql, "admin@neoboard.local", "admin123"),
+      ]);
+      console.log(`${MARKER_OWNER}=${users[0].email}`);
     }
 
     // 1b. Demo personas for role-based testing (#921) — idempotent by email.
@@ -248,7 +275,19 @@ async function main() {
           INSERT INTO "user" (id, name, email, "passwordHash", role, "can_write", "createdAt")
           VALUES (${uuid()}, ${name}, ${email}, ${personaHash}, ${role}, ${canWrite}, NOW())
         `;
+        accounts.push([role, email, "created"]);
+      } else {
+        accounts.push([
+          role,
+          email,
+          await demoAccountStatus(sql, email, password),
+        ]);
       }
+    }
+    // Read by the CLI banner (cli/src/commands/db/seed.ts). Status only,
+    // never a password or hash.
+    for (const [role, email, status] of accounts) {
+      console.log(`${MARKER_ACCOUNT}=${role},${email},${status}`);
     }
 
     // `--reset` short-circuits: delete showcase dashboards + drop demo schema.

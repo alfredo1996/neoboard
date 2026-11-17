@@ -158,7 +158,11 @@ neoboard demo
 #   admin:    admin@neoboard.local / admin123
 #   creator:  creator@neoboard.local / creator123
 #   reader:   reader@neoboard.local / reader123 (read-only)
+#
+# The showcases belong to admin@neoboard.local.
 ```
+
+A password is printed only when the seed created that account on this run, or checked that the stored password still matches the demo default. For an account whose password has been changed, `demo` prints the email and "password changed since the demo created it" instead, and it never resets a password. The last line always names the account that owns the showcases: the oldest user, which on an install that already had users is not the demo admin.
 
 ## env
 

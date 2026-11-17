@@ -40,6 +40,30 @@ function getNeo4jNodeCount(): number {
   return match ? parseInt(match[1], 10) : 0;
 }
 
+export type DemoAccountStatus = "created" | "default" | "changed" | "absent";
+export interface DemoSeedResult {
+  /** Email of the account that owns the showcases (the oldest user). */
+  owner: string | null;
+  accounts: { role: string; email: string; status: DemoAccountStatus }[];
+}
+
+/**
+ * Parse the marker lines scripts/seed-demo.mjs prints (#1863). The seed
+ * reports a status per demo account, never a password or hash.
+ */
+export function parseDemoMarkers(out: string | undefined): DemoSeedResult {
+  const result: DemoSeedResult = { owner: null, accounts: [] };
+  for (const line of (out ?? "").split("\n")) {
+    const [key, value = ""] = line.trim().split("=");
+    if (key === "NEOBOARD_DEMO_OWNER") result.owner = value;
+    if (key === "NEOBOARD_DEMO_ACCOUNT") {
+      const [role, email, status] = value.split(",");
+      result.accounts.push({ role, email, status: status as DemoAccountStatus });
+    }
+  }
+  return result;
+}
+
 export async function seedNeo4j(): Promise<void> {
   const spinner = createSpinner("Seeding Neo4j...");
   spinner.start();
@@ -59,7 +83,7 @@ export async function seedNeo4j(): Promise<void> {
   spinner.succeed("Neo4j seeded with demo data");
 }
 
-export async function seedPostgres(): Promise<void> {
+export function seedPostgres(): DemoSeedResult {
   const config = readProjectConfig();
   assertSafePath(config.seed.script, "seed.script");
   const spinner = createSpinner("Seeding PostgreSQL demo data...");
@@ -72,18 +96,20 @@ export async function seedPostgres(): Promise<void> {
 
   // Quote the path so a project checked out under a directory with a space
   // still runs the seed script. (#MEDIUM)
-  run(`node "${paths.root}/${config.seed.script}"`, {
+  const out = run(`node "${paths.root}/${config.seed.script}"`, {
     cwd: paths.root,
     env,
   });
   spinner.succeed("PostgreSQL seeded with demo data");
+  return parseDemoMarkers(out);
 }
 
 export async function runDbSeed(opts?: {
   neo4j?: boolean;
   demo?: boolean;
-}): Promise<void> {
+}): Promise<DemoSeedResult> {
   assertCheckout("db seed");
+  let result: DemoSeedResult = { owner: null, accounts: [] };
   const seedNeo4jOnly = opts?.neo4j && !opts?.demo;
   const seedDemoOnly = opts?.demo && !opts?.neo4j;
   const seedBoth = (!opts?.neo4j && !opts?.demo) || (opts?.neo4j && opts?.demo);
@@ -95,8 +121,9 @@ export async function runDbSeed(opts?: {
   if (seedBoth || seedDemoOnly) {
     // Docker vs local is derived inside seedPostgres (via getMode), so no
     // caller can forget to thread the encryption key (#1039).
-    await seedPostgres();
+    result = seedPostgres();
   }
 
   success("Seeding complete");
+  return result;
 }

@@ -49,6 +49,13 @@ describe("CLI program", () => {
     expect(commandNames).toContain("db");
   });
 
+  it("demo seed help states no showcase count that can go stale (#1863)", () => {
+    const seed = program.commands
+      .find((c) => c.name() === "demo")!
+      .commands.find((c) => c.name() === "seed")!;
+    expect(seed.description()).not.toMatch(/\d+ demo showcases/);
+  });
+
   it("registers db subcommands", () => {
     const dbCmd = program.commands.find((c) => c.name() === "db");
     expect(dbCmd).toBeDefined();
