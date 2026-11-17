@@ -274,6 +274,10 @@ describe("proxy", () => {
       ["/login?callbackUrl=/dashboards/abc", "/dashboards/abc"],
       ["/login?callbackUrl=//evil.example", "/"],
       ["/login?callbackUrl=https://evil.example", "/"],
+      ["/login?callbackUrl=/a/..//evil.example", "/"],
+      ["/login?callbackUrl=/.//evil.example", "/"],
+      ["/login?callbackUrl=/%252e%252e//evil.example", "/"],
+      ["/login?callbackUrl=/dash/1%3Fx%3D1", "/dash/1?x=1"],
     ])("signed in, %s goes to %s", async (path, target) => {
       mockGetToken.mockResolvedValue(signedIn);
       const res = await proxy(makeRequest(path));
@@ -307,6 +311,8 @@ describe("proxy", () => {
       const res = await proxy(
         makeRequest("/login", { headers: { "x-request-id": "rid-1" } }),
       );
+      expect(res.status).toBe(307);
+      expect(where(res)).toBe("/");
       expect(res.headers.get("x-request-id")).toBe("rid-1");
     });
   });

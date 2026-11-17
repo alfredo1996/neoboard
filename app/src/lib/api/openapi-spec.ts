@@ -943,7 +943,7 @@ const SPEC = {
         summary: "Change your password",
         description:
           "Changes the caller's own password once `currentPassword` matches (403 `Current password is incorrect` " +
-          "otherwise). 404 for a user with no password, such as one provisioned through single sign-on. Clears " +
+          "otherwise) and 400 when `newPassword` equals the current one. 404 for a user with no password, such as one provisioned through single sign-on. Clears " +
           "`forcePasswordChange`: this is the one changing call a session that must change its password can make. " +
           ENDS_SESSIONS +
           " The response re-issues the caller's session cookie, best effort.",

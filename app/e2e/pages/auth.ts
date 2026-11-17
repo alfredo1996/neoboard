@@ -31,6 +31,8 @@ export class AuthPage {
     // instead of absorbing it.
     for (let attempt = 1; attempt <= 2; attempt++) {
       await this.page.goto("/login");
+      // A first attempt that did sign in but missed the wait lands on "/" now.
+      if (attempt === 2 && new URL(this.page.url()).pathname === "/") break;
       await this.page
         .locator('form[data-hydrated="true"]')
         .waitFor({ state: "attached", timeout: 10_000 });

@@ -94,6 +94,8 @@ test.describe("Settings — Profile", () => {
     const email = `pwchange-${uid()}@example.com`;
     const oldPw = "password123";
     const newPw = "newpass123456";
+    // The beforeEach signed in as Alice; /signup now sends a signed-in visitor home.
+    await page.context().clearCookies();
     await authPage.signup("PW Change User", email, oldPw);
     await expect(page).toHaveURL("/", { timeout: 15_000 });
 
