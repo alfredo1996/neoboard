@@ -56,24 +56,55 @@ test.describe("Connections with the same settings share a driver", () => {
       otherConnection = await connect(other.request, `shared-b-${suffix}`);
 
       // The other user's query is running when Alice deletes her connection.
-      const running = other.request.post("/api/query", {
-        data: {
-          connectionId: otherConnection,
-          query: "UNWIND range(1, 80000000) AS x RETURN count(x) AS answer",
-        },
-        timeout: 60_000,
-      });
-      await page.waitForTimeout(1000);
+      const rows = 80_000_000;
+      let queryDoneAt = 0;
+      const running = other.request
+        .post("/api/query", {
+          data: {
+            connectionId: otherConnection,
+            query: `UNWIND range(1, ${rows}) AS x RETURN count(x) AS answer`,
+          },
+          timeout: 60_000,
+        })
+        .then((r) => {
+          queryDoneAt = performance.now();
+          return r;
+        });
+
+      // Delete only once the server reports the query running, so the test
+      // cannot pass because the delete landed before or after it. The
+      // STARTS WITH keeps the poll itself out of the count.
+      await expect
+        .poll(
+          async () => {
+            const r = await page.request.post("/api/query", {
+              data: {
+                connectionId: aliceConnection,
+                query:
+                  "SHOW TRANSACTIONS YIELD currentQuery WHERE currentQuery STARTS WITH 'UNWIND range(1, " +
+                  rows +
+                  ")' RETURN count(*) AS n",
+              },
+            });
+            return (await r.json()).data?.data?.[0]?.n;
+          },
+          { timeout: 10_000, intervals: [50] },
+        )
+        .toBe(1);
+
       const del = await page.request.delete(
         `/api/connections/${aliceConnection}`,
       );
+      const deleteDoneAt = performance.now();
       expect(del.ok()).toBeTruthy();
       aliceConnection = undefined;
 
       const res = await running;
+      // The query was still running when the delete returned.
+      expect(deleteDoneAt).toBeLessThan(queryDoneAt);
       expect(res.status()).toBe(200);
       expect((await res.json()).data.data).toEqual([
-        expect.objectContaining({ answer: 80000000 }),
+        expect.objectContaining({ answer: rows }),
       ]);
 
       // And the surviving connection still loads data afterwards.
