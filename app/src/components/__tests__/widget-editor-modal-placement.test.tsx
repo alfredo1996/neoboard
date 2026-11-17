@@ -5,7 +5,7 @@
  */
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import type { DashboardWidget } from "@/lib/db/schema";
@@ -39,8 +39,12 @@ vi.mock("@/hooks/use-widget-templates", () => ({
 vi.mock("@/hooks/use-connectors", () => ({
   useConnectors: () => ({ data: [] }),
 }));
+const autoPreview = vi.hoisted(() => vi.fn());
 vi.mock("../widget-editor/use-auto-preview", () => ({
-  useAutoPreview: () => ({ handlePreview: vi.fn(), saveStatus: "idle" }),
+  useAutoPreview: (opts: unknown) => {
+    autoPreview(opts);
+    return { handlePreview: vi.fn(), saveStatus: "idle" };
+  },
 }));
 vi.mock("../widget-editor/widget-preview-panel", () => ({
   WidgetPreviewPanel: () => <div />,
@@ -67,13 +71,17 @@ vi.mock("../widget-editor/template-browser", () => ({
   ),
 }));
 
+vi.mock("../widget-editor/database-selector", () => ({
+  DatabaseSelector: () => <div data-testid="database-selector" />,
+}));
+
 const { WidgetEditorModal } = await import("../widget-editor-modal");
 
 const CONNECTION = {
   id: "c1",
   name: "Main",
   type: "postgresql",
-  allowPerCardDb: false,
+  allowPerCardDb: true,
   visibility: "private",
   isOwner: true,
   displayAddress: null,
@@ -248,5 +256,37 @@ describe("WidgetEditorModal — a template carries the card options (#2394)", ()
     const st = useWidgetEditorStore.getState();
     expect(st.cardBackground).toBe("rose");
     expect(st.description).toBe("From the template");
+  });
+
+  it("the preview runs on the widget's per-card database (#1813)", () => {
+    renderEditor({ chartType: "table", query: "SELECT 1", database: "other" });
+    expect(autoPreview).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        database: "other",
+        initialPreviewDatabase: "other",
+      }),
+    );
+  });
+
+  it("a library template has no database, so its preview sends none (#1813)", () => {
+    renderEditor(
+      { chartType: "table", query: "SELECT 1", database: "other" },
+      { mode: "lab-create" },
+    );
+    expect(autoPreview).toHaveBeenLastCalledWith(
+      expect.objectContaining({ database: undefined }),
+    );
+  });
+
+  it("the normal editor offers the per-card database (#1813)", () => {
+    renderEditor({ chartType: "table", query: "SELECT 1" });
+    expect(screen.getByTestId("database-selector")).toBeInTheDocument();
+  });
+
+  it("the library hides the database: a template stores none (#1813)", () => {
+    renderEditor({ chartType: "table" }, { mode: "lab-create" });
+    act(() => useWidgetEditorStore.getState().setConnectionId("c1"));
+    expect(screen.getByTestId("query-editor")).toBeInTheDocument();
+    expect(screen.queryByTestId("database-selector")).toBeNull();
   });
 });

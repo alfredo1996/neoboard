@@ -434,4 +434,103 @@ test.describe("Widgets run on their saved database (#1824)", () => {
         );
     }
   });
+
+  // #1813: the editor's preview runs on the card's database, not the
+  // connection's default, and follows the Database selector.
+  test("the editor preview runs on the widget's database and follows the selector", async ({
+    page,
+    authPage,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id: dashboardId } = await createTestDashboard(
+      page.request,
+      `editor-preview-db-${uid()}`,
+    );
+    const isPreview = (r: Response) =>
+      r.url().endsWith("/api/query") &&
+      r.request().postDataJSON()?.rowLimit === 25;
+    try {
+      const put = await page.request.put(`/api/dashboards/${dashboardId}`, {
+        data: {
+          layoutJson: {
+            version: 2,
+            pages: [
+              {
+                id: "p1",
+                title: "Page 1",
+                widgets: [
+                  {
+                    id: "w-db",
+                    chartType: "table",
+                    connectionId: "conn-pg-001",
+                    database: "neoboard",
+                    query: "SELECT current_database() AS db",
+                    settings: { title: "Current db", chartOptions: {} },
+                  },
+                ],
+                gridLayout: [{ i: "w-db", x: 0, y: 0, w: 12, h: 8 }],
+              },
+            ],
+          },
+        },
+      });
+      expect(put.ok()).toBeTruthy();
+
+      await page.goto(`/${dashboardId}/edit`);
+      const card = page.locator("[data-widget-id='w-db']");
+      // The saved card shows neoboard before the editor opens, so the
+      // editor's own open-run cannot be mistaken for the default run below.
+      await expect(card.getByText("neoboard", { exact: true })).toBeVisible();
+      await card.hover();
+      await card
+        .getByRole("button", { name: "Widget actions", exact: true })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Edit Widget", exact: true })
+        .click();
+      const dialog = page.getByRole("dialog", {
+        name: "Edit Widget",
+        exact: true,
+      });
+      await expect(dialog).toBeVisible({ timeout: 10_000 });
+
+      // Back to the connection's default (movies): the preview follows.
+      const rerun = page.waitForResponse(
+        (r) =>
+          isPreview(r) && r.request().postDataJSON().database === undefined,
+        { timeout: 15_000 },
+      );
+      await dialog.getByRole("combobox", { name: /Database/ }).click();
+      await page
+        .getByRole("option", { name: "Connection default", exact: true })
+        .click();
+      const second = await rerun;
+      expect(second.request().postDataJSON()).not.toHaveProperty("database");
+      expect((await second.json()).data.data).toEqual([{ db: "movies" }]);
+      await expect(
+        dialog
+          .getByTestId("widget-preview")
+          .getByText("movies", { exact: true }),
+      ).toBeVisible();
+
+      // Pick neoboard: the preview runs there, as the saved card does.
+      const third = page.waitForResponse(
+        (r) =>
+          isPreview(r) && r.request().postDataJSON().database === "neoboard",
+        { timeout: 15_000 },
+      );
+      await dialog.getByRole("combobox", { name: /Database/ }).click();
+      await page.getByRole("option", { name: "neoboard", exact: true }).click();
+      const picked = await third;
+      expect(picked.request().postDataJSON().database).toBe("neoboard");
+      expect((await picked.json()).data.data).toEqual([{ db: "neoboard" }]);
+      await expect(
+        dialog
+          .getByTestId("widget-preview")
+          .getByText("neoboard", { exact: true }),
+      ).toBeVisible();
+    } finally {
+      await page.request.delete(`/api/dashboards/${dashboardId}`);
+    }
+  });
 });
