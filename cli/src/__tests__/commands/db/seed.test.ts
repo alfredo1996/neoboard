@@ -96,8 +96,8 @@ describe("seedNeo4j", () => {
 });
 
 describe("seedPostgres", () => {
-  it("runs the seed script with the environment from buildSeedEnv (#1039)", async () => {
-    await seedPostgres();
+  it("runs the seed script with the environment from buildSeedEnv (#1039)", () => {
+    seedPostgres();
     expect(mockBuildSeedEnv).toHaveBeenCalledOnce();
     expect(mockRun).toHaveBeenCalledWith(
       'node "/project/scripts/seed-demo.mjs"',
@@ -105,7 +105,7 @@ describe("seedPostgres", () => {
     );
   });
 
-  it("returns the demo accounts and owner the seed reports (#1863)", async () => {
+  it("returns the demo accounts and owner the seed reports (#1863)", () => {
     mockRun.mockReturnValueOnce(
       [
         "    Using existing user abc",
@@ -114,7 +114,7 @@ describe("seedPostgres", () => {
         "NEOBOARD_DEMO_ACCOUNT=creator,creator@neoboard.local,changed",
       ].join("\n"),
     );
-    expect(await seedPostgres()).toEqual({
+    expect(seedPostgres()).toEqual({
       owner: "boss@example.com",
       accounts: [
         { role: "admin", email: "admin@neoboard.local", status: "absent" },
@@ -123,9 +123,9 @@ describe("seedPostgres", () => {
     });
   });
 
-  it("reports nothing confirmed when the seed prints no markers (#1863)", async () => {
+  it("reports nothing confirmed when the seed prints no markers (#1863)", () => {
     mockRun.mockReturnValueOnce("");
-    expect(await seedPostgres()).toEqual({ owner: null, accounts: [] });
+    expect(seedPostgres()).toEqual({ owner: null, accounts: [] });
   });
 
   it("takes no dockerNetwork argument — docker vs local is derived inside buildSeedEnv", () => {

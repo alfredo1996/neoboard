@@ -83,7 +83,7 @@ export async function seedNeo4j(): Promise<void> {
   spinner.succeed("Neo4j seeded with demo data");
 }
 
-export async function seedPostgres(): Promise<DemoSeedResult> {
+export function seedPostgres(): DemoSeedResult {
   const config = readProjectConfig();
   assertSafePath(config.seed.script, "seed.script");
   const spinner = createSpinner("Seeding PostgreSQL demo data...");
@@ -121,7 +121,7 @@ export async function runDbSeed(opts?: {
   if (seedBoth || seedDemoOnly) {
     // Docker vs local is derived inside seedPostgres (via getMode), so no
     // caller can forget to thread the encryption key (#1039).
-    result = await seedPostgres();
+    result = seedPostgres();
   }
 
   success("Seeding complete");
