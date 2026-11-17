@@ -76,20 +76,13 @@ describe("proxy", () => {
   });
 
   describe("public routes", () => {
-    it("passes through /login", async () => {
-      const res = await proxy(makeRequest("/login"));
-      expect(res.status).toBe(200);
-    });
-
-    it("passes through /signup", async () => {
-      const res = await proxy(makeRequest("/signup"));
-      expect(res.status).toBe(200);
-    });
-
-    it("passes through /change-password", async () => {
-      const res = await proxy(makeRequest("/change-password"));
-      expect(res.status).toBe(200);
-    });
+    it.each(["/login", "/signup"])(
+      "passes %s through when signed out",
+      async (path) => {
+        const res = await proxy(makeRequest(path));
+        expect(res.status).toBe(200);
+      },
+    );
 
     it("passes through /api/auth/* routes", async () => {
       const res = await proxy(makeRequest("/api/auth/session"));
@@ -263,8 +256,58 @@ describe("proxy", () => {
         forcePasswordChange: true,
       });
       const res = await proxy(makeRequest("/change-password"));
-      // /change-password is a public route, so it passes through before token check
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe("auth pages by session (#2339)", () => {
+    const signedIn = { sub: "user-1" };
+    const forced = { sub: "user-1", forcePasswordChange: true };
+    const where = (res: Response) => {
+      const loc = res.headers.get("location");
+      return loc ? new URL(loc).pathname + new URL(loc).search : null;
+    };
+
+    it.each([
+      ["/login", "/"],
+      ["/signup", "/"],
+      ["/login?callbackUrl=/dashboards/abc", "/dashboards/abc"],
+      ["/login?callbackUrl=//evil.example", "/"],
+      ["/login?callbackUrl=https://evil.example", "/"],
+    ])("signed in, %s goes to %s", async (path, target) => {
+      mockGetToken.mockResolvedValue(signedIn);
+      const res = await proxy(makeRequest(path));
+      expect(res.status).toBe(307);
+      expect(where(res)).toBe(target);
+    });
+
+    it.each(["/login", "/signup"])(
+      "forced change, %s goes to /change-password",
+      async (path) => {
+        mockGetToken.mockResolvedValue(forced);
+        const res = await proxy(makeRequest(path));
+        expect(where(res)).toBe("/change-password");
+      },
+    );
+
+    it("signed out, /change-password goes to /login", async () => {
+      const res = await proxy(makeRequest("/change-password"));
+      expect(res.status).toBe(307);
+      expect(where(res)).toBe("/login");
+    });
+
+    it("signed in and not forced, /change-password goes to /settings/profile", async () => {
+      mockGetToken.mockResolvedValue(signedIn);
+      const res = await proxy(makeRequest("/change-password"));
+      expect(where(res)).toBe("/settings/profile");
+    });
+
+    it("keeps the request id on the redirect", async () => {
+      mockGetToken.mockResolvedValue(signedIn);
+      const res = await proxy(
+        makeRequest("/login", { headers: { "x-request-id": "rid-1" } }),
+      );
+      expect(res.headers.get("x-request-id")).toBe("rid-1");
     });
   });
 
@@ -362,7 +405,7 @@ describe("proxy", () => {
     it("does NOT redirect when already HTTPS", async () => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("FORCE_HTTPS", "");
-      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      mockGetToken.mockResolvedValue(null);
       const res = await proxy(
         makeFullRequest("https://example.com/dashboard", {
           "x-forwarded-proto": "https",
@@ -374,7 +417,7 @@ describe("proxy", () => {
     it("does NOT redirect in development", async () => {
       vi.stubEnv("NODE_ENV", "development");
       vi.stubEnv("FORCE_HTTPS", "");
-      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      mockGetToken.mockResolvedValue(null);
       const res = await proxy(
         makeFullRequest("http://example.com/dashboard", {
           "x-forwarded-proto": "http",
@@ -386,7 +429,7 @@ describe("proxy", () => {
     it("does NOT redirect when FORCE_HTTPS=false", async () => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("FORCE_HTTPS", "false");
-      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      mockGetToken.mockResolvedValue(null);
       const res = await proxy(
         makeFullRequest("http://example.com/dashboard", {
           "x-forwarded-proto": "http",
@@ -398,7 +441,7 @@ describe("proxy", () => {
     it("does NOT redirect when FORCE_HTTPS=FALSE (case-insensitive)", async () => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("FORCE_HTTPS", "FALSE");
-      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      mockGetToken.mockResolvedValue(null);
       const res = await proxy(
         makeFullRequest("http://example.com/dashboard", {
           "x-forwarded-proto": "http",
@@ -410,7 +453,7 @@ describe("proxy", () => {
     it("does NOT redirect for localhost", async () => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("FORCE_HTTPS", "");
-      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      mockGetToken.mockResolvedValue(null);
       const res = await proxy(
         makeFullRequest("http://localhost:3000/dashboard", {
           "x-forwarded-proto": "http",
@@ -422,7 +465,7 @@ describe("proxy", () => {
     it("does NOT redirect for 127.0.0.1", async () => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("FORCE_HTTPS", "");
-      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      mockGetToken.mockResolvedValue(null);
       const res = await proxy(
         makeFullRequest("http://127.0.0.1:3000/dashboard", {
           "x-forwarded-proto": "http",
@@ -458,7 +501,7 @@ describe("proxy", () => {
     ])("uses the Host header: %s -> %i", async (host, status) => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("FORCE_HTTPS", "");
-      mockGetToken.mockResolvedValue({ sub: "user-1" });
+      mockGetToken.mockResolvedValue(null);
       const res = await proxy(
         makeFullRequest("http://0.0.0.0:3000/login", {
           host,
@@ -475,7 +518,7 @@ describe("proxy", () => {
       async (proto) => {
         vi.stubEnv("NODE_ENV", "production");
         vi.stubEnv("FORCE_HTTPS", "");
-        mockGetToken.mockResolvedValue({ sub: "user-1" });
+        mockGetToken.mockResolvedValue(null);
         const res = await proxy(
           makeFullRequest("http://0.0.0.0:3000/login", {
             host: "app.example.com",

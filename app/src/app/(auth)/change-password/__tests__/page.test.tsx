@@ -92,6 +92,26 @@ describe("ChangePasswordPage (#2011)", () => {
     );
   });
 
+  it("clears the mismatch error when a field changes (#2339)", async () => {
+    render(<ChangePasswordPage />);
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "oldpass123" },
+    });
+    fireEvent.change(screen.getByLabelText("New password", { exact: true }), {
+      target: { value: "newpass123" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: "newpass124" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Change password" }));
+    expect(await screen.findByRole("alert")).toBeDefined();
+
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: "newpass12" },
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("names a proxy when a 403 answers with HTML (#2487)", async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,

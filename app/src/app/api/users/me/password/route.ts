@@ -8,6 +8,7 @@ import { auditRequest } from "@/lib/audit/audit";
 import { unstable_update } from "@/lib/auth/config";
 import { newPasswordSchema } from "@/lib/auth/password-schema";
 import {
+  badRequest,
   forbidden,
   handleRouteError,
   notFound,
@@ -45,6 +46,11 @@ export async function PUT(req: Request) {
     // Verify current password
     const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!isValid) return forbidden("Current password is incorrect");
+
+    // After the check, so it reveals nothing to someone who lacks the password.
+    if (newPassword === currentPassword) {
+      return badRequest("Choose a password different from your current one");
+    }
 
     // Hash and update — also clear forcePasswordChange so the user is no longer redirected
     const newHash = await bcrypt.hash(newPassword, 12);

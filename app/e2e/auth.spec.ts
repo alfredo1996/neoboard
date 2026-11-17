@@ -41,6 +41,28 @@ test.describe("Authentication", () => {
     expect(session.user.email).toBe(ALICE.email);
   });
 
+  test("signed in, /login and /signup land on the dashboards list (#2339)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    for (const path of ["/login", "/signup"]) {
+      await page.goto(path);
+      await expect(page).toHaveURL("/", { timeout: 10_000 });
+      await expect(
+        page.getByRole("button", { name: "Dashboards", exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
+    }
+  });
+
+  test("signed out, /change-password lands on /login (#2339)", async ({
+    page,
+  }) => {
+    await page.goto("/change-password");
+    await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
+    await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
+  });
+
   test("should redirect to /login when session expires mid-session", async ({
     authPage,
     page,
