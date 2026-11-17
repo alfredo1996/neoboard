@@ -329,9 +329,16 @@ vi.mock("@/lib/widget/widget-actions", () => ({
 const parametersState = {
   parameters: {} as Record<
     string,
-    { field: string; value: unknown; source?: string; sourceWidgetId?: string }
+    {
+      field: string;
+      value: unknown;
+      source?: string;
+      sourceType?: string;
+      sourceWidgetId?: string;
+    }
   >,
   clearParameter: vi.fn(),
+  resetFilter: vi.fn(),
   clearAll: vi.fn(),
 };
 
@@ -741,6 +748,25 @@ describe("DashboardContainer — filter line", () => {
     expect(line).not.toHaveTextContent("Gallery region");
   });
 
+  it("makes no chip for a parameter still on its configured default, and one for a changed one (#1851)", () => {
+    parametersState.parameters = {
+      gallery_region: {
+        field: "gallery_region",
+        value: "EU",
+        sourceType: "default",
+      },
+      decade: {
+        field: "decade",
+        value: "1990s",
+        sourceType: "selector-widget",
+      },
+    };
+    renderWithProviders(<DashboardContainer page={makePage()} />);
+    const line = screen.getByRole("region", { name: "Active filters" });
+    expect(line).toHaveTextContent("Decade: 1990s");
+    expect(line).not.toHaveTextContent("Gallery region");
+  });
+
   it("renders one sentence chip per active parameter, labelled and formatted", () => {
     parametersState.parameters = {
       gallery_region: {
@@ -811,7 +837,7 @@ describe("DashboardContainer — filter line", () => {
     expect(screen.queryByRole("region", { name: "Active filters" })).toBeNull();
   });
 
-  it("clears one parameter when its chip's × is clicked", () => {
+  it("resets one filter when its chip's × is clicked", () => {
     parametersState.parameters = {
       status: { field: "status", value: "active" },
     };
@@ -819,27 +845,21 @@ describe("DashboardContainer — filter line", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Remove Status filter" }),
     );
-    expect(parametersState.clearParameter).toHaveBeenCalledWith("status");
+    expect(parametersState.resetFilter).toHaveBeenCalledWith("status");
   });
 
-  it("clears a range chip's parent and its companions with one ×", () => {
-    parametersState.clearParameter.mockClear();
+  it("resets a range chip by its parent id, the store clears the companions", () => {
+    parametersState.resetFilter.mockClear();
     parametersState.parameters = {
       dates: { field: "dates", value: { from: "a", to: "b" } },
       dates_from: { field: "dates_from", value: "a" },
       dates_to: { field: "dates_to", value: "b" },
     };
     renderWithProviders(<DashboardContainer page={makePage()} />);
-    expect(
-      screen.getAllByRole("button", { name: /^Remove .* filter$/ }),
-    ).toHaveLength(1);
     fireEvent.click(
       screen.getByRole("button", { name: "Remove Dates filter" }),
     );
-    const cleared = parametersState.clearParameter.mock.calls.map((c) => c[0]);
-    expect(cleared).toEqual(
-      expect.arrayContaining(["dates", "dates_from", "dates_to"]),
-    );
+    expect(parametersState.resetFilter).toHaveBeenCalledWith("dates");
   });
 
   it("jumps through onNavigateToPage to the page that holds the selector", () => {

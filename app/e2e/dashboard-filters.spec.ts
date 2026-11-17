@@ -53,6 +53,12 @@ async function seed(
   return { id, cleanup };
 }
 
+// A default is not a filter someone set (#1851): the tests that need chips
+// set them from the link, which beats the default.
+const linked = (n: number) =>
+  "?" +
+  Array.from({ length: n }, (_, i) => `param_f${i + 1}=link${i + 1}`).join("&");
+
 const strip = (page: import("@playwright/test").Page) =>
   page.getByRole("region", { name: "Active filters" });
 
@@ -65,7 +71,7 @@ test("the header lists every filter, clears one and jumps to a selector", async 
   await authPage.login(ALICE.email, ALICE.password);
   const { id, cleanup } = await seed(page.request, SET + 1, SET);
   try {
-    await page.goto(`/${id}`);
+    await page.goto(`/${id}${linked(SET)}`);
     const button = page.getByRole("button", { name: /^Filters/ });
     await expect(button).toBeVisible({ timeout: 15_000 });
     await expect(button.getByLabel(`${SET} set`)).toBeVisible();
@@ -81,7 +87,7 @@ test("the header lists every filter, clears one and jumps to a selector", async 
     await expect(rows.last()).toContainText("Filter 12");
     await expect(rows.last()).toContainText("Any");
 
-    // Clear one: the count drops and that row reads Any.
+    // Clear one: the count drops and that row is back on its default.
     await list
       .getByRole("button", { name: "Clear Filter 1", exact: true })
       .click();
@@ -93,7 +99,7 @@ test("the header lists every filter, clears one and jumps to a selector", async 
           exact: true,
         }),
       }),
-    ).toContainText("Any");
+    ).toContainText("value 1");
 
     // Jump: the list closes and the selector's card is highlighted.
     await list
@@ -120,7 +126,7 @@ test("the strip stays one 44px line with 11 filters set, and scrolls", async ({
   await authPage.login(ALICE.email, ALICE.password);
   const { id, cleanup } = await seed(page.request, SET, SET);
   try {
-    await page.goto(`/${id}`);
+    await page.goto(`/${id}${linked(SET)}`);
     await expect(strip(page)).toBeVisible({ timeout: 15_000 });
     const box = await strip(page).boundingBox();
     expect(box!.height).toBe(44);
@@ -165,7 +171,7 @@ test("the filter bar can be hidden from the Filters menu, and stays hidden", asy
   await authPage.login(ALICE.email, ALICE.password);
   const { id, cleanup } = await seed(page.request, 3, 3);
   try {
-    await page.goto(`/${id}`);
+    await page.goto(`/${id}${linked(3)}`);
     const button = page.getByRole("button", { name: /^Filters/ });
     await expect(strip(page)).toBeVisible({ timeout: 15_000 });
 
@@ -178,7 +184,8 @@ test("the filter bar can be hidden from the Filters menu, and stays hidden", asy
     await expect(strip(page)).toHaveCount(0);
     await expect(button.getByLabel("3 set")).toBeVisible();
 
-    await page.reload();
+    // The link is stripped of what it brought: arrive by it again.
+    await page.goto(`/${id}${linked(3)}`);
     await expect(button.getByLabel("3 set")).toBeVisible({ timeout: 15_000 });
     await expect(strip(page)).toHaveCount(0);
 
@@ -188,6 +195,106 @@ test("the filter bar can be hidden from the Filters menu, and stays hidden", asy
       .getByRole("switch", { name: "Show filter bar", exact: true })
       .click();
     await expect(strip(page)).toBeVisible();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("defaults leave the bar empty until a filter is changed (#1851)", async ({
+  authPage,
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1280, height: 1024 });
+  await authPage.login(ALICE.email, ALICE.password);
+  const { id, cleanup } = await seed(page.request, 5, 5);
+  try {
+    await page.goto(`/${id}`);
+    const button = page.getByRole("button", { name: /^Filters/ });
+    await expect(page.locator("#param-text-f1")).toHaveValue("value 1", {
+      timeout: 15_000,
+    });
+    // Five defaults are in force, and none of them is a chip or a count.
+    await expect(strip(page)).toHaveCount(0);
+    await expect(button.getByLabel(/ set$/)).toHaveCount(0);
+    await button.click();
+    const list = page.getByRole("dialog", { name: "Filters", exact: true });
+    await expect(list.getByRole("listitem")).toHaveCount(5);
+    await expect(list.getByText("default", { exact: true })).toHaveCount(5);
+    await page.keyboard.press("Escape");
+
+    await page.locator("#param-text-f2").fill("changed");
+    await expect(strip(page)).toBeVisible();
+    await expect(strip(page)).toContainText("changed");
+    await expect(strip(page)).not.toContainText("value 1");
+    await expect(button.getByLabel("1 set")).toBeVisible();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("Clear all resets to the defaults: bar empty, a changed default back (#1851)", async ({
+  authPage,
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1280, height: 1024 });
+  await authPage.login(ALICE.email, ALICE.password);
+  // f1 and f2 have defaults; f3 has none.
+  const { id, cleanup } = await seed(page.request, 3, 2);
+  try {
+    await page.goto(`/${id}`);
+    await expect(page.locator("#param-text-f2")).toHaveValue("value 2", {
+      timeout: 15_000,
+    });
+    await page.locator("#param-text-f2").fill("changed");
+    await page.locator("#param-text-f3").fill("hand set");
+    await expect(strip(page)).toContainText("changed");
+    await expect(strip(page)).toContainText("hand set");
+
+    await strip(page)
+      .getByRole("button", { name: "Clear all", exact: true })
+      .click();
+
+    // The bar is empty, the changed default is back, the hand-set one is gone,
+    // and the untouched default stays applied.
+    await expect(strip(page)).toHaveCount(0);
+    await expect(page.locator("#param-text-f2")).toHaveValue("value 2");
+    await expect(page.locator("#param-text-f1")).toHaveValue("value 1");
+    await expect(page.locator("#param-text-f3")).toHaveValue("");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("removing a changed filter's chip puts its default back, others stay (#1851)", async ({
+  authPage,
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1280, height: 1024 });
+  await authPage.login(ALICE.email, ALICE.password);
+  // f1 and f2 have defaults; f3 has none.
+  const { id, cleanup } = await seed(page.request, 3, 2);
+  try {
+    await page.goto(`/${id}`);
+    await expect(page.locator("#param-text-f2")).toHaveValue("value 2", {
+      timeout: 15_000,
+    });
+    await page.locator("#param-text-f2").fill("changed");
+    await page.locator("#param-text-f3").fill("hand set");
+    await expect(strip(page)).toContainText("changed");
+    await expect(strip(page)).toContainText("hand set");
+
+    await strip(page)
+      .getByRole("button", { name: "Remove Filter 2 filter", exact: true })
+      .click();
+
+    // f2 is back on its default, f3 is untouched and still a chip.
+    await expect(page.locator("#param-text-f2")).toHaveValue("value 2");
+    await expect(page.locator("#param-text-f3")).toHaveValue("hand set");
+    await expect(strip(page)).toContainText("hand set");
+    await expect(strip(page)).not.toContainText("changed");
   } finally {
     await cleanup();
   }

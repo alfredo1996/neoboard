@@ -119,6 +119,23 @@ describe("FiltersButton", () => {
     expect(onClearAll).toHaveBeenCalledOnce();
   });
 
+  it("leaves an untouched default out of the badge, and tags it in its own group", () => {
+    open([item(1, "a"), item(2, "Europe", { isDefault: true }), item(3)]);
+    const badge = screen.getByRole("button", { name: /^Filters/ });
+    expect(within(badge).getByLabelText("1 set")).toBeInTheDocument();
+    expect(screen.getByText("1 of 3 set")).toBeInTheDocument();
+    const defaults = within(screen.getByRole("list", { name: "Default" }));
+    expect(defaults.getByText("Europe")).toBeInTheDocument();
+    expect(defaults.getByText("default")).toBeInTheDocument();
+    const set = within(screen.getByRole("list", { name: "Set" }));
+    expect(set.queryByText("default")).toBeNull();
+  });
+
+  it("shows no badge when only defaults are in place", () => {
+    open([item(1, "Europe", { isDefault: true })]);
+    expect(screen.queryByLabelText(/ set$/)).toBeNull();
+  });
+
   it("heads the list with Set and Not set, only for groups that have rows", () => {
     open([item(1), item(2, "x")]);
     expect(screen.getByText("Set")).toBeInTheDocument();

@@ -42,6 +42,18 @@ describe("useCascadingClear", () => {
     expect(useParameterStore.getState().parameters["city"]).toBeUndefined();
   });
 
+  it("keeps a child default when the parent moves to its own default", () => {
+    const st = useParameterStore.getState();
+    st.setParameter("city", "Rome", "D", "city", "select", "default");
+    st.setParameter("country", "IT", "D", "country", "select", "default");
+    const { rerender } = renderHook(
+      ({ parentValue }) => useCascadingClear("city", "country", parentValue),
+      { initialProps: { parentValue: "US" } },
+    );
+    rerender({ parentValue: "IT" });
+    expect(useParameterStore.getState().parameters["city"]).toBeDefined();
+  });
+
   it("clears the child when the parent is cleared entirely", () => {
     seedChild("city", "Berlin");
 

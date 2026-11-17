@@ -4,10 +4,7 @@ import { useMemo } from "react";
 import { FiltersButton } from "@neoboard/components/kit";
 import { useFilterBarShown } from "@/hooks/use-filter-bar-shown";
 import { useParameterStore } from "@/stores/parameter-store";
-import {
-  buildDashboardFilters,
-  filterClearNames,
-} from "@/lib/parameter/dashboard-filters";
+import { buildDashboardFilters } from "@/lib/parameter/dashboard-filters";
 import type { ParameterSourceMap } from "@/lib/parameter/collect-parameter-names";
 
 interface HeaderFiltersProps {
@@ -25,7 +22,7 @@ export function HeaderFilters({
   onJump,
 }: Readonly<HeaderFiltersProps>) {
   const parameters = useParameterStore((s) => s.parameters);
-  const clearParameter = useParameterStore((s) => s.clearParameter);
+  const resetFilter = useParameterStore((s) => s.resetFilter);
   const clearAll = useParameterStore((s) => s.clearAll);
   const items = useMemo(
     () =>
@@ -33,6 +30,7 @@ export function HeaderFilters({
         id: f.id,
         label: f.label,
         value: f.value,
+        isDefault: f.isDefault,
         where: f.where,
         onSelect: f.sourceWidgetId
           ? () => onJump(f.pageId, f.sourceWidgetId!)
@@ -46,7 +44,7 @@ export function HeaderFilters({
       items={items}
       barShown={barShown}
       onShowChange={setBarShown}
-      onClear={(id) => filterClearNames(id).forEach((n) => clearParameter(n))}
+      onClear={resetFilter}
       onClearAll={clearAll}
     />
   );

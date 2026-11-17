@@ -250,6 +250,16 @@ export function DashboardWorkspace({
     }
   }, [searchParams, serverLayout]);
 
+  // The configured defaults live in the store so "Clear all" (the bar's and the
+  // header's) restores them instead of dropping to "Any" (#1851). Runs on every
+  // layout change, before the seeding effect above, so a saved edit counts.
+  useEffect(() => {
+    if (!serverLayout) return;
+    useParameterStore
+      .getState()
+      .setDefaultSeeds(expandParamDefaults(extractParamDefaults(serverLayout)));
+  }, [serverLayout]);
+
   // Widget "Default value" settings, applied once per dashboard (#1421).
   //
   // `extractParamDefaults` was written, tested, and never called — so the
@@ -269,29 +279,7 @@ export function DashboardWorkspace({
     if (!serverLayout || defaultsAppliedFor.current === id) return;
     defaultsAppliedFor.current = id;
 
-    const defaults = extractParamDefaults(serverLayout);
-    const store = useParameterStore.getState();
-
-    // `field` is the parameter name and `source` a human label, matching what
-    // `useParamActions` writes when the user picks a value. Passing the value
-    // as `source` and "" as `field` — as this did until #1517 — rendered the
-    // parameter chip as "= VALUE" with no name, and its tooltip as "Set by
-    // <the value>". The widget id is what makes the chip link back.
-    //
-    // The expansion itself (number-range companions, per-type coercion) lives
-    // in `expandParamDefaults` so it is unit testable — this body is not.
-    for (const seed of expandParamDefaults(defaults)) {
-      if (store.parameters[seed.name] !== undefined) continue;
-      store.setParameter(
-        seed.name,
-        seed.value,
-        "Default value",
-        seed.name,
-        seed.type,
-        "default",
-        seed.widgetId,
-      );
-    }
+    useParameterStore.getState().seedDefaults();
   }, [id, serverLayout]);
 
   // Seeded from the URL we arrived on, so the first sync is a no-op unless it
@@ -305,7 +293,14 @@ export function DashboardWorkspace({
   useEffect(() => {
     if (!syncParams) return;
     const syncUrl = (state: { parameters: Record<string, ParameterEntry> }) => {
-      const next = buildParamsUrl(pathname, state.parameters, syncParams);
+      // A default stays out of the link: put there, it comes back as a value
+      // someone set, a chip, and no longer follows the configured default.
+      const set = Object.fromEntries(
+        Object.entries(state.parameters).filter(
+          ([, e]) => e.sourceType !== "default",
+        ),
+      );
+      const next = buildParamsUrl(pathname, set, syncParams);
       // Only navigate when the URL actually changes. Compared against what we
       // last wrote, NOT window.location: a mocked router never updates the
       // location, so reading it would make "clearing every parameter drops the

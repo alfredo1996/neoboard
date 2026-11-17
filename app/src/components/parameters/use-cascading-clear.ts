@@ -20,6 +20,14 @@ export function useCascadingClear(
   useEffect(() => {
     if (parentParameterName && prevParentValue.current !== parentValue) {
       prevParentValue.current = parentValue;
+      // Both still on their defaults: the parent only moved because a reset
+      // wrote them together, and the child's default is the right pair (#1851).
+      const { parameters } = useParameterStore.getState();
+      if (
+        parameters[parameterName]?.sourceType === "default" &&
+        parameters[parentParameterName]?.sourceType === "default"
+      )
+        return;
       clearParameter(parameterName);
     }
   }, [parentParameterName, parentValue, parameterName, clearParameter]);

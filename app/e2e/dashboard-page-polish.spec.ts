@@ -94,7 +94,7 @@ test.describe("Dashboard page polish (#2334)", () => {
     }
   });
 
-  test("UX-9: a default value shows its label on load, with no click and no extra query", async ({
+  test("UX-9: a default value shows its label in the Filters list on load, with no click and no extra query", async ({
     page,
   }) => {
     const { id, cleanup } = await createTestDashboard(
@@ -130,13 +130,15 @@ test.describe("Dashboard page polish (#2334)", () => {
         if (new URL(req.url()).pathname === "/api/query") queries++;
       });
       await page.goto(`/${id}`);
-      const strip = page.getByRole("region", {
-        name: "Active filters",
-        exact: true,
-      });
-      await expect(strip).toContainText("Continent: All continents", {
+      // A default is no chip (#1851): its label shows in the header list.
+      await page.getByRole("button", { name: /^Filters/ }).click({
         timeout: 10_000,
       });
+      const row = page
+        .getByRole("dialog", { name: "Filters", exact: true })
+        .getByRole("listitem");
+      await expect(row).toContainText("All continents", { timeout: 10_000 });
+      await expect(row).toContainText("default");
       // Writing the label is display only: it must not refetch anything.
       const settled = queries;
       await page.waitForTimeout(1_500);

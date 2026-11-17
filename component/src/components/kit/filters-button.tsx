@@ -4,6 +4,7 @@ import * as React from "react";
 import { ArrowRight, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tag } from "@/components/ui/tag";
 import { Switch } from "@/components/ui/switch";
 import {
   Popover,
@@ -17,6 +18,8 @@ export interface FiltersButtonItem {
   label: string;
   /** The value that is set; left out when the filter is unset ("Any"). */
   value?: string;
+  /** The value is the one the selector was configured with, untouched. */
+  isDefault?: boolean;
   /** Where the filter is set, e.g. "on Overview". */
   where?: string;
   /** Jumps to the selector that sets the filter. */
@@ -112,8 +115,12 @@ function FilterRow({
           className="col-start-4 h-4 w-4 text-muted-foreground"
         />
       )}
-      {i.where && (
-        <span id={whereId} className="col-span-4 text-xs text-muted-foreground">
+      {(i.where || i.isDefault) && (
+        <span
+          id={whereId}
+          className="col-span-4 flex items-center gap-2 text-xs text-muted-foreground"
+        >
+          {i.isDefault && <Tag>default</Tag>}
           {i.where}
         </span>
       )}
@@ -148,7 +155,9 @@ function FiltersButton({
   }, [items]);
   if (items.length === 0) return null;
 
-  const setCount = items.filter((i) => i.value !== undefined).length;
+  // An untouched default is neither counted nor listed under Set (#1851).
+  const isSet = (i: FiltersButtonItem) => i.value !== undefined && !i.isDefault;
+  const setCount = items.filter(isSet).length;
   const needle = query.trim().toLowerCase();
   const matches = items.filter(
     (i) =>
@@ -158,7 +167,12 @@ function FiltersButton({
     {
       key: "set",
       name: "Set",
-      rows: matches.filter((i) => i.value !== undefined),
+      rows: matches.filter(isSet),
+    },
+    {
+      key: "default",
+      name: "Default",
+      rows: matches.filter((i) => i.value !== undefined && i.isDefault),
     },
     {
       key: "unset",

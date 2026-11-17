@@ -506,6 +506,8 @@ beforeEach(() => {
   sessionStorage.clear();
   localStorage.clear();
   useDashboardStore.getState().reset();
+  // clearAll re-seeds the defaults of the previous case, so drop them first.
+  useParameterStore.getState().setDefaultSeeds([]);
   useParameterStore.getState().clearAll();
   testQueryClient.current!.clear();
   vi.clearAllMocks();
@@ -1987,6 +1989,34 @@ describe("DashboardWorkspace", () => {
     expect(mockReplace).toHaveBeenCalledWith("/d1?param_dept=Sales", {
       scroll: false,
     });
+  });
+
+  it("keeps a default out of the URL, so a shared link never freezes it as a set value (#1851)", () => {
+    mockUseDashboard.mockReturnValue({
+      data: withSyncableParam(),
+      isLoading: false,
+      isFetching: false,
+    });
+    render(<DashboardWorkspace id="d1" editMode={false} />);
+
+    act(() => {
+      useParameterStore
+        .getState()
+        .setParameter(
+          "dept",
+          "Sales",
+          "Default value",
+          "dept",
+          "text",
+          "default",
+          "pw1",
+        );
+    });
+
+    expect(mockReplace).not.toHaveBeenCalledWith(
+      expect.stringContaining("param_dept"),
+      expect.anything(),
+    );
   });
 
   it("does NOT mirror a parameter whose widget never opted in", () => {
