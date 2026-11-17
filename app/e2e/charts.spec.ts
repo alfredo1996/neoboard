@@ -1352,9 +1352,6 @@ test.describe("Graph Expand for a dashboard editor (#2061)", () => {
             uri: TEST_NEO4J_BOLT_URL,
             username: "neo4j",
             password: "neoboard123",
-            // One driver per distinct config, closed when a connection is
-            // deleted: a unique timeout keeps this test's driver its own.
-            connectionTimeout: 20_000 + Math.floor(Math.random() * 280_000),
           },
         },
       });
@@ -1443,7 +1440,6 @@ test.describe("Graph inspector values (#2349)", () => {
             uri: TEST_NEO4J_BOLT_URL,
             username: "neo4j",
             password: "neoboard123",
-            connectionTimeout: 20_000 + Math.floor(Math.random() * 280_000),
           },
         },
       });

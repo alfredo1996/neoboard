@@ -85,9 +85,6 @@ test.describe("Form submits check dashboard access", () => {
             username: "neoboard",
             password: "neoboard",
             database: "movies",
-            // The server keeps one driver per distinct config and closes it
-            // when a connection is deleted: a unique timeout keeps this one.
-            connectionTimeout: 20_000 + Math.floor(Math.random() * 280_000),
           },
         },
       });

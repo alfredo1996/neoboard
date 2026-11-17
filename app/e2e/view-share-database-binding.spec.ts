@@ -51,11 +51,6 @@ test.describe("Viewer share runs a saved query on its saved database only", () =
             username: "neoboard",
             password: "neoboard",
             database: "neoboard",
-            // The server keeps one driver per distinct connection config, and
-            // deleting a connection closes the driver for its config. A unique
-            // timeout keeps this test's driver apart from every other
-            // connection to the same database.
-            connectionTimeout: 20_000 + Math.floor(Math.random() * 280_000),
           },
         },
       });
