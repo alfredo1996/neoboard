@@ -275,7 +275,21 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
     }),
 
   defaultSeeds: [],
-  setDefaultSeeds: (seeds) => set({ defaultSeeds: seeds }),
+  setDefaultSeeds: (seeds) =>
+    set((state) => {
+      // A saved edit can change a default while the dashboard is open: entries
+      // still tagged "default" follow the new seeds; what someone set stays.
+      const stale = new Set<string>();
+      const kept: Record<string, ParameterEntry> = {};
+      for (const [k, e] of Object.entries(state.parameters)) {
+        if (e.sourceType === "default") stale.add(k);
+        else kept[k] = e;
+      }
+      return {
+        defaultSeeds: seeds,
+        parameters: withSeeds(kept, seeds, stale),
+      };
+    }),
 
   seedDefaults: () =>
     set((state) => ({

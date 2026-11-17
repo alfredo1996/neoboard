@@ -307,6 +307,52 @@ describe("useParameterStore", () => {
       expect(useParameterStore.getState().parameters.other).toBeUndefined();
     });
 
+    it("resetFilter with no default clears a date range's parent and both companions", () => {
+      const st = useParameterStore.getState();
+      st.setDefaultSeeds(seeds);
+      for (const n of ["dates", "dates_from", "dates_to"])
+        st.setParameter(n, "2024-01-01", "W", n, "text", "selector-widget");
+      st.resetFilter("dates");
+      const p = useParameterStore.getState().parameters;
+      expect([p.dates, p.dates_from, p.dates_to]).toEqual([
+        undefined,
+        undefined,
+        undefined,
+      ]);
+    });
+
+    it("a changed default replaces the untouched one and leaves a set value alone", () => {
+      const st = useParameterStore.getState();
+      st.setDefaultSeeds([
+        { name: "dept", value: "Sales", type: "select", widgetId: "w1" },
+        { name: "year", value: 2024, type: "select", widgetId: "w2" },
+      ]);
+      st.seedDefaults();
+      st.setParameter("year", 2020, "W", "year", "select", "selector-widget");
+      st.setDefaultSeeds([
+        { name: "dept", value: "Engineering", type: "select", widgetId: "w1" },
+        { name: "year", value: 2025, type: "select", widgetId: "w2" },
+      ]);
+      const p = useParameterStore.getState().parameters;
+      expect([p.dept.value, p.year.value]).toEqual(["Engineering", 2020]);
+    });
+
+    it("defaults seeded after a restore survive it, and a restore never carries the old dashboard's", () => {
+      const st = useParameterStore.getState();
+      st.setDefaultSeeds([
+        { name: "a", value: 1, type: "select", widgetId: "w1" },
+      ]);
+      st.seedDefaults();
+      st.restoreFromDashboard("never-saved");
+      expect(useParameterStore.getState().parameters.a).toBeUndefined();
+      st.setDefaultSeeds([
+        { name: "b", value: 2, type: "select", widgetId: "w2" },
+      ]);
+      st.seedDefaults();
+      const p = useParameterStore.getState().parameters;
+      expect([p.a, p.b?.value]).toEqual([undefined, 2]);
+    });
+
     it("resetFilter restores a range's companions too", () => {
       const st = useParameterStore.getState();
       st.setDefaultSeeds([
