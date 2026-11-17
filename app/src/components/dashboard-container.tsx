@@ -11,10 +11,7 @@ import {
 } from "./filter-lit-context";
 import { FilterStrip } from "@neoboard/components/kit";
 import { scrollAndHighlight } from "@/lib/widget/scroll-to-widget";
-import {
-  buildDashboardFilters,
-  filterClearNames,
-} from "@/lib/parameter/dashboard-filters";
+import { buildDashboardFilters } from "@/lib/parameter/dashboard-filters";
 import { useFilterBarShown } from "@/hooks/use-filter-bar-shown";
 import { useFilterLit } from "@/hooks/use-filter-lit";
 import { useWidgetSourceLine } from "@/hooks/use-widget-source-line";
@@ -317,7 +314,7 @@ export function DashboardContainer({
   } | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
   const parameters = useParameterStore((s) => s.parameters);
-  const clearParameter = useParameterStore((s) => s.clearParameter);
+  const resetFilter = useParameterStore((s) => s.resetFilter);
   const clearAll = useParameterStore((s) => s.clearAll);
   const [barShown] = useFilterBarShown();
   const stripFilters = useMemo(() => {
@@ -483,9 +480,7 @@ export function DashboardContainer({
           <FilterStrip
             className="mb-3"
             filters={stripFilters}
-            onRemove={(id) =>
-              filterClearNames(id).forEach((n) => clearParameter(n))
-            }
+            onRemove={resetFilter}
             onClearAll={clearAll}
           />
         )}

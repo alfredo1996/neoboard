@@ -293,7 +293,14 @@ export function DashboardWorkspace({
   useEffect(() => {
     if (!syncParams) return;
     const syncUrl = (state: { parameters: Record<string, ParameterEntry> }) => {
-      const next = buildParamsUrl(pathname, state.parameters, syncParams);
+      // A default stays out of the link: put there, it comes back as a value
+      // someone set, a chip, and no longer follows the configured default.
+      const set = Object.fromEntries(
+        Object.entries(state.parameters).filter(
+          ([, e]) => e.sourceType !== "default",
+        ),
+      );
+      const next = buildParamsUrl(pathname, set, syncParams);
       // Only navigate when the URL actually changes. Compared against what we
       // last wrote, NOT window.location: a mocked router never updates the
       // location, so reading it would make "clearing every parameter drops the

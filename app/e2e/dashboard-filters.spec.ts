@@ -87,7 +87,7 @@ test("the header lists every filter, clears one and jumps to a selector", async 
     await expect(rows.last()).toContainText("Filter 12");
     await expect(rows.last()).toContainText("Any");
 
-    // Clear one: the count drops and that row reads Any.
+    // Clear one: the count drops and that row is back on its default.
     await list
       .getByRole("button", { name: "Clear Filter 1", exact: true })
       .click();
@@ -99,7 +99,7 @@ test("the header lists every filter, clears one and jumps to a selector", async 
           exact: true,
         }),
       }),
-    ).toContainText("Any");
+    ).toContainText("value 1");
 
     // Jump: the list closes and the selector's card is highlighted.
     await list
@@ -262,6 +262,39 @@ test("Clear all resets to the defaults: bar empty, a changed default back (#1851
     await expect(page.locator("#param-text-f2")).toHaveValue("value 2");
     await expect(page.locator("#param-text-f1")).toHaveValue("value 1");
     await expect(page.locator("#param-text-f3")).toHaveValue("");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("removing a changed filter's chip puts its default back, others stay (#1851)", async ({
+  authPage,
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1280, height: 1024 });
+  await authPage.login(ALICE.email, ALICE.password);
+  // f1 and f2 have defaults; f3 has none.
+  const { id, cleanup } = await seed(page.request, 3, 2);
+  try {
+    await page.goto(`/${id}`);
+    await expect(page.locator("#param-text-f2")).toHaveValue("value 2", {
+      timeout: 15_000,
+    });
+    await page.locator("#param-text-f2").fill("changed");
+    await page.locator("#param-text-f3").fill("hand set");
+    await expect(strip(page)).toContainText("changed");
+    await expect(strip(page)).toContainText("hand set");
+
+    await strip(page)
+      .getByRole("button", { name: "Remove Filter 2 filter", exact: true })
+      .click();
+
+    // f2 is back on its default, f3 is untouched and still a chip.
+    await expect(page.locator("#param-text-f2")).toHaveValue("value 2");
+    await expect(page.locator("#param-text-f3")).toHaveValue("hand set");
+    await expect(strip(page)).toContainText("hand set");
+    await expect(strip(page)).not.toContainText("changed");
   } finally {
     await cleanup();
   }

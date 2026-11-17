@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { ParamSeed } from "@/lib/parameter/apply-param-defaults";
+import { filterClearNames } from "@/lib/parameter/dashboard-filters";
 
 /**
  * The 8 parameter widget types supported by the parameter selector system.
@@ -81,6 +82,8 @@ interface ParameterState {
   clearParameter: (name: string) => void;
   /** Resets to "as designed": drops everything set, then re-seeds the defaults (#1851). */
   clearAll: () => void;
+  /** Clears one filter and its range companions; a configured default comes back (#1851). */
+  resetFilter: (id: string) => void;
   /** The dashboard's configured defaults, the one source `clearAll` and the load seed share. */
   defaultSeeds: ParamSeed[];
   setDefaultSeeds: (seeds: ParamSeed[]) => void;
@@ -171,6 +174,30 @@ function coerceValue(
   }
 }
 
+/** `parameters` plus every seed whose name is in `names` (all when omitted) and not already set. */
+function withSeeds(
+  parameters: Record<string, ParameterEntry>,
+  seeds: ParamSeed[],
+  names?: ReadonlySet<string>,
+): Record<string, ParameterEntry> {
+  const next = { ...parameters };
+  for (const seed of seeds) {
+    if (next[seed.name] !== undefined || (names && !names.has(seed.name)))
+      continue;
+    const result = coerceValue(seed.value, seed.type);
+    if (!result.ok) continue;
+    next[seed.name] = {
+      value: result.value,
+      source: "Default value",
+      field: seed.name,
+      type: seed.type,
+      sourceType: "default",
+      sourceWidgetId: seed.widgetId,
+    };
+  }
+  return next;
+}
+
 export const useParameterStore = create<ParameterState>((set, get) => ({
   parameters: {},
 
@@ -250,26 +277,22 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
   defaultSeeds: [],
   setDefaultSeeds: (seeds) => set({ defaultSeeds: seeds }),
 
-  seedDefaults: () => {
-    const { defaultSeeds, parameters, setParameter } = get();
-    for (const seed of defaultSeeds) {
-      if (parameters[seed.name] !== undefined) continue;
-      setParameter(
-        seed.name,
-        seed.value,
-        "Default value",
-        seed.name,
-        seed.type,
-        "default",
-        seed.widgetId,
-      );
-    }
-  },
+  seedDefaults: () =>
+    set((state) => ({
+      parameters: withSeeds(state.parameters, state.defaultSeeds),
+    })),
 
-  clearAll: () => {
-    set({ parameters: {} });
-    get().seedDefaults();
-  },
+  clearAll: () =>
+    set((state) => ({ parameters: withSeeds({}, state.defaultSeeds) })),
+
+  resetFilter: (id) =>
+    set((state) => {
+      const names = new Set(filterClearNames(id));
+      const kept = Object.fromEntries(
+        Object.entries(state.parameters).filter(([k]) => !names.has(k)),
+      );
+      return { parameters: withSeeds(kept, state.defaultSeeds, names) };
+    }),
 
   saveToDashboard: (dashboardId) => {
     const { parameters } = get();
@@ -310,6 +333,8 @@ export const useParameterStore = create<ParameterState>((set, get) => ({
       )) {
         if (!raw || typeof raw !== "object") continue;
         const entry = raw as Partial<ParameterEntry>;
+        // Untouched defaults are re-seeded from the current layout instead.
+        if (entry.sourceType === "default") continue;
         if (
           typeof entry.source !== "string" ||
           typeof entry.field !== "string" ||

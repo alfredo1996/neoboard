@@ -262,6 +262,63 @@ describe("useParameterStore", () => {
       expect(p.year.value).toBe(2024);
       expect(p.other).toBeUndefined();
     });
+
+    it("notifies subscribers once, never with an empty intermediate state", () => {
+      const st = useParameterStore.getState();
+      st.setDefaultSeeds(seeds);
+      st.seedDefaults();
+      st.setParameter("other", "x", "W", "other");
+      const seen: number[] = [];
+      const unsub = useParameterStore.subscribe((s) =>
+        seen.push(Object.keys(s.parameters).length),
+      );
+      st.clearAll();
+      unsub();
+      expect(seen).toEqual([2]);
+    });
+
+    it("resetFilter puts one filter back to its default and leaves the rest alone", () => {
+      const st = useParameterStore.getState();
+      st.setDefaultSeeds(seeds);
+      st.seedDefaults();
+      st.setParameter(
+        "region",
+        "US",
+        "W",
+        "region",
+        "select",
+        "selector-widget",
+      );
+      st.clearParameter("year"); // cleared on purpose
+      st.setParameter("other", "x", "W", "other");
+      st.resetFilter("region");
+      const p = useParameterStore.getState().parameters;
+      expect(p.region.value).toBe("EU");
+      expect(p.region.sourceType).toBe("default");
+      expect(p.year).toBeUndefined();
+      expect(p.other.value).toBe("x");
+    });
+
+    it("resetFilter clears a filter that has no default", () => {
+      const st = useParameterStore.getState();
+      st.setDefaultSeeds(seeds);
+      st.setParameter("other", "x", "W", "other");
+      st.resetFilter("other");
+      expect(useParameterStore.getState().parameters.other).toBeUndefined();
+    });
+
+    it("resetFilter restores a range's companions too", () => {
+      const st = useParameterStore.getState();
+      st.setDefaultSeeds([
+        { name: "r", value: [0, 9], type: "number-range", widgetId: "w3" },
+        { name: "r_min", value: 0, type: "text", widgetId: "w3" },
+        { name: "r_max", value: 9, type: "text", widgetId: "w3" },
+      ]);
+      st.setParameter("r_max", 5, "W", "r_max", "text", "selector-widget");
+      st.resetFilter("r");
+      const p = useParameterStore.getState().parameters;
+      expect([p.r.value, p.r_min.value, p.r_max.value]).toEqual([[0, 9], 0, 9]);
+    });
   });
 
   // ── sourceWidgetId ───────────────────────────────────────────────
@@ -376,6 +433,22 @@ describe("useParameterStore", () => {
         // @ts-expect-error – cleanup in Node where localStorage didn't exist
         delete globalThis.localStorage;
       }
+    });
+
+    it("restoreFromDashboard drops untouched defaults and keeps set values", () => {
+      const st = useParameterStore.getState();
+      st.setDefaultSeeds([
+        { name: "region", value: "EU", type: "select", widgetId: "w1" },
+      ]);
+      st.seedDefaults();
+      st.setParameter("other", "x", "W", "other", "text", "selector-widget");
+      st.saveToDashboard("dd");
+      st.clearAll();
+      st.restoreFromDashboard("dd");
+      const p = useParameterStore.getState().parameters;
+      expect(p.region).toBeUndefined();
+      expect(p.other.value).toBe("x");
+      st.setDefaultSeeds([]);
     });
 
     it("saves parameters to localStorage keyed by dashboard ID", () => {

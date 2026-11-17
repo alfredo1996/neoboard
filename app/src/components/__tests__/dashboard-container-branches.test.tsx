@@ -338,6 +338,7 @@ const parametersState = {
     }
   >,
   clearParameter: vi.fn(),
+  resetFilter: vi.fn(),
   clearAll: vi.fn(),
 };
 
@@ -836,7 +837,7 @@ describe("DashboardContainer — filter line", () => {
     expect(screen.queryByRole("region", { name: "Active filters" })).toBeNull();
   });
 
-  it("clears one parameter when its chip's × is clicked", () => {
+  it("resets one filter when its chip's × is clicked", () => {
     parametersState.parameters = {
       status: { field: "status", value: "active" },
     };
@@ -844,27 +845,21 @@ describe("DashboardContainer — filter line", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Remove Status filter" }),
     );
-    expect(parametersState.clearParameter).toHaveBeenCalledWith("status");
+    expect(parametersState.resetFilter).toHaveBeenCalledWith("status");
   });
 
-  it("clears a range chip's parent and its companions with one ×", () => {
-    parametersState.clearParameter.mockClear();
+  it("resets a range chip by its parent id, the store clears the companions", () => {
+    parametersState.resetFilter.mockClear();
     parametersState.parameters = {
       dates: { field: "dates", value: { from: "a", to: "b" } },
       dates_from: { field: "dates_from", value: "a" },
       dates_to: { field: "dates_to", value: "b" },
     };
     renderWithProviders(<DashboardContainer page={makePage()} />);
-    expect(
-      screen.getAllByRole("button", { name: /^Remove .* filter$/ }),
-    ).toHaveLength(1);
     fireEvent.click(
       screen.getByRole("button", { name: "Remove Dates filter" }),
     );
-    const cleared = parametersState.clearParameter.mock.calls.map((c) => c[0]);
-    expect(cleared).toEqual(
-      expect.arrayContaining(["dates", "dates_from", "dates_to"]),
-    );
+    expect(parametersState.resetFilter).toHaveBeenCalledWith("dates");
   });
 
   it("jumps through onNavigateToPage to the page that holds the selector", () => {
