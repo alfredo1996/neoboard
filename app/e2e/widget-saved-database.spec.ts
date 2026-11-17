@@ -40,9 +40,6 @@ async function createConnection(
         username: "neoboard",
         password: "neoboard",
         database,
-        // The server keeps one driver per distinct config and closes it when a
-        // connection is deleted: a unique timeout keeps this driver to itself.
-        connectionTimeout: 20_000 + Math.floor(Math.random() * 280_000),
       },
     },
   });

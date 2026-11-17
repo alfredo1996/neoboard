@@ -110,12 +110,6 @@ async function withScene(browser: Browser, fn: (s: Scene) => Promise<void>) {
               uri: TEST_NEO4J_BOLT_URL,
               username: "neo4j",
               password: "neoboard123",
-              // The server keeps one driver per distinct connection config, and
-              // deleting any connection closes the driver for its config. A
-              // unique timeout keeps this test's driver apart from every other
-              // connection to the same database, so a cleanup elsewhere cannot
-              // close it mid-query.
-              connectionTimeout: 20_000 + Math.floor(Math.random() * 280_000),
             },
           },
         });
