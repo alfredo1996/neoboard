@@ -84,33 +84,15 @@ describe("proxy", () => {
       },
     );
 
-    it("passes through /api/auth/* routes", async () => {
-      const res = await proxy(makeRequest("/api/auth/session"));
-      expect(res.status).toBe(200);
-    });
-
-    it("passes through /api/auth/bootstrap-status", async () => {
-      const res = await proxy(makeRequest("/api/auth/bootstrap-status"));
-      expect(res.status).toBe(200);
-    });
-
-    it("passes through /api/docs", async () => {
-      const res = await proxy(makeRequest("/api/docs"));
-      expect(res.status).toBe(200);
-    });
-
-    it("passes through /api/openapi", async () => {
-      const res = await proxy(makeRequest("/api/openapi"));
-      expect(res.status).toBe(200);
-    });
-
-    it("passes through /api/openapi.json", async () => {
-      const res = await proxy(makeRequest("/api/openapi.json"));
-      expect(res.status).toBe(200);
-    });
-
-    it("passes through /api/health without authentication", async () => {
-      const res = await proxy(makeRequest("/api/health"));
+    it.each([
+      "/api/auth/session",
+      "/api/auth/bootstrap-status",
+      "/api/docs",
+      "/api/openapi",
+      "/api/openapi.json",
+      "/api/health",
+    ])("passes %s through without authentication", async (path) => {
+      const res = await proxy(makeRequest(path));
       expect(res.status).toBe(200);
     });
 
