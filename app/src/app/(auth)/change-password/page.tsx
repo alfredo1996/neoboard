@@ -70,7 +70,11 @@ export default function ChangePasswordPage() {
       title="Change password"
       lead="You must change your password before continuing."
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        onChange={() => setError("")}
+        className="space-y-4"
+      >
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>

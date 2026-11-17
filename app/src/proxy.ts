@@ -2,15 +2,13 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { apiError } from "@/lib/api/api-response";
+import { safeCallbackPath } from "@/lib/auth/callback-path";
 
 /** Paths that use prefix matching (sub-routes allowed) */
 const publicPrefixes = ["/api/auth/", "/api/openapi"];
 
 /** Paths that require exact match */
 const publicExact = new Set([
-  "/login",
-  "/signup",
-  "/change-password",
   "/api/docs",
   // Liveness/readiness probe — consumed by Docker healthchecks and the CLI
   // readiness poll before any session exists. Anonymous callers get
@@ -105,6 +103,28 @@ function httpsRedirect(req: NextRequest): NextResponse | null {
   return NextResponse.redirect(httpsUrl, 301);
 }
 
+/** Pages that depend on the session, so they read the token (#2339). */
+const authPages = new Set(["/login", "/signup", "/change-password"]);
+
+/**
+ * Where a session-dependent auth page sends this visitor; null renders it.
+ * Cookie only: a disabled user's unexpired cookie is sent on, then the app's
+ * session check clears it and returns them to /login (a flash, not a loop).
+ */
+function authPageTarget(
+  req: NextRequest,
+  token: { forcePasswordChange?: unknown } | null,
+): string | null {
+  const { pathname, searchParams } = req.nextUrl;
+  if (pathname === "/change-password") {
+    if (!token) return "/login";
+    return token.forcePasswordChange ? null : "/settings/profile";
+  }
+  if (!token) return null;
+  if (token.forcePasswordChange) return "/change-password";
+  return safeCallbackPath(searchParams.get("callbackUrl") ?? undefined);
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const requestId = ensureRequestId(req);
@@ -114,6 +134,21 @@ export async function proxy(req: NextRequest) {
 
   const redirect = httpsRedirect(req);
   if (redirect) return redirect;
+
+  if (authPages.has(pathname)) {
+    const token = await getToken({
+      req,
+      secret: process.env.NEXTAUTH_SECRET,
+      secureCookie: usesSecureSessionCookie(req),
+    });
+    const target = authPageTarget(req, token);
+    return withRequestId(
+      target
+        ? NextResponse.redirect(new URL(target, req.nextUrl.origin))
+        : NextResponse.next({ request: { headers: req.headers } }),
+      requestId,
+    );
+  }
 
   const isPublic =
     publicExact.has(pathname) ||

@@ -142,6 +142,36 @@ describe("PUT /api/users/me/password", () => {
     );
   });
 
+  it("refuses the same password, leaving the hash alone (#2339)", async () => {
+    const req = new Request("http://localhost/api/users/me/password", {
+      method: "PUT",
+      body: JSON.stringify({
+        currentPassword: "samePass1",
+        newPassword: "samePass1",
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(await expectError(await PUT(req), 400, "BAD_REQUEST")).toBe(
+      "Choose a password different from your current one",
+    );
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("answers a wrong current password before the same-password check (#2339)", async () => {
+    vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+    const req = new Request("http://localhost/api/users/me/password", {
+      method: "PUT",
+      body: JSON.stringify({
+        currentPassword: "samePass1",
+        newPassword: "samePass1",
+      }),
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(await expectError(await PUT(req), 403, "FORBIDDEN")).toBe(
+      "Current password is incorrect",
+    );
+  });
+
   it("answers 413 for a body larger than the proxy passes on (#2011)", async () => {
     const req = new Request("http://localhost/api/users/me/password", {
       method: "PUT",

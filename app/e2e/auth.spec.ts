@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { test, expect, ALICE, CAROL, uid } from "./fixtures";
 import { AuthPage } from "./pages/auth";
 
@@ -39,6 +40,28 @@ test.describe("Authentication", () => {
     // Signed in as the seeded account, not a case-variant lookalike.
     const session = await (await page.request.get("/api/auth/session")).json();
     expect(session.user.email).toBe(ALICE.email);
+  });
+
+  test("signed in, /login and /signup land on the dashboards list (#2339)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    for (const path of ["/login", "/signup"]) {
+      await page.goto(path);
+      await expect(page).toHaveURL("/", { timeout: 10_000 });
+      await expect(
+        page.getByRole("button", { name: "Dashboards", exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
+    }
+  });
+
+  test("signed out, /change-password lands on /login (#2339)", async ({
+    page,
+  }) => {
+    await page.goto("/change-password");
+    await expect(page).toHaveURL(/\/login/, { timeout: 10_000 });
+    await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
   });
 
   test("should redirect to /login when session expires mid-session", async ({
@@ -228,6 +251,94 @@ test.describe("Authentication", () => {
       await other.close();
       await changer.close();
     }
+  });
+
+  // The proxy sends a visitor with a cookie off /login; the app's session check
+  // then clears a dead one and returns them. Owner accepted a flash, not a
+  // loop (#2339).
+  test.describe("a dead session on /login (#2339)", () => {
+    const endings = [
+      {
+        name: "disabled",
+        end: (admin: Page, id: string) =>
+          admin.request.patch(`/api/users/${id}`, { data: { disabled: true } }),
+      },
+      {
+        name: "deleted",
+        end: (admin: Page, id: string) =>
+          admin.request.delete(`/api/users/${id}`),
+      },
+    ];
+    for (const { name, end } of endings) {
+      test(`a ${name} user with an unexpired cookie ends on the login form, cookie cleared`, async ({
+        authPage,
+        page,
+        browser,
+      }) => {
+        test.setTimeout(60_000);
+        await authPage.login(ALICE.email, ALICE.password);
+        const email = `dead-${name}-${uid()}@example.com`;
+        const created = await page.request.post("/api/users", {
+          data: { name: `Dead ${name}`, email, password: "password123" },
+        });
+        expect(created.status()).toBe(201);
+        const userId: string = (await created.json()).data.id;
+        const context = await browser.newContext();
+        try {
+          const user = await context.newPage();
+          await new AuthPage(user).login(email, "password123");
+          expect((await end(page, userId)).ok()).toBe(true);
+
+          await user.goto("/login");
+          await expect(user).toHaveURL(/\/login/, { timeout: 15_000 });
+          await expect(user.getByLabel("Email")).toBeVisible();
+          await expect
+            .poll(async () => (await context.cookies()).map((c) => c.name))
+            .not.toContain("authjs.session-token");
+        } finally {
+          await page.request.delete(`/api/users/${userId}`);
+          await context.close();
+        }
+      });
+    }
+
+    test("a signed-out session on /login ends on the login form, cookie cleared", async ({
+      authPage,
+      page,
+      browser,
+    }) => {
+      test.setTimeout(60_000);
+      await authPage.login(ALICE.email, ALICE.password);
+      const email = `dead-revoked-${uid()}@example.com`;
+      const created = await page.request.post("/api/users", {
+        data: { name: "Dead revoked", email, password: "password123" },
+      });
+      expect(created.status()).toBe(201);
+      const userId: string = (await created.json()).data.id;
+      const context = await browser.newContext();
+      const twin = await browser.newContext();
+      try {
+        const user = await context.newPage();
+        await new AuthPage(user).login(email, "password123");
+        // A second browser holding a copy of the same session signs it out.
+        await twin.addCookies(await context.cookies());
+        const csrf = await (await twin.request.get("/api/auth/csrf")).json();
+        await twin.request.post("/api/auth/signout", {
+          form: { csrfToken: csrf.csrfToken },
+        });
+
+        await user.goto("/login");
+        await expect(user).toHaveURL(/\/login/, { timeout: 15_000 });
+        await expect(user.getByLabel("Email")).toBeVisible();
+        await expect
+          .poll(async () => (await context.cookies()).map((c) => c.name))
+          .not.toContain("authjs.session-token");
+      } finally {
+        await page.request.delete(`/api/users/${userId}`);
+        await context.close();
+        await twin.close();
+      }
+    });
   });
 });
 

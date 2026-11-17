@@ -403,7 +403,7 @@ export default function AuthenticationPage() {
   );
 }
 
-/** Header and tabs around the page body, so the fallback keeps the chrome. */
+/** Header around the page body. No tab strip: the fallback is reachable by URL only (#2339). */
 function AuthenticationPageShell({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -413,7 +413,7 @@ function AuthenticationPageShell({
       <PageHeader
         breadcrumb={[settingsCrumb, { label: "Authentication" }]}
         title="Authentication"
-        tabs={<SettingsTabs />}
+        meta="Configure single sign-on (SSO) providers for your organization."
       />
       <div className="flex-1 bg-page-ground p-4 md:p-7">{children}</div>
     </div>

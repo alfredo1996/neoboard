@@ -229,10 +229,15 @@ describe("AuthenticationPage", () => {
     const { default: Page } = await import("../page");
     render(<Page />);
 
-    // Header and tabs stay, so the user can leave the page (#2255).
+    // The page is reachable by URL only: no tab strip, the SSO subtitle (#2339).
     expect(screen.getByTestId("page-header")).toBeInTheDocument();
     expect(
-      screen.getByRole("navigation", { name: "Settings" }),
+      screen.queryByRole("navigation", { name: "Settings" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Configure single sign-on (SSO) providers for your organization.",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByTestId("enterprise-required")).toBeInTheDocument();
     expect(screen.getByTestId("enterprise-required")).toHaveAttribute(
