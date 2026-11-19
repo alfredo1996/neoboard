@@ -111,10 +111,16 @@ describe("Neo4jSchemaManager", () => {
       [],
       [],
     );
+    // one label-pair read per relationship type
+    _mockRun.mockResolvedValue({ records: [] });
 
     const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
 
     expect(schema.relationshipTypes).toEqual(["ACTED_IN", "DIRECTED"]);
+    expect(_mockRun.mock.calls.slice(4).map((c) => c[0])).toEqual([
+      expect.stringContaining("[r:`ACTED_IN`]"),
+      expect.stringContaining("[r:`DIRECTED`]"),
+    ]);
   });
 
   it("normalises nodeProperties from nodeType procedure", async () => {

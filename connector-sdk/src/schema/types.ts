@@ -15,9 +15,26 @@ export interface ColumnDef {
   nullable: boolean;
 }
 
+export interface ForeignKeyDef {
+  columns: string[];
+  /** `table` in `public`, otherwise `schema.table`. */
+  refTable: string;
+  refColumns: string[];
+}
+
 export interface TableDef {
   name: string;
   columns: ColumnDef[];
+  /** Primary key columns in key order; empty when the table has none. */
+  primaryKey?: string[];
+  foreignKeys?: ForeignKeyDef[];
+}
+
+/** A relationship type and the labels of the nodes it joins. */
+export interface RelationshipPattern {
+  type: string;
+  from: string;
+  to: string;
 }
 
 export interface DatabaseSchema {
@@ -32,6 +49,8 @@ export interface DatabaseSchema {
   labels?: string[];
   /** Neo4j: relationship types */
   relationshipTypes?: string[];
+  /** Neo4j: label pairs each relationship type joins (sampled) */
+  relationshipPatterns?: RelationshipPattern[];
   /** Neo4j: per-label property definitions */
   nodeProperties?: Record<string, PropertyDef[]>;
   /** Neo4j: per-relationship-type property definitions */

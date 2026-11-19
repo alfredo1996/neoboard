@@ -5,9 +5,12 @@ import {
   type ConnectorConfig,
   type DatabaseSchema,
   type PropertyDef,
+  type RelationshipPattern,
 } from "@neoboard/connector-sdk";
 import type { SchemaManager } from "./schema-manager";
 import { optionalString } from "../config-bag";
+
+const PATTERN_SAMPLE = 1000;
 
 /**
  * Fetches schema information from a Neo4j database.
@@ -87,16 +90,61 @@ export class Neo4jSchemaManager implements SchemaManager {
         });
       }
 
+      const relationshipPatterns = await this._relationshipPatterns(
+        openSession,
+        relationshipTypes.map((r) => r.relationshipType),
+      );
+
       return {
         type: "neo4j",
         labels: labels.map((r) => r.label),
         relationshipTypes: relationshipTypes.map((r) => r.relationshipType),
         nodeProperties: nodePropsMap,
         relProperties: relPropsMap,
+        relationshipPatterns,
       };
     } finally {
       await driver.close();
     }
+  }
+
+  /**
+   * The label pairs each relationship type joins, read from up to
+   * PATTERN_SAMPLE of its relationships (#2508). A node with several labels
+   * yields a pair per label.
+   *
+   * ponytail: a sample finds only pairs that exist, but can miss a pattern
+   * that is very rare within a type. db.schema.visualization() is instant but
+   * invents pairs on multi-label nodes; raise the sample if a rare pair matters.
+   */
+  private async _relationshipPatterns(
+    openSession: () => ReturnType<ReturnType<typeof neo4j.driver>["session"]>,
+    types: string[],
+  ): Promise<RelationshipPattern[]> {
+    const patterns: RelationshipPattern[] = [];
+    for (const type of types) {
+      // The name comes from db.relationshipTypes(), the database's own
+      // catalog, not from user input; it is quoted as an identifier (backticks
+      // doubled). A dynamic type, [r:$($t)], was measured on 5.26 and loses the
+      // relationship-type index (all-relationships scan plus filter).
+      const ident = "`" + type.replaceAll("`", "``") + "`";
+      const rows = await this._runQuery<{ from: string[]; to: string[] }>(
+        openSession,
+        `MATCH ()-[r:${ident}]->() WITH r LIMIT ${PATTERN_SAMPLE} ` +
+          "RETURN DISTINCT labels(startNode(r)) AS from, labels(endNode(r)) AS to",
+      );
+      const seen = new Set<string>();
+      for (const row of rows) {
+        for (const from of row.from) {
+          for (const to of row.to) {
+            if (seen.has(`${from}\u0000${to}`)) continue;
+            seen.add(`${from}\u0000${to}`);
+            patterns.push({ type, from, to });
+          }
+        }
+      }
+    }
+    return patterns;
   }
 
   private async _runQuery<T>(

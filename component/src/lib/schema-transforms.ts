@@ -25,9 +25,23 @@ export interface ColumnDef {
   nullable: boolean;
 }
 
+export interface ForeignKeyDef {
+  columns: string[];
+  refTable: string;
+  refColumns: string[];
+}
+
 export interface TableDef {
   name: string;
   columns: ColumnDef[];
+  primaryKey?: string[];
+  foreignKeys?: ForeignKeyDef[];
+}
+
+export interface RelationshipPattern {
+  type: string;
+  from: string;
+  to: string;
 }
 
 export interface DatabaseSchema {
@@ -40,6 +54,8 @@ export interface DatabaseSchema {
   labels?: string[];
   /** Graph shape: relationship types */
   relationshipTypes?: string[];
+  /** Graph shape: label pairs each relationship type joins */
+  relationshipPatterns?: RelationshipPattern[];
   /** Graph shape: per-label property definitions */
   nodeProperties?: Record<string, PropertyDef[]>;
   /** Graph shape: per-relationship-type property definitions */

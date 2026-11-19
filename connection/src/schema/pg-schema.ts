@@ -22,6 +22,40 @@ WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
 ORDER BY t.table_name, c.ordinal_position
 `;
 
+// pg_constraint, not information_schema.constraint_column_usage: that view
+// lists only tables owned by an enabled role, so a read-only user would lose
+// every foreign-key target (#2508). Columns come out in key order.
+const KEYS_QUERY = `
+SELECT
+  c.relname AS table_name,
+  con.contype,
+  (SELECT array_agg(a.attname::text ORDER BY k.ord)
+     FROM unnest(con.conkey) WITH ORDINALITY k(attnum, ord)
+     JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum
+  ) AS columns,
+  CASE WHEN rn.nspname = 'public' THEN rc.relname
+       ELSE rn.nspname || '.' || rc.relname END AS ref_table,
+  (SELECT array_agg(a.attname::text ORDER BY k.ord)
+     FROM unnest(con.confkey) WITH ORDINALITY k(attnum, ord)
+     JOIN pg_attribute a ON a.attrelid = con.confrelid AND a.attnum = k.attnum
+  ) AS ref_columns
+FROM pg_constraint con
+JOIN pg_class c ON c.oid = con.conrelid AND c.relkind = 'r'
+JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+LEFT JOIN pg_class rc ON rc.oid = con.confrelid
+LEFT JOIN pg_namespace rn ON rn.oid = rc.relnamespace
+WHERE con.contype IN ('p', 'f')
+ORDER BY c.relname, con.conname
+`;
+
+interface KeyRow {
+  table_name: string;
+  contype: "p" | "f";
+  columns: string[];
+  ref_table: string | null;
+  ref_columns: string[] | null;
+}
+
 interface SchemaRow {
   table_name: string;
   column_name: string;
@@ -59,6 +93,12 @@ export class PostgresSchemaManager implements SchemaManager {
         optionalNumber(config.statementTimeout),
       );
 
+      const keyRows = await runBoundedQuery<KeyRow>(
+        pool,
+        KEYS_QUERY,
+        optionalNumber(config.statementTimeout),
+      );
+
       const tableMap = new Map<string, ColumnDef[]>();
       for (const row of rows) {
         let columns = tableMap.get(row.table_name);
@@ -74,10 +114,21 @@ export class PostgresSchemaManager implements SchemaManager {
       }
 
       const tables: TableDef[] = Array.from(tableMap.entries()).map(
-        ([name, columns]) => ({
-          name,
-          columns,
-        }),
+        ([name, columns]) => {
+          const keys = keyRows.filter((k) => k.table_name === name);
+          return {
+            name,
+            columns,
+            primaryKey: keys.find((k) => k.contype === "p")?.columns ?? [],
+            foreignKeys: keys
+              .filter((k) => k.contype === "f")
+              .map((k) => ({
+                columns: k.columns,
+                refTable: k.ref_table ?? "",
+                refColumns: k.ref_columns ?? [],
+              })),
+          };
+        },
       );
 
       return { type: "postgresql", tables };
