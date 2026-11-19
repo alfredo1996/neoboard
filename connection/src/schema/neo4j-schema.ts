@@ -11,6 +11,7 @@ import type { SchemaManager } from "./schema-manager";
 import { optionalString } from "../config-bag";
 
 const PATTERN_SAMPLE = 1000;
+const PATTERN_CONCURRENCY = 8;
 
 /**
  * Fetches schema information from a Neo4j database.
@@ -121,26 +122,49 @@ export class Neo4jSchemaManager implements SchemaManager {
     openSession: () => ReturnType<ReturnType<typeof neo4j.driver>["session"]>,
     types: string[],
   ): Promise<RelationshipPattern[]> {
+    // Samples run PATTERN_CONCURRENCY at a time; a failed sample gives that
+    // type no pattern instead of failing the whole schema (#2508).
+    const perType: RelationshipPattern[][] = new Array(types.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < types.length) {
+        const i = next++;
+        perType[i] = await this._typePatterns(openSession, types[i]).catch(
+          () => [],
+        );
+      }
+    };
+    await Promise.all(
+      Array.from(
+        { length: Math.min(PATTERN_CONCURRENCY, types.length) },
+        worker,
+      ),
+    );
+    return perType.flat();
+  }
+
+  private async _typePatterns(
+    openSession: () => ReturnType<ReturnType<typeof neo4j.driver>["session"]>,
+    type: string,
+  ): Promise<RelationshipPattern[]> {
+    // The name comes from db.relationshipTypes(), the database's own
+    // catalog, not from user input; it is quoted as an identifier (backticks
+    // doubled). A dynamic type, [r:$($t)], was measured on 5.26 and loses the
+    // relationship-type index (all-relationships scan plus filter).
+    const ident = "`" + type.replaceAll("`", "``") + "`";
+    const rows = await this._runQuery<{ from: string[]; to: string[] }>(
+      openSession,
+      `MATCH ()-[r:${ident}]->() WITH r LIMIT ${PATTERN_SAMPLE} ` +
+        "RETURN DISTINCT labels(startNode(r)) AS from, labels(endNode(r)) AS to",
+    );
     const patterns: RelationshipPattern[] = [];
-    for (const type of types) {
-      // The name comes from db.relationshipTypes(), the database's own
-      // catalog, not from user input; it is quoted as an identifier (backticks
-      // doubled). A dynamic type, [r:$($t)], was measured on 5.26 and loses the
-      // relationship-type index (all-relationships scan plus filter).
-      const ident = "`" + type.replaceAll("`", "``") + "`";
-      const rows = await this._runQuery<{ from: string[]; to: string[] }>(
-        openSession,
-        `MATCH ()-[r:${ident}]->() WITH r LIMIT ${PATTERN_SAMPLE} ` +
-          "RETURN DISTINCT labels(startNode(r)) AS from, labels(endNode(r)) AS to",
-      );
-      const seen = new Set<string>();
-      for (const row of rows) {
-        for (const from of row.from) {
-          for (const to of row.to) {
-            if (seen.has(`${from}\u0000${to}`)) continue;
-            seen.add(`${from}\u0000${to}`);
-            patterns.push({ type, from, to });
-          }
+    const seen = new Set<string>();
+    for (const row of rows) {
+      for (const from of row.from) {
+        for (const to of row.to) {
+          if (seen.has(`${from}\u0000${to}`)) continue;
+          seen.add(`${from}\u0000${to}`);
+          patterns.push({ type, from, to });
         }
       }
     }

@@ -144,6 +144,54 @@ describe("Neo4j schema introspection — complex live model (#742 item 7)", () =
   });
 });
 
+describe("Neo4j relationship patterns — live (#2508)", () => {
+  const sorted = (p: { type: string; from: string; to: string }[] = []) =>
+    [...p].sort((a, b) =>
+      `${a.type}${a.from}${a.to}`.localeCompare(`${b.type}${b.from}${b.to}`),
+    );
+
+  it("reports the label pair of each relationship type, one pair per label of a multi-label node", async () => {
+    const schema = await new Neo4jSchemaManager().fetchSchema(getAuth());
+    const ours = (schema.relationshipPatterns ?? []).filter((p) =>
+      p.type.startsWith("CT_"),
+    );
+    expect(sorted(ours)).toEqual([
+      {
+        type: "CT_MANAGES",
+        from: "CoverageTestEmployee",
+        to: "CoverageTestCompany",
+      },
+      {
+        type: "CT_MANAGES",
+        from: "CoverageTestPerson",
+        to: "CoverageTestCompany",
+      },
+      {
+        type: "CT_WORKS_AT",
+        from: "CoverageTestEmployee",
+        to: "CoverageTestCompany",
+      },
+      {
+        type: "CT_WORKS_AT",
+        from: "CoverageTestPerson",
+        to: "CoverageTestCompany",
+      },
+    ]);
+  });
+
+  it("reads a relationship type whose name needs quoting", async () => {
+    await runWrite(
+      "CREATE (:CoverageTestBox)-[:`CT_HAS ``TICK`` X`]->(:CoverageTestBox)",
+    );
+    const schema = await new Neo4jSchemaManager().fetchSchema(getAuth());
+    expect(schema.relationshipPatterns).toContainEqual({
+      type: "CT_HAS `TICK` X",
+      from: "CoverageTestBox",
+      to: "CoverageTestBox",
+    });
+  });
+});
+
 describe("Cypher parameter injection safety (#742 item 22)", () => {
   it("stores a Cypher-injection payload literally instead of executing it", async () => {
     const payload = "' DETACH DELETE n //";

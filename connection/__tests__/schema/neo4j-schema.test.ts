@@ -123,6 +123,54 @@ describe("Neo4jSchemaManager", () => {
     ]);
   });
 
+  it("gives no relationship patterns for an empty database", async () => {
+    mockFourCalls([], [], [], []);
+    const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+    expect(schema.relationshipPatterns).toEqual([]);
+  });
+
+  describe("relationship pattern sampling (#2508)", () => {
+    const pair = (from: string[], to: string[]) => ({
+      keys: ["from", "to"],
+      get: (k: string) => (k === "from" ? from : to),
+    });
+
+    it("a failed sample gives that type no pattern and keeps the rest", async () => {
+      mockFourCalls([], [relTypeRecord("BAD"), relTypeRecord("GOOD")], [], []);
+      _mockRun.mockImplementation((q: string) =>
+        q.includes("`BAD`")
+          ? Promise.reject(new Error("timeout"))
+          : Promise.resolve({ records: [pair(["A"], ["B"])] }),
+      );
+
+      const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+      expect(schema.relationshipPatterns).toEqual([
+        { type: "GOOD", from: "A", to: "B" },
+      ]);
+    });
+
+    it("samples at most 8 types at once, and keeps the order of the types", async () => {
+      const types = Array.from({ length: 20 }, (_, i) => `T${i}`);
+      mockFourCalls([], types.map(relTypeRecord), [], []);
+      let inFlight = 0;
+      let peak = 0;
+      _mockRun.mockImplementation(async (q: string) => {
+        inFlight++;
+        peak = Math.max(peak, inFlight);
+        await new Promise((r) => setTimeout(r, 5));
+        inFlight--;
+        const type = /`(T\d+)`/.exec(q)![1];
+        return { records: [pair([type], ["X"])] };
+      });
+
+      const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+      expect(peak).toBe(8);
+      expect(schema.relationshipPatterns?.map((p) => p.type)).toEqual(types);
+    });
+  });
+
   it("normalises nodeProperties from nodeType procedure", async () => {
     mockFourCalls(
       [],
