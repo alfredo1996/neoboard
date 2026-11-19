@@ -811,6 +811,7 @@ describe("#1981 payloads: connections-test-schema", () => {
         "relationshipTypes",
         "nodeProperties",
         "relProperties",
+        "relationshipPatterns",
         "tables",
       ].sort(),
     );
@@ -823,6 +824,12 @@ describe("#1981 payloads: connections-test-schema", () => {
     ).toBe(prop);
     const table = deref(db.properties!.tables.items!);
     expect(table.required).toEqual(["name", "columns"]);
+    // #2508: keys and relationship patterns
+    expect(keys(table)).toEqual(
+      ["name", "columns", "primaryKey", "foreignKeys"].sort(),
+    );
+    const pattern = db.properties!.relationshipPatterns.items!;
+    expect(pattern.required).toEqual(["type", "from", "to"]);
     expect(table.properties!.columns.items!.required).toEqual([
       "name",
       "type",

@@ -88,6 +88,8 @@ export type {
   TableDef,
   ColumnDef,
   PropertyDef,
+  RelationshipPattern,
+  ForeignKeyDef,
   SchemaManager,
 } from "./schema/types";
 

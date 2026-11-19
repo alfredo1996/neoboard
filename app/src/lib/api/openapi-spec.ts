@@ -1600,8 +1600,8 @@ const SPEC = {
         nullable: true,
         description:
           "What the connection's connector reports about its database. Which keys are present is the connector's choice: " +
-          "a graph connector sends `labels`, `relationshipTypes`, `nodeProperties` and `relProperties`; a relational one " +
-          "sends `tables`. Null when the connection's connector has no schema introspection or is no longer installed.",
+          "a graph connector sends `labels`, `relationshipTypes`, `relationshipPatterns`, `nodeProperties` and " +
+          "`relProperties`; a relational one sends `tables`, each with its `primaryKey` and `foreignKeys`. Null when the connection's connector has no schema introspection or is no longer installed.",
         required: ["type"],
         properties: {
           type: {
@@ -1610,6 +1610,20 @@ const SPEC = {
           },
           labels: { type: "array", items: { type: "string" } },
           relationshipTypes: { type: "array", items: { type: "string" } },
+          relationshipPatterns: {
+            type: "array",
+            description:
+              "The labels each relationship type joins, one entry per label pair (a node with several labels gives a pair per label).",
+            items: {
+              type: "object",
+              required: ["type", "from", "to"],
+              properties: {
+                type: { type: "string" },
+                from: { type: "string" },
+                to: { type: "string" },
+              },
+            },
+          },
           nodeProperties: {
             type: "object",
             description:
@@ -1662,6 +1676,27 @@ const SPEC = {
                 name: { type: "string" },
                 type: { type: "string" },
                 nullable: { type: "boolean" },
+              },
+            },
+          },
+          primaryKey: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Primary key columns in key order; empty when the table has none.",
+          },
+          foreignKeys: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["columns", "refTable", "refColumns"],
+              properties: {
+                columns: { type: "array", items: { type: "string" } },
+                refTable: {
+                  type: "string",
+                  description: "`table` in `public`, otherwise `schema.table`.",
+                },
+                refColumns: { type: "array", items: { type: "string" } },
               },
             },
           },

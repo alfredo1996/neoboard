@@ -5,9 +5,13 @@ import {
   type ConnectorConfig,
   type DatabaseSchema,
   type PropertyDef,
+  type RelationshipPattern,
 } from "@neoboard/connector-sdk";
 import type { SchemaManager } from "./schema-manager";
 import { optionalString } from "../config-bag";
+
+const PATTERN_SAMPLE = 1000;
+const PATTERN_CONCURRENCY = 8;
 
 /**
  * Fetches schema information from a Neo4j database.
@@ -87,16 +91,94 @@ export class Neo4jSchemaManager implements SchemaManager {
         });
       }
 
+      const relationshipPatterns = await this._relationshipPatterns(
+        openSession,
+        relationshipTypes.map((r) => r.relationshipType),
+      );
+
       return {
         type: "neo4j",
         labels: labels.map((r) => r.label),
         relationshipTypes: relationshipTypes.map((r) => r.relationshipType),
         nodeProperties: nodePropsMap,
         relProperties: relPropsMap,
+        relationshipPatterns,
       };
     } finally {
       await driver.close();
     }
+  }
+
+  /**
+   * The label pairs each relationship type joins, read from up to
+   * PATTERN_SAMPLE of its relationships (#2508). A node with several labels
+   * yields a pair per label.
+   *
+   * ponytail: a sample finds only pairs that exist, but can miss a pattern
+   * that is very rare within a type. db.schema.visualization() is instant but
+   * invents pairs on multi-label nodes; raise the sample if a rare pair matters.
+   */
+  private async _relationshipPatterns(
+    openSession: () => ReturnType<ReturnType<typeof neo4j.driver>["session"]>,
+    types: string[],
+  ): Promise<RelationshipPattern[]> {
+    // Samples run PATTERN_CONCURRENCY at a time; a failed sample gives that
+    // type no pattern instead of failing the whole schema (#2508).
+    const perType: RelationshipPattern[][] = new Array(types.length);
+    let next = 0;
+    // Each worker chains to the next free type when its sample settles.
+    const worker = (): Promise<void> => {
+      if (next >= types.length) return Promise.resolve();
+      const i = next++;
+      return this._typePatterns(openSession, types[i])
+        .catch((): RelationshipPattern[] => [])
+        .then((patterns) => {
+          perType[i] = patterns;
+          return worker();
+        });
+    };
+    await Promise.all(
+      Array.from(
+        { length: Math.min(PATTERN_CONCURRENCY, types.length) },
+        worker,
+      ),
+    );
+    return perType.flat();
+  }
+
+  private async _typePatterns(
+    openSession: () => ReturnType<ReturnType<typeof neo4j.driver>["session"]>,
+    type: string,
+  ): Promise<RelationshipPattern[]> {
+    // The name comes from db.relationshipTypes(), the database's own
+    // catalog, not from user input; it is quoted as an identifier (backticks
+    // doubled). A dynamic type, [r:$($t)], was measured on 5.26 and loses the
+    // relationship-type index (all-relationships scan plus filter); none of
+    // [r:$($t)], [r:$any($t)], type(r) = $t or type(r) IN [$t] keeps it on
+    // 5.26 or 2025.06, so the type has to be in the text.
+    // A backslash is refused: Neo4j reads \u0060 inside a quoted identifier
+    // as a backtick, which would end the quote (measured on 5.26).
+    // ponytail: such a type gets no pattern; upgrade to a parameterized form
+    // once Neo4j keeps the type index for a dynamic type.
+    if (type.includes("\\")) return [];
+    const ident = "`" + type.replaceAll("`", "``") + "`";
+    const rows = await this._runQuery<{ from: string[]; to: string[] }>(
+      openSession,
+      `MATCH ()-[r:${ident}]->() WITH r LIMIT ${PATTERN_SAMPLE} ` +
+        "RETURN DISTINCT labels(startNode(r)) AS from, labels(endNode(r)) AS to",
+    );
+    const patterns: RelationshipPattern[] = [];
+    const seen = new Set<string>();
+    for (const row of rows) {
+      for (const from of row.from) {
+        for (const to of row.to) {
+          if (seen.has(`${from}\u0000${to}`)) continue;
+          seen.add(`${from}\u0000${to}`);
+          patterns.push({ type, from, to });
+        }
+      }
+    }
+    return patterns;
   }
 
   private async _runQuery<T>(

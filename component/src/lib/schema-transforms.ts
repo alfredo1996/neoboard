@@ -4,49 +4,20 @@
  * These are pure functions that convert `DatabaseSchema` (from the connector
  * SDK) into the formats expected by the CM6 completion libraries.
  *
- * The types are redefined here (mirroring connector-sdk/src/schema/types.ts)
- * to respect the package boundary: component/ must not import from the SDK or
- * from connection/. Drift between the two is caught by the structural test in
- * app/src/lib/connector/__tests__/database-schema-compat.test.ts (#1895).
+ * The input types mirror connector-sdk/src/schema/types.ts in
+ * ./schema-types.ts, which explains why the mirror exists.
  */
 
-// ---------------------------------------------------------------------------
-// Mirrored types (kept in sync with connector-sdk/src/schema/types.ts)
-// ---------------------------------------------------------------------------
+import type { DatabaseSchema } from "./schema-types";
 
-export interface PropertyDef {
-  name: string;
-  type: string;
-}
-
-export interface ColumnDef {
-  name: string;
-  type: string;
-  nullable: boolean;
-}
-
-export interface TableDef {
-  name: string;
-  columns: ColumnDef[];
-}
-
-export interface DatabaseSchema {
-  /**
-   * Connector type that produced this schema — an open string, as in the SDK
-   * (#1119). Nothing in component/ may branch on it: key on the SHAPE below.
-   */
-  type: string;
-  /** Graph shape: node labels */
-  labels?: string[];
-  /** Graph shape: relationship types */
-  relationshipTypes?: string[];
-  /** Graph shape: per-label property definitions */
-  nodeProperties?: Record<string, PropertyDef[]>;
-  /** Graph shape: per-relationship-type property definitions */
-  relProperties?: Record<string, PropertyDef[]>;
-  /** Tabular shape: tables with columns */
-  tables?: TableDef[];
-}
+export type {
+  PropertyDef,
+  ColumnDef,
+  ForeignKeyDef,
+  TableDef,
+  RelationshipPattern,
+  DatabaseSchema,
+} from "./schema-types";
 
 // ---------------------------------------------------------------------------
 // CypherDbSchema — format compatible with @neo4j-cypher/react-codemirror's

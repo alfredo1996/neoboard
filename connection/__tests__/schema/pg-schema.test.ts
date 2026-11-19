@@ -148,7 +148,8 @@ describe("PostgresSchemaManager", () => {
     const manager = new PostgresSchemaManager();
     await manager.fetchSchema(authConfig);
 
-    expect(mockClient.release).toHaveBeenCalledTimes(1);
+    // one checkout for the columns, one for the keys
+    expect(mockClient.release).toHaveBeenCalledTimes(2);
     expect(mockPool.end).toHaveBeenCalledTimes(1);
   });
 

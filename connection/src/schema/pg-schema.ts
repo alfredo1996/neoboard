@@ -22,6 +22,50 @@ WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
 ORDER BY t.table_name, c.ordinal_position
 `;
 
+// pg_constraint, not information_schema.constraint_column_usage: that view
+// lists only tables owned by an enabled role, so a read-only user would lose
+// every foreign-key target (#2508). Columns come out in key order. Partitioned
+// parents (relkind p) are tables too; a partition keeps the key it inherits.
+const KEYS_QUERY = `
+SELECT
+  c.relname AS table_name,
+  con.contype,
+  (SELECT array_agg(a.attname::text ORDER BY k.ord)
+     FROM unnest(con.conkey) WITH ORDINALITY k(attnum, ord)
+     JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum
+  ) AS columns,
+  CASE WHEN rn.nspname = 'public' THEN rc.relname
+       ELSE rn.nspname || '.' || rc.relname END AS ref_table,
+  (SELECT array_agg(a.attname::text ORDER BY k.ord)
+     FROM unnest(con.confkey) WITH ORDINALITY k(attnum, ord)
+     JOIN pg_attribute a ON a.attrelid = con.confrelid AND a.attnum = k.attnum
+  ) AS ref_columns
+FROM pg_constraint con
+JOIN pg_class c ON c.oid = con.conrelid AND c.relkind IN ('r', 'p')
+JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+LEFT JOIN pg_class rc ON rc.oid = con.confrelid
+LEFT JOIN pg_namespace rn ON rn.oid = rc.relnamespace
+WHERE con.contype IN ('p', 'f')
+  -- A foreign key to a partitioned table is cloned once per partition, on the
+  -- same referencing table as its parent (conparentid <> 0): keep the parent.
+  -- A key a partition inherits from its partitioned parent has a parent on
+  -- another table, and stays; so does one declared by hand (conparentid = 0).
+  AND NOT EXISTS (
+    SELECT 1 FROM pg_constraint par
+    WHERE par.oid = con.conparentid AND par.conrelid = con.conrelid
+  )
+ORDER BY c.relname, con.conname
+`;
+
+// ref_* are set for every contype f row, null for p.
+interface KeyRow {
+  table_name: string;
+  contype: "p" | "f";
+  columns: string[];
+  ref_table: string;
+  ref_columns: string[];
+}
+
 interface SchemaRow {
   table_name: string;
   column_name: string;
@@ -59,6 +103,12 @@ export class PostgresSchemaManager implements SchemaManager {
         optionalNumber(config.statementTimeout),
       );
 
+      const keyRows = await runBoundedQuery<KeyRow>(
+        pool,
+        KEYS_QUERY,
+        optionalNumber(config.statementTimeout),
+      );
+
       const tableMap = new Map<string, ColumnDef[]>();
       for (const row of rows) {
         let columns = tableMap.get(row.table_name);
@@ -73,10 +123,28 @@ export class PostgresSchemaManager implements SchemaManager {
         });
       }
 
+      const primaryKeys = new Map<string, string[]>();
+      const foreignKeys = new Map<string, TableDef["foreignKeys"]>();
+      for (const k of keyRows) {
+        if (k.contype === "p") {
+          primaryKeys.set(k.table_name, k.columns);
+          continue;
+        }
+        const list = foreignKeys.get(k.table_name) ?? [];
+        list.push({
+          columns: k.columns,
+          refTable: k.ref_table,
+          refColumns: k.ref_columns,
+        });
+        foreignKeys.set(k.table_name, list);
+      }
+
       const tables: TableDef[] = Array.from(tableMap.entries()).map(
         ([name, columns]) => ({
           name,
           columns,
+          primaryKey: primaryKeys.get(name) ?? [],
+          foreignKeys: foreignKeys.get(name) ?? [],
         }),
       );
 
