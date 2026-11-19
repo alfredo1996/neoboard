@@ -126,13 +126,16 @@ export class Neo4jSchemaManager implements SchemaManager {
     // type no pattern instead of failing the whole schema (#2508).
     const perType: RelationshipPattern[][] = new Array(types.length);
     let next = 0;
-    const worker = async () => {
-      while (next < types.length) {
-        const i = next++;
-        perType[i] = await this._typePatterns(openSession, types[i]).catch(
-          () => [],
-        );
-      }
+    // Each worker chains to the next free type when its sample settles.
+    const worker = (): Promise<void> => {
+      if (next >= types.length) return Promise.resolve();
+      const i = next++;
+      return this._typePatterns(openSession, types[i])
+        .catch((): RelationshipPattern[] => [])
+        .then((patterns) => {
+          perType[i] = patterns;
+          return worker();
+        });
     };
     await Promise.all(
       Array.from(
