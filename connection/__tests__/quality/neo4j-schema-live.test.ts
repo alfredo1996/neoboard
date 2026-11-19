@@ -190,6 +190,25 @@ describe("Neo4j relationship patterns — live (#2508)", () => {
       to: "CoverageTestBox",
     });
   });
+
+  it("skips a type name with a backslash: \\u0060 would end the quoted identifier", async () => {
+    for (const n of [
+      "CT_BS\\u0060x",
+      "CT_BS\\`",
+      "CT_BS\\u0060]->() RETURN 1 //",
+    ]) {
+      await runWrite("CREATE (:CoverageTestBox)-[:$($n)]->(:CoverageTestBox)", {
+        n,
+      });
+    }
+    const schema = await new Neo4jSchemaManager().fetchSchema(getAuth());
+    expect(schema.relationshipTypes).toContain("CT_BS\\u0060x");
+    expect(
+      (schema.relationshipPatterns ?? []).filter((p) =>
+        p.type.startsWith("CT_BS"),
+      ),
+    ).toEqual([]);
+  });
 });
 
 describe("Cypher parameter injection safety (#742 item 22)", () => {

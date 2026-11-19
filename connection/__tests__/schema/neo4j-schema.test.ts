@@ -135,6 +135,23 @@ describe("Neo4jSchemaManager", () => {
       get: (k: string) => (k === "from" ? from : to),
     });
 
+    it.each([["I_\\u0060x"], ["I_\\`"], ["I_\\\\u0060"]])(
+      "never puts a type name with a backslash (%s) into query text",
+      async (bad) => {
+        mockFourCalls([], [relTypeRecord(bad), relTypeRecord("GOOD")], [], []);
+        _mockRun.mockResolvedValue({ records: [pair(["A"], ["B"])] });
+
+        const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+        expect(_mockRun.mock.calls.map((c) => c[0]).join("\n")).not.toContain(
+          "\\",
+        );
+        expect(schema.relationshipPatterns).toEqual([
+          { type: "GOOD", from: "A", to: "B" },
+        ]);
+      },
+    );
+
     it("a failed sample gives that type no pattern and keeps the rest", async () => {
       mockFourCalls([], [relTypeRecord("BAD"), relTypeRecord("GOOD")], [], []);
       _mockRun.mockImplementation((q: string) =>

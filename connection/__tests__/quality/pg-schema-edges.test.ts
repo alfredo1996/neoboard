@@ -72,6 +72,15 @@ beforeAll(async () => {
       ev INT, ev_at DATE,
       FOREIGN KEY (ev, ev_at) REFERENCES public.events (id, at)
     );
+    -- a partitioned table with a foreign key to a partition; its partition
+    -- inherits the key (#2508)
+    CREATE TABLE public.targets (id INT PRIMARY KEY) PARTITION BY RANGE (id);
+    CREATE TABLE public.targets_1 PARTITION OF public.targets
+      FOR VALUES FROM (0) TO (100);
+    CREATE TABLE public.hits (id INT, t INT REFERENCES public.targets_1 (id))
+      PARTITION BY RANGE (id);
+    CREATE TABLE public.hits_1 PARTITION OF public.hits
+      FOR VALUES FROM (0) TO (100);
     CREATE ROLE reader LOGIN PASSWORD 'reader-pw';
     GRANT USAGE ON SCHEMA public TO reader;
     GRANT SELECT ON ALL TABLES IN SCHEMA public TO reader;
@@ -168,6 +177,15 @@ describe("PostgreSQL schema introspection edges (#742 items 15/16)", () => {
           refColumns: ["id", "at"],
         },
       ]);
+    });
+
+    it("keeps the foreign key a partition inherits when the key points at a partition", async () => {
+      const t = await fetchAsReader();
+      const key = [
+        { columns: ["t"], refTable: "targets_1", refColumns: ["id"] },
+      ];
+      expect(t("hits")?.foreignKeys).toEqual(key);
+      expect(t("hits_1")?.foreignKeys).toEqual(key);
     });
   });
 });

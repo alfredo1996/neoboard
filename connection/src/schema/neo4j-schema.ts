@@ -150,7 +150,14 @@ export class Neo4jSchemaManager implements SchemaManager {
     // The name comes from db.relationshipTypes(), the database's own
     // catalog, not from user input; it is quoted as an identifier (backticks
     // doubled). A dynamic type, [r:$($t)], was measured on 5.26 and loses the
-    // relationship-type index (all-relationships scan plus filter).
+    // relationship-type index (all-relationships scan plus filter); none of
+    // [r:$($t)], [r:$any($t)], type(r) = $t or type(r) IN [$t] keeps it on
+    // 5.26 or 2025.06, so the type has to be in the text.
+    // A backslash is refused: Neo4j reads \u0060 inside a quoted identifier
+    // as a backtick, which would end the quote (measured on 5.26).
+    // ponytail: such a type gets no pattern; upgrade to a parameterized form
+    // once Neo4j keeps the type index for a dynamic type.
+    if (type.includes("\\")) return [];
     const ident = "`" + type.replaceAll("`", "``") + "`";
     const rows = await this._runQuery<{ from: string[]; to: string[] }>(
       openSession,
