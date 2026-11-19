@@ -14,6 +14,7 @@ import { canManageConnections, effectiveCanWrite } from "@/lib/auth/can-write";
 import {
   Copy,
   MoreHorizontal,
+  Network,
   Pencil,
   Plus,
   RefreshCw,
@@ -630,6 +631,14 @@ export default function ConnectionsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              {canUse && (
+                                <DropdownMenuItem asChild>
+                                  <a href={`/model#connection-${c.id}`}>
+                                    <Network className="mr-2 h-4 w-4" />
+                                    Model
+                                  </a>
+                                </DropdownMenuItem>
+                              )}
                               {canUse && (
                                 <DropdownMenuItem
                                   onClick={() => handleTest(c.id)}

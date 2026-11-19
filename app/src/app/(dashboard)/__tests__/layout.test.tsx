@@ -188,7 +188,7 @@ describe("DashboardLayout", () => {
       </DashboardLayout>,
     );
     expect(screen.getByTestId("group-Workspace").textContent).toBe(
-      "DashboardsConnectionsWidget LibrarySettings",
+      "DashboardsConnectionsModelWidget LibrarySettings",
     );
     expect(screen.getByTestId("group-Admin").textContent).toBe("Users");
     expect(screen.getByTestId("sidebar-item-Dashboards").dataset.active).toBe(

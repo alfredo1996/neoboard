@@ -9,6 +9,7 @@ export {
   createConnectionModule,
   DEFAULT_CONNECTION_CONFIG,
   getSchemaManager,
+  describeConnectionTerms,
   getConnector,
   toConnectorError,
 } from "@neoboard/connection";

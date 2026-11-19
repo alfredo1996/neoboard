@@ -1,5 +1,9 @@
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
-import { getSchemaManager } from "@/lib/connector/connection-adapter";
+import {
+  describeConnectionTerms,
+  getSchemaManager,
+} from "@/lib/connector/connection-adapter";
+import type { SchemaTerm } from "@neoboard/connection";
 import { driverConfig } from "@/lib/connector/container-host";
 
 /**
@@ -17,6 +21,18 @@ export async function fetchConnectionSchema(
   // Built exactly as the query path builds it, so the schema comes from the
   // same host as the connection's queries (#1919).
   return manager.fetchSchema(await driverConfig(credentials));
+}
+
+/**
+ * The connection's data-model terms (#2415), read through the same path as
+ * its schema: the connector's own list, or its schema adapted, `[]` for a
+ * connector that describes no structure.
+ */
+export async function fetchConnectionTerms(
+  type: string,
+  credentials: ConnectionCredentials,
+): Promise<SchemaTerm[]> {
+  return describeConnectionTerms(type, await driverConfig(credentials));
 }
 
 /**

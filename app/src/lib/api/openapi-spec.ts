@@ -346,6 +346,47 @@ const SPEC = {
         },
       },
     },
+    "/api/connections/{id}/ontology": {
+      parameters: [{ $ref: "#/components/parameters/IdPath" }],
+      get: {
+        tags: ["Connections"],
+        summary: "Get a connection's terms",
+        description:
+          "The data model the connection's connector reports (entities, relationships and properties), each with the display name, " +
+          "description and hidden flag a creator has saved. Anyone who can use the connection reads it: the owner, anyone in the " +
+          "tenant for a shared connection, and an admin. A stored term the connection no longer reports comes back with " +
+          "`orphaned: true`; nothing is written by a read. `terms` is empty when the connector describes no structure. A failed " +
+          "introspection answers as the schema route does.",
+        responses: {
+          200: jsonResponse("The terms", "#/components/schemas/OntologyTerms"),
+          401: R.unauthorized,
+          404: R.notFound,
+          408: R.timeout,
+          500: R.serverError,
+          502: R.connectorDown,
+        },
+      },
+      put: {
+        tags: ["Connections"],
+        summary: "Describe or hide a connection's terms",
+        description:
+          "Saves display name, description and hidden for the terms in the body. Creators and admins who can use the connection; " +
+          "readers are refused (403). Every `kind`, `key` and `parentKey` must be a term the connection reports now (400). Names " +
+          "are limited to 200 characters and descriptions to 2,000, and are stored and shown as text. A term sent with an empty " +
+          "name, an empty description and `hidden: false` has its stored row removed. Returns the terms as GET does.",
+        requestBody: jsonBody("#/components/schemas/OntologyTermsRequest"),
+        responses: {
+          200: jsonResponse("The terms", "#/components/schemas/OntologyTerms"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
+          408: R.timeout,
+          500: R.serverError,
+          502: R.connectorDown,
+        },
+      },
+    },
     "/api/connectors": {
       get: {
         tags: ["Connections"],
@@ -1595,6 +1636,96 @@ const SPEC = {
         },
       },
       // nullable sits on the component: OpenAPI 3.0 ignores siblings of a $ref.
+      OntologyTerm: {
+        type: "object",
+        required: [
+          "kind",
+          "key",
+          "parentKey",
+          "displayName",
+          "description",
+          "hidden",
+          "orphaned",
+        ],
+        properties: {
+          kind: {
+            type: "string",
+            enum: ["entity", "relationship", "property"],
+          },
+          key: {
+            type: "string",
+            description:
+              "The name the connector reports; stable across a refresh.",
+          },
+          parentKey: {
+            type: "string",
+            description:
+              "Empty for an entity or a relationship. For a property, `entity:<key>` or `relationship:<key>` of the term it belongs to.",
+          },
+          type: {
+            type: "string",
+            description:
+              "A property's type, exactly as the connector reports it.",
+          },
+          primaryKey: {
+            type: "boolean",
+            description: "A property that is part of its entity's primary key.",
+          },
+          joins: {
+            type: "array",
+            description:
+              "A relationship's endpoints, one pair for each entity pair it joins.",
+            items: {
+              type: "object",
+              required: ["from", "to"],
+              properties: { from: { type: "string" }, to: { type: "string" } },
+            },
+          },
+          displayName: { type: "string", maxLength: 200 },
+          description: { type: "string", maxLength: 2000 },
+          hidden: { type: "boolean" },
+          orphaned: {
+            type: "boolean",
+            description:
+              "Stored, but the connection no longer reports the term. Worked out on each read.",
+          },
+        },
+      },
+      OntologyTerms: {
+        type: "object",
+        required: ["terms"],
+        properties: {
+          terms: {
+            type: "array",
+            items: { $ref: "#/components/schemas/OntologyTerm" },
+          },
+        },
+      },
+      OntologyTermsRequest: {
+        type: "object",
+        required: ["terms"],
+        properties: {
+          terms: {
+            type: "array",
+            maxItems: 1000,
+            items: {
+              type: "object",
+              required: ["kind", "key", "displayName", "description", "hidden"],
+              properties: {
+                kind: {
+                  type: "string",
+                  enum: ["entity", "relationship", "property"],
+                },
+                key: { type: "string" },
+                parentKey: { type: "string", default: "" },
+                displayName: { type: "string", maxLength: 200 },
+                description: { type: "string", maxLength: 2000 },
+                hidden: { type: "boolean" },
+              },
+            },
+          },
+        },
+      },
       DatabaseSchema: {
         type: "object",
         nullable: true,
