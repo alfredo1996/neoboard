@@ -565,20 +565,23 @@ function GraphChartInner({
     initialCaptionMap ?? {},
   );
 
-  // Initialize caption map with defaults when new labels appear
+  // Initialize caption map with defaults when new labels appear, and report
+  // them: a parent that titles from the map sees what the canvas shows.
+  const onCaptionMapChangeRef = useRef(onCaptionMapChange);
+  onCaptionMapChangeRef.current = onCaptionMapChange;
   useEffect(() => {
-    setCaptionMap((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const [lbl, propKeys] of labelPropertyMap) {
-        if (!(lbl in next) && propKeys.length > 0) {
-          next[lbl] = pickDefaultCaptionProp(propKeys);
-          changed = true;
-        }
+    const next = { ...captionMap };
+    let changed = false;
+    for (const [lbl, propKeys] of labelPropertyMap) {
+      if (!(lbl in next) && propKeys.length > 0) {
+        next[lbl] = pickDefaultCaptionProp(propKeys);
+        changed = true;
       }
-      return changed ? next : prev;
-    });
-  }, [labelPropertyMap]);
+    }
+    if (!changed) return;
+    setCaptionMap(next);
+    onCaptionMapChangeRef.current?.(next);
+  }, [labelPropertyMap, captionMap]);
 
   // Stable refs to latest callbacks
   const onNodeSelectRef = useRef(onNodeSelect);

@@ -271,6 +271,8 @@ function GraphInspector({
   const [fallback, setFallback] = React.useState<string | null>(null);
   const isNode = element.kind === "node";
   const kind = isNode ? "Node" : "Relationship";
+  // A node and a relationship can share an id (another connector's "1").
+  const identity = `${element.kind}:${element.id}`;
 
   // Opening, and selecting another element, moves focus to the title; the
   // box of a blocked copy belongs to the element it was raised for.
@@ -281,7 +283,7 @@ function GraphInspector({
       return;
     }
     titleRef.current?.focus({ preventScroll: true });
-  }, [element.id]);
+  }, [identity]);
 
   React.useEffect(() => {
     if (fallback === null) return;
@@ -440,14 +442,14 @@ function GraphInspector({
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-1.5">
         <Disclosure
-          key={`properties|${element.id}`}
+          key={`properties|${identity}`}
           title="Properties"
           count={String(element.properties.length)}
           headingClassName="pb-1 pt-2 text-sm font-semibold"
         >
           {element.properties.length > 0 ? (
             <PropertyPanel
-              key={element.id}
+              key={identity}
               items={element.properties}
               renderAction={(item) => (
                 <CopyButton
@@ -468,7 +470,7 @@ function GraphInspector({
 
         {element.kind === "node" && connections && (
           <Disclosure
-            key={`connections|${element.id}`}
+            key={`connections|${identity}`}
             title="Connections"
             count={`${connections.length} on this graph`}
             defaultOpen={false}
@@ -482,7 +484,7 @@ function GraphInspector({
             ) : (
               groupConnections(connections).map((g) => (
                 <ConnectionGroup
-                  key={`${element.id}|${g.key}`}
+                  key={`${identity}|${g.key}`}
                   group={g}
                   onSelect={onSelectRelationship}
                 />

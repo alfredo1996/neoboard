@@ -645,6 +645,22 @@ describe("GraphChart", () => {
     expect(personNode?.caption).toBe("1956");
   });
 
+  it("reports the default captions it picked, so a parent can match the canvas (#2515)", async () => {
+    const onCaptionMapChange = vi.fn();
+    render(
+      <GraphChart
+        nodes={labeledNodes}
+        edges={labeledEdges}
+        onCaptionMapChange={onCaptionMapChange}
+      />,
+    );
+    await waitFor(() =>
+      expect(onCaptionMapChange).toHaveBeenCalledWith(
+        expect.objectContaining({ Person: "name", Movie: "title" }),
+      ),
+    );
+  });
+
   it("fires onCaptionMapChange when caption property is changed", async () => {
     const onCaptionMapChange = vi.fn();
     render(

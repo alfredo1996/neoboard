@@ -324,6 +324,20 @@ describe("GraphInspector copy", () => {
     p.rerender({ element: node });
     expect(screen.queryByRole("textbox")).toBeNull();
   });
+
+  it("resets a blocked copy between a node and a relationship with the same id (#2515)", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
+      new Error("denied"),
+    );
+    const p = setup({ element: { ...rel, id: "1", siblings: [] } });
+    await user.click(
+      screen.getByRole("button", { name: "Copy relationship as JSON" }),
+    );
+    await screen.findByRole("textbox", { name: "Text to copy" });
+    p.rerender({ element: { ...node, id: "1" } });
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
 });
 
 describe("GraphInspector connections", () => {
