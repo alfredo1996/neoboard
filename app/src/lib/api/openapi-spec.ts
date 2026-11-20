@@ -388,6 +388,47 @@ const SPEC = {
         },
       },
     },
+    "/api/ontology/export": {
+      get: {
+        tags: ["Connections"],
+        summary: "Export the model",
+        description:
+          "The whole Model as one file (#2510): the terms someone described, for every connection the caller can use, each connection by " +
+          "id and name, and the concepts with only their sides on those connections (a concept left with none is out, except for an admin). " +
+          "Never the structure, a connection's settings or credentials, or a tenant id.",
+        responses: {
+          200: jsonResponse(
+            "The ontology file",
+            "#/components/schemas/OntologyFile",
+          ),
+          401: R.unauthorized,
+          500: R.serverError,
+        },
+      },
+    },
+    "/api/ontology/import": {
+      post: {
+        tags: ["Connections"],
+        summary: "Preview or apply an ontology import",
+        description:
+          "Creators and admins who can use every mapped connection (403 otherwise; readers too). `connectionMapping` pairs each " +
+          "connection id in the file with a local one; one left out is skipped. Without `apply` the answer is a preview and nothing is " +
+          "written. With `apply: true` the file wins for what it holds, nothing absent from it is deleted, and a key the live structure " +
+          "no longer has is written and reported as orphaned; all writes are one transaction. An unknown format or a newer version is " +
+          "refused (400). Names are limited to 200 characters and descriptions to 2,000.",
+        requestBody: jsonBody("#/components/schemas/OntologyImportRequest"),
+        responses: {
+          200: jsonResponse(
+            "The preview",
+            "#/components/schemas/OntologyImportResult",
+          ),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          500: R.serverError,
+        },
+      },
+    },
     "/api/ontology/concepts": {
       get: {
         tags: ["Connections"],
@@ -1851,6 +1892,92 @@ const SPEC = {
           concepts: {
             type: "array",
             items: { $ref: "#/components/schemas/Concept" },
+          },
+        },
+      },
+      OntologyFile: {
+        type: "object",
+        required: ["format", "version", "connections", "concepts"],
+        properties: {
+          format: { type: "string", enum: ["neoboard-ontology"] },
+          version: { type: "integer", enum: [1] },
+          connections: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["id", "name", "terms"],
+              properties: {
+                id: { type: "string" },
+                name: { type: "string" },
+                terms: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["kind", "key", "parentKey"],
+                    properties: {
+                      kind: {
+                        type: "string",
+                        enum: ["entity", "relationship", "property"],
+                      },
+                      key: { type: "string" },
+                      parentKey: { type: "string" },
+                      displayName: { type: "string", maxLength: 200 },
+                      description: { type: "string", maxLength: 2000 },
+                      hidden: { type: "boolean" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          concepts: {
+            type: "array",
+            items: { $ref: "#/components/schemas/ConceptRequest" },
+          },
+        },
+      },
+      OntologyImportRequest: {
+        type: "object",
+        required: ["payload"],
+        properties: {
+          payload: { $ref: "#/components/schemas/OntologyFile" },
+          connectionMapping: {
+            type: "object",
+            additionalProperties: { type: "string" },
+            description: "File connection id to local connection id.",
+          },
+          apply: { type: "boolean", default: false },
+        },
+      },
+      OntologyImportResult: {
+        type: "object",
+        required: ["applied", "preview"],
+        properties: {
+          applied: { type: "boolean" },
+          preview: {
+            type: "object",
+            properties: {
+              terms: {
+                type: "object",
+                additionalProperties: { type: "integer" },
+              },
+              concepts: {
+                type: "object",
+                additionalProperties: { type: "integer" },
+              },
+              items: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    kind: { type: "string", enum: ["term", "concept"] },
+                    label: { type: "string" },
+                    status: { type: "string", enum: ["new", "changed"] },
+                    orphaned: { type: "boolean" },
+                  },
+                },
+              },
+            },
           },
         },
       },

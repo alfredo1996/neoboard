@@ -99,6 +99,7 @@ export function conceptRouteError(error: unknown, fallback: string) {
 type Session = { userId: string; role: UserRole; tenantId: string };
 type UsableConnection = {
   id: string;
+  name: string;
   type: string;
   configEncrypted: string;
 };
@@ -111,6 +112,7 @@ export function usableConnections(
   return db
     .select({
       id: connections.id,
+      name: connections.name,
       type: connections.type,
       configEncrypted: connections.configEncrypted,
     })
