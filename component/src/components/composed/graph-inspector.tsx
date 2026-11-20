@@ -21,6 +21,8 @@ export type InspectorElement =
   | {
       kind: "node";
       id: string;
+      /** The id the database gave it; none, no "Element id" row. */
+      databaseId?: string;
       /** What the canvas hover shows for the node. */
       title: string;
       /** The node's legend colour, as a CSS colour. */
@@ -31,6 +33,8 @@ export type InspectorElement =
   | {
       kind: "relationship";
       id: string;
+      /** The id the database gave it; none, no "Element id" row. */
+      databaseId?: string;
       /** The relationship's type. */
       title: string;
       source: InspectorEnd;
@@ -77,10 +81,7 @@ export interface GraphInspectorProps {
  */
 export function graphInspectorWidth(graphWidth: number): number {
   if (!graphWidth) return 280;
-  return Math.min(
-    380,
-    Math.max(graphWidth * 0.34, Math.min(280, graphWidth / 2)),
-  );
+  return Math.min(380, Math.max(graphWidth / 3, Math.min(280, graphWidth / 2)));
 }
 
 /** Rows shown in a connection group before "+N more". */
@@ -89,20 +90,56 @@ const GROUP_PREVIEW = 5;
 const rowCopyClass =
   "h-6 w-6 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100";
 
-function SectionHeading({
-  children,
+/**
+ * A titled part of the panel: the title row is the toggle, the count stays
+ * beside it. The content is only hidden, so `aria-controls` always resolves.
+ */
+function Disclosure({
+  title,
   count,
+  defaultOpen = true,
   className,
-}: Readonly<{ children: string; count: string; className?: string }>) {
+  headingClassName,
+  children,
+  ...rest
+}: Readonly<{
+  title: string;
+  count: string;
+  defaultOpen?: boolean;
+  className?: string;
+  headingClassName?: string;
+  children: React.ReactNode;
+}> &
+  React.HTMLAttributes<HTMLDivElement>) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  const id = React.useId();
   return (
-    <div
-      className={cn(
-        "flex items-baseline gap-1.5 pb-1 pt-2 text-sm font-semibold",
-        className,
-      )}
-    >
-      {children}
-      <span className="text-xs font-normal text-muted-foreground">{count}</span>
+    <div className={className} {...rest}>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex w-full items-center gap-1.5 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          headingClassName,
+        )}
+      >
+        <ChevronRight
+          aria-hidden="true"
+          className={cn(
+            "size-3.5 shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-90",
+          )}
+        />
+        <span>{title}</span>{" "}
+        <span className="text-xs font-normal text-muted-foreground">
+          {count}
+        </span>
+      </button>
+      <div id={id} hidden={!open}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -141,26 +178,24 @@ function ConnectionGroup({
   const hidden = group.rows.length - GROUP_PREVIEW;
   const shown = expanded ? group.rows : group.rows.slice(0, GROUP_PREVIEW);
   return (
-    <div
+    <Disclosure
       data-testid="connection-group"
       data-group={group.key}
       className="mt-1.5"
+      headingClassName="pb-0.5 pt-1 text-xs font-medium text-foreground-2"
+      title={group.type}
+      count={String(group.rows.length)}
     >
-      <div className="pb-0.5 pt-1 text-xs font-medium text-foreground-2">
-        {group.type}{" "}
-        <span className="font-normal text-muted-foreground">
-          {group.rows.length}
-        </span>
-      </div>
       {shown.map((row) => {
         const same = group.rows.filter((r) => r.otherId === row.otherId);
         const order =
           same.length > 1 ? `${same.indexOf(row) + 1} of ${same.length}` : "";
+        const label = `${group.type} ${group.direction} ${row.otherName}`;
         return (
           <button
             key={row.id}
             type="button"
-            aria-label={`${group.type} ${group.direction} ${row.otherName}${order ? `, ${order}` : ""}`}
+            aria-label={order ? `${label}, ${order}` : label}
             onClick={() => onSelect(row.id)}
             className="-mx-1.5 flex w-[calc(100%+12px)] items-baseline gap-2 rounded px-1.5 py-1 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           >
@@ -188,7 +223,7 @@ function ConnectionGroup({
           {expanded ? "Show fewer" : `+${hidden} more`}
         </button>
       )}
-    </div>
+    </Disclosure>
   );
 }
 
@@ -227,17 +262,21 @@ function GraphInspector({
 }: Readonly<GraphInspectorProps>) {
   const titleRef = React.useRef<HTMLHeadingElement>(null);
   const boxRef = React.useRef<HTMLTextAreaElement>(null);
-  // Tied to the element it was raised for, so stepping on drops the box.
-  const [blockedCopy, setBlockedCopy] = React.useState<{
-    id: string;
-    text: string;
-  } | null>(null);
-  const fallback = blockedCopy?.id === element.id ? blockedCopy.text : null;
+  // Set by a step, so the arrow keeps focus; any other change of element
+  // (a select) moves focus to the title.
+  const steppedRef = React.useRef(false);
+  const [fallback, setFallback] = React.useState<string | null>(null);
   const isNode = element.kind === "node";
   const kind = isNode ? "Node" : "Relationship";
 
-  // Opening, and stepping to another element, moves focus to the title.
+  // Opening, and selecting another element, moves focus to the title; the
+  // box of a blocked copy belongs to the element it was raised for.
   React.useEffect(() => {
+    setFallback(null);
+    if (steppedRef.current) {
+      steppedRef.current = false;
+      return;
+    }
     titleRef.current?.focus({ preventScroll: true });
   }, [element.id]);
 
@@ -248,16 +287,18 @@ function GraphInspector({
   }, [fallback]);
 
   const blocked = (text: string) => () => {
-    setBlockedCopy({ id: element.id, text });
+    setFallback(text);
     onCopyBlocked?.();
   };
 
   const siblings = element.kind === "relationship" ? element.siblings : [];
   const at = siblings.indexOf(element.id);
-  const step = (delta: number) =>
+  const step = (delta: number) => {
+    steppedRef.current = true;
     onSelectRelationship(
       siblings[(at + delta + siblings.length) % siblings.length],
     );
+  };
 
   return (
     <section
@@ -377,7 +418,7 @@ function GraphInspector({
             variant="secondary"
             size="sm"
             className="justify-self-start"
-            onClick={() => setBlockedCopy(null)}
+            onClick={() => setFallback(null)}
           >
             Done
           </Button>
@@ -385,36 +426,42 @@ function GraphInspector({
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-1.5">
-        <SectionHeading count={String(element.properties.length)}>
-          Properties
-        </SectionHeading>
-        {element.properties.length > 0 ? (
-          <PropertyPanel
-            items={element.properties}
-            renderAction={(item) => (
-              <CopyButton
-                value={propertyRawText(item.value)}
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Copy ${item.key}`}
-                className={rowCopyClass}
-                onCopied={() => onCopied?.(item.key)}
-                onBlocked={blocked(propertyRawText(item.value))}
-              />
-            )}
-          />
-        ) : (
-          <p className="py-1 text-sm text-muted-foreground">No properties.</p>
-        )}
+        <Disclosure
+          key={`properties|${element.id}`}
+          title="Properties"
+          count={String(element.properties.length)}
+          headingClassName="pb-1 pt-2 text-sm font-semibold"
+        >
+          {element.properties.length > 0 ? (
+            <PropertyPanel
+              key={element.id}
+              items={element.properties}
+              renderAction={(item) => (
+                <CopyButton
+                  value={propertyRawText(item.value)}
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Copy ${item.key}`}
+                  className={rowCopyClass}
+                  onCopied={() => onCopied?.(item.key)}
+                  onBlocked={blocked(propertyRawText(item.value))}
+                />
+              )}
+            />
+          ) : (
+            <p className="py-1 text-sm text-muted-foreground">No properties.</p>
+          )}
+        </Disclosure>
 
         {element.kind === "node" && connections && (
-          <>
-            <SectionHeading
-              count={`${connections.length} on this graph`}
-              className="mt-2.5 border-t border-border pt-3"
-            >
-              Connections
-            </SectionHeading>
+          <Disclosure
+            key={`connections|${element.id}`}
+            title="Connections"
+            count={`${connections.length} on this graph`}
+            defaultOpen={false}
+            className="mt-2.5 border-t border-border"
+            headingClassName="pb-1 pt-3 text-sm font-semibold"
+          >
             {connections.length === 0 ? (
               <p className="py-1 text-sm text-muted-foreground">
                 None on this graph.
@@ -422,37 +469,39 @@ function GraphInspector({
             ) : (
               groupConnections(connections).map((g) => (
                 <ConnectionGroup
-                  key={g.key}
+                  key={`${element.id}|${g.key}`}
                   group={g}
                   onSelect={onSelectRelationship}
                 />
               ))
             )}
-          </>
+          </Disclosure>
         )}
 
-        <div className="group relative -mx-1.5 mt-3 grid grid-cols-[minmax(72px,36%)_minmax(0,1fr)_24px] items-start gap-x-2.5 border-t border-border px-1.5 pt-2.5">
-          <div className="pt-0.5 text-meta text-muted-foreground">
-            Element id
+        {element.databaseId !== undefined && (
+          <div className="group relative -mx-1.5 mt-3 grid grid-cols-[minmax(72px,36%)_minmax(0,1fr)_24px] items-start gap-x-2.5 border-t border-border px-1.5 pt-2.5">
+            <div className="pt-0.5 text-meta text-muted-foreground">
+              Element id
+            </div>
+            <div
+              data-testid="graph-inspector-id"
+              className="col-span-3 col-start-1 row-start-2 min-w-0 text-xs text-foreground-2 [overflow-wrap:anywhere]"
+            >
+              {element.databaseId}
+            </div>
+            <div className="col-start-3 row-start-1">
+              <CopyButton
+                value={element.databaseId}
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Copy element id"
+                className={rowCopyClass}
+                onCopied={() => onCopied?.("the element id")}
+                onBlocked={blocked(element.databaseId)}
+              />
+            </div>
           </div>
-          <div
-            data-testid="graph-inspector-id"
-            className="col-span-3 col-start-1 row-start-2 min-w-0 text-xs text-foreground-2 [overflow-wrap:anywhere]"
-          >
-            {element.id}
-          </div>
-          <div className="col-start-3 row-start-1">
-            <CopyButton
-              value={element.id}
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Copy element id"
-              className={rowCopyClass}
-              onCopied={() => onCopied?.("the element id")}
-              onBlocked={blocked(element.id)}
-            />
-          </div>
-        </div>
+        )}
       </div>
     </section>
   );

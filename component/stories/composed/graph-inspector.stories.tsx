@@ -36,6 +36,7 @@ type Story = StoryObj<typeof meta>;
 const matrix: Extract<InspectorElement, { kind: "node" }> = {
   kind: "node",
   id: "4:89d8f0b2-3c1e:603",
+  databaseId: "4:89d8f0b2-3c1e:603",
   title: "The Matrix",
   color: "#2f6fdb",
   labels: ["Movie"],
@@ -98,6 +99,7 @@ export const Relationship: Story = {
     element: {
       kind: "relationship",
       id: "r1",
+      databaseId: "5:89d8f0b2-3c1e:17",
       title: "REVIEWED",
       source: { id: "p4", name: "Jessica Thompson" },
       target: { id: "n1", name: "The Matrix" },
@@ -173,12 +175,20 @@ export const ClipboardBlocked: Story = {
     ),
     connections,
   },
-  play: async ({ canvasElement }) => {
-    // The Storybook browser has the clipboard; refuse the write so the box shows.
+  beforeEach: () => {
+    // The Storybook browser has the clipboard; refuse the write so the box
+    // shows, and give the preview document its own back afterwards.
+    const own = Object.getOwnPropertyDescriptor(navigator, "clipboard");
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText: () => Promise.reject(new Error("blocked")) },
     });
+    return () => {
+      if (own) Object.defineProperty(navigator, "clipboard", own);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    };
+  },
+  play: async ({ canvasElement }) => {
     const copy = canvasElement.querySelector<HTMLButtonElement>(
       'button[aria-label="Copy node as JSON"]',
     );
@@ -188,4 +198,26 @@ export const ClipboardBlocked: Story = {
 
 export const OnTheLeft: Story = {
   args: { element: matrix, side: "left", connections },
+};
+
+export const NodeDark: Story = { ...Node, globals: { theme: "dark" } };
+
+export const RelationshipDark: Story = {
+  ...Relationship,
+  globals: { theme: "dark" },
+};
+
+/** Connections starts closed; this one opens it, and closes a type group. */
+const openConnections: Story["play"] = async ({ canvasElement }) => {
+  canvasElement
+    .querySelector<HTMLButtonElement>('button[aria-expanded="false"]')
+    ?.click();
+};
+
+export const ConnectionsOpen: Story = { ...Node, play: openConnections };
+
+export const ConnectionsOpenDark: Story = {
+  ...Node,
+  play: openConnections,
+  globals: { theme: "dark" },
 };

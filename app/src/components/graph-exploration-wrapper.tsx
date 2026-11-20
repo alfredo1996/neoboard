@@ -178,92 +178,81 @@ interface InspectorModel {
   relationshipKey?: string;
 }
 
-/**
- * What the inspector shows for the open element, read from the graph as it is
- * now: the title and colour the canvas uses, a node's connections and a
- * relationship's parallel siblings from the edges already loaded (no query).
- */
-function buildInspector(
-  inspected: Inspected,
+type NameOf = (id: string) => string;
+
+function buildNodeInspector(
+  node: GraphNode,
   nodes: GraphNode[],
   edges: GraphEdge[],
   captionMap: Record<string, string>,
   dark: boolean,
-): InspectorModel | null {
-  const nameOf = (id: string) => {
-    const n = nodes.find((x) => x.id === id);
-    return n ? graphNodeCaption(n, captionMap) : id;
-  };
-
-  if (inspected.type === "node") {
-    const node = nodes.find((n) => n.id === inspected.id);
-    if (!node) return null;
-    const { caption, color } = describeGraphNode(node, nodes, captionMap, dark);
-    const connections = edges.flatMap((e, i): InspectorConnection[] => {
-      const id = edgeKey(e, i);
-      const type = e.label ?? "UNKNOWN";
-      if (e.source === node.id) {
-        return [
-          {
-            id,
-            type,
-            direction: "to",
-            otherId: e.target,
-            otherName: nameOf(e.target),
-          },
-        ];
-      }
-      if (e.target === node.id) {
-        return [
-          {
-            id,
-            type,
-            direction: "from",
-            otherId: e.source,
-            otherName: nameOf(e.source),
-          },
-        ];
-      }
-      return [];
-    });
-    return {
-      element: {
+  nameOf: NameOf,
+): InspectorModel {
+  const { caption, color } = describeGraphNode(node, nodes, captionMap, dark);
+  const connections = edges.flatMap((e, i): InspectorConnection[] => {
+    const outgoing = e.source === node.id;
+    if (!outgoing && e.target !== node.id) return [];
+    const otherId = outgoing ? e.target : e.source;
+    return [
+      {
+        id: edgeKey(e, i),
+        type: e.label ?? "UNKNOWN",
+        direction: outgoing ? "to" : "from",
+        otherId,
+        otherName: nameOf(otherId),
+      },
+    ];
+  });
+  return {
+    element: {
+      kind: "node",
+      id: node.id,
+      databaseId: node.id,
+      title: caption,
+      color,
+      labels: node.labels ?? [],
+      properties: toItems(node.properties),
+    },
+    elementJson: JSON.stringify(
+      {
         kind: "node",
         id: node.id,
-        title: caption,
-        color,
         labels: node.labels ?? [],
-        properties: toItems(node.properties),
+        properties: node.properties ?? {},
       },
-      elementJson: JSON.stringify(
-        {
-          kind: "node",
-          id: node.id,
-          labels: node.labels ?? [],
-          properties: node.properties ?? {},
-        },
-        null,
-        2,
-      ),
-      connections,
-    };
-  }
+      null,
+      2,
+    ),
+    connections,
+  };
+}
 
-  const index = edges.findIndex((e, i) => edgeKey(e, i) === inspected.key);
+function buildRelationshipInspector(
+  key: string,
+  edges: GraphEdge[],
+  nameOf: NameOf,
+): InspectorModel | null {
+  const index = edges.findIndex((e, i) => edgeKey(e, i) === key);
   if (index < 0) return null;
   const edge = edges[index];
   // Both directions between the same two nodes.
-  const siblings = edges.flatMap((e, i) =>
-    (e.source === edge.source && e.target === edge.target) ||
-    (e.source === edge.target && e.target === edge.source)
-      ? [edgeKey(e, i)]
-      : [],
-  );
+  // In id order, not the order a query happened to return them, so "1 of 2"
+  // names the same relationship every time.
+  const siblings = edges
+    .flatMap((e, i) =>
+      (e.source === edge.source && e.target === edge.target) ||
+      (e.source === edge.target && e.target === edge.source)
+        ? [edgeKey(e, i)]
+        : [],
+    )
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   const type = edge.label ?? "UNKNOWN";
   return {
     element: {
       kind: "relationship",
-      id: inspected.key,
+      id: key,
+      // Only a database id is shown and copied; the key is the graph's own.
+      databaseId: edge.id,
       title: type,
       source: { id: edge.source, name: nameOf(edge.source) },
       target: { id: edge.target, name: nameOf(edge.target) },
@@ -282,8 +271,32 @@ function buildInspector(
       null,
       2,
     ),
-    relationshipKey: inspected.key,
+    relationshipKey: key,
   };
+}
+
+/**
+ * What the inspector shows for the open element, read from the graph as it is
+ * now: the title and colour the canvas uses, a node's connections and a
+ * relationship's parallel siblings from the edges already loaded (no query).
+ */
+function buildInspector(
+  inspected: Inspected,
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  captionMap: Record<string, string>,
+  dark: boolean,
+): InspectorModel | null {
+  const nameOf: NameOf = (id) => {
+    const n = nodes.find((x) => x.id === id);
+    return n ? graphNodeCaption(n, captionMap) : id;
+  };
+  if (inspected.type === "edge")
+    return buildRelationshipInspector(inspected.key, edges, nameOf);
+  const node = nodes.find((n) => n.id === inspected.id);
+  return node
+    ? buildNodeInspector(node, nodes, edges, captionMap, dark, nameOf)
+    : null;
 }
 
 export function GraphExplorationWrapper({
@@ -455,8 +468,11 @@ export function GraphExplorationWrapper({
   const handleRelationshipClick = useCallback(
     (event: { edge: GraphEdge }) => {
       const edges = explorationRef.current.edges;
-      // The chart hands back the edge it holds; fall back to its ends and type.
+      // The chart hands back the edge it holds; fall back to its id, then its
+      // ends and type.
       let index = edges.indexOf(event.edge);
+      if (index < 0 && event.edge.id !== undefined)
+        index = edges.findIndex((e) => e.id === event.edge.id);
       if (index < 0) {
         index = edges.findIndex(
           (e) =>
@@ -531,12 +547,19 @@ export function GraphExplorationWrapper({
   );
   const inspectorWidth = graphInspectorWidth(graphWidth);
 
+  // The inspected element left the graph (a Collapse): nothing is left to show.
+  useEffect(() => {
+    if (inspectedElement && !inspector) closeInspector();
+  }, [inspectedElement, inspector, closeInspector]);
+
   return (
     <div
       ref={containerRef}
       tabIndex={-1}
       className="relative h-full w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       data-testid="graph-exploration"
+      // An Esc here closes the inspector only, even inside a dialog.
+      data-keeps-escape={inspector ? "" : undefined}
       onPointerDownCapture={(e) => {
         pointerXRef.current =
           e.clientX - (containerRef.current?.getBoundingClientRect().left ?? 0);

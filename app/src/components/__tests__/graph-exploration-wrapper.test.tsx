@@ -143,6 +143,9 @@ vi.mock("@/hooks/use-connectors", () => ({
 }));
 
 beforeEach(() => {
+  // The stub is shared by every suite: nothing a test sets may leak (shuffle).
+  explorationStub.nodes = graphNodes;
+  explorationStub.edges = [];
   expandable = false;
   connectorType = "fixturedb";
   connectors = { fixturedb: { graphExpansion: EXPANSION } };
@@ -331,6 +334,17 @@ describe("GraphExplorationWrapper — graph inspector (#1191, #2515)", () => {
       ]);
     });
 
+    it("orders parallel relationships by id, whatever order the graph holds them in", () => {
+      explorationStub.edges = [
+        { id: "e10", source: "A", target: "B", label: "KNOWS" },
+        { id: "e2", source: "A", target: "B", label: "KNOWS" },
+        { id: "e1", source: "B", target: "A", label: "KNOWS" },
+      ];
+      renderWrapper();
+      clickEdge(explorationStub.edges[0]);
+      expect(inspectorProps.element.siblings).toEqual(["e1", "e2", "e10"]);
+    });
+
     it("highlights the inspected relationship on the canvas and follows the stepper", () => {
       renderWrapper();
       expect(chartProps.selectedRelationshipId).toBeUndefined();
@@ -365,6 +379,24 @@ describe("GraphExplorationWrapper — graph inspector (#1191, #2515)", () => {
       });
     });
 
+    it("shows a relationship's and a node's own id as their element id", () => {
+      const onNodeSelect = renderWrapper();
+      clickEdge(explorationStub.edges[0]);
+      expect(inspectorProps.element.databaseId).toBe("e1");
+      act(() => onNodeSelect(["A"]));
+      expect(inspectorProps.element.databaseId).toBe("A");
+    });
+
+    it("opens the parallel relationship by its id even if the chart hands back a copy", () => {
+      explorationStub.edges = [
+        { id: "x1", source: "A", target: "B", label: "KNOWS" },
+        { id: "x2", source: "A", target: "B", label: "KNOWS" },
+      ];
+      renderWrapper();
+      clickEdge({ ...explorationStub.edges[1] });
+      expect(inspectorProps.element.id).toBe("x2");
+    });
+
     it("tells a relationship without an id apart by its position", () => {
       explorationStub.edges = [
         { source: "A", target: "B", label: "KNOWS" },
@@ -373,6 +405,8 @@ describe("GraphExplorationWrapper — graph inspector (#1191, #2515)", () => {
       renderWrapper();
       clickEdge(explorationStub.edges[1]);
       expect(inspectorProps.element.id).toBe("rel-A-B-1");
+      // The position is how the graph tells it apart, not a database id.
+      expect(inspectorProps.element.databaseId).toBeUndefined();
       expect(inspectorProps.element.siblings).toEqual([
         "rel-A-B-0",
         "rel-A-B-1",
@@ -402,6 +436,27 @@ describe("GraphExplorationWrapper — graph inspector (#1191, #2515)", () => {
     expect(toasts[1]).toMatchObject({
       title: "The browser blocked the clipboard",
     });
+  });
+
+  it("keeps Escape for the inspector while it is open", () => {
+    const onNodeSelect = renderWrapper();
+    const graph = screen.getByTestId("graph-exploration");
+    expect(graph).not.toHaveAttribute("data-keeps-escape");
+    act(() => onNodeSelect(["A"]));
+    expect(graph).toHaveAttribute("data-keeps-escape");
+  });
+
+  it("closes the inspector when its element leaves the graph (a Collapse)", () => {
+    const onNodeSelect = renderWrapper();
+    act(() => onNodeSelect(["A"]));
+    expect(screen.getByTestId("graph-inspector")).toBeInTheDocument();
+
+    explorationStub.nodes = [graphNodes[1]];
+    act(() => onNodeSelect(["B"]));
+    act(() => inspectorProps.onSelectNode("A"));
+
+    expect(screen.queryByTestId("graph-inspector")).not.toBeInTheDocument();
+    expect(screen.getByTestId("graph-exploration")).toHaveFocus();
   });
 
   it("closing clears the selection and puts focus back on the graph", () => {

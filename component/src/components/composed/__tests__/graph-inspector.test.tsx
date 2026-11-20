@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   GraphInspector,
+  graphInspectorWidth,
   type GraphInspectorProps,
   type InspectorElement,
 } from "../graph-inspector";
@@ -13,6 +14,7 @@ type RelEl = Extract<InspectorElement, { kind: "relationship" }>;
 const node: NodeEl = {
   kind: "node",
   id: "n1",
+  databaseId: "n1",
   title: "The Matrix",
   color: "#3366cc",
   labels: ["Movie"],
@@ -27,6 +29,7 @@ const node: NodeEl = {
 const rel: RelEl = {
   kind: "relationship",
   id: "r1",
+  databaseId: "r1",
   title: "REVIEWED",
   source: { id: "p1", name: "Jessica Thompson" },
   target: { id: "n1", name: "The Matrix" },
@@ -47,8 +50,13 @@ function setup(over: Partial<GraphInspectorProps> = {}) {
     onCopyBlocked: vi.fn(),
     ...over,
   };
-  render(<GraphInspector {...props} />);
-  return props;
+  const view = render(<GraphInspector {...props} />);
+  return {
+    ...props,
+    /** The parent hands the panel another element, as a step or a select does. */
+    rerender: (over: Partial<GraphInspectorProps>) =>
+      view.rerender(<GraphInspector {...props} {...over} />),
+  };
 }
 
 afterEach(() => {
@@ -122,21 +130,36 @@ describe("GraphInspector stepper", () => {
     expect(screen.getByText("1 of 2 between these nodes")).toBeInTheDocument();
   });
 
-  it("steps to the next and previous sibling, wrapping at the ends", async () => {
+  it("steps to the next and to the previous sibling, wrapping at the ends", async () => {
     const user = userEvent.setup();
-    const p = setup({ element: rel });
+    const p = setup({ element: { ...rel, siblings: ["r1", "r2", "r3"] } });
     await user.click(
       screen.getByRole("button", {
         name: "Next relationship between these nodes",
       }),
     );
-    expect(p.onSelectRelationship).toHaveBeenCalledWith("r2");
+    expect(p.onSelectRelationship).toHaveBeenLastCalledWith("r2");
     await user.click(
       screen.getByRole("button", {
         name: "Previous relationship between these nodes",
       }),
     );
-    expect(p.onSelectRelationship).toHaveBeenLastCalledWith("r2");
+    expect(p.onSelectRelationship).toHaveBeenLastCalledWith("r3");
+  });
+
+  it("keeps focus on the arrow after a step, and moves it to the title on a select", async () => {
+    const user = userEvent.setup();
+    const p = setup({ element: rel });
+    const next = screen.getByRole("button", {
+      name: "Next relationship between these nodes",
+    });
+    await user.click(next);
+    p.rerender({ element: { ...rel, id: "r2" } });
+    expect(next).toHaveFocus();
+
+    await user.click(screen.getByRole("button", { name: "The Matrix" }));
+    p.rerender({ element: { ...node, id: "n9" } });
+    expect(screen.getByRole("heading", { name: "The Matrix" })).toHaveFocus();
   });
 
   it("shows no stepper for a relationship with no sibling", () => {
@@ -182,6 +205,27 @@ describe("GraphInspector properties", () => {
   it("shows the element id at the bottom", () => {
     setup();
     expect(screen.getByTestId("graph-inspector-id")).toHaveTextContent("n1");
+  });
+});
+
+describe("GraphInspector element id", () => {
+  it("has no id row for an element the database gave no id", () => {
+    setup({ element: { ...rel, id: "rel-A-B-1", databaseId: undefined } });
+    expect(screen.queryByTestId("graph-inspector-id")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Copy element id" }),
+    ).toBeNull();
+  });
+});
+
+describe("graphInspectorWidth", () => {
+  it.each([
+    [0, 280],
+    [526, 263],
+    [900, 300],
+    [1200, 380],
+  ])("a graph %ipx wide gets %ipx", (graph, panel) => {
+    expect(graphInspectorWidth(graph)).toBeCloseTo(panel, 5);
   });
 });
 
@@ -239,6 +283,20 @@ describe("GraphInspector copy", () => {
     await user.click(screen.getByRole("button", { name: "Done" }));
     expect(screen.queryByRole("textbox")).toBeNull();
   });
+
+  it("does not bring a blocked copy's text back when the element comes back", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
+      new Error("denied"),
+    );
+    const p = setup();
+    await user.click(screen.getByRole("button", { name: "Copy node as JSON" }));
+    await screen.findByRole("textbox", { name: "Text to copy" });
+    p.rerender({ element: { ...node, id: "n2" } });
+    expect(screen.queryByRole("textbox")).toBeNull();
+    p.rerender({ element: node });
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
 });
 
 describe("GraphInspector connections", () => {
@@ -280,8 +338,14 @@ describe("GraphInspector connections", () => {
     },
   ];
 
-  it("groups by type and direction and counts them", () => {
+  /** Connections starts closed: open it. */
+  const openConnections = (user: ReturnType<typeof userEvent.setup>) =>
+    user.click(screen.getByRole("button", { name: /^Connections/ }));
+
+  it("groups by type and direction and counts them", async () => {
+    const user = userEvent.setup();
     setup({ connections: conns });
+    await openConnections(user);
     expect(screen.getByText("5 on this graph")).toBeInTheDocument();
     const groups = screen.getAllByTestId("connection-group");
     expect(groups.map((g) => g.getAttribute("data-group"))).toEqual([
@@ -291,12 +355,14 @@ describe("GraphInspector connections", () => {
     ]);
   });
 
-  it("marks parallel relationships to the same node as 1 of 2", () => {
+  it("marks parallel relationships to the same node as 1 of 2", async () => {
+    const user = userEvent.setup();
     setup({ connections: conns });
+    await openConnections(user);
     const reviewed = screen
       .getAllByTestId("connection-group")
       .find((g) => g.getAttribute("data-group") === "REVIEWED|from")!;
-    const rows = within(reviewed).getAllByRole("button");
+    const rows = within(reviewed).getAllByRole("button", { name: /Jessica/ });
     expect(rows[0]).toHaveAccessibleName("REVIEWED from Jessica, 1 of 2");
     expect(rows[1]).toHaveAccessibleName("REVIEWED from Jessica, 2 of 2");
     const acted = screen
@@ -308,6 +374,7 @@ describe("GraphInspector connections", () => {
   it("opens the relationship a row names", async () => {
     const user = userEvent.setup();
     const p = setup({ connections: conns });
+    await openConnections(user);
     await user.click(
       screen.getByRole("button", { name: "REVIEWED from Jessica, 2 of 2" }),
     );
@@ -324,23 +391,122 @@ describe("GraphInspector connections", () => {
       otherName: `Person ${i}`,
     }));
     setup({ connections: many });
+    await openConnections(user);
     const group = screen.getByTestId("connection-group");
     expect(
-      within(group).getAllByRole("button", { name: /^KNOWS/ }),
+      within(group).getAllByRole("button", { name: /^KNOWS to/ }),
     ).toHaveLength(5);
     await user.click(within(group).getByRole("button", { name: "+2 more" }));
     expect(
-      within(group).getAllByRole("button", { name: /^KNOWS/ }),
+      within(group).getAllByRole("button", { name: /^KNOWS to/ }),
     ).toHaveLength(7);
   });
 
-  it("says when a node has none, and shows nothing on a relationship", () => {
+  it("collapses an expanded group again on another element", async () => {
+    const user = userEvent.setup();
+    const many = Array.from({ length: 7 }, (_, i) => ({
+      id: `m${i}`,
+      type: "KNOWS",
+      direction: "to" as const,
+      otherId: `o${i}`,
+      otherName: `Person ${i}`,
+    }));
+    const p = setup({ connections: many });
+    await openConnections(user);
+    await user.click(screen.getByRole("button", { name: "+2 more" }));
+    p.rerender({ element: { ...node, id: "n2" }, connections: many });
+    await openConnections(user);
+    expect(screen.getByRole("button", { name: "+2 more" })).toBeInTheDocument();
+  });
+
+  it("says when a node has none", async () => {
+    const user = userEvent.setup();
     setup({ connections: [] });
+    await openConnections(user);
     expect(screen.getByText("None on this graph.")).toBeInTheDocument();
   });
 
   it("has no Connections section on a relationship", () => {
     setup({ element: rel, connections: conns });
     expect(screen.queryByText("Connections")).toBeNull();
+  });
+
+  it("starts closed, opens from its title row and closes again", async () => {
+    const user = userEvent.setup();
+    setup({ connections: conns });
+    const toggle = screen.getByRole("button", { name: /^Connections/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: /^ACTED_IN/ })).toBeNull();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(
+      document.getElementById(toggle.getAttribute("aria-controls")!),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /^ACTED_IN from Keanu/ }),
+    ).toBeVisible();
+    await user.click(toggle);
+    expect(
+      screen.queryByRole("button", { name: /^ACTED_IN from Keanu/ }),
+    ).toBeNull();
+  });
+
+  it("collapses one type group and leaves the others open", async () => {
+    const user = userEvent.setup();
+    setup({ connections: conns });
+    await openConnections(user);
+    const acted = screen
+      .getAllByTestId("connection-group")
+      .find((g) => g.getAttribute("data-group") === "ACTED_IN|from")!;
+    const toggle = within(acted).getByRole("button", {
+      name: /^ACTED_IN/,
+      expanded: true,
+    });
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(within(acted).queryByRole("button", { name: /Keanu/ })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /^DIRECTED to Lana/ }),
+    ).toBeVisible();
+  });
+});
+
+describe("GraphInspector sections", () => {
+  it("opens Properties, closes it from its title row, and brings it back", async () => {
+    const user = userEvent.setup();
+    setup();
+    const toggle = screen.getByRole("button", { name: /^Properties/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("released")).toBeVisible();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("released")).not.toBeVisible();
+    await user.click(toggle);
+    expect(screen.getByText("released")).toBeVisible();
+  });
+
+  it("keeps the count beside the title", () => {
+    setup({ connections: [] });
+    expect(
+      screen.getByRole("button", { name: "Properties 4" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Connections 0 on this graph" }),
+    ).toBeInTheDocument();
+  });
+
+  it("goes back to the defaults on another element", async () => {
+    const user = userEvent.setup();
+    const p = setup({ connections: [] });
+    await user.click(screen.getByRole("button", { name: /^Properties/ }));
+    await user.click(screen.getByRole("button", { name: /^Connections/ }));
+    p.rerender({ element: { ...node, id: "n2" }, connections: [] });
+    expect(screen.getByRole("button", { name: /^Properties/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(
+      screen.getByRole("button", { name: /^Connections/ }),
+    ).toHaveAttribute("aria-expanded", "false");
   });
 });

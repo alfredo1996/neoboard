@@ -1908,14 +1908,27 @@ test.describe("Column mapping overlay", () => {
 type Page = import("@playwright/test").Page;
 
 /** Two nodes joined by two REVIEWED relationships that differ in `note`. */
-async function seedParallelPair(page: Page) {
-  const tag = `e2e2515_${uid()}`;
-  const ids: {
-    connectionId?: string;
-    dashboardId?: string;
-    seeded: boolean;
-    tag: string;
-  } = { seeded: false, tag };
+type PairIds = {
+  connectionId?: string;
+  dashboardId?: string;
+  seeded: boolean;
+  tag: string;
+};
+
+async function seedParallelPair(page: Page): Promise<PairIds> {
+  const ids: PairIds = { seeded: false, tag: `e2e2515_${uid()}` };
+  try {
+    await seedParallelPairInto(page, ids);
+  } catch (error) {
+    // A failed setup never reaches the caller's finally: clean up here.
+    await removeParallelPair(page, ids);
+    throw error;
+  }
+  return ids;
+}
+
+async function seedParallelPairInto(page: Page, ids: PairIds) {
+  const { tag } = ids;
   const connRes = await page.request.post("/api/connections", {
     data: {
       name: `inspector-${tag}`,
@@ -1933,8 +1946,8 @@ async function seedParallelPair(page: Page) {
     data: {
       connectionId: ids.connectionId,
       query:
-        "CREATE (a:E2E2515 {tag: $tag, name: 'Ada Reviewer'}), (m:E2E2515 {tag: $tag, name: 'The Pair'}), (a)-[:REVIEWED {tag: $tag, note: 'first review', rating: 95}]->(m), (a)-[:REVIEWED {tag: $tag, note: 'second review', rating: 40}]->(m)",
-      params: { tag },
+        "CREATE (a:E2E2515 {tag: $tag, name: 'Ada Reviewer'}), (m:E2E2515 {tag: $tag, name: 'The Pair'}), (a)-[:REVIEWED {tag: $tag, note: 'first review', rating: 95, plot: $plot}]->(m), (a)-[:REVIEWED {tag: $tag, note: 'second review', rating: 40, plot: $plot}]->(m)",
+      params: { tag, plot: "A long plot that keeps going. ".repeat(40) },
     },
   });
   expect(seed.ok()).toBeTruthy();
@@ -1967,13 +1980,9 @@ async function seedParallelPair(page: Page) {
     },
   });
   expect(put.ok()).toBeTruthy();
-  return ids;
 }
 
-async function removeParallelPair(
-  page: Page,
-  ids: Awaited<ReturnType<typeof seedParallelPair>> | undefined,
-) {
+async function removeParallelPair(page: Page, ids: PairIds | undefined) {
   if (!ids) return;
   if (ids.seeded)
     await page.request.post("/api/query/write", {
@@ -2022,6 +2031,8 @@ async function openInspectorOnCanvas(
 async function openAReview(panel: import("@playwright/test").Locator) {
   const label = (await panel.getAttribute("aria-label")) ?? "";
   if (label.startsWith("Node:")) {
+    // Connections starts closed.
+    await panel.getByRole("button", { name: /^Connections/ }).click();
     await panel
       .getByRole("button", { name: /^REVIEWED (to|from) .+, \d of 2$/ })
       .first()
@@ -2043,7 +2054,7 @@ test.describe("Graph inspector (#2515)", () => {
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    let ids: Awaited<ReturnType<typeof seedParallelPair>> | undefined;
+    let ids: PairIds | undefined;
     try {
       ids = await seedParallelPair(page);
       await page.goto(`/${ids.dashboardId}`);
@@ -2065,9 +2076,12 @@ test.describe("Graph inspector (#2515)", () => {
       });
       const first = (await note.textContent()) ?? "";
       expect(["first review", "second review"]).toContain(first);
-      await expect(
-        panel.getByText(/^\d of 2 between these nodes$/),
-      ).toBeVisible();
+      await expect(panel).toContainText(/\d of 2 between these nodes/);
+      // A long value wraps under its key; it never makes the panel scroll sideways.
+      const body = panel.locator(".overflow-y-auto");
+      expect(
+        await body.evaluate((el) => el.scrollWidth <= el.clientWidth),
+      ).toBe(true);
 
       await next.click();
       const second =
@@ -2101,7 +2115,7 @@ test.describe("Graph inspector (#2515)", () => {
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-    let ids: Awaited<ReturnType<typeof seedParallelPair>> | undefined;
+    let ids: PairIds | undefined;
     try {
       ids = await seedParallelPair(page);
       await page.goto(`/${ids.dashboardId}`);
@@ -2155,7 +2169,7 @@ test.describe("Graph inspector (#2515)", () => {
     page,
   }) => {
     await authPage.login(ALICE.email, ALICE.password);
-    let ids: Awaited<ReturnType<typeof seedParallelPair>> | undefined;
+    let ids: PairIds | undefined;
     try {
       ids = await seedParallelPair(page);
       await page.goto(`/${ids.dashboardId}`);
