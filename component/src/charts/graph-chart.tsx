@@ -21,7 +21,6 @@ import type {
   GraphEdgeEvent,
 } from "./types";
 import type { StylingRule } from "./styling-rule";
-import { resolveStylingRuleColor } from "./styling-rule";
 import {
   Popover,
   PopoverTrigger,
@@ -31,27 +30,20 @@ import { Label } from "@/components/ui/label";
 import { fieldBaseClasses } from "@/components/ui/control-sizes";
 import { cn } from "@/lib/utils";
 import { useDarkMode } from "./base-chart";
-import { HASTINGS_LIGHT, HASTINGS_DARK } from "./theme";
 import { toNvlColor } from "./nvl-color";
+import {
+  buildLabelColorMap,
+  colorLabel,
+  nodeColor,
+  relationshipId,
+  resolveCaption,
+} from "./graph-labels";
 
 export type GraphLayout = "force" | "circular" | "hierarchical";
-
-/**
- * Node-label palettes — the Hastings chart palette (#2226), the default of every
- * other chart, so the graph reads as part of the same system. Light/dark
- * variants track the theme (#2229).
- */
-const LABEL_COLOR_PALETTE_LIGHT = HASTINGS_LIGHT;
-const LABEL_COLOR_PALETTE_DARK = HASTINGS_DARK;
 
 /** Hairline relationships in the rule colour of each theme (#2229). */
 const EDGE_RULE_LIGHT = "#c9ced8";
 const EDGE_RULE_DARK = "#6a7180";
-
-/** The label a node is coloured and counted by: its last one. */
-function colorLabel(node: GraphNode): string | undefined {
-  return node.labels?.[node.labels.length - 1];
-}
 
 /** Nodes per colour label, sorted by label — the legend rows. */
 function countByLabel(nodes: GraphNode[]): [string, number][] {
@@ -61,30 +53,6 @@ function countByLabel(nodes: GraphNode[]): [string, number][] {
     if (l !== undefined) counts.set(l, (counts.get(l) ?? 0) + 1);
   }
   return Array.from(counts).sort((a, b) => a[0].localeCompare(b[0]));
-}
-
-/**
- * Builds a map of node label → palette color.
- * Labels are sorted so the same set of labels always yields the same colors.
- */
-function buildLabelColorMap(
-  nodes: GraphNode[],
-  dark: boolean,
-): Map<string, string> {
-  const palette = dark ? LABEL_COLOR_PALETTE_DARK : LABEL_COLOR_PALETTE_LIGHT;
-  const labels = new Set<string>();
-  for (const node of nodes) {
-    if (node.labels) {
-      for (const lbl of node.labels) labels.add(lbl);
-    }
-  }
-  const sorted = Array.from(labels).sort((a, b) => a.localeCompare(b));
-  const map = new Map<string, string>();
-  sorted.forEach((lbl, i) => {
-    // NVL only renders hex; the citrine palette is authored in hsl() (#1157).
-    map.set(lbl, toNvlColor(palette[i % palette.length]));
-  });
-  return map;
 }
 
 export type GraphNodeSize = "small" | "medium" | "large";
@@ -166,6 +134,13 @@ export interface GraphChartProps {
   stylingRules?: StylingRule[];
   /** Resolved parameter values for styling rule evaluation */
   paramValues?: Record<string, unknown>;
+  /**
+   * A panel docked over one side of the graph (#2515): the toolbar, the bottom
+   * row and the hover tooltip keep clear of it. The canvas is not resized.
+   */
+  overlayInset?: { side: "left" | "right"; width: number };
+  /** The relationship NVL highlights, by its edge id (or NVL's own id). */
+  selectedRelationshipId?: string;
   /** Additional CSS classes */
   className?: string;
 }
@@ -246,60 +221,6 @@ function pickDefaultCaptionProp(propKeys: string[]): string {
 }
 
 /**
- * Converts a property value to a human-readable string for graph display.
- * Every value arrives as the row value contract's own forms (#1904) — ISO-8601
- * strings for temporals, decimal strings past a double — so a `Date` cannot
- * reach here.
- */
-function graphPrimitiveString(val: unknown): string {
-  if (val === null || val === undefined) return "";
-  if (typeof val !== "object") return String(val);
-  return JSON.stringify(val);
-}
-
-/**
- * Resolve the caption for a node given the captionMap.
- */
-function resolveCaption(
-  node: GraphNode,
-  captionMap: Record<string, string>,
-): string {
-  const nodeLabels = node.labels ?? [];
-  const props = node.properties ?? {};
-  for (const lbl of nodeLabels) {
-    const propKey = captionMap[lbl];
-    if (propKey && propKey in props) {
-      const val = props[propKey];
-      if (val !== null && val !== undefined) return graphPrimitiveString(val);
-    }
-  }
-  return node.label ?? node.id;
-}
-
-/**
- * The colour a node is painted: styling rule > explicit node.color > label
- * palette, as hex (NVL doesn't render hsl(), whatever the source, #1157).
- * The legend reads this too, so its swatches match the canvas.
- */
-function nodeColor(
-  node: GraphNode,
-  labelColorMap: Map<string, string>,
-  stylingRules?: StylingRule[],
-  paramValues?: Record<string, unknown>,
-): string | undefined {
-  const ruleColor =
-    stylingRules?.length && node.value != null
-      ? resolveStylingRuleColor(node.value, stylingRules, paramValues)
-      : undefined;
-  const label = colorLabel(node);
-  const raw =
-    ruleColor ??
-    node.color ??
-    (label === undefined ? undefined : labelColorMap.get(label));
-  return raw === undefined ? undefined : toNvlColor(raw);
-}
-
-/**
  * Maps our internal GraphNode type to an NVL Node.
  * Color priority: explicit node.color > last-label color from palette > undefined.
  */
@@ -369,23 +290,36 @@ const TOOLTIP_W = 224; // max-w-56
 const TOOLTIP_H = 48; // two truncated 12px/16px lines + padding
 
 /** Offset from the pointer, clamped so the tooltip stays inside the container. */
-function tooltipPos(x: number, y: number, box: HTMLElement | null) {
+function tooltipPos(
+  x: number,
+  y: number,
+  box: HTMLElement | null,
+  inset?: GraphChartProps["overlayInset"],
+) {
   const w = box?.clientWidth || Infinity;
   const h = box?.clientHeight || Infinity;
+  const min = inset?.side === "left" ? inset.width : 0;
+  // The room beside the panel; the tooltip narrows to fit it.
+  const room = Math.max(0, w - (inset?.width ?? 0));
+  const width = Math.min(TOOLTIP_W, room);
   return {
-    left: Math.max(0, Math.min(x + 12, w - TOOLTIP_W)),
+    left: Math.max(min, Math.min(x + 12, min + room - width)),
     top: Math.max(0, Math.min(y + 12, h - TOOLTIP_H)),
+    width,
   };
+}
+
+/** The bottom row stops short of a docked panel. */
+function bottomRowInset(inset: GraphChartProps["overlayInset"]) {
+  if (!inset) return undefined;
+  return inset.side === "left"
+    ? { left: inset.width + 8 }
+    : { right: inset.width + 8 };
 }
 
 function edgeColor(color: string | undefined, dark: boolean): string {
   if (color) return toNvlColor(color);
   return dark ? EDGE_RULE_DARK : EDGE_RULE_LIGHT;
-}
-
-/** NVL's id for the index-th edge, also how a click is mapped back to it. */
-function relationshipId(edge: GraphEdge, index: number): string {
-  return `rel-${edge.source}-${edge.target}-${index}`;
 }
 
 /**
@@ -396,6 +330,7 @@ function toNvlRelationship(
   index: number,
   showRelationshipLabels: boolean,
   dark: boolean,
+  selectedRelationshipId?: string,
 ): NvlRelationship {
   return {
     id: relationshipId(edge, index),
@@ -408,6 +343,10 @@ function toNvlRelationship(
     // Normalize to hex either way; NVL doesn't render hsl() (#1157).
     color: edgeColor(edge.color, dark),
     width: 1,
+    selected:
+      selectedRelationshipId !== undefined &&
+      (edge.id === selectedRelationshipId ||
+        relationshipId(edge, index) === selectedRelationshipId),
   };
 }
 
@@ -447,6 +386,8 @@ function GraphChartInner({
   footer,
   stylingRules,
   paramValues,
+  overlayInset,
+  selectedRelationshipId,
   className,
 }: GraphChartProps) {
   const nvlRef = useRef<NVL>(null);
@@ -454,6 +395,8 @@ function GraphChartInner({
   const [hover, setHover] = useState<{
     title: string;
     sub: string;
+    /** The pointer, in the container; the tooltip is placed at render, so a
+     *  panel that opens under a standing tooltip still clears it. */
     x: number;
     y: number;
   } | null>(null);
@@ -507,20 +450,23 @@ function GraphChartInner({
     initialCaptionMap ?? {},
   );
 
-  // Initialize caption map with defaults when new labels appear
+  // Initialize caption map with defaults when new labels appear, and report
+  // them: a parent that titles from the map sees what the canvas shows.
+  const onCaptionMapChangeRef = useRef(onCaptionMapChange);
+  onCaptionMapChangeRef.current = onCaptionMapChange;
   useEffect(() => {
-    setCaptionMap((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const [lbl, propKeys] of labelPropertyMap) {
-        if (!(lbl in next) && propKeys.length > 0) {
-          next[lbl] = pickDefaultCaptionProp(propKeys);
-          changed = true;
-        }
+    const next = { ...captionMap };
+    let changed = false;
+    for (const [lbl, propKeys] of labelPropertyMap) {
+      if (!(lbl in next) && propKeys.length > 0) {
+        next[lbl] = pickDefaultCaptionProp(propKeys);
+        changed = true;
       }
-      return changed ? next : prev;
-    });
-  }, [labelPropertyMap]);
+    }
+    if (!changed) return;
+    setCaptionMap(next);
+    onCaptionMapChangeRef.current?.(next);
+  }, [labelPropertyMap, captionMap]);
 
   // Stable refs to latest callbacks
   const onNodeSelectRef = useRef(onNodeSelect);
@@ -588,9 +534,15 @@ function GraphChartInner({
   const nvlRels = useMemo(
     () =>
       edges.map((e, i) =>
-        toNvlRelationship(e, i, showRelationshipLabels, dark),
+        toNvlRelationship(
+          e,
+          i,
+          showRelationshipLabels,
+          dark,
+          selectedRelationshipId,
+        ),
       ),
-    [edges, showRelationshipLabels, dark],
+    [edges, showRelationshipLabels, dark, selectedRelationshipId],
   );
 
   const fitGraph = useCallback(() => {
@@ -630,11 +582,8 @@ function GraphChartInner({
     (): InteractiveNvlWrapperProps["mouseEventCallbacks"] => ({
       onHover: (element, _hit, event) => {
         const box = containerRef.current?.getBoundingClientRect();
-        const { left: x, top: y } = tooltipPos(
-          (event?.clientX ?? 0) - (box?.left ?? 0),
-          (event?.clientY ?? 0) - (box?.top ?? 0),
-          containerRef.current,
-        );
+        const x = (event?.clientX ?? 0) - (box?.left ?? 0);
+        const y = (event?.clientY ?? 0) - (box?.top ?? 0);
         if (!element) return setHover(null);
         if ("from" in element) {
           const name = (id: string) => {
@@ -828,6 +777,11 @@ function GraphChartInner({
       {showNodeCount && (
         <div
           className="absolute top-2 left-2 z-10 rounded-md border border-border/50 bg-background/80 px-2 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm"
+          style={
+            overlayInset?.side === "left"
+              ? { left: overlayInset.width + 8 }
+              : undefined
+          }
           data-testid="graph-node-count"
         >
           {nodes.length} {nodes.length === 1 ? "node" : "nodes"}, {edges.length}{" "}
@@ -839,7 +793,14 @@ function GraphChartInner({
       <div
         role="toolbar"
         aria-label="Graph controls"
-        className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md border border-border/50 bg-background/80 px-1.5 py-1 opacity-0 shadow-sm backdrop-blur-sm transition-opacity focus-within:opacity-100 group-hover/graph:opacity-100 group-focus-within/graph:opacity-100 [@media(hover:none)]:opacity-100"
+        style={{
+          // Wraps in the room beside the panel rather than running off the edge.
+          maxWidth: `calc(100% - ${(overlayInset?.width ?? 0) + 16}px)`,
+          ...(overlayInset?.side === "right"
+            ? { right: overlayInset.width + 8 }
+            : undefined),
+        }}
+        className="absolute top-2 right-2 z-10 flex flex-wrap items-center justify-end gap-1 rounded-md border border-border/50 bg-background/80 px-1.5 py-1 opacity-0 shadow-sm backdrop-blur-sm transition-opacity focus-within:opacity-100 group-hover/graph:opacity-100 group-focus-within/graph:opacity-100 [@media(hover:none)]:opacity-100"
       >
         <button
           onClick={zoomIn}
@@ -985,7 +946,10 @@ function GraphChartInner({
       </div>
 
       {(legendRows.length > 0 || footer) && (
-        <div className="pointer-events-none absolute bottom-2 left-2 right-2 z-10 flex flex-wrap items-end gap-2">
+        <div
+          className="pointer-events-none absolute bottom-2 left-2 right-2 z-10 flex flex-wrap items-end gap-2"
+          style={bottomRowInset(overlayInset)}
+        >
           {footer && <div className="pointer-events-auto">{footer}</div>}
           {legendRows.length > 0 && (
             <ul
@@ -1032,7 +996,15 @@ function GraphChartInner({
       {hover && (
         <div
           className="pointer-events-none absolute z-30 max-w-56 rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md"
-          style={{ left: hover.x, top: hover.y }}
+          style={(() => {
+            const t = tooltipPos(
+              hover.x,
+              hover.y,
+              containerRef.current,
+              overlayInset,
+            );
+            return { left: t.left, top: t.top, maxWidth: t.width };
+          })()}
           data-testid="graph-hover"
         >
           <div className="truncate font-medium">{hover.title}</div>

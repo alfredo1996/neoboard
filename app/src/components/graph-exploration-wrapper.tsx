@@ -1,21 +1,29 @@
 "use client";
 
 import { limitedFetch } from "@/lib/query/limited-fetch";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { unwrapFullResponse } from "@/lib/api/api-client";
 import {
   useGraphExploration,
-  PropertyPanel,
-  Tag,
+  GraphInspector,
+  graphInspectorWidth,
+  useDarkMode,
   toast,
 } from "@neoboard/components";
+import {
+  describeGraphNode,
+  graphNodeCaption,
+  relationshipId,
+} from "@neoboard/components/charts/graph-labels";
 import { GraphChart } from "@/components/lazy-graph-chart";
 import type {
   GraphNode,
   GraphEdge,
   GraphNodeEvent,
   FetchNeighborsResult,
-  PropertySection,
+  InspectorConnection,
+  InspectorElement,
+  PropertyItem,
   PropertyValue,
 } from "@neoboard/components";
 import { getChartConfig } from "@/lib/plugin/chart-helpers";
@@ -148,42 +156,149 @@ function toPropertyValue(v: unknown): PropertyValue {
   return null;
 }
 
-function edgeToSections(edge: GraphEdge): PropertySection[] {
-  const props = edge.properties ?? {};
-  const propertyItems = Object.entries(props).map(([key, value]) => ({
+/** A graph element's properties as the inspector lists them (it sorts them). */
+function toItems(props: Record<string, unknown> | undefined): PropertyItem[] {
+  return Object.entries(props ?? {}).map(([key, value]) => ({
     key,
     value: toPropertyValue(value),
   }));
-  const metaItems = [
-    ...(edge.id ? [{ key: "id", value: edge.id }] : []),
-    { key: "type", value: edge.label ?? "UNKNOWN" },
-    { key: "source", value: edge.source },
-    { key: "target", value: edge.target },
-  ];
-  return [
-    { title: "Metadata", items: metaItems, collapsible: false as const },
-    ...(propertyItems.length > 0
-      ? [{ title: "Properties", items: propertyItems }]
-      : []),
-  ];
 }
 
-function nodeToSections(node: GraphNode): PropertySection[] {
-  const props = node.properties ?? {};
-  const propertyItems = Object.entries(props).map(([key, value]) => ({
-    key,
-    value: toPropertyValue(value),
-  }));
-  const metaItems = [
-    { key: "id", value: node.id },
-    ...(node.labels?.length ? [{ key: "labels", value: node.labels }] : []),
-  ];
-  return [
-    { title: "Metadata", items: metaItems, collapsible: false as const },
-    ...(propertyItems.length > 0
-      ? [{ title: "Properties", items: propertyItems }]
-      : []),
-  ];
+/** An edge's id: its own, else the id the chart gives it by position. */
+function edgeKey(edge: GraphEdge, index: number): string {
+  return edge.id ?? relationshipId(edge, index);
+}
+
+/** What is open in the inspector, by identity: the element is read live from the graph. */
+type Inspected = { type: "node"; id: string } | { type: "edge"; key: string };
+
+interface InspectorModel {
+  element: InspectorElement;
+  elementJson: string;
+  connections?: InspectorConnection[];
+  /** The relationship to highlight on the canvas. */
+  relationshipKey?: string;
+}
+
+type NameOf = (id: string) => string;
+
+function buildNodeInspector(
+  node: GraphNode,
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  captionMap: Record<string, string>,
+  dark: boolean,
+  nameOf: NameOf,
+): InspectorModel {
+  const { caption, color } = describeGraphNode(node, nodes, captionMap, dark);
+  const connections = edges.flatMap((e, i): InspectorConnection[] => {
+    const outgoing = e.source === node.id;
+    if (!outgoing && e.target !== node.id) return [];
+    const otherId = outgoing ? e.target : e.source;
+    return [
+      {
+        id: edgeKey(e, i),
+        type: e.label ?? "UNKNOWN",
+        direction: outgoing ? "to" : "from",
+        otherId,
+        otherName: nameOf(otherId),
+      },
+    ];
+  });
+  return {
+    element: {
+      kind: "node",
+      id: node.id,
+      databaseId: node.id,
+      title: caption,
+      color,
+      labels: node.labels ?? [],
+      properties: toItems(node.properties),
+    },
+    elementJson: JSON.stringify(
+      {
+        kind: "node",
+        id: node.id,
+        labels: node.labels ?? [],
+        properties: node.properties ?? {},
+      },
+      null,
+      2,
+    ),
+    connections,
+  };
+}
+
+function buildRelationshipInspector(
+  key: string,
+  edges: GraphEdge[],
+  nameOf: NameOf,
+): InspectorModel | null {
+  const index = edges.findIndex((e, i) => edgeKey(e, i) === key);
+  if (index < 0) return null;
+  const edge = edges[index];
+  // Both directions between the same two nodes.
+  // In id order, not the order a query happened to return them, so "1 of 2"
+  // names the same relationship every time.
+  const siblings = edges
+    .flatMap((e, i) =>
+      (e.source === edge.source && e.target === edge.target) ||
+      (e.source === edge.target && e.target === edge.source)
+        ? [edgeKey(e, i)]
+        : [],
+    )
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const type = edge.label ?? "UNKNOWN";
+  return {
+    element: {
+      kind: "relationship",
+      id: key,
+      // Only a database id is shown and copied; the key is the graph's own.
+      databaseId: edge.id,
+      title: type,
+      source: { id: edge.source, name: nameOf(edge.source) },
+      target: { id: edge.target, name: nameOf(edge.target) },
+      siblings,
+      properties: toItems(edge.properties),
+    },
+    elementJson: JSON.stringify(
+      {
+        kind: "relationship",
+        id: edge.id,
+        type,
+        source: edge.source,
+        target: edge.target,
+        properties: edge.properties ?? {},
+      },
+      null,
+      2,
+    ),
+    relationshipKey: key,
+  };
+}
+
+/**
+ * What the inspector shows for the open element, read from the graph as it is
+ * now: the title and colour the canvas uses, a node's connections and a
+ * relationship's parallel siblings from the edges already loaded (no query).
+ */
+function buildInspector(
+  inspected: Inspected,
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  captionMap: Record<string, string>,
+  dark: boolean,
+): InspectorModel | null {
+  const nameOf: NameOf = (id) => {
+    const n = nodes.find((x) => x.id === id);
+    return n ? graphNodeCaption(n, captionMap) : id;
+  };
+  if (inspected.type === "edge")
+    return buildRelationshipInspector(inspected.key, edges, nameOf);
+  const node = nodes.find((n) => n.id === inspected.id);
+  return node
+    ? buildNodeInspector(node, nodes, edges, captionMap, dark, nameOf)
+    : null;
 }
 
 export function GraphExplorationWrapper({
@@ -200,12 +315,16 @@ export function GraphExplorationWrapper({
 }: Readonly<GraphExplorationWrapperProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [menu, setMenu] = useState<NodeMenu | null>(null);
-  type InspectedElement =
-    | { type: "node"; node: GraphNode }
-    | { type: "edge"; edge: GraphEdge }
-    | null;
-  const [inspectedElement, setInspectedElement] =
-    useState<InspectedElement>(null);
+  const [inspectedElement, setInspectedElement] = useState<Inspected | null>(
+    null,
+  );
+  const inspectedRef = useRef(inspectedElement);
+  // Where the last pointer went down, in the graph's own pixels: it decides
+  // which side the inspector docks to, so it never opens over the click.
+  const pointerXRef = useRef(0);
+  const [side, setSide] = useState<"left" | "right">("right");
+  const [graphWidth, setGraphWidth] = useState(0);
+  const dark = useDarkMode();
   const storeSetState = useGraphWidgetStore((s) => s.setState);
   const stored = useGraphWidgetStore((s) => s.states[widgetId]);
   // The expanded copy is `<id>--fullscreen`; its tile is `<id>` (#1509).
@@ -310,6 +429,27 @@ export function GraphExplorationWrapper({
     explorationRef.current = exploration;
   }, [exploration]);
 
+  // Opening picks the side from the last pointer-down; a panel already open
+  // keeps its side, so stepping through elements never makes it jump.
+  const inspect = useCallback((next: Inspected | null) => {
+    if (next && !inspectedRef.current) {
+      const w = containerRef.current?.clientWidth ?? 0;
+      setSide(
+        w > 0 && pointerXRef.current > w - graphInspectorWidth(w)
+          ? "left"
+          : "right",
+      );
+    }
+    inspectedRef.current = next;
+    setInspectedElement(next);
+  }, []);
+
+  const closeInspector = useCallback(() => {
+    inspect(null);
+    explorationRef.current.onNodeSelect([]);
+    containerRef.current?.focus({ preventScroll: true });
+  }, [inspect]);
+
   const handleNodeSelect = useCallback(
     (ids: string[]) => {
       explorationRef.current.onNodeSelect(ids);
@@ -319,17 +459,49 @@ export function GraphExplorationWrapper({
       // Open property panel on single-click
       if (ids.length === 1) {
         const node = explorationRef.current.nodes.find((n) => n.id === ids[0]);
-        if (node) setInspectedElement({ type: "node", node });
+        if (node) inspect({ type: "node", id: node.id });
       } else {
-        setInspectedElement(null);
+        inspect(null);
       }
     },
-    [onChartClick],
+    [onChartClick, inspect],
   );
 
-  const handleRelationshipClick = useCallback((event: { edge: GraphEdge }) => {
-    setInspectedElement({ type: "edge", edge: event.edge });
-  }, []);
+  const handleRelationshipClick = useCallback(
+    (event: { edge: GraphEdge }) => {
+      const edges = explorationRef.current.edges;
+      // The chart hands back the edge it holds; fall back to its id, then its
+      // ends and type.
+      let index = edges.indexOf(event.edge);
+      if (index < 0 && event.edge.id !== undefined)
+        index = edges.findIndex((e) => e.id === event.edge.id);
+      if (index < 0) {
+        index = edges.findIndex(
+          (e) =>
+            e.source === event.edge.source &&
+            e.target === event.edge.target &&
+            e.label === event.edge.label,
+        );
+      }
+      if (index >= 0)
+        inspect({ type: "edge", key: edgeKey(edges[index], index) });
+    },
+    [inspect],
+  );
+
+  // An end link or a connection row: look at that node or relationship, and
+  // mark the node on the canvas. Not a click on the chart, so no click action.
+  const inspectNode = useCallback(
+    (id: string) => {
+      explorationRef.current.onNodeSelect([id]);
+      inspect({ type: "node", id });
+    },
+    [inspect],
+  );
+  const inspectRelationship = useCallback(
+    (key: string) => inspect({ type: "edge", key }),
+    [inspect],
+  );
 
   const handleLayoutChange = useCallback(
     (layout: "force" | "circular" | "hierarchical") => {
@@ -352,11 +524,62 @@ export function GraphExplorationWrapper({
     [storeSetState, widgetId],
   );
 
+  // The graph's width sets the panel's: a third of it, clamped.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setGraphWidth(el.clientWidth));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Native listeners: the container is a focus target, not a control.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onPointerDown = (e: PointerEvent) => {
+      pointerXRef.current = e.clientX - el.getBoundingClientRect().left;
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && inspectedRef.current) closeInspector();
+    };
+    el.addEventListener("pointerdown", onPointerDown, true);
+    el.addEventListener("keydown", onKeyDown);
+    return () => {
+      el.removeEventListener("pointerdown", onPointerDown, true);
+      el.removeEventListener("keydown", onKeyDown);
+    };
+  }, [closeInspector]);
+
+  const captionMap = stored?.captionMap;
+  const inspector = useMemo(
+    () =>
+      inspectedElement
+        ? buildInspector(
+            inspectedElement,
+            exploration.nodes,
+            exploration.edges,
+            captionMap ?? {},
+            dark,
+          )
+        : null,
+    [inspectedElement, exploration.nodes, exploration.edges, captionMap, dark],
+  );
+  const inspectorWidth = graphInspectorWidth(graphWidth);
+
+  // The inspected element left the graph (a Collapse): nothing is left to show.
+  useEffect(() => {
+    if (inspectedElement && !inspector) closeInspector();
+  }, [inspectedElement, inspector, closeInspector]);
+
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full"
+      tabIndex={-1}
+      className="relative h-full w-full rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       data-testid="graph-exploration"
+      // An Esc here closes the inspector only, even inside a dialog.
+      data-keeps-escape={inspector ? "" : undefined}
     >
       <GraphChart
         nodes={exploration.nodes}
@@ -377,6 +600,8 @@ export function GraphExplorationWrapper({
         onLayoutChange={handleLayoutChange}
         onCaptionMapChange={handleCaptionMapChange}
         autoFit={autoFit}
+        overlayInset={inspector ? { side, width: inspectorWidth } : undefined}
+        selectedRelationshipId={inspector?.relationshipKey}
         // This wrapper renders its own status bar below; without this the same
         // counts appeared twice in one widget (#1521).
         showNodeCount={false}
@@ -415,7 +640,7 @@ export function GraphExplorationWrapper({
           menu={menu}
           onClose={() => setMenu(null)}
           onProperties={() => {
-            setInspectedElement({ type: "node", node: menu.node });
+            inspect({ type: "node", id: menu.node.id });
             setMenu(null);
           }}
           onExpand={
@@ -441,43 +666,25 @@ export function GraphExplorationWrapper({
         />
       )}
 
-      {/* Property inspector side panel */}
-      {inspectedElement && (
-        <div
-          data-testid="graph-inspector"
-          className="absolute top-0 right-0 bottom-0 w-80 border-l bg-card overflow-y-auto z-20 shadow-lg"
-        >
-          <div className="flex items-center justify-between p-3 border-b">
-            <div className="flex items-center gap-2 min-w-0">
-              <Tag className="shrink-0">
-                {inspectedElement.type === "node" ? "Node" : "Relationship"}
-              </Tag>
-              <h3 className="text-sm font-semibold truncate">
-                {inspectedElement.type === "node"
-                  ? (inspectedElement.node.label ??
-                    inspectedElement.node.id ??
-                    "Node")
-                  : (inspectedElement.edge.label ?? "Relationship")}
-              </h3>
-            </div>
-            <button
-              onClick={() => setInspectedElement(null)}
-              className="text-muted-foreground hover:text-foreground text-lg leading-none"
-              aria-label="Close properties panel"
-            >
-              &times;
-            </button>
-          </div>
-          <div className="p-2">
-            <PropertyPanel
-              sections={
-                inspectedElement.type === "node"
-                  ? nodeToSections(inspectedElement.node)
-                  : edgeToSections(inspectedElement.edge)
-              }
-            />
-          </div>
-        </div>
+      {inspector && (
+        <GraphInspector
+          element={inspector.element}
+          elementJson={inspector.elementJson}
+          connections={inspector.connections}
+          side={side}
+          width={inspectorWidth}
+          onClose={closeInspector}
+          onSelectNode={inspectNode}
+          onSelectRelationship={inspectRelationship}
+          onCopied={(what) => toast({ title: `Copied ${what}` })}
+          onCopyBlocked={() =>
+            toast({
+              title: "The browser blocked the clipboard",
+              description:
+                "The text is selected: press Ctrl+C, or Cmd+C on a Mac.",
+            })
+          }
+        />
       )}
     </div>
   );

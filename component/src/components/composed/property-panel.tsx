@@ -1,13 +1,4 @@
 import * as React from "react";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Pencil, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** A property value by its JS shape: what the row renders, never a JSON string. */
@@ -35,6 +26,16 @@ const LIST_PREVIEW = 5;
  */
 const STRING_CLAMP_CHARS = 200;
 
+/**
+ * Five digits or more get thousands separators (63,000,000); shorter numbers
+ * print bare, so a year never reads 1,964.
+ */
+function formatNumber(value: number): string {
+  return Math.abs(value) >= 10000
+    ? value.toLocaleString("en-US", { maximumFractionDigits: 20 })
+    : String(value);
+}
+
 /** A text toggle whose accessible name is its visible text (WCAG 2.5.3). */
 function Toggle({
   expanded,
@@ -50,7 +51,7 @@ function Toggle({
   return (
     <button
       type="button"
-      className="mt-1 text-meta text-primary hover:underline"
+      className="mt-1 rounded-sm text-meta text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-expanded={expanded}
       onClick={onToggle}
     >
@@ -109,6 +110,7 @@ function ValueView({ value }: Readonly<{ value: PropertyValue }>) {
   if (value === "")
     return <span className="text-muted-foreground">(empty)</span>;
   if (typeof value === "string") return <LongString value={value} />;
+  if (typeof value === "number") return <>{formatNumber(value)}</>;
   if (typeof value !== "object") return <>{String(value)}</>;
   if (Array.isArray(value)) {
     if (value.length === 0)
@@ -150,174 +152,130 @@ function ValueView({ value }: Readonly<{ value: PropertyValue }>) {
   );
 }
 
-export interface PropertySection {
-  title: string;
-  items: PropertyItem[];
-  collapsible?: boolean;
+/** The text a copy button writes for a value: strings as is, structures as JSON. */
+export function propertyRawText(value: PropertyValue): string {
+  if (value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null) {
+    return JSON.stringify(value);
+  }
+  return String(value);
 }
 
-export interface PropertyPanelProps {
-  sections: PropertySection[];
-  editable?: boolean;
-  onEdit?: (sectionTitle: string, key: string, value: string) => void;
-  className?: string;
+/** What a value shows on one line, so its width can be measured. */
+function scalarText(value: PropertyValue): string {
+  if (value === undefined) return "-";
+  if (value === null) return "null";
+  if (value === "") return "(empty)";
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return formatNumber(value);
+  if (typeof value === "boolean") return String(value);
+  if (Array.isArray(value) && value.length === 0) return "(empty list)";
+  if (Object.keys(value).length === 0) return "(empty map)";
+  return JSON.stringify(value);
 }
 
-function PropertyPanel({
-  sections,
-  editable = false,
-  onEdit,
-  className,
-}: PropertyPanelProps) {
-  const collapsibleSections = sections.filter((s) => s.collapsible !== false);
-  const nonCollapsibleSections = sections.filter(
-    (s) => s.collapsible === false,
-  );
+/** Row geometry, mirrored from the grid below: key column, copy slot, gaps. */
+const KEY_MIN = 72;
+const KEY_SHARE = 0.36;
+const COPY_SLOT = 24;
+const GAPS = 20;
+const ROW_PADDING = 12;
 
-  return (
-    <div className={cn("space-y-4", className)}>
-      {nonCollapsibleSections.map((section) => (
-        <div key={section.title}>
-          <h3 className="text-sm font-semibold mb-2">{section.title}</h3>
-          <PropertyItems
-            section={section}
-            editable={editable}
-            onEdit={onEdit}
-          />
-        </div>
-      ))}
-      {collapsibleSections.length > 0 && (
-        <Accordion
-          type="multiple"
-          defaultValue={collapsibleSections.map((s) => s.title)}
-        >
-          {collapsibleSections.map((section) => (
-            <AccordionItem key={section.title} value={section.title}>
-              <AccordionTrigger className="text-sm font-semibold py-2">
-                {section.title}
-                <span className="ml-2 text-xs font-normal text-muted-foreground">
-                  ({section.items.length})
-                </span>
-              </AccordionTrigger>
-              <AccordionContent>
-                <PropertyItems
-                  section={section}
-                  editable={editable}
-                  onEdit={onEdit}
-                />
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      )}
-    </div>
-  );
-}
-
-function PropertyItems({
-  section,
-  editable,
-  onEdit,
-}: {
-  section: PropertySection;
-  editable: boolean;
-  onEdit?: (sectionTitle: string, key: string, value: string) => void;
-}) {
-  return (
-    <div className="space-y-1">
-      {section.items.map((item) => (
-        <PropertyRow
-          key={item.key}
-          item={item}
-          editable={editable}
-          onSave={(value) => onEdit?.(section.title, item.key, value)}
-        />
-      ))}
-    </div>
-  );
+/** A value reads beside its key only if its one-line width fits the column. */
+function fitsBesideKey(textWidth: number, rowWidth: number): boolean {
+  const inner = rowWidth - ROW_PADDING;
+  const room = inner - Math.max(KEY_MIN, inner * KEY_SHARE) - COPY_SLOT - GAPS;
+  return textWidth <= room;
 }
 
 function PropertyRow({
   item,
-  editable,
-  onSave,
-}: {
-  item: PropertyItem;
-  editable: boolean;
-  onSave: (value: string) => void;
-}) {
-  const [editing, setEditing] = React.useState(false);
-  const isText = typeof item.value === "string";
-  const text = typeof item.value === "string" ? item.value : "";
-  const [editValue, setEditValue] = React.useState(text);
+  action,
+}: Readonly<{ item: PropertyItem; action?: React.ReactNode }>) {
+  const rowRef = React.useRef<HTMLDivElement>(null);
+  const sizerRef = React.useRef<HTMLSpanElement>(null);
+  const text = scalarText(item.value);
+  const [fits, setFits] = React.useState(true);
 
-  const handleSave = () => {
-    onSave(editValue);
-    setEditing(false);
-  };
+  React.useLayoutEffect(() => {
+    const row = rowRef.current;
+    const sizer = sizerRef.current;
+    if (!row || !sizer) return;
+    const measure = () =>
+      setFits(fitsBesideKey(sizer.offsetWidth, row.clientWidth));
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [text]);
 
-  const handleCancel = () => {
-    setEditValue(text);
-    setEditing(false);
-  };
+  const wide = !fits;
 
   return (
-    <div className="flex items-start gap-3 py-1 px-1 rounded hover:bg-muted/50 group">
-      <span className="w-2/5 shrink-0 text-meta text-muted-foreground [overflow-wrap:anywhere]">
+    <div
+      ref={rowRef}
+      data-testid="property-row"
+      data-wide={wide}
+      className="group relative -mx-1.5 grid grid-cols-[minmax(72px,36%)_minmax(0,1fr)_24px] items-start gap-x-2.5 rounded px-1.5 py-1 hover:bg-muted"
+    >
+      <div
+        data-testid="property-key"
+        className="pt-0.5 text-meta text-muted-foreground [overflow-wrap:anywhere]"
+      >
         {item.key}
-      </span>
-      {editing ? (
-        <div className="flex items-center gap-1">
-          <Input
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            className="h-7 text-sm w-32"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSave();
-              if (e.key === "Escape") handleCancel();
-            }}
-            autoFocus
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={handleSave}
-            aria-label="Save"
-          >
-            <Check className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={handleCancel}
-            aria-label="Cancel"
-          >
-            <X className="h-3 w-3" />
-          </Button>
-        </div>
-      ) : (
-        <div className="flex min-w-0 flex-1 items-start gap-1">
-          <div
-            data-testid="property-value"
-            className="min-w-0 flex-1 text-body font-medium [overflow-wrap:anywhere]"
-          >
-            <ValueView value={item.value} />
-          </div>
-          {editable && isText && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 opacity-0 group-hover:opacity-100"
-              onClick={() => setEditing(true)}
-              aria-label={`Edit ${item.key}`}
-            >
-              <Pencil className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
-      )}
+      </div>
+      <div
+        data-testid="property-value"
+        className={cn(
+          "min-w-0 text-body [overflow-wrap:anywhere]",
+          wide
+            ? "col-span-3 col-start-1 row-start-2"
+            : "col-start-2 row-start-1",
+        )}
+      >
+        <ValueView value={item.value} />
+      </div>
+      <div className="col-start-3 row-start-1">{action}</div>
+      {/* Measures the value on one line, whichever layout it is in now. The
+          clip keeps a long value from widening the scrolling panel. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none invisible absolute inset-x-0 top-0 h-0 overflow-hidden"
+      >
+        <span
+          ref={sizerRef}
+          data-text={text}
+          className="inline-block whitespace-nowrap text-body before:content-[attr(data-text)]"
+        />
+      </div>
+    </div>
+  );
+}
+
+export interface PropertyPanelProps {
+  items: PropertyItem[];
+  /** The slot at the end of a row (a copy button). */
+  renderAction?: (item: PropertyItem) => React.ReactNode;
+  className?: string;
+}
+
+/** One list of properties, keys A to Z; a value that does not fit beside its key reads under it. */
+function PropertyPanel({
+  items,
+  renderAction,
+  className,
+}: Readonly<PropertyPanelProps>) {
+  const sorted = React.useMemo(
+    () => [...items].sort((a, b) => a.key.localeCompare(b.key)),
+    [items],
+  );
+  return (
+    <div className={cn(className)}>
+      {sorted.map((item) => (
+        <PropertyRow key={item.key} item={item} action={renderAction?.(item)} />
+      ))}
     </div>
   );
 }
