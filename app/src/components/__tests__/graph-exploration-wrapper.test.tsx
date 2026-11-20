@@ -48,22 +48,24 @@ const graphNodes = [
 /** Toasts the wrapper raised. */
 let toasts: unknown[] = [];
 
-/** Sections last handed to the stubbed PropertyPanel. */
-let panelSections: {
-  title: string;
-  items: { key: string; value: unknown }[];
-}[] = [];
-const itemsOf = (title: string) =>
-  panelSections.find((s) => s.title === title)?.items;
+/** Props last handed to the stubbed GraphInspector. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- a stub's captured props
+let inspectorProps: Record<string, any> = {};
 
 /** What the stubbed exploration says about every node's expandability. */
 let expandable = false;
 
 const explorationStub = {
   nodes: graphNodes,
-  edges: [],
+  edges: [] as {
+    id?: string;
+    source: string;
+    target: string;
+    label?: string;
+    properties?: Record<string, unknown>;
+  }[],
   selectedNodeIds: [],
-  onNodeSelect: () => {},
+  onNodeSelect: vi.fn(),
   onExpandRequest: vi.fn(async (_node: { id: string }) => {}),
   collapse: () => {},
   canExpand: () => expandable,
@@ -89,23 +91,26 @@ vi.mock("@neoboard/components", () => ({
     explorationOptions = options;
     return explorationStub;
   },
-  PropertyPanel: ({
-    sections,
-  }: {
-    sections: { title: string; items: { key: string; value: string }[] }[];
-  }) => {
-    panelSections = sections;
+  GraphInspector: (props: Record<string, unknown>) => {
+    inspectorProps = props;
+    const element = props.element as { kind: string; title: string };
     return (
-      <div data-testid="property-panel">
-        {sections.flatMap((s) =>
-          s.items.map((i) => (
-            <span key={`${s.title}-${i.key}`}>{`${i.key}=${i.value}`}</span>
-          )),
-        )}
-      </div>
+      <section
+        data-testid="graph-inspector"
+        aria-label={`${element.kind}: ${element.title}`}
+      />
     );
   },
-  Tag: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  graphInspectorWidth: () => 280,
+  graphNodeCaption: (node: { id: string; label?: string }) =>
+    node.label ?? node.id,
+  describeGraphNode: (node: { id: string; label?: string }) => ({
+    caption: node.label ?? node.id,
+    color: "#123456",
+  }),
+  relationshipId: (e: { source: string; target: string }, i: number) =>
+    `rel-${e.source}-${e.target}-${i}`,
+  useDarkMode: () => false,
   toast: (t: unknown) => toasts.push(t),
 }));
 
@@ -158,35 +163,47 @@ function renderWrapper() {
   return chartProps.onNodeSelect as (ids: string[]) => void;
 }
 
-describe("GraphExplorationWrapper — property inspector (#1191)", () => {
+describe("GraphExplorationWrapper — graph inspector (#1191, #2515)", () => {
   beforeEach(() => {
     chartProps = {};
+    inspectorProps = {};
+    toasts = [];
+    explorationStub.edges = [];
+    explorationStub.onNodeSelect.mockClear();
   });
 
   afterEach(() => {
     cleanup();
   });
 
+  const clickEdge = (edge: Record<string, unknown>) =>
+    act(() =>
+      (chartProps.onRelationshipClick as (e: unknown) => void)({ edge }),
+    );
+
   it("opens the inspector for the clicked node on a single-id selection", () => {
     const onNodeSelect = renderWrapper();
-    expect(screen.queryByTestId("property-panel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-inspector")).not.toBeInTheDocument();
 
     act(() => onNodeSelect(["A"]));
 
-    expect(screen.getByTestId("property-panel")).toBeInTheDocument();
-    expect(screen.getByText("id=A")).toBeInTheDocument();
-    expect(screen.getByText("name=Alice")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "node: Alice" }),
+    ).toBeInTheDocument();
+    expect(inspectorProps.element).toMatchObject({
+      kind: "node",
+      id: "A",
+      title: "Alice",
+      color: "#123456",
+      labels: ["Person", "Founder"],
+    });
   });
 
-  it("hands a node's lists and maps to the panel as structure, labels as a list", () => {
+  it("hands a node's lists and maps to the panel as structure", () => {
     const onNodeSelect = renderWrapper();
     act(() => onNodeSelect(["A"]));
 
-    expect(itemsOf("Metadata")).toEqual([
-      { key: "id", value: "A" },
-      { key: "labels", value: ["Person", "Founder"] },
-    ]);
-    expect(itemsOf("Properties")).toEqual([
+    expect(inspectorProps.element.properties).toEqual([
       { key: "name", value: "Alice" },
       { key: "aliases", value: ["Al", "Ally"] },
       { key: "home", value: { srid: 4326, x: 1.5, y: 2.5 } },
@@ -194,21 +211,18 @@ describe("GraphExplorationWrapper — property inspector (#1191)", () => {
     ]);
   });
 
-  it("hands a relationship's lists and maps to the panel as structure", () => {
+  it("hands a relationship's type, ends and structured properties to the panel", () => {
+    const edge = {
+      id: "e1",
+      source: "A",
+      target: "B",
+      label: "OWNS",
+      properties: { since: [2020, 2021], terms: { rate: 3 } },
+    };
+    explorationStub.edges = [edge];
     renderWrapper();
-    act(() =>
-      (chartProps.onRelationshipClick as (e: unknown) => void)({
-        edge: {
-          id: "e1",
-          source: "A",
-          target: "B",
-          label: "OWNS",
-          properties: { since: [2020, 2021], terms: { rate: 3 } },
-        },
-      }),
-    );
-
-    expect(itemsOf("Properties")).toEqual([
+    clickEdge(edge);
+    expect(inspectorProps.element.properties).toEqual([
       { key: "since", value: [2020, 2021] },
       { key: "terms", value: { rate: 3 } },
     ]);
@@ -218,22 +232,21 @@ describe("GraphExplorationWrapper — property inspector (#1191)", () => {
     // This is the flow #1191 made impossible: inspect A, then inspect B.
     const onNodeSelect = renderWrapper();
     act(() => onNodeSelect(["A"]));
-    expect(screen.getByText("name=Alice")).toBeInTheDocument();
+    expect(inspectorProps.element.id).toBe("A");
 
     act(() => onNodeSelect(["B"]));
 
-    expect(screen.getByText("name=Bob")).toBeInTheDocument();
-    expect(screen.queryByText("name=Alice")).not.toBeInTheDocument();
+    expect(inspectorProps.element.id).toBe("B");
   });
 
   it("closes the inspector when the selection holds more than one node", () => {
     const onNodeSelect = renderWrapper();
     act(() => onNodeSelect(["A"]));
-    expect(screen.getByTestId("property-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("graph-inspector")).toBeInTheDocument();
 
     act(() => onNodeSelect(["A", "B"]));
 
-    expect(screen.queryByTestId("property-panel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-inspector")).not.toBeInTheDocument();
   });
 
   it("closes the inspector when the selection is cleared", () => {
@@ -242,7 +255,209 @@ describe("GraphExplorationWrapper — property inspector (#1191)", () => {
 
     act(() => onNodeSelect([]));
 
-    expect(screen.queryByTestId("property-panel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-inspector")).not.toBeInTheDocument();
+  });
+
+  describe("with relationships on the graph", () => {
+    beforeEach(() => {
+      explorationStub.edges = [
+        {
+          id: "e1",
+          source: "A",
+          target: "B",
+          label: "OWNS",
+          properties: { since: [2020, 2021] },
+        },
+        {
+          id: "e2",
+          source: "B",
+          target: "A",
+          label: "OWNS",
+          properties: { since: 1999 },
+        },
+        { id: "e3", source: "A", target: "B", label: "KNOWS" },
+        { id: "e4", source: "A", target: "C", label: "KNOWS" },
+      ];
+    });
+
+    it("builds a node's connections from the edges, by direction, with the other end's caption", () => {
+      const onNodeSelect = renderWrapper();
+      act(() => onNodeSelect(["A"]));
+      expect(inspectorProps.connections).toEqual([
+        {
+          id: "e1",
+          type: "OWNS",
+          direction: "to",
+          otherId: "B",
+          otherName: "Bob",
+        },
+        {
+          id: "e2",
+          type: "OWNS",
+          direction: "from",
+          otherId: "B",
+          otherName: "Bob",
+        },
+        {
+          id: "e3",
+          type: "KNOWS",
+          direction: "to",
+          otherId: "B",
+          otherName: "Bob",
+        },
+        {
+          id: "e4",
+          type: "KNOWS",
+          direction: "to",
+          otherId: "C",
+          otherName: "C",
+        },
+      ]);
+    });
+
+    it("lists as siblings every relationship between the same two nodes, in both directions", () => {
+      renderWrapper();
+      clickEdge(explorationStub.edges[0]);
+      expect(inspectorProps.element).toMatchObject({
+        kind: "relationship",
+        id: "e1",
+        title: "OWNS",
+        source: { id: "A", name: "Alice" },
+        target: { id: "B", name: "Bob" },
+        siblings: ["e1", "e2", "e3"],
+      });
+      expect(inspectorProps.element.properties).toEqual([
+        { key: "since", value: [2020, 2021] },
+      ]);
+    });
+
+    it("highlights the inspected relationship on the canvas and follows the stepper", () => {
+      renderWrapper();
+      expect(chartProps.selectedRelationshipId).toBeUndefined();
+      clickEdge(explorationStub.edges[0]);
+      expect(chartProps.selectedRelationshipId).toBe("e1");
+
+      act(() => inspectorProps.onSelectRelationship("e2"));
+
+      expect(inspectorProps.element.id).toBe("e2");
+      expect(inspectorProps.element.source.id).toBe("B");
+      expect(chartProps.selectedRelationshipId).toBe("e2");
+    });
+
+    it("an end link selects that node and inspects it", () => {
+      renderWrapper();
+      clickEdge(explorationStub.edges[0]);
+      act(() => inspectorProps.onSelectNode("B"));
+      expect(inspectorProps.element).toMatchObject({ kind: "node", id: "B" });
+      expect(explorationStub.onNodeSelect).toHaveBeenLastCalledWith(["B"]);
+    });
+
+    it("copies a relationship as JSON: kind, id, type, source, target and properties as received", () => {
+      renderWrapper();
+      clickEdge(explorationStub.edges[0]);
+      expect(JSON.parse(inspectorProps.elementJson)).toEqual({
+        kind: "relationship",
+        id: "e1",
+        type: "OWNS",
+        source: "A",
+        target: "B",
+        properties: { since: [2020, 2021] },
+      });
+    });
+
+    it("tells a relationship without an id apart by its position", () => {
+      explorationStub.edges = [
+        { source: "A", target: "B", label: "KNOWS" },
+        { source: "A", target: "B", label: "KNOWS" },
+      ];
+      renderWrapper();
+      clickEdge(explorationStub.edges[1]);
+      expect(inspectorProps.element.id).toBe("rel-A-B-1");
+      expect(inspectorProps.element.siblings).toEqual([
+        "rel-A-B-0",
+        "rel-A-B-1",
+      ]);
+      expect(chartProps.selectedRelationshipId).toBe("rel-A-B-1");
+      expect(JSON.parse(inspectorProps.elementJson)).not.toHaveProperty("id");
+    });
+  });
+
+  it("copies a node as JSON: kind, id, labels and properties as received", () => {
+    const onNodeSelect = renderWrapper();
+    act(() => onNodeSelect(["A"]));
+    expect(JSON.parse(inspectorProps.elementJson)).toEqual({
+      kind: "node",
+      id: "A",
+      labels: ["Person", "Founder"],
+      properties: graphNodes[0].properties,
+    });
+  });
+
+  it("toasts what was copied, and that the browser blocked the clipboard", () => {
+    const onNodeSelect = renderWrapper();
+    act(() => onNodeSelect(["A"]));
+    act(() => inspectorProps.onCopied("the node as JSON"));
+    expect(toasts).toContainEqual({ title: "Copied the node as JSON" });
+    act(() => inspectorProps.onCopyBlocked());
+    expect(toasts[1]).toMatchObject({
+      title: "The browser blocked the clipboard",
+    });
+  });
+
+  it("closing clears the selection and puts focus back on the graph", () => {
+    const onNodeSelect = renderWrapper();
+    act(() => onNodeSelect(["A"]));
+    explorationStub.onNodeSelect.mockClear();
+
+    act(() => inspectorProps.onClose());
+
+    expect(screen.queryByTestId("graph-inspector")).not.toBeInTheDocument();
+    expect(explorationStub.onNodeSelect).toHaveBeenCalledWith([]);
+    expect(screen.getByTestId("graph-exploration")).toHaveFocus();
+  });
+
+  describe("the side it docks to", () => {
+    const pointerDownAt = (clientX: number) =>
+      fireEvent.pointerDown(screen.getByTestId("graph-exploration"), {
+        clientX,
+      });
+
+    beforeEach(() => {
+      vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(
+        600,
+      );
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("opens on the right when the click is clear of it, and on the left when it would sit under it", () => {
+      const onNodeSelect = renderWrapper();
+      pointerDownAt(100);
+      act(() => onNodeSelect(["A"]));
+      expect(inspectorProps.side).toBe("right");
+      expect(chartProps.overlayInset).toEqual({ side: "right", width: 280 });
+
+      act(() => onNodeSelect([]));
+      pointerDownAt(500);
+      act(() => onNodeSelect(["A"]));
+      expect(inspectorProps.side).toBe("left");
+      expect(chartProps.overlayInset).toEqual({ side: "left", width: 280 });
+    });
+
+    it("keeps its side while open, however the next click lands", () => {
+      const onNodeSelect = renderWrapper();
+      pointerDownAt(500);
+      act(() => onNodeSelect(["A"]));
+      pointerDownAt(100);
+      act(() => onNodeSelect(["B"]));
+      expect(inspectorProps.side).toBe("left");
+    });
+
+    it("leaves the chart alone when closed", () => {
+      renderWrapper();
+      expect(chartProps.overlayInset).toBeUndefined();
+    });
   });
 });
 

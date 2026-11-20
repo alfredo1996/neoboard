@@ -1494,12 +1494,15 @@ test.describe("Graph inspector values (#2349)", () => {
       );
       await (await openNodeContextMenu(page, "Properties")).click();
 
-      // Every row keeps its key beside its value, the long id included.
-      for (const key of ["id", "tag", "previousNames", "nace"]) {
+      // Every property is listed with its key; the element id sits at the
+      // bottom of the panel (#2515).
+      const panelRows = page.getByTestId("graph-inspector");
+      for (const key of ["tag", "previousNames", "nace"]) {
         await expect(
-          page.getByText(key, { exact: true }).first(),
+          panelRows.getByTestId("property-key").filter({ hasText: key }),
         ).toBeVisible();
       }
+      await expect(panelRows.getByTestId("graph-inspector-id")).toBeVisible();
 
       // The list is separate items, collapsed after five.
       const item = (text: string) =>
@@ -1896,5 +1899,294 @@ test.describe("Column mapping overlay", () => {
       timeout: 10_000,
     });
     await expect(page.getByText("Query Failed")).not.toBeVisible();
+  });
+});
+// ---------------------------------------------------------------------------
+// Graph inspector (#2515): a parallel pair, Copy, and Esc
+// ---------------------------------------------------------------------------
+
+type Page = import("@playwright/test").Page;
+
+/** Two nodes joined by two REVIEWED relationships that differ in `note`. */
+async function seedParallelPair(page: Page) {
+  const tag = `e2e2515_${uid()}`;
+  const ids: {
+    connectionId?: string;
+    dashboardId?: string;
+    seeded: boolean;
+    tag: string;
+  } = { seeded: false, tag };
+  const connRes = await page.request.post("/api/connections", {
+    data: {
+      name: `inspector-${tag}`,
+      type: "neo4j",
+      config: {
+        uri: TEST_NEO4J_BOLT_URL,
+        username: "neo4j",
+        password: "neoboard123",
+      },
+    },
+  });
+  expect(connRes.status()).toBe(201);
+  ids.connectionId = (await connRes.json()).data.id;
+  const seed = await page.request.post("/api/query/write", {
+    data: {
+      connectionId: ids.connectionId,
+      query:
+        "CREATE (a:E2E2515 {tag: $tag, name: 'Ada Reviewer'}), (m:E2E2515 {tag: $tag, name: 'The Pair'}), (a)-[:REVIEWED {tag: $tag, note: 'first review', rating: 95}]->(m), (a)-[:REVIEWED {tag: $tag, note: 'second review', rating: 40}]->(m)",
+      params: { tag },
+    },
+  });
+  expect(seed.ok()).toBeTruthy();
+  ids.seeded = true;
+  ({ id: ids.dashboardId } = await createTestDashboard(
+    page.request,
+    `inspector-${tag}`,
+  ));
+  const put = await page.request.put(`/api/dashboards/${ids.dashboardId}`, {
+    data: {
+      layoutJson: {
+        version: 2,
+        pages: [
+          {
+            id: "p1",
+            title: "Page 1",
+            widgets: [
+              {
+                id: "w-graph",
+                chartType: "graph",
+                connectionId: ids.connectionId,
+                query: `MATCH (a:E2E2515 {tag: '${tag}'})-[r]->(m) RETURN a, r, m`,
+                settings: { title: "Pair", chartOptions: {} },
+              },
+            ],
+            gridLayout: [{ i: "w-graph", x: 0, y: 0, w: 12, h: 8 }],
+          },
+        ],
+      },
+    },
+  });
+  expect(put.ok()).toBeTruthy();
+  return ids;
+}
+
+async function removeParallelPair(
+  page: Page,
+  ids: Awaited<ReturnType<typeof seedParallelPair>> | undefined,
+) {
+  if (!ids) return;
+  if (ids.seeded)
+    await page.request.post("/api/query/write", {
+      data: {
+        connectionId: ids.connectionId,
+        query: "MATCH (n:E2E2515 {tag: $tag}) DETACH DELETE n",
+        params: { tag: ids.tag },
+      },
+    });
+  if (ids.dashboardId)
+    await page.request.delete(`/api/dashboards/${ids.dashboardId}`);
+  if (ids.connectionId)
+    await page.request.delete(
+      `/api/connections/${ids.connectionId}?force=true`,
+    );
+}
+
+/** Click across the canvas until something opens the inspector. */
+async function openInspectorOnCanvas(
+  scope: import("@playwright/test").Locator,
+) {
+  const canvas = scope.locator("canvas").first();
+  const panel = scope.getByTestId("graph-inspector");
+  await expect(async () => {
+    const box = await canvas.boundingBox();
+    expect(box).not.toBeNull();
+    for (const fy of [0.5, 0.4, 0.6, 0.3, 0.7]) {
+      for (const fx of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8]) {
+        await canvas.click({
+          position: { x: box!.width * fx, y: box!.height * fy },
+          force: true,
+        });
+        const opened = await panel
+          .waitFor({ state: "visible", timeout: 250 })
+          .then(() => true)
+          .catch(() => false);
+        if (opened) return;
+      }
+    }
+    throw new Error("nothing under the pointer opened the inspector");
+  }).toPass({ timeout: 40_000 });
+  return panel;
+}
+
+/** From whatever opened, to one of the two REVIEWED relationships. */
+async function openAReview(panel: import("@playwright/test").Locator) {
+  const label = (await panel.getAttribute("aria-label")) ?? "";
+  if (label.startsWith("Node:")) {
+    await panel
+      .getByRole("button", { name: /^REVIEWED (to|from) .+, \d of 2$/ })
+      .first()
+      .click();
+  }
+  await expect(
+    panel.getByRole("button", {
+      name: "Next relationship between these nodes",
+      exact: true,
+    }),
+  ).toBeVisible();
+}
+
+test.describe("Graph inspector (#2515)", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("steps between two parallel relationships and shows each one's properties", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    let ids: Awaited<ReturnType<typeof seedParallelPair>> | undefined;
+    try {
+      ids = await seedParallelPair(page);
+      await page.goto(`/${ids.dashboardId}`);
+      const exploration = page.getByTestId("graph-exploration");
+      await expect(exploration.getByTestId("graph-node-count")).toHaveText(
+        "2 nodes",
+        { timeout: 15_000 },
+      );
+      const panel = await openInspectorOnCanvas(exploration);
+      await openAReview(panel);
+
+      const note = panel
+        .getByTestId("property-row")
+        .filter({ has: page.getByText("note", { exact: true }) })
+        .getByTestId("property-value");
+      const next = panel.getByRole("button", {
+        name: "Next relationship between these nodes",
+        exact: true,
+      });
+      const first = (await note.textContent()) ?? "";
+      expect(["first review", "second review"]).toContain(first);
+      await expect(
+        panel.getByText(/^\d of 2 between these nodes$/),
+      ).toBeVisible();
+
+      await next.click();
+      const second =
+        first === "first review" ? "second review" : "first review";
+      await expect(note).toHaveText(second);
+      // The rating belongs to the relationship it was stored on.
+      await expect(
+        panel
+          .getByTestId("property-row")
+          .filter({ has: page.getByText("rating", { exact: true }) })
+          .getByTestId("property-value"),
+      ).toHaveText(second === "first review" ? "95" : "40");
+
+      // Two relationships, so a step the other way comes back to the first.
+      await panel
+        .getByRole("button", {
+          name: "Previous relationship between these nodes",
+          exact: true,
+        })
+        .click();
+      await expect(note).toHaveText(first);
+    } finally {
+      await removeParallelPair(page, ids);
+    }
+  });
+
+  test("Copy writes the element as JSON, or shows it selected when the browser blocks it", async ({
+    authPage,
+    page,
+    context,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    let ids: Awaited<ReturnType<typeof seedParallelPair>> | undefined;
+    try {
+      ids = await seedParallelPair(page);
+      await page.goto(`/${ids.dashboardId}`);
+      const exploration = page.getByTestId("graph-exploration");
+      await expect(exploration.getByTestId("graph-node-count")).toHaveText(
+        "2 nodes",
+        { timeout: 15_000 },
+      );
+      const panel = await openInspectorOnCanvas(exploration);
+      await openAReview(panel);
+
+      await panel
+        .getByRole("button", { name: "Copy relationship as JSON", exact: true })
+        .click();
+      await expect(
+        page.getByText("Copied the relationship as JSON", { exact: true }),
+      ).toBeVisible();
+      const written = JSON.parse(
+        await page.evaluate(() => navigator.clipboard.readText()),
+      );
+      expect(written).toMatchObject({
+        kind: "relationship",
+        type: "REVIEWED",
+        properties: { tag: ids.tag },
+      });
+
+      // Now the browser refuses the write.
+      await page.evaluate(() => {
+        Object.defineProperty(navigator, "clipboard", {
+          configurable: true,
+          value: { writeText: () => Promise.reject(new Error("blocked")) },
+        });
+      });
+      await panel
+        .getByRole("button", { name: "Copy relationship as JSON", exact: true })
+        .click();
+      const box = panel.getByRole("textbox", {
+        name: "Text to copy",
+        exact: true,
+      });
+      await expect(box).toBeVisible();
+      await expect(box).toHaveValue(/"kind": "relationship"/);
+      await expect(box).toBeFocused();
+    } finally {
+      await removeParallelPair(page, ids);
+    }
+  });
+
+  test("Esc closes the panel and returns to the graph; in the expanded view the dialog stays until a second Esc", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    let ids: Awaited<ReturnType<typeof seedParallelPair>> | undefined;
+    try {
+      ids = await seedParallelPair(page);
+      await page.goto(`/${ids.dashboardId}`);
+      await expect(
+        page.getByTestId("graph-exploration").getByTestId("graph-node-count"),
+      ).toHaveText("2 nodes", { timeout: 15_000 });
+
+      // On the tile.
+      const tile = page.getByTestId("graph-exploration");
+      const tilePanel = await openInspectorOnCanvas(tile);
+      await expect(tilePanel.getByRole("heading")).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(tilePanel).toBeHidden();
+      await expect(tile).toBeFocused();
+
+      // In the expanded view.
+      await page.getByLabel("Fullscreen", { exact: true }).click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      const big = dialog.getByTestId("graph-exploration");
+      await expect(big.getByTestId("graph-node-count")).toHaveText("2 nodes", {
+        timeout: 15_000,
+      });
+      const bigPanel = await openInspectorOnCanvas(big);
+      await page.keyboard.press("Escape");
+      await expect(bigPanel).toBeHidden();
+      await expect(dialog).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+    } finally {
+      await removeParallelPair(page, ids);
+    }
   });
 });

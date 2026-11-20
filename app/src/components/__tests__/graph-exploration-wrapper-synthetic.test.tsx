@@ -42,8 +42,12 @@ vi.mock("@neoboard/components", () => ({
       ))}
     </div>
   ),
-  PropertyPanel: () => <div data-testid="property-panel" />,
-  Tag: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  GraphInspector: () => <div data-testid="graph-inspector" />,
+  graphInspectorWidth: () => 280,
+  graphNodeCaption: () => "",
+  describeGraphNode: () => ({ caption: "", color: undefined }),
+  relationshipId: () => "",
+  useDarkMode: () => false,
   useGraphExploration: ({
     initialNodes,
     initialEdges,

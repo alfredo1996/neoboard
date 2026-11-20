@@ -608,6 +608,18 @@ export function DashboardContainer({
           <DialogContent
             className="sm:max-w-[90vw] h-[85vh] flex flex-col"
             onCloseAutoFocus={handBackFocus}
+            // Radix listens for Esc on the whole document, so a panel inside
+            // the widget (the graph inspector) cannot stop it from there. It
+            // marks itself, and its own Esc closes only the panel (#2515); a
+            // second Esc, from anywhere else, closes the dialog.
+            onEscapeKeyDown={(e) => {
+              if (
+                e.target instanceof Element &&
+                e.target.closest("[data-keeps-escape]")
+              ) {
+                e.preventDefault();
+              }
+            }}
           >
             <FullscreenFrame
               title={
