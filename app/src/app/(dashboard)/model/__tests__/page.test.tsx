@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import ModelPage from "../page";
@@ -40,9 +41,25 @@ vi.mock("@/components/model/concepts-section", () => ({
   ),
 }));
 
+vi.mock("@/components/model/import-dialog", () => ({
+  ImportDialog: (p: { open: boolean }) =>
+    p.open ? <p data-testid="import-dialog">open</p> : null,
+}));
+const mockToast = vi.fn();
+vi.mock("@neoboard/components", async (orig) => ({
+  ...(await orig<typeof import("@neoboard/components")>()),
+  useToast: () => ({ toast: mockToast }),
+}));
+const mockDownload = vi.fn(() => Promise.resolve());
+vi.mock("@/lib/ontology/download-model", () => ({
+  downloadModel: () => mockDownload(),
+}));
+
 describe("ModelPage", () => {
   beforeEach(() => {
     mockRole = "creator";
+    mockDownload.mockClear();
+    mockToast.mockClear();
     mockState = { data: [{ id: "c1", name: "Demo" }] };
   });
 
@@ -103,5 +120,35 @@ describe("ModelPage", () => {
     mockState = { data: [] };
     render(<ModelPage />);
     expect(screen.queryByTestId("concepts")).toBeNull();
+  });
+
+  it("offers Export to everyone and Import to creators and admins only", () => {
+    render(<ModelPage />);
+    const header = screen.getByRole("banner");
+    expect(within(header).getByRole("button", { name: "Export" })).toBeTruthy();
+    fireEvent.click(within(header).getByRole("button", { name: "Import" }));
+    expect(screen.getByTestId("import-dialog")).toBeTruthy();
+    cleanup();
+    mockRole = "reader";
+    render(<ModelPage />);
+    expect(screen.getByRole("button", { name: "Export" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Import" })).toBeNull();
+  });
+
+  it("Export downloads the model file", () => {
+    render(<ModelPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    expect(mockDownload).toHaveBeenCalledTimes(1);
+  });
+
+  it("Export that fails says so in a toast", async () => {
+    mockDownload.mockRejectedValueOnce(new Error("boom"));
+    render(<ModelPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Could not export the model" }),
+      ),
+    );
   });
 });

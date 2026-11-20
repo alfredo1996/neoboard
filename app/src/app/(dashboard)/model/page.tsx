@@ -2,11 +2,19 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { Button, EmptyState, Input, Skeleton } from "@neoboard/components";
+import {
+  Button,
+  EmptyState,
+  Input,
+  Skeleton,
+  useToast,
+} from "@neoboard/components";
 import { PageHeader } from "@neoboard/components/kit";
 import { useConnections } from "@/hooks/use-connections";
 import { canManageConnections } from "@/lib/auth/can-write";
 import { ConceptsSection } from "@/components/model/concepts-section";
+import { ImportDialog } from "@/components/model/import-dialog";
+import { downloadModel } from "@/lib/ontology/download-model";
 import { ConnectionTerms } from "@/components/model/connection-terms";
 
 /**
@@ -22,6 +30,12 @@ export default function ModelPage() {
   const { data: connections, isLoading, isError } = useConnections();
   const [search, setSearch] = useState("");
   const [newOpen, setNewOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const { toast } = useToast();
+  const exportModel = () =>
+    downloadModel().catch(() =>
+      toast({ title: "Could not export the model", variant: "destructive" }),
+    );
 
   let body;
   if (isLoading) {
@@ -72,6 +86,14 @@ export default function ModelPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-64"
             />
+            <Button variant="secondary" onClick={exportModel}>
+              Export
+            </Button>
+            {canEdit && (
+              <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                Import
+              </Button>
+            )}
             {canEdit && !!connections?.length && (
               <Button onClick={() => setNewOpen(true)}>New concept</Button>
             )}
@@ -79,6 +101,13 @@ export default function ModelPage() {
         }
       />
       <div className="flex flex-1 flex-col gap-6 p-4 md:p-7">{body}</div>
+      {canEdit && (
+        <ImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          connections={connections ?? []}
+        />
+      )}
     </div>
   );
 }

@@ -2101,3 +2101,30 @@ describe("openapi-spec.ts concept side (#2484)", () => {
     expect(missing.enum).toEqual(["entity", "keyProperty", null]);
   });
 });
+
+describe("ontology file schemas (#2510)", () => {
+  type S = {
+    $ref?: string;
+    minItems?: number;
+    properties?: Record<string, S>;
+    items?: S;
+    required?: string[];
+  };
+  const schemas = (SPEC.components as unknown as { schemas: Record<string, S> })
+    .schemas;
+  const fileSides = schemas.OntologyFile.properties!.concepts.items!;
+  const concept = schemas[fileSides.$ref!.split("/").pop()!];
+
+  it("a file concept may have no sides, a created one needs one", () => {
+    expect(concept.properties!.sides.minItems).toBeUndefined();
+    expect(schemas.ConceptRequest.properties!.sides.minItems).toBe(1);
+  });
+
+  it("the preview documents skipped and the item id", () => {
+    const preview = schemas.OntologyImportResult.properties!.preview;
+    expect(Object.keys(preview.properties!)).toContain("skipped");
+    expect(Object.keys(preview.properties!.items.items!.properties!)).toContain(
+      "id",
+    );
+  });
+});
