@@ -5,6 +5,7 @@ import {
   Alert,
   AlertDescription,
   Button,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -14,8 +15,11 @@ import {
   Field,
   Input,
   LoadingButton,
-  controlSizes,
-  fieldBaseClasses,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   useToast,
 } from "@neoboard/components";
 import {
@@ -34,7 +38,6 @@ interface FileConnection {
 }
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
-const selectClass = `${fieldBaseClasses} ${controlSizes.default}`;
 
 /** The connections a file names, or why it is not an ontology file. */
 function readFile(text: string): { payload: unknown; list: FileConnection[] } {
@@ -66,7 +69,7 @@ export function prefillMapping(
 }
 
 function Summary({ result }: Readonly<{ result: OntologyImportResult }>) {
-  const { terms, concepts, items } = result.preview;
+  const { terms, concepts, items, skipped } = result.preview;
   const stats = [
     ["New", terms.new + concepts.new],
     ["Changed", terms.changed + concepts.changed],
@@ -77,28 +80,48 @@ function Summary({ result }: Readonly<{ result: OntologyImportResult }>) {
     <div className="min-w-0 space-y-3">
       <dl className="grid grid-cols-4 gap-2" data-testid="import-counts">
         {stats.map(([label, n]) => (
-          <div key={label} className="rounded-md border p-2">
-            <dd className="text-lg font-semibold">{n}</dd>
+          <div
+            key={label}
+            className="flex flex-col-reverse rounded-md border p-2"
+          >
             <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="text-lg font-semibold">{n}</dd>
           </div>
         ))}
       </dl>
       {items.length > 0 ? (
         <ul className="max-h-48 space-y-1 overflow-auto text-sm">
           {items.map((i) => (
-            <li key={`${i.kind}-${i.label}`} className="flex gap-2">
+            <li key={i.id} className="flex items-baseline gap-2">
               <span className="w-16 shrink-0 text-xs uppercase text-muted-foreground">
                 {i.status}
               </span>
-              <span className="min-w-0 truncate">
-                {i.label}
-                {i.orphaned && " (no longer in the database)"}
-              </span>
+              <span className="min-w-0 break-words">{i.label}</span>
+              {i.orphaned && (
+                <span className="shrink-0 rounded-sm bg-muted px-1.5 text-xs text-muted-foreground">
+                  no longer in the database
+                </span>
+              )}
             </li>
           ))}
         </ul>
       ) : (
         <p className="text-sm text-muted-foreground">Nothing to change.</p>
+      )}
+      {skipped.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">Skipped</p>
+          <ul
+            className="max-h-32 space-y-1 overflow-auto text-sm"
+            data-testid="import-skipped"
+          >
+            {skipped.map((s) => (
+              <li key={`${s.kind}|${s.label}`} className="break-words">
+                {s.label}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
@@ -106,7 +129,7 @@ function Summary({ result }: Readonly<{ result: OntologyImportResult }>) {
 
 /**
  * Imports an ontology file (#2510): pick it, pair each connection in it with
- * one here (prefilled by name; one left unpaired is skipped), look at what
+ * one here (prefilled by name; one marked Skip is left out), look at what
  * would change, then confirm. The page hides the button from readers and the
  * route refuses them.
  */
@@ -126,6 +149,7 @@ export function ImportDialog({
     list: FileConnection[];
   } | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [preview, setPreview] = useState<OntologyImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -138,6 +162,13 @@ export function ImportDialog({
     }
     onOpenChange(next);
   };
+
+  const toggleSkip = (id: string) =>
+    setSkipped((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
 
   const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -152,7 +183,15 @@ export function ImportDialog({
     try {
       const read = readFile(await f.text());
       setFile(read);
-      setMapping(prefillMapping(read.list, connections));
+      const prefilled = prefillMapping(read.list, connections);
+      setMapping(prefilled);
+      setSkipped(
+        new Set(
+          Object.entries(prefilled)
+            .filter(([, to]) => !to)
+            .map(([id]) => id),
+        ),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read the file");
     }
@@ -165,7 +204,7 @@ export function ImportDialog({
       const result = await run.mutateAsync({
         payload: file.payload,
         connectionMapping: Object.fromEntries(
-          Object.entries(mapping).filter(([, to]) => to),
+          Object.entries(mapping).filter(([id, to]) => to && !skipped.has(id)),
         ),
         apply,
       });
@@ -201,29 +240,46 @@ export function ImportDialog({
               {file && (
                 <div className="space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Pair each connection in the file with one here. One left
-                    unpaired is skipped.
+                    Pair each connection in the file with one here, or check
+                    &ldquo;Skip&rdquo; to leave it out.
                   </p>
                   {file.list.map((c) => (
-                    <div key={c.id} className="space-y-1.5">
-                      <p className="text-[13px] font-medium">
-                        {c.name || c.id}
-                      </p>
-                      <select
-                        aria-label={c.name || c.id}
-                        className={selectClass}
-                        value={mapping[c.id] ?? ""}
-                        onChange={(e) =>
-                          setMapping((m) => ({ ...m, [c.id]: e.target.value }))
-                        }
-                      >
-                        <option value="">Skip this connection</option>
-                        {connections.map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {l.name}
-                          </option>
-                        ))}
-                      </select>
+                    <div
+                      key={c.id}
+                      className="space-y-2 rounded-md border bg-card p-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 flex-1 truncate text-sm font-medium">
+                          {c.name || c.id}
+                        </p>
+                        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+                          <Checkbox
+                            aria-label={`Skip ${c.name || c.id}`}
+                            checked={skipped.has(c.id)}
+                            onCheckedChange={() => toggleSkip(c.id)}
+                          />
+                          Skip
+                        </label>
+                      </div>
+                      {!skipped.has(c.id) && (
+                        <Select
+                          value={mapping[c.id] ?? ""}
+                          onValueChange={(val) =>
+                            setMapping((m) => ({ ...m, [c.id]: val }))
+                          }
+                        >
+                          <SelectTrigger aria-label={c.name || c.id}>
+                            <SelectValue placeholder="Select connection" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {connections.map((l) => (
+                              <SelectItem key={l.id} value={l.id}>
+                                {l.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                   ))}
                 </div>

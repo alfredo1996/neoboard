@@ -147,12 +147,16 @@ const has = (
  * Whether the caller may use every connection in `ids`: a Response when not,
  * else the connections.
  */
-export async function usableOrForbidden(session: Session, ids: string[]) {
+export async function usableOrForbidden(
+  session: Session,
+  ids: string[],
+  message = "You cannot use every connection in this concept",
+) {
   const unique = [...new Set(ids)];
   const usable = await usableConnections(session, unique);
   if (usable.length !== unique.length) {
     return {
-      response: forbidden("You cannot use every connection in this concept"),
+      response: forbidden(message),
     };
   }
   return { usable };

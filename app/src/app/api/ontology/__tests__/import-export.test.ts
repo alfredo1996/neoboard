@@ -384,6 +384,9 @@ describe("ontology export and import (#2510)", () => {
       rows.set(ontologyConcepts, [
         { ...CUSTOMER, name: "Client", description: "Old" },
       ]);
+      rows.set(ontologyConceptSides, [
+        storedSide("s1", side("graph", "Person", "email")),
+      ]);
       await post(importBody({ apply: true }));
       const row = writesTo(ontologyTerms)[0].values as {
         description: string;
@@ -462,6 +465,179 @@ describe("ontology export and import (#2510)", () => {
       file.concepts[0].parameter = "customer2"; // name -> k1, parameter -> k2
       const { data } = await (await post(importBody({ payload: file }))).json();
       expect(data.preview.concepts.skipped).toBe(1);
+    });
+
+    it.each([
+      ["name", { name: "Customer", parameter: "other_param" }],
+      ["parameter", { name: "Other name", parameter: "customer" }],
+    ])(
+      "skips, and never updates, a concept matched by %s that the creator cannot see",
+      async (_n, hidden) => {
+        // Its only side is on a connection the creator cannot use.
+        rows.set(connections, [conn("sql")]);
+        rows.set(ontologyConcepts, [{ ...CUSTOMER, ...hidden }]);
+        rows.set(ontologyConceptSides, [
+          storedSide("s9", side("secret", "Person", "email")),
+        ]);
+        const file = fileOf();
+        file.concepts[0].sides = [side("f-sql", "customers", "email")];
+        const res = await post(
+          importBody({
+            payload: file,
+            connectionMapping: { "f-sql": "sql" },
+            apply: true,
+          }),
+        );
+        const { data } = await res.json();
+        expect(data.preview.concepts).toMatchObject({
+          skipped: 1,
+          changed: 0,
+          new: 0,
+        });
+        expect(JSON.stringify(data.preview.items)).not.toContain("Customer");
+        expect(updates.filter((u) => u.table === ontologyConcepts)).toEqual([]);
+        expect(writesTo(ontologyConceptSides)).toHaveLength(0);
+        expect(writesTo(ontologyConcepts)).toHaveLength(0);
+      },
+    );
+
+    it("lets an admin match a concept whose sides are on connections they cannot use", async () => {
+      mockRequireSession.mockResolvedValue(ADMIN);
+      rows.set(connections, [conn("sql")]);
+      rows.set(ontologyConcepts, [CUSTOMER]);
+      rows.set(ontologyConceptSides, [
+        storedSide("s9", side("secret", "Person", "email")),
+      ]);
+      const file = fileOf();
+      file.concepts[0].sides = [side("f-sql", "customers", "email")];
+      const { data } = await (
+        await post(
+          importBody({
+            payload: file,
+            connectionMapping: { "f-sql": "sql" },
+          }),
+        )
+      ).json();
+      expect(data.preview.concepts.changed).toBe(1);
+    });
+
+    it("writes one row per term when two file connections map to one local connection", async () => {
+      rows.set(connections, [conn("graph")]);
+      const file = fileOf();
+      file.connections[1].terms = [...file.connections[0].terms];
+      await post(
+        importBody({
+          payload: file,
+          connectionMapping: { "f-graph": "graph", "f-sql": "graph" },
+          apply: true,
+        }),
+      );
+      expect(writesTo(ontologyTerms)[0].values).toHaveLength(1);
+    });
+
+    it("a file connection id like an Object property is skipped, not mapped", async () => {
+      rows.set(connections, []); // nothing is mapped, so nothing is usable
+      const file = fileOf();
+      file.connections[0].id = "constructor";
+      file.concepts[0].sides[0].connectionId = "constructor";
+      const { data } = await (
+        await post(importBody({ payload: file, connectionMapping: {} }))
+      ).json();
+      expect(data.preview.terms.skipped).toBe(1);
+      expect(data.preview.terms.new).toBe(0);
+    });
+
+    it("lists what it skipped, from the file's own data", async () => {
+      rows.set(connections, [conn("graph")]);
+      const file = fileOf();
+      const { data } = await (
+        await post(
+          importBody({
+            payload: file,
+            connectionMapping: { "f-graph": "graph" },
+          }),
+        )
+      ).json();
+      expect(data.preview.skipped).toEqual([
+        { kind: "side", label: "Customer: customers.email on Sql" },
+      ]);
+    });
+
+    it("refuses a mapping for a connection the file does not hold", async () => {
+      const res = await post(
+        importBody({ connectionMapping: { nope: "graph" } }),
+      );
+      expect(res.status).toBe(400);
+      expect((await res.json()).error.message).toContain("nope");
+    });
+
+    it("a 403 on a mapped connection speaks of the import, not a concept", async () => {
+      const res = await post(
+        importBody({ connectionMapping: { "f-graph": "hidden" } }),
+      );
+      expect(res.status).toBe(403);
+      expect((await res.json()).error.message).not.toContain("concept");
+    });
+
+    it.each([
+      [
+        "two connections share an id",
+        (f: ReturnType<typeof fileOf>) => {
+          f.connections[1].id = "f-graph";
+        },
+      ],
+      [
+        "two concepts share a name",
+        (f: ReturnType<typeof fileOf>) => {
+          f.concepts.push({ ...f.concepts[0], parameter: "another" });
+        },
+      ],
+      [
+        "two concepts share a parameter",
+        (f: ReturnType<typeof fileOf>) => {
+          f.concepts.push({ ...f.concepts[0], name: "Another" });
+        },
+      ],
+      [
+        "a connection repeats a term",
+        (f: ReturnType<typeof fileOf>) => {
+          f.connections[0].terms.push({ ...f.connections[0].terms[0] });
+        },
+      ],
+    ])("refuses a file where %s", async (_n, break_) => {
+      const file = fileOf();
+      break_(file);
+      const res = await post(importBody({ payload: file, apply: true }));
+      expect(res.status).toBe(400);
+      expect(inserts).toHaveLength(0);
+    });
+
+    it("labels a property with its parent, and reads the live terms before the transaction", async () => {
+      const file = fileOf();
+      file.connections[0].terms.push({
+        kind: "property",
+        key: "name",
+        parentKey: "entity:Person",
+        displayName: "Name",
+        description: "",
+        hidden: false,
+      } as never);
+      const order: string[] = [];
+      mockFetchTerms.mockImplementation(async () => {
+        order.push("terms");
+        return [];
+      });
+      mockDb.transaction.mockImplementationOnce(async (fn) => {
+        order.push("tx");
+        return fn(mockDb);
+      });
+      const { data } = await (
+        await post(importBody({ payload: file, apply: true }))
+      ).json();
+      expect(
+        data.preview.items.map((i: { label: string }) => i.label),
+      ).toContain("Graph: property Person.name");
+      expect(order.indexOf("terms")).toBeLessThan(order.indexOf("tx"));
     });
 
     it("never echoes a SQL statement from a failed write", async () => {

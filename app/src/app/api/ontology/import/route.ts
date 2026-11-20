@@ -4,7 +4,12 @@ import { requireSession } from "@/lib/auth/session";
 import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { apiSuccess } from "@/lib/api/api-response";
 import { badRequest, readJsonBody } from "@/lib/api/api-utils";
-import { conceptRouteError, usableOrForbidden } from "@/lib/ontology/concepts";
+import {
+  conceptRouteError,
+  liveTermsById,
+  usableConnections,
+  usableOrForbidden,
+} from "@/lib/ontology/concepts";
 import {
   parseOntologyFile,
   planImport,
@@ -50,12 +55,24 @@ export async function POST(request: Request) {
       return badRequest(`Connection "${unknown}" is not in the file`);
     }
     const targets = Object.values(connectionMapping).filter(Boolean);
-    const used = await usableOrForbidden(session, targets);
+    const used = await usableOrForbidden(
+      session,
+      targets,
+      "You cannot use every connection you mapped",
+    );
     if (used.response) return used.response;
 
     const { tenantId } = session;
+    // Read before any transaction opens: the live terms come from the
+    // external databases. A creator only matches concepts with a side on a
+    // connection they can use; an admin matches them all.
+    const live = await liveTermsById(used.usable);
+    const visibleTo =
+      session.role === "admin"
+        ? undefined
+        : new Set((await usableConnections(session)).map((c) => c.id));
     const run = async (h: Parameters<typeof planImport>[0]) =>
-      planImport(h, tenantId, file, connectionMapping, used.usable);
+      planImport(h, tenantId, file, connectionMapping, live, visibleTo);
     if (!apply) {
       return apiSuccess({ applied: false, preview: (await run(db)).preview });
     }

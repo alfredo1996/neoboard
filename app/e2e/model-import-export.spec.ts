@@ -63,6 +63,18 @@ test.describe.serial("Model export and import (#2510)", () => {
       ?.description;
   };
 
+  // The export holds the whole tenant; importing that would rewrite the seeded
+  // connections and other workers' fixtures (#1749). Keep only this spec's own.
+  const ownOnly = (text: string) => {
+    const file = JSON.parse(text) as {
+      connections: { name: string }[];
+      concepts: { name: string }[];
+    };
+    file.connections = file.connections.filter((c) => c.name === connName);
+    file.concepts = file.concepts.filter((c) => c.name === conceptName);
+    return JSON.stringify(file);
+  };
+
   test.beforeAll(async ({ browser }) => {
     await asAlice(browser, async (page) => {
       const res = await page.request.post("/api/connections", {
@@ -138,12 +150,15 @@ test.describe.serial("Model export and import (#2510)", () => {
     await dialog.locator('input[type="file"]').setInputFiles({
       name: "neoboard-model.json",
       mimeType: "application/json",
-      buffer: Buffer.from(exported),
+      buffer: Buffer.from(ownOnly(exported)),
     });
-    // Prefilled by name: the connection's choice is itself.
-    await expect(dialog.getByLabel(connName, { exact: true })).toHaveValue(
-      connId,
-    );
+    // Prefilled by name: the connection's choice is itself, and not skipped.
+    await expect(
+      dialog.getByRole("combobox", { name: connName, exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("checkbox", { name: `Skip ${connName}`, exact: true }),
+    ).not.toBeChecked();
     await dialog.getByRole("button", { name: "Preview", exact: true }).click();
     await expect(dialog.getByTestId("import-counts")).toBeVisible();
     await expect(

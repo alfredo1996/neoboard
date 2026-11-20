@@ -54,65 +54,170 @@ describe("prefillMapping", () => {
   });
 });
 
+const PREVIEW = {
+  terms: { new: 2, changed: 1, unchanged: 0, orphaned: 1, skipped: 3 },
+  concepts: {
+    new: 1,
+    changed: 0,
+    unchanged: 0,
+    orphaned: 0,
+    skipped: 1,
+    skippedSides: 1,
+  },
+  items: [
+    {
+      id: "c",
+      kind: "concept",
+      label: "Customer",
+      status: "new",
+      orphaned: false,
+    },
+    {
+      id: "t",
+      kind: "term",
+      label: "Warehouse: property Person.name",
+      status: "new",
+      orphaned: true,
+    },
+  ],
+  skipped: [
+    { kind: "concept", label: "Vendor" },
+    { kind: "side", label: "Customer: orders.id on Elsewhere" },
+  ],
+};
+
 describe("ImportDialog", () => {
   beforeEach(() => {
     mutateAsync.mockReset();
   });
-  const open = () =>
-    render(<ImportDialog open onOpenChange={vi.fn()} connections={local} />);
-
-  it("prefills each connection's choice by name", async () => {
-    open();
-    await upload(fileText);
-    const warehouse = (await screen.findByLabelText(
-      "Warehouse",
-    )) as HTMLSelectElement;
-    expect(warehouse.value).toBe("l2");
-    expect(
-      (screen.getByLabelText("Elsewhere") as HTMLSelectElement).value,
-    ).toBe("");
-  });
-
-  it("sends the mapping without the skipped connection, then shows the preview counts", async () => {
-    mutateAsync.mockResolvedValue({
-      applied: false,
-      preview: {
-        terms: { new: 2, changed: 1, unchanged: 0, orphaned: 1, skipped: 3 },
-        concepts: {
-          new: 1,
-          changed: 0,
-          unchanged: 0,
-          orphaned: 0,
-          skipped: 0,
-          skippedSides: 1,
-        },
-        items: [
-          {
-            kind: "concept",
-            label: "Customer",
-            status: "new",
-            orphaned: false,
-          },
-        ],
-      },
-    });
+  const open = (onOpenChange = vi.fn()) =>
+    render(
+      <ImportDialog open onOpenChange={onOpenChange} connections={local} />,
+    );
+  const toPreview = async () => {
+    mutateAsync.mockResolvedValue({ applied: false, preview: PREVIEW });
     open();
     await upload(fileText);
     await screen.findByLabelText("Warehouse");
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
-    const counts = await screen.findByTestId("import-counts");
+    return screen.findByTestId("import-counts");
+  };
+
+  it("prefills by name: a match is paired, the rest are marked Skip", async () => {
+    open();
+    await upload(fileText);
+    expect(await screen.findByLabelText("Warehouse")).toBeTruthy();
+    expect(screen.queryByLabelText("Elsewhere")).toBeNull();
+    const skip = (n: string) =>
+      screen.getByRole("checkbox", { name: `Skip ${n}` });
+    expect(skip("Warehouse").getAttribute("aria-checked")).toBe("false");
+    expect(skip("Elsewhere").getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("checking Skip on a paired connection leaves it out of the mapping", async () => {
+    mutateAsync.mockResolvedValue({ applied: false, preview: PREVIEW });
+    open();
+    await upload(fileText);
+    await screen.findByLabelText("Warehouse");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Skip Warehouse" }));
+    expect(screen.queryByLabelText("Warehouse")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await waitFor(() =>
+      expect(mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ connectionMapping: {} }),
+      ),
+    );
+  });
+
+  it("sends the mapping without the skipped connection, then shows the counts, the skipped list and a wrapping, tagged orphan", async () => {
+    const counts = await toPreview();
     expect(mutateAsync).toHaveBeenCalledWith({
       payload: JSON.parse(fileText),
       connectionMapping: { f1: "l2" },
       apply: false,
     });
     const text = (label: string) =>
-      within(counts).getByText(label).previousElementSibling?.textContent;
+      within(counts).getByText(label).nextElementSibling?.textContent;
     expect(text("New")).toBe("3");
     expect(text("Changed")).toBe("1");
     expect(text("No longer in the database")).toBe("1");
-    expect(text("Skipped")).toBe("4");
-    expect(screen.getByText("Customer")).toBeTruthy();
+    // concepts skipped once, sides once, terms once: 3 + 1 + 1
+    expect(text("Skipped")).toBe("5");
+    const label = screen.getByText("Warehouse: property Person.name");
+    expect(label.className).not.toContain("truncate");
+    expect(label.nextElementSibling?.textContent).toBe(
+      "no longer in the database",
+    );
+    const skipped = within(screen.getByTestId("import-skipped"));
+    expect(skipped.getByText("Vendor")).toBeTruthy();
+    expect(skipped.getByText("Customer: orders.id on Elsewhere")).toBeTruthy();
+  });
+
+  it("Back returns to the pairing without sending", async () => {
+    await toPreview();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByLabelText("Warehouse")).toBeTruthy();
+    expect(mutateAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("Confirm applies, toasts and closes", async () => {
+    const onOpenChange = vi.fn();
+    mutateAsync.mockResolvedValue({ applied: false, preview: PREVIEW });
+    open(onOpenChange);
+    await upload(fileText);
+    await screen.findByLabelText("Warehouse");
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await screen.findByTestId("import-counts");
+    mutateAsync.mockResolvedValue({ applied: true, preview: PREVIEW });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    expect(mutateAsync).toHaveBeenLastCalledWith(
+      expect.objectContaining({ apply: true }),
+    );
+  });
+
+  it("shows the server's message when the import fails", async () => {
+    mutateAsync.mockRejectedValue(new Error("You cannot use every connection"));
+    open();
+    await upload(fileText);
+    await screen.findByLabelText("Warehouse");
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain(
+        "cannot use every connection",
+      ),
+    );
+  });
+
+  it.each([
+    [
+      "a file over 10 MB",
+      () => {
+        const f = new File(["{}"], "big.json");
+        Object.defineProperty(f, "size", { value: 10 * 1024 * 1024 + 1 });
+        return f;
+      },
+      "larger than 10 MB",
+    ],
+    [
+      "invalid JSON",
+      () => {
+        const f = new File(["{nope"], "bad.json");
+        Object.defineProperty(f, "text", { value: async () => "{nope" });
+        return f;
+      },
+      "not valid JSON",
+    ],
+  ])("refuses %s, naming why", async (_n, make, why) => {
+    open();
+    const input = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [make()] } });
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain(why),
+    );
+    expect(mutateAsync).not.toHaveBeenCalled();
   });
 
   it("refuses a file that is not an ontology file, naming why", async () => {
