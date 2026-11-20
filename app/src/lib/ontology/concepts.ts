@@ -124,7 +124,8 @@ export async function usableConnections(
     );
 }
 
-const termsOf = (c: UsableConnection) =>
+// async, so a decrypt that throws rejects (and settles) instead of escaping.
+const termsOf = async (c: UsableConnection) =>
   fetchConnectionTerms(
     c.type,
     decryptJson<ConnectionCredentials>(c.configEncrypted),

@@ -29,6 +29,7 @@ const mockDb = {
         wheres.push({ table, where });
         const r = rows.get(table) ?? [];
         return Object.assign(Promise.resolve(r), {
+          for: () => Promise.resolve(r),
           limit: () => Promise.resolve(r),
           orderBy: (o: unknown) => {
             orderBys.push(o);
@@ -66,7 +67,7 @@ class UnauthorizedError extends Error {}
 
 vi.mock("@/lib/auth/session", () => ({ requireSession: mockRequireSession }));
 vi.mock("@/lib/db", () => ({ db: mockDb }));
-vi.mock("@/lib/crypto/crypto", () => ({ decryptJson: () => ({}) }));
+vi.mock("@/lib/crypto/crypto", () => ({ decryptJson: vi.fn(() => ({})) }));
 vi.mock("@/lib/connector/schema-prefetch", () => ({
   fetchConnectionTerms: mockFetchTerms,
 }));
@@ -299,6 +300,26 @@ describe("/api/ontology/concepts", () => {
         expect(updates).toEqual([]);
       },
     );
+
+    it("still returns concepts on healthy connections when one connection cannot be decrypted", async () => {
+      const { decryptJson } = await import("@/lib/crypto/crypto");
+      vi.mocked(decryptJson).mockImplementationOnce(() => {
+        throw new Error("bad key");
+      });
+      mockRequireSession.mockResolvedValue(ADMIN);
+      rows.set(connections, [G, S]);
+      rows.set(ontologyConcepts, [CUSTOMER]);
+      rows.set(ontologyConceptSides, [
+        storedSide("k1", side("graph", "Person", "email")),
+        storedSide("k1", side("sql", "customers", "email")),
+      ]);
+      const res = await GET();
+      expect(res.status).toBe(200);
+      const { data } = await res.json();
+      expect(
+        data.concepts[0].sides.map((x: { missing: unknown }) => x.missing),
+      ).toEqual([null, null]);
+    });
 
     it("does not flag a side when its connection describes no structure", async () => {
       mockFetchTerms.mockResolvedValue([]);
@@ -578,6 +599,34 @@ describe("/api/ontology/concepts", () => {
           404,
         );
         expect(deletes).toEqual([]);
+      });
+
+      it("decides inside the transaction, so a side added meanwhile survives the delete", async () => {
+        rows.set(ontologyConceptSides, [
+          storedSide("k1", side("graph", "Person", "email")),
+        ]);
+        mockDb.transaction.mockImplementationOnce((fn) => {
+          // Another creator adds a side on a connection this one cannot use.
+          rows.set(ontologyConceptSides, [
+            storedSide("k1", side("graph", "Person", "email")),
+            storedSide("k1", side("sql", "customers", "email")),
+          ]);
+          return fn(mockDb);
+        });
+        expect((await DELETE(makeRequest({}), makeParams("k1"))).status).toBe(
+          200,
+        );
+        expect(deletes.some((d) => d.table === ontologyConcepts)).toBe(false);
+        expect(sidesDelete()).toContain('["connection_id",["graph"]]');
+      });
+
+      it("answers 404 when the concept is gone by the time the edit locks it", async () => {
+        mockDb.transaction.mockImplementationOnce((fn) => {
+          rows.set(ontologyConcepts, []);
+          return fn(mockDb);
+        });
+        expect((await patch(only)).status).toBe(404);
+        expect(inserts).toEqual([]);
       });
 
       it("lets an admin change every side and delete the whole concept", async () => {

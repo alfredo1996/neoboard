@@ -2089,3 +2089,15 @@ describe("the spec matches emails the way #2001 does", () => {
     expect(JSON.stringify(SPEC)).not.toMatch(/case-sensitive/i);
   });
 });
+
+describe("openapi-spec.ts concept side (#2484)", () => {
+  it("lists null in the missing enum, since 3.0.3 nullable does not add it", () => {
+    const missing = (
+      SPEC.components.schemas as unknown as Record<
+        string,
+        { properties: { missing: { enum: unknown[] } } }
+      >
+    ).ConceptSide.properties.missing;
+    expect(missing.enum).toEqual(["entity", "keyProperty", null]);
+  });
+});

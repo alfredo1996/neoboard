@@ -124,6 +124,10 @@ function SideRow({ side, n, connections, onChange, onRemove }: SideRowProps) {
             {c.name}
           </option>
         ))}
+        {!connections.some((c) => c.id === side.connectionId) && (
+          // A saved side the caller's list lacks keeps its value, not the first option's.
+          <option value={side.connectionId}>Unavailable connection</option>
+        )}
       </select>
       <select
         aria-label={`Entity, side ${n}`}

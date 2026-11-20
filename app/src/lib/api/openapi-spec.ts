@@ -1806,7 +1806,7 @@ const SPEC = {
           missing: {
             type: "string",
             nullable: true,
-            enum: ["entity", "keyProperty"],
+            enum: ["entity", "keyProperty", null],
             description: "What the connection no longer reports. Read only.",
           },
         },
