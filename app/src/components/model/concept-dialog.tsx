@@ -346,9 +346,7 @@ function ConceptForm({
               disabled={remove.isPending}
               onClick={() => run(() => remove.mutateAsync(concept.id))}
             >
-              {concept.partial
-                ? "Remove your sides of this concept"
-                : "Remove this concept"}
+              Remove this concept
             </Button>
           ) : (
             <Button

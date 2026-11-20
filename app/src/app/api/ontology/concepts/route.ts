@@ -54,11 +54,6 @@ export async function GET() {
         name: c.name,
         parameter: c.parameter,
         description: c.description,
-        // Some side is out of the caller's sight: all a creator learns of it,
-        // to word a delete (it removes only their sides).
-        partial: sides.some(
-          (s) => s.conceptId === c.id && !usableIds.has(s.connectionId),
-        ),
         sides: flagSides(
           visible
             .filter((s) => s.conceptId === c.id)

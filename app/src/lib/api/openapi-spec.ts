@@ -1838,11 +1838,6 @@ const SPEC = {
             type: "array",
             items: { $ref: "#/components/schemas/ConceptSide" },
           },
-          partial: {
-            type: "boolean",
-            description:
-              "Listing only: some side is on a connection the caller cannot use, so deleting removes only their sides.",
-          },
         },
       },
       Concepts: {

@@ -240,10 +240,34 @@ describe("/api/ontology/concepts", () => {
       expect(data.concepts).toHaveLength(1);
       expect(data.concepts[0].sides).toHaveLength(1);
       expect(data.concepts[0].sides[0].connectionId).toBe("graph");
-      // The only hint of the rest, for wording a delete.
-      expect(data.concepts[0].partial).toBe(true);
       // The usable filter is owner-or-shared for a creator.
       expect(whereOf(connections)).toContain('["visibility","shared"]');
+    });
+
+    it("returns a creator the same keys whether or not a concept has a hidden side", async () => {
+      rows.set(connections, [G]);
+      rows.set(ontologyConcepts, [
+        CUSTOMER,
+        { ...CUSTOMER, id: "k2", name: "Order", parameter: "order" },
+      ]);
+      rows.set(ontologyConceptSides, [
+        storedSide("k1", side("graph", "Person", "email")),
+        storedSide("k1", side("sql", "customers", "email")),
+        storedSide("k2", side("graph", "Order", "id")),
+      ]);
+      const { data } = await (await GET()).json();
+      expect(data.concepts).toHaveLength(2);
+      const [hidden, whole] = data.concepts.map((c: object) =>
+        Object.keys(c).sort(),
+      );
+      expect(hidden).toEqual(whole);
+      expect(hidden).toEqual([
+        "description",
+        "id",
+        "name",
+        "parameter",
+        "sides",
+      ]);
     });
 
     it("reads the concepts in name order", async () => {
@@ -257,7 +281,6 @@ describe("/api/ontology/concepts", () => {
       const { data } = await (await GET()).json();
       expect(data.concepts).toHaveLength(1);
       expect(data.concepts[0].sides).toEqual([]);
-      expect(data.concepts[0].partial).toBe(false);
       expect(whereOf(connections)).not.toContain('["visibility","shared"]');
     });
 

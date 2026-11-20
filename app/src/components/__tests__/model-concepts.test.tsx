@@ -380,19 +380,6 @@ describe("ConceptsSection", () => {
       await waitFor(() => expect(mockDelete).toHaveBeenCalledWith("k1"));
     });
 
-    it("words the delete by whether every side is the caller's", async () => {
-      mockConcepts = { data: [{ ...CUSTOMER, partial: true }] };
-      show();
-      fireEvent.click(screen.getByRole("button", { name: "Edit Customer" }));
-      const dialog = await screen.findByRole("dialog");
-      fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
-      expect(
-        within(dialog).getByRole("button", {
-          name: "Remove your sides of this concept",
-        }),
-      ).toBeTruthy();
-    });
-
     it("lists a side's missing term as the current choice, labelled with its state", async () => {
       mockConcepts = {
         data: [
