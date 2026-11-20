@@ -1629,6 +1629,83 @@ describe("GraphChart look (#2229)", () => {
     expect(parseInt(tip.style.top, 10)).toBeLessThanOrEqual(200 - 48);
   });
 
+  describe("selectedRelationshipId and overlayInset (#2515)", () => {
+    const twoRels = [
+      { id: "r-a", source: "p1", target: "m1", label: "REVIEWED" },
+      { id: "r-b", source: "p1", target: "m1", label: "REVIEWED" },
+    ];
+
+    it("selects only the relationship it names, by the edge's own id", () => {
+      render(
+        <GraphChart
+          nodes={movies}
+          edges={twoRels}
+          selectedRelationshipId="r-b"
+        />,
+      );
+      const sent = capturedProps.rels as { selected?: boolean }[];
+      expect(sent.map((r) => r.selected)).toEqual([false, true]);
+    });
+
+    it("selects nothing when no relationship is named", () => {
+      render(<GraphChart nodes={movies} edges={twoRels} />);
+      const sent = capturedProps.rels as { selected?: boolean }[];
+      expect(sent.map((r) => r.selected)).toEqual([false, false]);
+    });
+
+    it("keeps the toolbar and the bottom row clear of a panel on the right", () => {
+      render(
+        <GraphChart
+          nodes={movies}
+          edges={rels}
+          overlayInset={{ side: "right", width: 300 }}
+        />,
+      );
+      expect(screen.getByRole("toolbar").style.right).toBe("308px");
+      const row = screen.getByTestId("graph-legend").parentElement!;
+      expect(row.style.right).toBe("308px");
+      expect(row.style.left).toBe("");
+    });
+
+    it("keeps the bottom row clear of a panel on the left", () => {
+      render(
+        <GraphChart
+          nodes={movies}
+          edges={rels}
+          overlayInset={{ side: "left", width: 300 }}
+        />,
+      );
+      const row = screen.getByTestId("graph-legend").parentElement!;
+      expect(row.style.left).toBe("308px");
+      expect(screen.getByRole("toolbar").style.right).toBe("");
+    });
+
+    it("keeps the hover tooltip out of the panel", () => {
+      const { container } = render(
+        <GraphChart
+          nodes={movies}
+          edges={rels}
+          overlayInset={{ side: "right", width: 300 }}
+        />,
+      );
+      const box = container.firstElementChild as HTMLElement;
+      Object.defineProperty(box, "clientWidth", { value: 600 });
+      Object.defineProperty(box, "clientHeight", { value: 200 });
+      const cb = capturedProps.mouseEventCallbacks as {
+        onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+      };
+      act(() =>
+        cb.onHover({ id: "p2" }, [], {
+          clientX: 500,
+          clientY: 5,
+        } as MouseEvent),
+      );
+      expect(parseInt(screen.getByTestId("graph-hover").style.left, 10)).toBe(
+        600 - 300 - 224,
+      );
+    });
+  });
+
   it("leaves relationship types off the canvas at rest (they show on hover)", () => {
     render(<GraphChart nodes={movies} edges={rels} />);
     const rel = (capturedProps.rels as NvlRelationship[])[0];

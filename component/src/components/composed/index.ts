@@ -31,11 +31,19 @@ export { TimeAgo, type TimeAgoProps } from "./time-ago";
 export { JsonViewer, type JsonViewerProps } from "./json-viewer";
 export {
   PropertyPanel,
+  propertyRawText,
   type PropertyPanelProps,
-  type PropertySection,
   type PropertyValue,
   type PropertyItem,
 } from "./property-panel";
+export {
+  GraphInspector,
+  graphInspectorWidth,
+  type GraphInspectorProps,
+  type InspectorElement,
+  type InspectorConnection,
+  type InspectorEnd,
+} from "./graph-inspector";
 
 // Layout
 export {

@@ -166,6 +166,13 @@ export interface GraphChartProps {
   stylingRules?: StylingRule[];
   /** Resolved parameter values for styling rule evaluation */
   paramValues?: Record<string, unknown>;
+  /**
+   * A panel docked over one side of the graph (#2515): the toolbar, the bottom
+   * row and the hover tooltip keep clear of it. The canvas is not resized.
+   */
+  overlayInset?: { side: "left" | "right"; width: number };
+  /** The relationship NVL highlights, by its edge id (or NVL's own id). */
+  selectedRelationshipId?: string;
   /** Additional CSS classes */
   className?: string;
 }
@@ -300,6 +307,30 @@ function nodeColor(
 }
 
 /**
+ * What a node is called and painted in this graph: the caption its hover shows
+ * and the colour of its legend swatch. The inspector reads it so its title and
+ * dot match the canvas (#2515).
+ */
+export function graphNodeCaption(
+  node: GraphNode,
+  captionMap: Record<string, string>,
+): string {
+  return resolveCaption(node, captionMap);
+}
+
+export function describeGraphNode(
+  node: GraphNode,
+  allNodes: GraphNode[],
+  captionMap: Record<string, string>,
+  dark: boolean,
+): { caption: string; color: string | undefined } {
+  return {
+    caption: resolveCaption(node, captionMap),
+    color: nodeColor(node, buildLabelColorMap(allNodes, dark)),
+  };
+}
+
+/**
  * Maps our internal GraphNode type to an NVL Node.
  * Color priority: explicit node.color > last-label color from palette > undefined.
  */
@@ -369,13 +400,28 @@ const TOOLTIP_W = 224; // max-w-56
 const TOOLTIP_H = 48; // two truncated 12px/16px lines + padding
 
 /** Offset from the pointer, clamped so the tooltip stays inside the container. */
-function tooltipPos(x: number, y: number, box: HTMLElement | null) {
+function tooltipPos(
+  x: number,
+  y: number,
+  box: HTMLElement | null,
+  inset?: GraphChartProps["overlayInset"],
+) {
   const w = box?.clientWidth || Infinity;
   const h = box?.clientHeight || Infinity;
+  const min = inset?.side === "left" ? inset.width : 0;
+  const max = w - TOOLTIP_W - (inset?.side === "right" ? inset.width : 0);
   return {
-    left: Math.max(0, Math.min(x + 12, w - TOOLTIP_W)),
+    left: Math.max(min, Math.min(x + 12, max)),
     top: Math.max(0, Math.min(y + 12, h - TOOLTIP_H)),
   };
+}
+
+/** The bottom row stops short of a docked panel. */
+function bottomRowInset(inset: GraphChartProps["overlayInset"]) {
+  if (!inset) return undefined;
+  return inset.side === "left"
+    ? { left: inset.width + 8 }
+    : { right: inset.width + 8 };
 }
 
 function edgeColor(color: string | undefined, dark: boolean): string {
@@ -384,7 +430,7 @@ function edgeColor(color: string | undefined, dark: boolean): string {
 }
 
 /** NVL's id for the index-th edge, also how a click is mapped back to it. */
-function relationshipId(edge: GraphEdge, index: number): string {
+export function relationshipId(edge: GraphEdge, index: number): string {
   return `rel-${edge.source}-${edge.target}-${index}`;
 }
 
@@ -396,6 +442,7 @@ function toNvlRelationship(
   index: number,
   showRelationshipLabels: boolean,
   dark: boolean,
+  selectedRelationshipId?: string,
 ): NvlRelationship {
   return {
     id: relationshipId(edge, index),
@@ -408,6 +455,10 @@ function toNvlRelationship(
     // Normalize to hex either way; NVL doesn't render hsl() (#1157).
     color: edgeColor(edge.color, dark),
     width: 1,
+    selected:
+      selectedRelationshipId !== undefined &&
+      (edge.id === selectedRelationshipId ||
+        relationshipId(edge, index) === selectedRelationshipId),
   };
 }
 
@@ -447,6 +498,8 @@ function GraphChartInner({
   footer,
   stylingRules,
   paramValues,
+  overlayInset,
+  selectedRelationshipId,
   className,
 }: GraphChartProps) {
   const nvlRef = useRef<NVL>(null);
@@ -534,6 +587,8 @@ function GraphChartInner({
   const onRelationshipClickRef = useRef(onRelationshipClick);
   onRelationshipClickRef.current = onRelationshipClick;
 
+  const overlayInsetRef = useRef(overlayInset);
+  overlayInsetRef.current = overlayInset;
   const captionMapRef = useRef(captionMap);
   captionMapRef.current = captionMap;
   const nodesRef = useRef(nodes);
@@ -588,9 +643,15 @@ function GraphChartInner({
   const nvlRels = useMemo(
     () =>
       edges.map((e, i) =>
-        toNvlRelationship(e, i, showRelationshipLabels, dark),
+        toNvlRelationship(
+          e,
+          i,
+          showRelationshipLabels,
+          dark,
+          selectedRelationshipId,
+        ),
       ),
-    [edges, showRelationshipLabels, dark],
+    [edges, showRelationshipLabels, dark, selectedRelationshipId],
   );
 
   const fitGraph = useCallback(() => {
@@ -634,6 +695,7 @@ function GraphChartInner({
           (event?.clientX ?? 0) - (box?.left ?? 0),
           (event?.clientY ?? 0) - (box?.top ?? 0),
           containerRef.current,
+          overlayInsetRef.current,
         );
         if (!element) return setHover(null);
         if ("from" in element) {
@@ -828,6 +890,11 @@ function GraphChartInner({
       {showNodeCount && (
         <div
           className="absolute top-2 left-2 z-10 rounded-md border border-border/50 bg-background/80 px-2 py-1 text-xs text-muted-foreground shadow-sm backdrop-blur-sm"
+          style={
+            overlayInset?.side === "left"
+              ? { left: overlayInset.width + 8 }
+              : undefined
+          }
           data-testid="graph-node-count"
         >
           {nodes.length} {nodes.length === 1 ? "node" : "nodes"}, {edges.length}{" "}
@@ -839,6 +906,11 @@ function GraphChartInner({
       <div
         role="toolbar"
         aria-label="Graph controls"
+        style={
+          overlayInset?.side === "right"
+            ? { right: overlayInset.width + 8 }
+            : undefined
+        }
         className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md border border-border/50 bg-background/80 px-1.5 py-1 opacity-0 shadow-sm backdrop-blur-sm transition-opacity focus-within:opacity-100 group-hover/graph:opacity-100 group-focus-within/graph:opacity-100 [@media(hover:none)]:opacity-100"
       >
         <button
@@ -985,7 +1057,10 @@ function GraphChartInner({
       </div>
 
       {(legendRows.length > 0 || footer) && (
-        <div className="pointer-events-none absolute bottom-2 left-2 right-2 z-10 flex flex-wrap items-end gap-2">
+        <div
+          className="pointer-events-none absolute bottom-2 left-2 right-2 z-10 flex flex-wrap items-end gap-2"
+          style={bottomRowInset(overlayInset)}
+        >
           {footer && <div className="pointer-events-auto">{footer}</div>}
           {legendRows.length > 0 && (
             <ul

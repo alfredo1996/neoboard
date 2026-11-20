@@ -88,4 +88,51 @@ describe("CopyButton", () => {
     });
     writeSpy.mockRestore();
   });
+  it("icon-only: shows no text, takes its name from aria-label, and still copies", async () => {
+    const user = userEvent.setup();
+    const onCopied = vi.fn();
+    const writeSpy = vi.spyOn(navigator.clipboard, "writeText");
+    render(
+      <CopyButton
+        value="raw"
+        size="icon-sm"
+        aria-label="Copy name"
+        onCopied={onCopied}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: "Copy name" });
+    expect(btn).toHaveTextContent("");
+    await user.click(btn);
+    expect(writeSpy).toHaveBeenCalledWith("raw");
+    await waitFor(() => expect(onCopied).toHaveBeenCalledTimes(1));
+    writeSpy.mockRestore();
+  });
+
+  it("calls onBlocked, not onCopied, when the write is rejected", async () => {
+    const user = userEvent.setup();
+    const onCopied = vi.fn();
+    const onBlocked = vi.fn();
+    const writeSpy = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockRejectedValueOnce(new Error("denied"));
+    render(<CopyButton value="v" onCopied={onCopied} onBlocked={onBlocked} />);
+    await user.click(screen.getByRole("button", { name: /copy/i }));
+    await waitFor(() => expect(onBlocked).toHaveBeenCalledTimes(1));
+    expect(onCopied).not.toHaveBeenCalled();
+    writeSpy.mockRestore();
+  });
+
+  it("calls onBlocked when the clipboard API throws synchronously", async () => {
+    const user = userEvent.setup();
+    const onBlocked = vi.fn();
+    const writeSpy = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockImplementationOnce(() => {
+        throw new Error("insecure context");
+      });
+    render(<CopyButton value="v" onBlocked={onBlocked} />);
+    await user.click(screen.getByRole("button", { name: /copy/i }));
+    await waitFor(() => expect(onBlocked).toHaveBeenCalledTimes(1));
+    writeSpy.mockRestore();
+  });
 });
