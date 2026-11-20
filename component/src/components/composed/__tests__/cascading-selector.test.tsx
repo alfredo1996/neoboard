@@ -122,7 +122,7 @@ describe("ParamSelector — parent gating", () => {
       />,
     );
 
-    expect(screen.getByText("(depends on Country)")).toBeInTheDocument();
+    expect(screen.getByText("Filtered by Country")).toBeInTheDocument();
   });
 
   it("leaves an explicit placeholder in charge even while waiting for the parent", () => {

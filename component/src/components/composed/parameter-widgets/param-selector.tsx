@@ -185,20 +185,15 @@ function ParamSelector({
   // if it were part of the control's identity. aria-describedby is the right
   // split: the name identifies, the description explains (#1360).
   const hintId = parentParameterName ? `${labelId}-hint` : undefined;
-  const label = (
-    <>
-      {!labelledBy && !scopedLabel && (
-        <ParamLabel parameterName={parameterName} id={labelId} />
-      )}
-      {parentParameterName && (
-        <span
-          id={hintId}
-          className="ml-1 text-[10px] normal-case font-normal text-muted-foreground"
-        >
-          (depends on {parentName})
-        </span>
-      )}
-    </>
+  const label = !labelledBy && !scopedLabel && (
+    <ParamLabel parameterName={parameterName} id={labelId} />
+  );
+  // Below the field, as the kit's help text, so dependent and independent
+  // fields start at the same height (#2523).
+  const hint = parentParameterName && (
+    <p id={hintId} className="text-xs text-muted-foreground">
+      Filtered by {parentName}
+    </p>
   );
 
   const clearButton = value && (
@@ -305,6 +300,7 @@ function ParamSelector({
           </Popover>
           {clearButton}
         </div>
+        {hint}
       </div>
     );
   }
@@ -365,6 +361,7 @@ function ParamSelector({
         </Select>
         {clearButton}
       </div>
+      {hint}
     </div>
   );
 }
