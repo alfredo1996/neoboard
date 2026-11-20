@@ -64,8 +64,7 @@ Gives NeoBoard one calm look from the sign-in page to the last chart: IBM Plex t
 - A region name from a query result is HTML-escaped in the choropleth tooltip, so it can't run script for whoever hovers it (#2289).
 - A password in a connection URI's query string is refused, instead of being stored and shown to everyone who can see the connection (#2322).
 - `/api/health` no longer tells anonymous callers which secrets and settings are configured (#2332).
-- `next` moves to 16.4.3 and `zod` to 4.6.7, past two critical remote code execution advisories in `next`. `zod` also had a high memory-exhaustion advisory and `next` a high denial of service (#2398).
-- `next` moves to 16.4.6, past seven moderate advisories: response injection and disclosure, an HttpOnly cookie exposed on Edge routes, an SVG bypass in image optimisation, and four cache disclosures (#2511).
+- `next` moves to 16.4.6 and `zod` to 4.6.7. In `next` that clears two critical remote code execution advisories and a high denial of service (#2398), and seven moderate advisories: response injection and disclosure, an HttpOnly cookie exposed on Edge routes, an SVG bypass in image optimisation, and four cache disclosures (#2511). `zod` also had a high memory-exhaustion advisory (#2398).
 - The HTTPS redirect, documented as on by default, fires in the production image: it judges the host the client asked for, so a public host is redirected and localhost and private ranges stay on HTTP (#2400).
 - The change-password page opens only when a password change is forced, and refuses the current password as the new one. A signed-in visitor skips sign in and sign up (#2339).
 - The docs and development dependency trees have no critical advisory (#2402), and the docs site drops an unused `sharp` pin, clearing its one high advisory (#2463).
