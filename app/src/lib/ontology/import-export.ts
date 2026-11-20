@@ -422,50 +422,58 @@ export async function writePlan(
     "termRows" | "conceptWrites"
   >,
 ) {
+  const chunks: (typeof plan.termRows)[] = [];
   for (let i = 0; i < plan.termRows.length; i += CHUNK) {
-    await tx
-      .insert(ontologyTerms)
-      .values(
-        plan.termRows.slice(i, i + CHUNK).map((r) => ({ ...r, tenantId })),
-      )
-      .onConflictDoUpdate({
-        target: [
-          ontologyTerms.tenantId,
-          ontologyTerms.connectionId,
-          ontologyTerms.kind,
-          ontologyTerms.key,
-          ontologyTerms.parentKey,
-        ],
-        set: {
-          displayName: sql`excluded.display_name`,
-          description: sql`excluded.description`,
-          hidden: sql`excluded.hidden`,
-          updatedAt: new Date(),
-        },
-      });
+    chunks.push(plan.termRows.slice(i, i + CHUNK));
   }
-  for (const c of plan.conceptWrites) {
-    const { existingId, sides, ...fields } = c;
-    let id = existingId;
-    if (id) {
-      await tx
+  // ponytail: one transaction client runs these one at a time anyway; the
+  // first failure rejects and the transaction rolls back, as in #2512.
+  await Promise.all([
+    ...chunks.map((rows) => upsertTerms(tx, tenantId, rows)),
+    ...plan.conceptWrites.map((c) => writeConcept(tx, tenantId, c)),
+  ]);
+}
+
+function upsertTerms(tx: Handle, tenantId: string, rows: TermRow[]) {
+  return tx
+    .insert(ontologyTerms)
+    .values(rows.map((r) => ({ ...r, tenantId })))
+    .onConflictDoUpdate({
+      target: [
+        ontologyTerms.tenantId,
+        ontologyTerms.connectionId,
+        ontologyTerms.kind,
+        ontologyTerms.key,
+        ontologyTerms.parentKey,
+      ],
+      set: {
+        displayName: sql`excluded.display_name`,
+        description: sql`excluded.description`,
+        hidden: sql`excluded.hidden`,
+        updatedAt: new Date(),
+      },
+    });
+}
+
+/** One concept: its row first, then its sides, which reference it. */
+async function writeConcept(tx: Handle, tenantId: string, c: ConceptWrite) {
+  const { existingId, sides, ...fields } = c;
+  const id = existingId ?? randomId();
+  await (existingId
+    ? tx
         .update(ontologyConcepts)
         .set(fields)
         .where(
           and(
             eq(ontologyConcepts.tenantId, tenantId),
-            eq(ontologyConcepts.id, id),
+            eq(ontologyConcepts.id, existingId),
           ),
-        );
-    } else {
-      id = randomId();
-      await tx.insert(ontologyConcepts).values({ id, tenantId, ...fields });
-    }
-    if (sides.length) {
-      await tx
-        .insert(ontologyConceptSides)
-        .values(sides.map((s) => ({ tenantId, conceptId: id, ...s })))
-        .onConflictDoNothing();
-    }
+        )
+    : tx.insert(ontologyConcepts).values({ id, tenantId, ...fields }));
+  if (sides.length) {
+    await tx
+      .insert(ontologyConceptSides)
+      .values(sides.map((s) => ({ tenantId, conceptId: id, ...s })))
+      .onConflictDoNothing();
   }
 }
