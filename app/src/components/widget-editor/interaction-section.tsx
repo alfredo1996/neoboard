@@ -201,7 +201,7 @@ function RuleGroup({
             type="button"
             variant="secondary"
             size="sm"
-            className="justify-self-start"
+            className="h-auto max-w-full justify-self-start whitespace-normal py-1.5 text-left"
             onClick={() => setMapping({ parameterName: c.parameter })}
           >
             Set {c.name} ($param_{c.parameter}) to this {field}
@@ -312,7 +312,7 @@ export function InteractionSection({
             variant="ghost"
             size="sm"
             onClick={addRule}
-            className="justify-self-start"
+            className="h-auto max-w-full justify-self-start whitespace-normal py-1.5 text-left"
           >
             <Plus className="mr-1.5 h-4 w-4" />
             Add rule
