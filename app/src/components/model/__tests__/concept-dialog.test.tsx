@@ -35,6 +35,13 @@ const renderDialog = (connectionId: string) =>
   );
 
 describe("ConceptDialog connection select", () => {
+  it("offers no 'Unavailable connection' for a side with no connection chosen yet", () => {
+    renderDialog("");
+    expect(
+      screen.queryByRole("option", { name: "Unavailable connection" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows a saved side's own connection", () => {
     renderDialog("graph");
     expect(screen.getByLabelText("Connection, side 1")).toHaveValue("graph");
