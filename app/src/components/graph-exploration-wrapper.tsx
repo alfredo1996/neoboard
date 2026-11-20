@@ -7,12 +7,14 @@ import {
   useGraphExploration,
   GraphInspector,
   graphInspectorWidth,
-  describeGraphNode,
-  graphNodeCaption,
-  relationshipId,
   useDarkMode,
   toast,
 } from "@neoboard/components";
+import {
+  describeGraphNode,
+  graphNodeCaption,
+  relationshipId,
+} from "@neoboard/components/charts/graph-labels";
 import { GraphChart } from "@/components/lazy-graph-chart";
 import type {
   GraphNode,
@@ -531,6 +533,24 @@ export function GraphExplorationWrapper({
     return () => observer.disconnect();
   }, []);
 
+  // Native listeners: the container is a focus target, not a control.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onPointerDown = (e: PointerEvent) => {
+      pointerXRef.current = e.clientX - el.getBoundingClientRect().left;
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && inspectedRef.current) closeInspector();
+    };
+    el.addEventListener("pointerdown", onPointerDown, true);
+    el.addEventListener("keydown", onKeyDown);
+    return () => {
+      el.removeEventListener("pointerdown", onPointerDown, true);
+      el.removeEventListener("keydown", onKeyDown);
+    };
+  }, [closeInspector]);
+
   const captionMap = stored?.captionMap;
   const inspector = useMemo(
     () =>
@@ -560,13 +580,6 @@ export function GraphExplorationWrapper({
       data-testid="graph-exploration"
       // An Esc here closes the inspector only, even inside a dialog.
       data-keeps-escape={inspector ? "" : undefined}
-      onPointerDownCapture={(e) => {
-        pointerXRef.current =
-          e.clientX - (containerRef.current?.getBoundingClientRect().left ?? 0);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && inspectedRef.current) closeInspector();
-      }}
     >
       <GraphChart
         nodes={exploration.nodes}

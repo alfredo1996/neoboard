@@ -102,6 +102,11 @@ vi.mock("@neoboard/components", () => ({
     );
   },
   graphInspectorWidth: () => 280,
+  useDarkMode: () => false,
+  toast: (t: unknown) => toasts.push(t),
+}));
+
+vi.mock("@neoboard/components/charts/graph-labels", () => ({
   graphNodeCaption: (node: { id: string; label?: string }) =>
     node.label ?? node.id,
   describeGraphNode: (node: { id: string; label?: string }) => ({
@@ -110,8 +115,6 @@ vi.mock("@neoboard/components", () => ({
   }),
   relationshipId: (e: { source: string; target: string }, i: number) =>
     `rel-${e.source}-${e.target}-${i}`,
-  useDarkMode: () => false,
-  toast: (t: unknown) => toasts.push(t),
 }));
 
 // Node expansion reads its response through these; only the request it sends

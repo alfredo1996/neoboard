@@ -40,12 +40,12 @@ export { PieChart } from "./pie-chart";
 export type { PieChartProps } from "./pie-chart";
 export { SingleValueChart } from "./single-value-chart";
 export type { SingleValueChartProps } from "./single-value-chart";
+export { GraphChart } from "./graph-chart";
 export {
-  GraphChart,
   describeGraphNode,
   graphNodeCaption,
   relationshipId,
-} from "./graph-chart";
+} from "./graph-labels";
 export type { GraphChartProps, GraphLayout } from "./graph-chart";
 
 // MapChart must be imported dynamically to avoid SSR issues with Leaflet

@@ -44,9 +44,6 @@ vi.mock("@neoboard/components", () => ({
   ),
   GraphInspector: () => <div data-testid="graph-inspector" />,
   graphInspectorWidth: () => 280,
-  graphNodeCaption: () => "",
-  describeGraphNode: () => ({ caption: "", color: undefined }),
-  relationshipId: () => "",
   useDarkMode: () => false,
   useGraphExploration: ({
     initialNodes,
@@ -68,6 +65,12 @@ vi.mock("@neoboard/components", () => ({
     canExpand: () => true,
     canCollapse: () => false,
   }),
+}));
+
+vi.mock("@neoboard/components/charts/graph-labels", () => ({
+  graphNodeCaption: () => "",
+  describeGraphNode: () => ({ caption: "", color: undefined }),
+  relationshipId: () => "",
 }));
 
 vi.mock("@/lib/plugin/chart-helpers", () => ({

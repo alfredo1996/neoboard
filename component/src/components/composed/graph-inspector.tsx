@@ -263,6 +263,7 @@ function GraphInspector({
   onCopyBlocked,
   className,
 }: Readonly<GraphInspectorProps>) {
+  const sectionRef = React.useRef<HTMLElement>(null);
   const titleRef = React.useRef<HTMLHeadingElement>(null);
   const boxRef = React.useRef<HTMLTextAreaElement>(null);
   // Set by a step, so the arrow keeps focus; any other change of element
@@ -291,6 +292,19 @@ function GraphInspector({
     boxRef.current?.select();
   }, [fallback]);
 
+  // Native listener: the panel is a landmark, not an interactive element.
+  React.useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      onClose();
+    };
+    el.addEventListener("keydown", onKeyDown);
+    return () => el.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   const blocked = (text: string) => () => {
     setFallback(text);
     onCopyBlocked?.();
@@ -307,17 +321,13 @@ function GraphInspector({
 
   return (
     <section
+      ref={sectionRef}
       aria-label={`${kind}: ${element.title}`}
       data-testid="graph-inspector"
       // An Esc in here closes the panel only, even inside a dialog.
       data-keeps-escape=""
       data-side={side}
       style={{ width }}
-      onKeyDown={(e) => {
-        if (e.key !== "Escape") return;
-        e.stopPropagation();
-        onClose();
-      }}
       className={cn(
         "absolute inset-y-0 z-20 flex flex-col bg-card text-card-foreground",
         side === "right"

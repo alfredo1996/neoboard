@@ -21,7 +21,6 @@ import type {
   GraphEdgeEvent,
 } from "./types";
 import type { StylingRule } from "./styling-rule";
-import { resolveStylingRuleColor } from "./styling-rule";
 import {
   Popover,
   PopoverTrigger,
@@ -31,27 +30,20 @@ import { Label } from "@/components/ui/label";
 import { fieldBaseClasses } from "@/components/ui/control-sizes";
 import { cn } from "@/lib/utils";
 import { useDarkMode } from "./base-chart";
-import { HASTINGS_LIGHT, HASTINGS_DARK } from "./theme";
 import { toNvlColor } from "./nvl-color";
+import {
+  buildLabelColorMap,
+  colorLabel,
+  nodeColor,
+  relationshipId,
+  resolveCaption,
+} from "./graph-labels";
 
 export type GraphLayout = "force" | "circular" | "hierarchical";
-
-/**
- * Node-label palettes — the Hastings chart palette (#2226), the default of every
- * other chart, so the graph reads as part of the same system. Light/dark
- * variants track the theme (#2229).
- */
-const LABEL_COLOR_PALETTE_LIGHT = HASTINGS_LIGHT;
-const LABEL_COLOR_PALETTE_DARK = HASTINGS_DARK;
 
 /** Hairline relationships in the rule colour of each theme (#2229). */
 const EDGE_RULE_LIGHT = "#c9ced8";
 const EDGE_RULE_DARK = "#6a7180";
-
-/** The label a node is coloured and counted by: its last one. */
-function colorLabel(node: GraphNode): string | undefined {
-  return node.labels?.[node.labels.length - 1];
-}
 
 /** Nodes per colour label, sorted by label — the legend rows. */
 function countByLabel(nodes: GraphNode[]): [string, number][] {
@@ -61,30 +53,6 @@ function countByLabel(nodes: GraphNode[]): [string, number][] {
     if (l !== undefined) counts.set(l, (counts.get(l) ?? 0) + 1);
   }
   return Array.from(counts).sort((a, b) => a[0].localeCompare(b[0]));
-}
-
-/**
- * Builds a map of node label → palette color.
- * Labels are sorted so the same set of labels always yields the same colors.
- */
-function buildLabelColorMap(
-  nodes: GraphNode[],
-  dark: boolean,
-): Map<string, string> {
-  const palette = dark ? LABEL_COLOR_PALETTE_DARK : LABEL_COLOR_PALETTE_LIGHT;
-  const labels = new Set<string>();
-  for (const node of nodes) {
-    if (node.labels) {
-      for (const lbl of node.labels) labels.add(lbl);
-    }
-  }
-  const sorted = Array.from(labels).sort((a, b) => a.localeCompare(b));
-  const map = new Map<string, string>();
-  sorted.forEach((lbl, i) => {
-    // NVL only renders hex; the citrine palette is authored in hsl() (#1157).
-    map.set(lbl, toNvlColor(palette[i % palette.length]));
-  });
-  return map;
 }
 
 export type GraphNodeSize = "small" | "medium" | "large";
@@ -253,84 +221,6 @@ function pickDefaultCaptionProp(propKeys: string[]): string {
 }
 
 /**
- * Converts a property value to a human-readable string for graph display.
- * Every value arrives as the row value contract's own forms (#1904) — ISO-8601
- * strings for temporals, decimal strings past a double — so a `Date` cannot
- * reach here.
- */
-function graphPrimitiveString(val: unknown): string {
-  if (val === null || val === undefined) return "";
-  if (typeof val !== "object") return String(val);
-  return JSON.stringify(val);
-}
-
-/**
- * Resolve the caption for a node given the captionMap.
- */
-function resolveCaption(
-  node: GraphNode,
-  captionMap: Record<string, string>,
-): string {
-  const nodeLabels = node.labels ?? [];
-  const props = node.properties ?? {};
-  for (const lbl of nodeLabels) {
-    const propKey = captionMap[lbl];
-    if (propKey && propKey in props) {
-      const val = props[propKey];
-      if (val !== null && val !== undefined) return graphPrimitiveString(val);
-    }
-  }
-  return node.label ?? node.id;
-}
-
-/**
- * The colour a node is painted: styling rule > explicit node.color > label
- * palette, as hex (NVL doesn't render hsl(), whatever the source, #1157).
- * The legend reads this too, so its swatches match the canvas.
- */
-function nodeColor(
-  node: GraphNode,
-  labelColorMap: Map<string, string>,
-  stylingRules?: StylingRule[],
-  paramValues?: Record<string, unknown>,
-): string | undefined {
-  const ruleColor =
-    stylingRules?.length && node.value != null
-      ? resolveStylingRuleColor(node.value, stylingRules, paramValues)
-      : undefined;
-  const label = colorLabel(node);
-  const raw =
-    ruleColor ??
-    node.color ??
-    (label === undefined ? undefined : labelColorMap.get(label));
-  return raw === undefined ? undefined : toNvlColor(raw);
-}
-
-/**
- * What a node is called and painted in this graph: the caption its hover shows
- * and the colour of its legend swatch. The inspector reads it so its title and
- * dot match the canvas (#2515).
- */
-export function graphNodeCaption(
-  node: GraphNode,
-  captionMap: Record<string, string>,
-): string {
-  return resolveCaption(node, captionMap);
-}
-
-export function describeGraphNode(
-  node: GraphNode,
-  allNodes: GraphNode[],
-  captionMap: Record<string, string>,
-  dark: boolean,
-): { caption: string; color: string | undefined } {
-  return {
-    caption: resolveCaption(node, captionMap),
-    color: nodeColor(node, buildLabelColorMap(allNodes, dark)),
-  };
-}
-
-/**
  * Maps our internal GraphNode type to an NVL Node.
  * Color priority: explicit node.color > last-label color from palette > undefined.
  */
@@ -430,11 +320,6 @@ function bottomRowInset(inset: GraphChartProps["overlayInset"]) {
 function edgeColor(color: string | undefined, dark: boolean): string {
   if (color) return toNvlColor(color);
   return dark ? EDGE_RULE_DARK : EDGE_RULE_LIGHT;
-}
-
-/** NVL's id for the index-th edge, also how a click is mapped back to it. */
-export function relationshipId(edge: GraphEdge, index: number): string {
-  return `rel-${edge.source}-${edge.target}-${index}`;
 }
 
 /**
