@@ -517,6 +517,77 @@ export const ontologyTerms = pgTable(
   ],
 );
 
+// ─── Ontology concepts (#2484) ──────────────────────────────────────
+
+/**
+ * A concept links one thing across connections (Customer). It names a
+ * dashboard parameter; each of its sides says which entity and key property
+ * on a connection hold that thing's key. Name and parameter are unique per
+ * tenant.
+ */
+export const ontologyConcepts = pgTable(
+  "ontology_concept",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    tenantId: text("tenant_id").notNull().default("default"),
+    name: text("name").notNull(),
+    parameter: text("parameter").notNull(),
+    description: text("description").notNull().default(""),
+  },
+  (table) => [
+    unique("ontology_concept_tenant_id_unique").on(table.tenantId, table.id),
+    unique("ontology_concept_tenant_name_unique").on(
+      table.tenantId,
+      table.name,
+    ),
+    unique("ontology_concept_tenant_parameter_unique").on(
+      table.tenantId,
+      table.parameter,
+    ),
+  ],
+);
+
+/**
+ * One side of a concept: an entity and a key property of a connection, named
+ * by the term keys the connector reports (opaque strings). A concept may have
+ * several sides on one connection, so the unique key takes the entity and the
+ * property too. Whether the terms still exist is worked out at read time.
+ */
+export const ontologyConceptSides = pgTable(
+  "ontology_concept_side",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    tenantId: text("tenant_id").notNull().default("default"),
+    conceptId: text("concept_id").notNull(),
+    connectionId: text("connection_id").notNull(),
+    entityKey: text("entity_key").notNull(),
+    keyPropertyKey: text("key_property_key").notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tenantId, table.conceptId],
+      foreignColumns: [ontologyConcepts.tenantId, ontologyConcepts.id],
+      name: "ontology_concept_side_tenant_concept_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.tenantId, table.connectionId],
+      foreignColumns: [connections.tenantId, connections.id],
+      name: "ontology_concept_side_tenant_connection_fk",
+    }).onDelete("cascade"),
+    unique("ontology_concept_side_unique").on(
+      table.tenantId,
+      table.conceptId,
+      table.connectionId,
+      table.entityKey,
+      table.keyPropertyKey,
+    ),
+  ],
+);
+
 // ─── Audit log ──────────────────────────────────────────────────────
 
 export const auditLogs = pgTable(
@@ -557,6 +628,7 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Connection = typeof connections.$inferSelect;
 export type OntologyTermRow = typeof ontologyTerms.$inferSelect;
+export type OntologyConceptRow = typeof ontologyConcepts.$inferSelect;
 export type NewConnection = typeof connections.$inferInsert;
 export type Dashboard = typeof dashboards.$inferSelect;
 export type NewDashboard = typeof dashboards.$inferInsert;

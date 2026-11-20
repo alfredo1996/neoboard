@@ -23,6 +23,16 @@ vi.mock("@/components/model/connection-terms", () => ({
   ),
 }));
 
+vi.mock("@/components/model/concepts-section", () => ({
+  ConceptsSection: (p: {
+    connections: { id: string }[];
+    canEdit: boolean;
+    search: string;
+  }) => (
+    <p data-testid="concepts">{`${p.connections.map((c) => c.id)}|${p.canEdit}|${p.search}`}</p>
+  ),
+}));
+
 describe("ModelPage", () => {
   beforeEach(() => {
     mockRole = "creator";
@@ -60,9 +70,16 @@ describe("ModelPage", () => {
 
   it("hands the search text to every connection", () => {
     render(<ModelPage />);
-    fireEvent.change(screen.getByLabelText("Search terms"), {
+    fireEvent.change(screen.getByLabelText("Search terms and concepts"), {
       target: { value: "cust" },
     });
     expect(screen.getByTestId("terms").textContent).toBe("Demo|true|cust");
+    expect(screen.getByTestId("concepts").textContent).toBe("c1|true|cust");
+  });
+
+  it("leaves the concepts out when there is no connection to map", () => {
+    mockState = { data: [] };
+    render(<ModelPage />);
+    expect(screen.queryByTestId("concepts")).toBeNull();
   });
 });

@@ -388,6 +388,78 @@ const SPEC = {
         },
       },
     },
+    "/api/ontology/concepts": {
+      get: {
+        tags: ["Connections"],
+        summary: "List concepts",
+        description:
+          "The concepts of the caller's tenant: one thing (Customer) linked across connections by a key. Each carries only its " +
+          "sides on connections the caller can use; a concept with no such side is left out, except for an admin, who sees all. " +
+          "A side whose entity or key property its connection no longer reports has `missing` set to `entity` or `keyProperty`; " +
+          "nothing is written by a read, and a connection that describes no structure flags nothing.",
+        responses: {
+          200: jsonResponse("The concepts", "#/components/schemas/Concepts"),
+          401: R.unauthorized,
+          500: R.serverError,
+        },
+      },
+      post: {
+        tags: ["Connections"],
+        summary: "Create a concept",
+        description:
+          "Creators and admins who can use every side's connection (403 otherwise; readers too). A side names an entity and a key " +
+          "property by the term keys the connection reports now (400 when it does not). A concept may have several sides on one " +
+          "connection; a side is unique by connection, entity and key property. `name` and `parameter` are each unique in the " +
+          "tenant (409). `parameter` holds letters, digits and underscores, with a leading `param_` stripped as every dashboard " +
+          "parameter is. Names are limited to 200 characters and descriptions to 2,000, and are shown as text.",
+        requestBody: jsonBody("#/components/schemas/ConceptRequest"),
+        responses: {
+          201: jsonResponse("The concept", "#/components/schemas/Concept"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          409: bodyResponse("A concept of this name or parameter exists.", {
+            $ref: "#/components/schemas/ErrorResponse",
+          }),
+          500: R.serverError,
+        },
+      },
+    },
+    "/api/ontology/concepts/{id}": {
+      parameters: [{ $ref: "#/components/parameters/IdPath" }],
+      patch: {
+        tags: ["Connections"],
+        summary: "Replace a concept",
+        description:
+          "Replaces the name, parameter, description and sides under the rules of creating one. A creator who cannot use a " +
+          "connection one of its stored sides sits on is refused (403); an admin is not.",
+        requestBody: jsonBody("#/components/schemas/ConceptRequest"),
+        responses: {
+          200: jsonResponse("The concept", "#/components/schemas/Concept"),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
+          409: bodyResponse("A concept of this name or parameter exists.", {
+            $ref: "#/components/schemas/ErrorResponse",
+          }),
+          500: R.serverError,
+        },
+      },
+      delete: {
+        tags: ["Connections"],
+        summary: "Delete a concept",
+        description:
+          "Deletes the concept and its sides. Same access as replacing one. Deleting a connection removes its sides.",
+        responses: {
+          200: R.deleteSuccess,
+          401: R.unauthorized,
+          403: R.forbidden,
+          404: R.notFound,
+          500: R.serverError,
+        },
+      },
+    },
     "/api/connectors": {
       get: {
         tags: ["Connections"],
@@ -1711,6 +1783,66 @@ const SPEC = {
           terms: {
             type: "array",
             items: { $ref: "#/components/schemas/OntologyTerm" },
+          },
+        },
+      },
+      ConceptSide: {
+        type: "object",
+        required: ["connectionId", "entityKey", "keyPropertyKey"],
+        properties: {
+          connectionId: { type: "string" },
+          entityKey: {
+            type: "string",
+            description: "The entity's term key, as the connection reports it.",
+          },
+          keyPropertyKey: {
+            type: "string",
+            description: "The key property's term key, under that entity.",
+          },
+          missing: {
+            type: "string",
+            nullable: true,
+            enum: ["entity", "keyProperty"],
+            description: "What the connection no longer reports. Read only.",
+          },
+        },
+      },
+      ConceptRequest: {
+        type: "object",
+        required: ["name", "parameter", "sides"],
+        properties: {
+          name: { type: "string", maxLength: 200 },
+          parameter: { type: "string", maxLength: 100, pattern: "^\\w+$" },
+          description: { type: "string", maxLength: 2000, default: "" },
+          sides: {
+            type: "array",
+            minItems: 1,
+            maxItems: 50,
+            items: { $ref: "#/components/schemas/ConceptSide" },
+          },
+        },
+      },
+      Concept: {
+        type: "object",
+        required: ["id", "name", "parameter", "description", "sides"],
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          parameter: { type: "string" },
+          description: { type: "string" },
+          sides: {
+            type: "array",
+            items: { $ref: "#/components/schemas/ConceptSide" },
+          },
+        },
+      },
+      Concepts: {
+        type: "object",
+        required: ["concepts"],
+        properties: {
+          concepts: {
+            type: "array",
+            items: { $ref: "#/components/schemas/Concept" },
           },
         },
       },
