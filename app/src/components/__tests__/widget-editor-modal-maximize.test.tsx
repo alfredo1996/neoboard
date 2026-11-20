@@ -269,6 +269,9 @@ vi.mock("@/hooks/use-schema", () => ({
 }));
 vi.mock("@/stores/schema-store", () => ({ useSchemaStore: () => null }));
 vi.mock("@/hooks/use-ontology", () => ({ useEditorTerms: () => undefined }));
+vi.mock("@/hooks/use-concepts", () => ({
+  useConcepts: () => ({ data: undefined }),
+}));
 vi.mock("@/hooks/use-query-execution", () => ({
   useQueryExecution: () => ({
     mutate: vi.fn(),

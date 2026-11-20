@@ -16,6 +16,7 @@ vi.mock("next/dynamic", () => ({
         data-placeholder={String(props.placeholder ?? "")}
         data-show-run={String(props.showRun)}
         data-terms={JSON.stringify(props.terms ?? null)}
+        data-parameters={JSON.stringify(props.parameters ?? null)}
       >
         {props.toolbar as React.ReactNode}
       </div>
@@ -28,6 +29,10 @@ vi.mock("next/dynamic", () => ({
 // Mock schema hooks so they don't make real requests
 vi.mock("@/hooks/use-schema", () => ({
   useConnectionSchema: () => ({ isFetching: false, refreshSchema: vi.fn() }),
+}));
+let mockConcepts: unknown[] | undefined;
+vi.mock("@/hooks/use-concepts", () => ({
+  useConcepts: () => ({ data: mockConcepts }),
 }));
 let mockTerms: unknown[] | undefined;
 vi.mock("@/hooks/use-ontology", () => ({
@@ -112,6 +117,44 @@ describe("QueryEditorPanel", () => {
     ).toEqual(mockTerms);
     mockTerms = undefined;
   });
+
+  it.each([
+    [
+      "a mapped connection",
+      "pg",
+      [
+        {
+          label: "$param_customer",
+          detail: "Customer: filters by customers.email",
+        },
+      ],
+    ],
+    ["an unmapped connection", "other", []],
+  ])(
+    "suggests a concept's parameter on %s (#2485)",
+    (_, connectionId, want) => {
+      mockConcepts = [
+        {
+          id: "c1",
+          name: "Customer",
+          parameter: "customer",
+          description: "",
+          sides: [
+            {
+              connectionId: "pg",
+              entityKey: "customers",
+              keyPropertyKey: "email",
+            },
+          ],
+        },
+      ];
+      useWidgetEditorStore.getState().setConnectionId(connectionId);
+      render(<QueryEditorPanel editorLanguage="sql" />);
+      const got = screen.getByTestId("query-editor").dataset.parameters;
+      expect(JSON.parse(got ?? "null")).toEqual(want);
+      mockConcepts = undefined;
+    },
+  );
 
   it("does NOT show warning on fresh modal open (no query, no connection)", () => {
     // resetForAdd sets connectionId to "" and query to ""

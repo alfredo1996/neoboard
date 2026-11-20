@@ -15,6 +15,7 @@ import {
 } from "@codemirror/language";
 import type { DbSchema } from "@neo4j-cypher/language-support";
 import { completionStyles, cypherAutocomplete } from "./autocomplete";
+import { languageDataSources } from "../language-data-sources";
 import { ParserAdapter } from "./parser-adapter";
 import { signatureHelpTooltip } from "./signature-help";
 
@@ -37,7 +38,9 @@ export function cypher(config: CypherConfig) {
 
   return new LanguageSupport(cypherLanguage, [
     autocompletion({
-      override: [cypherAutocomplete(config)],
+      // The second source passes on what the editor adds through language data
+      // (parameter suggestions, #2485), which `override` would otherwise drop.
+      override: [cypherAutocomplete(config), languageDataSources],
       optionClass: completionStyles,
     }),
     signatureHelpTooltip(config),

@@ -87,6 +87,7 @@ vi.mock("@codemirror/state", () => ({
       return { type: "state", config };
     },
     readOnly: { of: (v: boolean) => ({ type: "readOnly", value: v }) },
+    languageData: { of: (f: unknown) => ({ type: "languageData", f }) },
   },
   Compartment: class MockCompartment {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

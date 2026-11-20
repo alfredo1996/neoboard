@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import {
@@ -29,6 +30,8 @@ import { FileCode } from "lucide-react";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import { useConnectionSchema } from "@/hooks/use-schema";
 import { useEditorTerms } from "@/hooks/use-ontology";
+import { useConcepts } from "@/hooks/use-concepts";
+import { parameterCompletions } from "@/lib/ontology/concept-wiring";
 import { useSchemaStore } from "@/stores/schema-store";
 
 // CodeMirror accesses real DOM APIs — load it only client-side.
@@ -189,6 +192,11 @@ export function QueryEditorPanel({
   const { isFetching, refreshSchema } = useConnectionSchema(connectionId);
   const schema = useSchemaStore((s) => s.getSchema(connectionId));
   const terms = useEditorTerms(connectionId);
+  const { data: concepts } = useConcepts();
+  const parameters = useMemo(
+    () => parameterCompletions(concepts ?? [], connectionId),
+    [concepts, connectionId],
+  );
   const content = contentFor(editorLanguage);
   const templates = content?.templates ?? [];
   const hint = queryHintFor(chartType, content);
@@ -371,6 +379,7 @@ export function QueryEditorPanel({
         language={editorLanguage}
         schema={schema}
         terms={terms}
+        parameters={parameters}
         placeholder={placeholderFor(editorLanguage, content)}
         // The query box grows with its text to 320px, then scrolls inside; it is
         // the only nested scroller (#2388). Expanded, it is half the

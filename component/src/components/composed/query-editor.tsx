@@ -15,6 +15,8 @@ import { resolveLanguageExt } from "@/lib/language-resolvers";
 import type { DatabaseSchema } from "@/lib/schema-transforms";
 import { hideTerms, termOption } from "@/lib/term-meaning";
 import type { TermMeaning } from "@/lib/term-meaning";
+import { parameterSource } from "@/lib/parameter-completion";
+import type { ParameterSuggestion } from "@/lib/parameter-completion";
 import type { Extension } from "@codemirror/state";
 
 // ---------------------------------------------------------------------------
@@ -62,6 +64,8 @@ export interface QueryEditorProps {
    * out of autocomplete, and a described one shows its name and description.
    */
   terms?: readonly TermMeaning[];
+  /** Parameters offered after a `$`, with what each filters (#2485). */
+  parameters?: readonly ParameterSuggestion[];
   /** Accessible name of the text field (#2345). Defaults to "Query editor". */
   "aria-label"?: string;
   /** Id of the element that names the text field; wins over `aria-label`. */
@@ -177,17 +181,22 @@ async function buildExtensions(
   placeholderCompartment: any,
   compartments: CompartmentExts,
   getTerms: () => readonly TermMeaning[] | undefined,
+  getParameters: () => readonly ParameterSuggestion[] | undefined,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
 ): Promise<any[]> {
   const [
     { EditorView, keymap, placeholder: cmPlaceholder },
     { defaultKeymap, historyKeymap, history: historyExt },
     { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap },
+    { EditorState: CMState },
   ] = await Promise.all([
     import("@codemirror/view"),
     import("@codemirror/commands"),
     import("@codemirror/autocomplete"),
+    import("@codemirror/state"),
   ]);
+
+  const paramSource = parameterSource(getParameters);
 
   // Cmd/Ctrl+Enter → run
   const runKeymap = keymap.of([
@@ -235,6 +244,9 @@ async function buildExtensions(
     runKeymap,
     compartments.lang,
     autocompletion({ addToOptions: [termOption(getTerms)] }),
+    // Beside the language's own sources, in every language (#2485). One source
+    // object: CodeMirror tells its sources apart by identity.
+    CMState.languageData.of(() => [{ autocomplete: paramSource }]),
     placeholderCompartment.of(cmPlaceholder(placeholder)),
     compartments.theme,
     compartments.name,
@@ -264,6 +276,7 @@ function QueryEditor({
   runAndSaveHint = false,
   schema: rawSchema,
   terms,
+  parameters,
   "aria-label": ariaLabel = "Query editor",
   "aria-labelledby": ariaLabelledby,
   showRun = true,
@@ -297,6 +310,10 @@ function QueryEditor({
   React.useEffect(() => {
     termsRef.current = terms;
   }, [terms]);
+  const parametersRef = React.useRef(parameters);
+  React.useEffect(() => {
+    parametersRef.current = parameters;
+  }, [parameters]);
   const schemaRef = React.useRef(schema);
   const placeholderRef = React.useRef(placeholder);
   const nameAttrs = (): Record<string, string> =>
@@ -480,6 +497,7 @@ function QueryEditor({
           ),
         },
         () => termsRef.current,
+        () => parametersRef.current,
       );
 
       if (abortSignal.aborted || !containerRef.current) return;

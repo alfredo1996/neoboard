@@ -87,6 +87,8 @@ import { TemplateBrowser } from "./widget-editor/template-browser";
 import { useAutoPreview } from "./widget-editor/use-auto-preview";
 import { CachingSection } from "./widget-editor/caching-section";
 import { InteractionSection } from "./widget-editor/interaction-section";
+import { ConceptSelectorStart } from "./widget-editor/concept-selector-start";
+import { useConcepts } from "@/hooks/use-concepts";
 import { RulesSection } from "./widget-editor/rules-section";
 import { WriteModeSection } from "./widget-editor/write-mode-section";
 import { AfterSubmitRefresh } from "./widget-editor/after-submit-refresh";
@@ -604,6 +606,9 @@ export function WidgetEditorModal({
     useWidgetEditorStore.setState({ parameterSuggestions });
   }, [parameterSuggestions]);
 
+  // The concepts this creator can see: wiring offers them, nothing is stored
+  // of them but plain parameter names (#2485).
+  const { data: concepts } = useConcepts();
   const isParamSelect = chartType === "parameter-select";
   const isForm = chartType === "form";
   const isMarkdown = chartType === "markdown";
@@ -743,6 +748,7 @@ export function WidgetEditorModal({
             name: "Filter" as const,
             render: () => (
               <>
+                <ConceptSelectorStart concepts={concepts ?? []} />
                 <ParameterConfigSection
                   seedQueryExecution={seedQueryExecution}
                   seedPreviewOptions={seedPreviewOptions}
@@ -875,6 +881,7 @@ export function WidgetEditorModal({
             render: () => (
               <InteractionSection
                 clickActionCollisions={clickActionCollisions}
+                concepts={concepts}
                 pages={(layout?.pages ?? []).map((p) => ({
                   id: p.id,
                   title: p.title,
