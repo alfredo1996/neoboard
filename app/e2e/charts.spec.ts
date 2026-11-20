@@ -2142,55 +2142,66 @@ test.describe("Graph inspector (#2515)", () => {
 /**
  * Right-click the node whose hover tooltip names `caption` (#2522). The force
  * layout moves nodes between runs and after every Expand, so the node is found
- * by what the app shows: hover a spiral of points out from the canvas centre
- * (about 24 px apart) until the tooltip carries the caption, then right-click
- * there until the menu opens. Throws if no point does.
+ * by what the app shows: once the layout overlay is gone, hover a spiral of
+ * points out from the canvas centre until the tooltip carries the caption, then
+ * right-click there. The spiral repeats inside a 25 s deadline (well under the
+ * test timeout) so a node that settles late is still found, and a miss throws
+ * the named error. Grid step: NVL draws a node without a size as a 25 px
+ * circle, so on screen its radius is at least ~12 px at zoom 1; a step of 16 px
+ * (<= sqrt(2) * 12) means any such node holds a sample point.
  */
 async function rightClickNodeByCaption(
   page: import("@playwright/test").Page,
   canvas: import("@playwright/test").Locator,
   caption: string,
 ) {
+  await expect(page.getByTestId("graph-loading-overlay")).toHaveCount(0);
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
   const { x, y, width, height } = box!;
-  const step = 24;
+  const step = 16;
   const tooltip = page.getByTestId("graph-hover");
-  // A tooltip left from an earlier hover would match at the first point.
-  await page.mouse.move(0, 0);
-  await expect(tooltip).toBeHidden();
+  const named = tooltip.getByText(caption, { exact: true });
+  const menu = page.getByTestId("graph-context-menu");
   const maxRing = Math.ceil(Math.max(width, height) / 2 / step);
-  for (let ring = 0; ring <= maxRing; ring++) {
-    for (let dx = -ring; dx <= ring; dx++) {
-      for (let dy = -ring; dy <= ring; dy++) {
-        // Only the square ring's border; inner points were hovered already.
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
-        const px = width / 2 + dx * step;
-        const py = height / 2 + dy * step;
-        if (px < 0 || py < 0 || px > width || py > height) continue;
-        await page.mouse.move(x + px, y + py);
-        const shown = await tooltip
-          .getByText(caption, { exact: true })
-          .waitFor({ state: "visible", timeout: 100 })
-          .then(() => true)
-          .catch(() => false);
-        if (shown) {
+  const miss = `no point on the graph canvas shows a node named "${caption}"`;
+  await expect(async () => {
+    // A tooltip left from an earlier hover would match at the first point.
+    await page.mouse.move(0, 0);
+    await expect(tooltip).toBeHidden();
+    for (let ring = 0; ring <= maxRing; ring++) {
+      for (let dx = -ring; dx <= ring; dx++) {
+        for (let dy = -ring; dy <= ring; dy++) {
+          // Only the square ring's border; inner points were hovered already.
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+          const px = width / 2 + dx * step;
+          const py = height / 2 + dy * step;
+          if (px < 0 || py < 0 || px > width || py > height) continue;
+          await page.mouse.move(x + px, y + py);
+          const shown = await named
+            .waitFor({ state: "visible", timeout: 100 })
+            .then(() => true)
+            .catch(() => false);
+          if (!shown) continue;
           await page.mouse.click(x + px, y + py, { button: "right" });
-          // A node still drifting after an Expand can slip from under the
-          // pointer: only a menu that opened counts, else keep looking.
-          const opened = await page
-            .getByTestId("graph-context-menu")
+          // The menu must have opened, and the pointer must still be on the
+          // node the tooltip names: a node drifting away would open a
+          // neighbour's menu.
+          const opened = await menu
             .waitFor({ state: "visible", timeout: 500 })
             .then(() => true)
             .catch(() => false);
-          if (opened) return;
+          if (opened && (await named.isVisible())) return;
         }
       }
     }
-  }
-  throw new Error(
-    `no point on the graph canvas shows a node named "${caption}"`,
-  );
+    throw new Error(miss);
+  })
+    .toPass({ timeout: 25_000, intervals: [250] })
+    // toPass reports only "Timeout exceeded": name what was missing.
+    .catch(() => {
+      throw new Error(miss);
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -2281,6 +2292,9 @@ test.describe("Graph Collapse (#2522)", () => {
       await expect(nodeCount).toHaveText(`${1 + leaves.length} nodes`, {
         timeout: 15_000,
       });
+      // The chart itself draws them: its legend counts its own nodes prop.
+      const legendCount = exploration.getByTestId("graph-legend-count-E2E2522");
+      await expect(legendCount).toHaveText(`${1 + leaves.length}`);
 
       // The layout has moved the hub: find it again by its caption.
       await rightClickNodeByCaption(page, canvas, hub);
@@ -2288,6 +2302,7 @@ test.describe("Graph Collapse (#2522)", () => {
       await expect(nodeCount).toHaveText("1 nodes", {
         timeout: 15_000,
       });
+      await expect(legendCount).toHaveText("1");
 
       // What is left is the hub, not a leaf: it is found by caption and,
       // having nothing expanded, offers Expand and no Collapse.
