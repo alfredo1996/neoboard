@@ -2201,8 +2201,26 @@ test.describe("Cascading-select parameter widget", () => {
       // The cascading child should show "Select Director first…"
       await expect(page.getByText("Select Director first…")).toBeVisible();
 
-      // The "depends on" label should be visible
-      await expect(page.getByText("depends on Director")).toBeVisible();
+      // The dependency hint should be visible
+      await expect(
+        page.getByText("Filtered by Director", { exact: true }),
+      ).toBeVisible();
+
+      // #2523: both titled cards sit in one row and their fields start at the
+      // same height; the hint is under the dependent field.
+      const parentField = page
+        .locator('[data-widget-id="cascade-parent"]')
+        .getByRole("combobox");
+      const childField = page
+        .locator('[data-widget-id="cascade-child"]')
+        .getByRole("combobox");
+      const parentBox = await parentField.boundingBox();
+      const childBox = await childField.boundingBox();
+      expect(childBox!.y).toBeCloseTo(parentBox!.y, 0);
+      const hintBox = await page
+        .getByText("Filtered by Director", { exact: true })
+        .boundingBox();
+      expect(hintBox!.y).toBeGreaterThan(childBox!.y + childBox!.height - 1);
 
       // Select a director from the parent dropdown
       await page.getByText("Pick a director…").click();
