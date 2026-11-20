@@ -383,6 +383,11 @@ function edgeColor(color: string | undefined, dark: boolean): string {
   return dark ? EDGE_RULE_DARK : EDGE_RULE_LIGHT;
 }
 
+/** NVL's id for the index-th edge, also how a click is mapped back to it. */
+function relationshipId(edge: GraphEdge, index: number): string {
+  return `rel-${edge.source}-${edge.target}-${index}`;
+}
+
 /**
  * Maps our internal GraphEdge type to an NVL Relationship.
  */
@@ -393,7 +398,7 @@ function toNvlRelationship(
   dark: boolean,
 ): NvlRelationship {
   return {
-    id: `rel-${edge.source}-${edge.target}-${index}`,
+    id: relationshipId(edge, index),
     from: edge.source,
     to: edge.target,
     caption: showRelationshipLabels ? edge.label : undefined,
@@ -466,8 +471,12 @@ function GraphChartInner({
   // Using useEffect would race with onLayoutDone (which fires before
   // effects run when the simulation completes on the main thread).
   const prevNodesRef = useRef(nodes);
+  // The layout fit runs once per node set; later settles (a drag, a select)
+  // must not take the camera from a user who is inspecting (#2517).
+  const fittedRef = useRef(false);
   if (prevNodesRef.current !== nodes) {
     prevNodesRef.current = nodes;
+    fittedRef.current = false;
     if (layoutReady) setLayoutReady(false);
   }
 
@@ -597,6 +606,7 @@ function GraphChartInner({
     const nvl = nvlRef.current;
     if (!nvl) return;
     const current = nvl.getScale();
+    fittedRef.current = true;
     nvl.setZoom(current * ZOOM_STEP);
   }, []);
 
@@ -604,6 +614,7 @@ function GraphChartInner({
     const nvl = nvlRef.current;
     if (!nvl) return;
     const current = nvl.getScale();
+    fittedRef.current = true;
     nvl.setZoom(current / ZOOM_STEP);
   }, []);
 
@@ -647,8 +658,13 @@ function GraphChartInner({
         });
       },
       onDrag: true,
-      onZoom: true,
-      onPan: true,
+      // A function keeps NVL's own zoom and pan; the camera is the user's now.
+      onZoom: () => {
+        fittedRef.current = true;
+      },
+      onPan: () => {
+        fittedRef.current = true;
+      },
       onNodeClick: (node, _hit, event) => {
         if (!onNodeSelectRef.current) return;
         const current = selectedRef.current ?? [];
@@ -704,8 +720,9 @@ function GraphChartInner({
         event: MouseEvent,
       ) => {
         if (!onRelationshipClickRef.current) return;
+        // By NVL's id: several relationships can join the same two nodes (#2518).
         const graphEdge = edgesRef.current.find(
-          (e) => e.source === rel.from && e.target === rel.to,
+          (e, i) => relationshipId(e, i) === rel.id,
         ) ?? { source: rel.from, target: rel.to, label: rel.type };
         onRelationshipClickRef.current({
           edge: graphEdge as GraphEdge,
@@ -727,7 +744,10 @@ function GraphChartInner({
             ),
           );
         }
-        fitGraph();
+        if (!fittedRef.current) {
+          fittedRef.current = true;
+          fitGraph();
+        }
         setLayoutReady(true);
       },
     }),
@@ -882,6 +902,7 @@ function GraphChartInner({
           onChange={(e) => {
             const next = e.target.value as GraphLayout;
             setLayout(next);
+            fittedRef.current = false; // a new layout needs a new fit
             onLayoutChange?.(next);
           }}
           className="h-6 cursor-pointer rounded border-0 bg-transparent pr-4 text-xs text-muted-foreground outline-none transition-colors hover:text-foreground"

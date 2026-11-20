@@ -924,6 +924,90 @@ describe("GraphChart", () => {
       });
     });
 
+    it("fits on the first settle only, not on every later layout settle (#2517)", () => {
+      const onPositionsChange = vi.fn();
+      const { rerender } = render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={sampleEdges}
+          onPositionsChange={onPositionsChange}
+        />,
+      );
+      const fit = vi.fn();
+      (capturedProps.ref as { current: unknown }).current = {
+        fit,
+        getNodePositions: () => [{ id: "1", x: 1, y: 2 }],
+      };
+      const settle = () =>
+        act(() => {
+          (
+            capturedProps.nvlCallbacks as { onLayoutDone: () => void }
+          ).onLayoutDone();
+        });
+      settle();
+      expect(fit).toHaveBeenCalledTimes(1);
+      // A drag or a selection settles the layout again: the camera stays,
+      // but positions are still reported.
+      settle();
+      settle();
+      expect(fit).toHaveBeenCalledTimes(1);
+      expect(onPositionsChange).toHaveBeenCalledTimes(3);
+      // New data re-arms the fit.
+      rerender(
+        <GraphChart
+          nodes={[...sampleNodes]}
+          edges={sampleEdges}
+          onPositionsChange={onPositionsChange}
+        />,
+      );
+      settle();
+      expect(fit).toHaveBeenCalledTimes(2);
+    });
+
+    it("fits again after the layout is switched (#2517)", () => {
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      const fit = vi.fn();
+      (capturedProps.ref as { current: unknown }).current = {
+        fit,
+        getNodePositions: () => [],
+      };
+      const settle = () =>
+        act(() => {
+          (
+            capturedProps.nvlCallbacks as { onLayoutDone: () => void }
+          ).onLayoutDone();
+        });
+      settle();
+      fireEvent.change(screen.getByLabelText("Graph layout"), {
+        target: { value: "circular" },
+      });
+      settle();
+      expect(fit).toHaveBeenCalledTimes(2);
+    });
+
+    it.each(["onZoom", "onPan"])(
+      "%s before the first settle keeps the user's view (#2517)",
+      (name) => {
+        render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+        const fit = vi.fn();
+        (capturedProps.ref as { current: unknown }).current = {
+          fit,
+          getNodePositions: () => [],
+        };
+        const mouse = capturedProps.mouseEventCallbacks as Record<
+          string,
+          () => void
+        >;
+        act(() => mouse[name]());
+        act(() => {
+          (
+            capturedProps.nvlCallbacks as { onLayoutDone: () => void }
+          ).onLayoutDone();
+        });
+        expect(fit).not.toHaveBeenCalled();
+      },
+    );
+
     it("removes loading overlay after onLayoutDone fires", () => {
       render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
       expect(screen.getByTestId("graph-loading-overlay")).toBeInTheDocument();
@@ -1395,6 +1479,50 @@ describe("GraphChart look (#2229)", () => {
       globalThis.ResizeObserver = original;
       vi.useRealTimers();
     }
+  });
+
+  describe("relationship click (#2518)", () => {
+    const parallel = [
+      { source: "1", target: "2", label: "R", properties: { n: 1 } },
+      { source: "1", target: "2", label: "R", properties: { n: 2 } },
+    ];
+    const click = (rel: object) =>
+      (
+        capturedProps.mouseEventCallbacks as {
+          onRelationshipClick: (r: object, h: unknown, e: object) => void;
+        }
+      ).onRelationshipClick(rel, null, { clientX: 1, clientY: 2 });
+
+    it("passes the clicked relationship, not the first one between the same nodes", () => {
+      const onRelationshipClick = vi.fn();
+      render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={parallel}
+          onRelationshipClick={onRelationshipClick}
+        />,
+      );
+      const rels = capturedProps.rels as { id: string }[];
+      click({ ...rels[1], from: "1", to: "2", type: "R" });
+      expect(onRelationshipClick.mock.calls[0][0].edge).toBe(parallel[1]);
+    });
+
+    it("falls back to the end nodes and type for an id it does not know", () => {
+      const onRelationshipClick = vi.fn();
+      render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={parallel}
+          onRelationshipClick={onRelationshipClick}
+        />,
+      );
+      click({ id: "gone", from: "1", to: "2", type: "R" });
+      expect(onRelationshipClick.mock.calls[0][0].edge).toEqual({
+        source: "1",
+        target: "2",
+        label: "R",
+      });
+    });
   });
 
   it("puts the consumer's footer in the same row as the legend, not over it", () => {
