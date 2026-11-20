@@ -153,6 +153,23 @@ describe("ConnectionTerms", () => {
     expect(screen.getAllByText("Hidden")).toHaveLength(2); // the column and the tag
   });
 
+  it("shows the name and description as plain text at rest, a field on hover (M1)", () => {
+    show();
+    for (const label of ["Display name of Person", "Description of Person"]) {
+      const cls = screen.getByLabelText(label).className;
+      expect(cls).toContain("border-transparent");
+      expect(cls).toContain("bg-transparent");
+      expect(cls).toContain("hover:bg-field");
+    }
+  });
+
+  it("marks an orphan with an amber tag, not a status shape (M2)", () => {
+    show();
+    const tag = screen.getByText("Orphaned");
+    expect(tag.className).toContain("text-warning");
+    expect(tag.querySelector("svg")).toBeNull();
+  });
+
   it("marks an orphaned term and keeps its saved note, read-only", () => {
     show();
     expect(screen.getByText("Orphaned")).toBeTruthy();

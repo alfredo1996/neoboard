@@ -161,6 +161,61 @@ describe("toTerms", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it("reads the plain property maps a graph schema manager returns (CR4)", () => {
+    const terms = toTerms({
+      type: "g",
+      labels: ["Movie"],
+      relationshipTypes: ["ACTED_IN"],
+      nodeProperties: { Movie: [{ name: "title", type: "String" }] },
+      relProperties: { ACTED_IN: [{ name: "role", type: "String" }] },
+    });
+    expect(terms).toContainEqual({
+      kind: "property",
+      key: "title",
+      parentKey: "entity:Movie",
+      type: "String",
+    });
+    expect(terms).toContainEqual({
+      kind: "property",
+      key: "role",
+      parentKey: "relationship:ACTED_IN",
+      type: "String",
+    });
+  });
+
+  it("gives no property terms, and does not throw, for a name the maps do not hold", () => {
+    const terms = toTerms({
+      type: "g",
+      labels: ["toString"],
+      relationshipTypes: ["constructor"],
+      nodeProperties: {},
+      relProperties: {},
+    });
+    expect(terms.map((t) => t.kind)).toEqual(["entity", "relationship"]);
+  });
+
+  it("keeps two foreign keys whose column lists differ only by a comma apart", () => {
+    const fk = (columns: string[], refColumns: string[]) => ({
+      columns,
+      refTable: "targets",
+      refColumns,
+    });
+    const keys = toTerms({
+      type: "t",
+      tables: [
+        {
+          name: "docs",
+          columns: [],
+          foreignKeys: [fk(["a", "b"], ["x", "y"]), fk(["a,b"], ["x,y"])],
+        },
+      ],
+    })
+      .filter((t) => t.kind === "relationship")
+      .map((t) => t.key);
+    expect(new Set(keys).size).toBe(2);
+    expect(keys[0]).toBe("docs(a,b)->targets(x,y)");
+  });
+
   it("gives no terms for a schema that describes nothing", () => {
     expect(toTerms({ type: "x" })).toEqual([]);
   });

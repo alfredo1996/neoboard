@@ -47,13 +47,24 @@ const entity = (key: string): SchemaTerm => ({
   parentKey: "",
 });
 
+/** The entries of `map` under `name`, own keys only: `toString` is a name. */
+function own<T>(map: Record<string, T[]> | undefined, name: string): T[] {
+  return map && Object.hasOwn(map, name) ? map[name] : [];
+}
+
+/** An identifier as it reads in a key; quoted when it holds a delimiter. */
+const ident = (name: string): string =>
+  /[,()\-> "\\]/.test(name) ? JSON.stringify(name) : name;
+
+const idents = (names: string[]): string => names.map(ident).join(",");
+
 /** The term list for today's two schema shapes (graph fields, `tables`). */
 export function toTerms(schema: DatabaseSchema): SchemaTerm[] {
   const terms: SchemaTerm[] = [];
 
   for (const label of schema.labels ?? []) {
     terms.push(entity(label));
-    for (const p of schema.nodeProperties?.[label] ?? []) {
+    for (const p of own(schema.nodeProperties, label)) {
       terms.push({
         kind: "property",
         key: p.name,
@@ -87,7 +98,7 @@ export function toTerms(schema: DatabaseSchema): SchemaTerm[] {
       parentKey: "",
       ...(joins.length > 0 ? { joins } : {}),
     });
-    for (const p of schema.relProperties?.[type] ?? []) {
+    for (const p of own(schema.relProperties, type)) {
       terms.push({
         kind: "property",
         key: p.name,
@@ -102,7 +113,7 @@ export function toTerms(schema: DatabaseSchema): SchemaTerm[] {
       terms.push({
         kind: "relationship",
         // The key names its target, so two keys on the same columns differ.
-        key: `${table.name}(${fk.columns.join(",")})->${fk.refTable}(${fk.refColumns.join(",")})`,
+        key: `${ident(table.name)}(${idents(fk.columns)})->${ident(fk.refTable)}(${idents(fk.refColumns)})`,
         parentKey: "",
         joins: [
           {

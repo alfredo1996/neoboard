@@ -266,6 +266,24 @@ describe("Neo4jSchemaManager", () => {
     expect(schema.relProperties).toEqual({});
   });
 
+  it("reads a label or type named like an Object property as a name (CR3)", async () => {
+    mockFourCalls(
+      [labelRecord("constructor")],
+      [relTypeRecord("toString")],
+      [nodePropRecord(":`constructor`", "a", ["String"])],
+      [relPropRecord(":`toString`", "b", ["String"])],
+    );
+
+    const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+    expect(schema.nodeProperties?.constructor).toEqual([
+      { name: "a", type: "String" },
+    ]);
+    expect(schema.relProperties?.toString).toEqual([
+      { name: "b", type: "String" },
+    ]);
+  });
+
   it("returns empty collections for empty databases", async () => {
     mockFourCalls([], [], [], []);
 

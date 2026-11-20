@@ -9,6 +9,7 @@ import { resolve } from "node:path";
  */
 const allowed = new Set([
   "control-sizes.ts",
+  "input.tsx",
   "multi-select-field.tsx",
   "checkbox.tsx",
   "radio-group.tsx",

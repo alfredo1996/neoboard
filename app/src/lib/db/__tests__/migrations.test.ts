@@ -256,7 +256,7 @@ describe("Database migrations", () => {
       client`INSERT INTO ontology_term (id, tenant_id, connection_id, kind, key, parent_key)
              VALUES ('ox', 't2', 'c-x', 'entity', 'Person', '')`,
     ).rejects.toMatchObject({ code: "23503" });
-    await client`DELETE FROM "user" WHERE id = 'u-x'`;
+    await client`DELETE FROM "user" WHERE id = 'u-x' AND tenant_id = 't1'`;
     await client.end();
   }, 60_000);
 
@@ -272,11 +272,11 @@ describe("Database migrations", () => {
       client`INSERT INTO ontology_term (id, tenant_id, connection_id, kind, key, parent_key)
              VALUES ('o2', 't1', 'c-o', 'entity', 'Person', '')`,
     ).rejects.toMatchObject({ code: "23505" });
-    await client`DELETE FROM connection WHERE id = 'c-o'`;
+    await client`DELETE FROM connection WHERE id = 'c-o' AND tenant_id = 't1'`;
     const left =
-      await client`SELECT id FROM ontology_term WHERE connection_id = 'c-o'`;
+      await client`SELECT id FROM ontology_term WHERE connection_id = 'c-o' AND tenant_id = 't1'`;
     expect(left).toHaveLength(0);
-    await client`DELETE FROM "user" WHERE id = 'u-o'`;
+    await client`DELETE FROM "user" WHERE id = 'u-o' AND tenant_id = 't1'`;
     await client.end();
   }, 60_000);
 

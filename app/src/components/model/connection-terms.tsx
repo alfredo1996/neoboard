@@ -6,7 +6,6 @@ import {
   Button,
   Input,
   Skeleton,
-  Status,
   Switch,
   Table,
   TableBody,
@@ -66,9 +65,9 @@ function TermRow({ term, canEdit, nested, onSave, onRemove }: TermRowProps) {
         </code>
         {term.primaryKey && <Tag className="ml-2">Key</Tag>}
         {term.orphaned && (
-          <Status tone="failed" className="ml-2">
+          <Tag className="ml-2 rounded-full border-warning bg-warning/10 text-warning">
             Orphaned
-          </Status>
+          </Tag>
         )}
         {term.hidden && <Tag className="ml-2">Hidden</Tag>}
       </TableCell>
@@ -78,6 +77,7 @@ function TermRow({ term, canEdit, nested, onSave, onRemove }: TermRowProps) {
             // A new key resets the field once the saved value comes back.
             key={term.displayName}
             aria-label={`Display name of ${name}`}
+            inPlace
             placeholder="Add a name"
             maxLength={200}
             defaultValue={term.displayName}
@@ -95,6 +95,7 @@ function TermRow({ term, canEdit, nested, onSave, onRemove }: TermRowProps) {
           <Input
             key={term.description}
             aria-label={`Description of ${name}`}
+            inPlace
             placeholder="Add a description"
             maxLength={2000}
             defaultValue={term.description}

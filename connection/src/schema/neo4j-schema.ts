@@ -98,12 +98,13 @@ export class Neo4jSchemaManager implements SchemaManager {
           ),
         ]);
 
-      const nodePropsMap: Record<string, PropertyDef[]> = {};
+      // No prototype: a label named `constructor` is a name, not Object's.
+      const nodePropsMap: Record<string, PropertyDef[]> = Object.create(null);
       for (const row of nodeProperties) {
         addProperty(nodePropsMap, namesOf(row.nodeType), row);
       }
 
-      const relPropsMap: Record<string, PropertyDef[]> = {};
+      const relPropsMap: Record<string, PropertyDef[]> = Object.create(null);
       for (const row of relProperties) {
         addProperty(relPropsMap, namesOf(row.relType), row);
       }
