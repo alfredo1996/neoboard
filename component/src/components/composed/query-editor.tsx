@@ -15,7 +15,7 @@ import { resolveLanguageExt } from "@/lib/language-resolvers";
 import type { DatabaseSchema } from "@/lib/schema-transforms";
 import { hideTerms, termOption } from "@/lib/term-meaning";
 import type { TermMeaning } from "@/lib/term-meaning";
-import { parameterSource } from "@/lib/parameter-completion";
+import { parameterExtension } from "@/lib/parameter-completion";
 import type { ParameterSuggestion } from "@/lib/parameter-completion";
 import type { Extension } from "@codemirror/state";
 
@@ -196,8 +196,6 @@ async function buildExtensions(
     import("@codemirror/state"),
   ]);
 
-  const paramSource = parameterSource(getParameters);
-
   // Cmd/Ctrl+Enter → run
   const runKeymap = keymap.of([
     {
@@ -244,9 +242,8 @@ async function buildExtensions(
     runKeymap,
     compartments.lang,
     autocompletion({ addToOptions: [termOption(getTerms)] }),
-    // Beside the language's own sources, in every language (#2485). One source
-    // object: CodeMirror tells its sources apart by identity.
-    CMState.languageData.of(() => [{ autocomplete: paramSource }]),
+    // Beside the language's own sources, in every language (#2485).
+    parameterExtension(CMState, getParameters),
     placeholderCompartment.of(cmPlaceholder(placeholder)),
     compartments.theme,
     compartments.name,

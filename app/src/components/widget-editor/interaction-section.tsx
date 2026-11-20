@@ -27,6 +27,7 @@ import {
 } from "./use-accordion-crud";
 import { FieldSelectorInput } from "./field-selector-input";
 import { conceptsForField } from "@/lib/ontology/concept-wiring";
+import type { WiringTerm } from "@/lib/ontology/concept-wiring";
 import type { Concept } from "@/hooks/use-concepts";
 
 export interface InteractionSectionProps {
@@ -34,6 +35,8 @@ export interface InteractionSectionProps {
   pages: { id: string; title: string }[];
   /** The concepts the creator can see (#2485); none when not loaded. */
   concepts?: readonly Concept[];
+  /** The connection's terms, to tell which entity a bare key name is (#2485). */
+  terms?: readonly WiringTerm[];
 }
 
 type RuleType = ClickActionRule["type"];
@@ -98,6 +101,7 @@ interface RuleGroupProps {
   fields: string[];
   parameterSuggestions: string[];
   concepts: readonly Concept[];
+  terms: readonly WiringTerm[];
   connectionId: string;
   onChange: (patch: Partial<ClickActionRule>) => void;
   onDelete: () => void;
@@ -111,6 +115,7 @@ function RuleGroup({
   fields,
   parameterSuggestions,
   concepts,
+  terms,
   connectionId,
   onChange,
   onDelete,
@@ -118,7 +123,7 @@ function RuleGroup({
   const n = index + 1;
   const field =
     (isTable ? rule.triggerColumn : rule.parameterMapping?.sourceField) ?? "";
-  const offered = conceptsForField(concepts, connectionId, field);
+  const offered = conceptsForField(concepts, connectionId, field, terms);
   const pageTitle = pages.find((p) => p.id === rule.targetPageId)?.title;
   const mapping = rule.parameterMapping;
   const setMapping = (patch: Partial<NonNullable<typeof mapping>>) =>
@@ -190,7 +195,7 @@ function RuleGroup({
         </SettingRow>
       )}
       {setsParameter(rule.type) &&
-        offered.map((c) => (
+        offered.map(({ concept: c, entity }) => (
           <Button
             key={c.id}
             type="button"
@@ -199,7 +204,9 @@ function RuleGroup({
             className="justify-self-start"
             onClick={() => setMapping({ parameterName: c.parameter })}
           >
-            Set {c.name} (${c.parameter}) to this {field}
+            Set {c.name} ($param_{c.parameter}) to this {field}
+            {entity &&
+              ` (${entity}.${field.slice(field.lastIndexOf(".") + 1)})`}
           </Button>
         ))}
       {opensPage(rule.type) && (
@@ -236,6 +243,7 @@ export function InteractionSection({
   clickActionCollisions,
   pages,
   concepts = [],
+  terms = [],
 }: Readonly<InteractionSectionProps>) {
   const connectionId = useWidgetEditorStore((s) => s.connectionId);
   const clickActionEnabled = useWidgetEditorStore((s) => s.clickActionEnabled);
@@ -292,6 +300,7 @@ export function InteractionSection({
               fields={availableFields}
               parameterSuggestions={parameterSuggestions}
               concepts={concepts}
+              terms={terms}
               connectionId={connectionId}
               onChange={(patch) =>
                 setRules(updateItemInList(rules, rule.id, patch))

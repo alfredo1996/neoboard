@@ -107,15 +107,25 @@ test.describe("Concept wiring (#2485)", () => {
         [{ i: SQL_WIDGET, x: 0, y: 0, w: 12, h: 5 }],
       );
 
+      // A table over the graph connection, not a graph canvas: a graph node's
+      // click carries only its id until #2526 lands.
       // The creator wires the click in the editor: one button, no typing.
       await page.goto(`/${id}/edit`);
       await expect(editingCrumb(page)).toBeVisible({ timeout: 15_000 });
-      await page.getByRole("button", { name: "Add Widget" }).first().click();
-      const dialog = page.getByRole("dialog", { name: "Add Widget" });
+      await page
+        .getByRole("button", { name: "Add Widget", exact: true })
+        .first()
+        .click();
+      const dialog = page.getByRole("dialog", {
+        name: "Add Widget",
+        exact: true,
+      });
       await dialog
         .getByRole("combobox", { name: "Chart Type", exact: true })
         .click();
-      await page.getByRole("option", { name: "Data Table" }).click();
+      await page
+        .getByRole("option", { name: "Data Table", exact: true })
+        .click();
       await dialog
         .getByRole("combobox", { name: "Connection", exact: true })
         .click();
@@ -131,10 +141,12 @@ test.describe("Concept wiring (#2485)", () => {
       await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
       await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
 
-      await dialog.getByRole("tab", { name: "Behavior" }).click();
+      await dialog.getByRole("tab", { name: "Behavior", exact: true }).click();
       await dialog.getByLabel("Click action").click();
-      await dialog.getByRole("button", { name: "Add rule" }).click();
-      const rule = dialog.getByRole("group", { name: "Rule 1" });
+      await dialog
+        .getByRole("button", { name: "Add rule", exact: true })
+        .click();
+      const rule = dialog.getByRole("group", { name: "Rule 1", exact: true });
       // Offered for the key column, and not for the other one.
       await rule.getByRole("combobox", { name: "Column", exact: true }).click();
       await page.getByRole("option", { name: "released", exact: true }).click();
@@ -145,20 +157,62 @@ test.describe("Concept wiring (#2485)", () => {
       await page.getByRole("option", { name: "title", exact: true }).click();
       await expect(
         rule.getByRole("button", {
-          name: `Set ${conceptName} ($${parameter}) to this title`,
+          name: `Set ${conceptName} ($param_${parameter}) to this title`,
           exact: true,
         }),
       ).toBeVisible({ timeout: 15_000 });
       await rule
         .getByRole("button", {
-          name: `Set ${conceptName} ($${parameter}) to this title`,
+          name: `Set ${conceptName} ($param_${parameter}) to this title`,
           exact: true,
         })
         .click();
-      await expect(rule.getByText(`$param_${parameter}`)).toBeVisible();
-      await dialog.getByRole("button", { name: "Add Widget" }).click();
+      await expect(
+        rule.getByText(`$param_${parameter}`, { exact: true }),
+      ).toBeVisible();
+      await dialog
+        .getByRole("button", { name: "Add Widget", exact: true })
+        .click();
       await expect(dialog).toBeHidden();
       await saveDashboard(page);
+
+      // A new selector can start from the concept, and then lists only the
+      // connections it is mapped on; an existing selector offers no such start.
+      await page.goto(`/${id}/edit`);
+      await expect(editingCrumb(page)).toBeVisible({ timeout: 15_000 });
+      await page
+        .getByRole("button", { name: "Add Widget", exact: true })
+        .first()
+        .click();
+      const selectorDialog = page.getByRole("dialog", {
+        name: "Add Widget",
+        exact: true,
+      });
+      await selectorDialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
+      await page
+        .getByRole("option", { name: "Parameter Selector", exact: true })
+        .click();
+      await selectorDialog
+        .getByRole("button", {
+          name: `New selector for ${conceptName}`,
+          exact: true,
+        })
+        .click();
+      await selectorDialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
+      await expect(page.getByRole("option")).toHaveCount(2);
+      await expect(
+        page.getByRole("option", {
+          name: `${sqlName} PostgreSQL`,
+          exact: true,
+        }),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
+      await page.goto(`/${id}`);
 
       // A click filters the SQL widget on the other connection.
       const sqlCell = (title: string) =>

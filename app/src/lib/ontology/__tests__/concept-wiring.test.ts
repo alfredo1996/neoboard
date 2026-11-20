@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { conceptsForField, parameterCompletions } from "../concept-wiring";
+import {
+  conceptsForField,
+  parameterCompletions,
+  type WiringTerm,
+} from "../concept-wiring";
 import type { Concept } from "@/hooks/use-concepts";
 
 const side = (
@@ -43,8 +47,41 @@ describe("conceptsForField (#2485)", () => {
     ["a key of another connection", "neo", "sku", []],
   ])("%s", (_, connectionId, field, want) => {
     expect(
-      conceptsForField(ALL, connectionId, field).map((c) => c.name),
+      conceptsForField(ALL, connectionId, field).map((o) => o.concept.name),
     ).toEqual(want);
+  });
+
+  it.each([
+    ["a qualified column", "p.email", ["Customer"]],
+    ["a column of another table", "orders.sku", ["Product"]],
+    ["a name that only ends like the key", "xemail", []],
+  ])("matches on the last segment: %s", (_, field, want) => {
+    expect(
+      conceptsForField(ALL, "pg", field).map((o) => o.concept.name),
+    ).toEqual(want);
+  });
+
+  it("names the entity only when the key's name sits on more than one entity", () => {
+    const property = (entity: string, key: string): WiringTerm => ({
+      kind: "property",
+      key,
+      parentKey: `entity:${entity}`,
+      displayName: "",
+      hidden: false,
+      orphaned: false,
+    });
+    const ids: Concept = {
+      ...CUSTOMER,
+      sides: [side("pg", "customers", "id")],
+    };
+    const alone = [property("customers", "id")];
+    const shared = [property("customers", "id"), property("orders", "id")];
+    expect(
+      conceptsForField([ids], "pg", "id", alone)[0].entity,
+    ).toBeUndefined();
+    expect(conceptsForField([ids], "pg", "id", shared)[0].entity).toBe(
+      "customers",
+    );
   });
 
   it("ignores a side the connection no longer reports", () => {
@@ -64,6 +101,26 @@ describe("parameterCompletions (#2485)", () => {
         detail: "Customer: filters by customers.email, orders.customer_email",
       },
       { label: "$param_product", detail: "Product: filters by products.sku" },
+    ]);
+  });
+
+  it("names entity and property as the creator did, and leaves hidden ones out", () => {
+    const term = (kind: string, key: string, parentKey: string, o = {}) => ({
+      kind,
+      key,
+      parentKey,
+      displayName: "",
+      hidden: false,
+      orphaned: false,
+      ...o,
+    });
+    const terms = [
+      term("entity", "customers", "", { displayName: "Clients" }),
+      term("property", "email", "entity:customers", { displayName: "Mail" }),
+      term("property", "customer_email", "entity:orders", { hidden: true }),
+    ];
+    expect(parameterCompletions([CUSTOMER], "pg", terms)).toEqual([
+      { label: "$param_customer", detail: "Customer: filters by Clients.Mail" },
     ]);
   });
 

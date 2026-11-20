@@ -11,7 +11,11 @@ import type { Concept } from "@/hooks/use-concepts";
  */
 export function ConceptSelectorStart({
   concepts,
-}: Readonly<{ concepts: readonly Concept[] }>) {
+  onPick,
+}: Readonly<{
+  concepts: readonly Concept[];
+  onPick: (concept: Concept) => void;
+}>) {
   const setTitle = useWidgetEditorStore((s) => s.setTitle);
   const setParamWidgetName = useWidgetEditorStore((s) => s.setParamWidgetName);
   if (concepts.length === 0) return null;
@@ -26,6 +30,7 @@ export function ConceptSelectorStart({
           onClick={() => {
             setTitle(c.name);
             setParamWidgetName(c.parameter);
+            onPick(c);
           }}
         >
           New selector for {c.name}

@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import { InteractionSection } from "../interaction-section";
 import { ConceptSelectorStart } from "../concept-selector-start";
 import type { Concept } from "@/hooks/use-concepts";
+import type { WiringTerm } from "@/lib/ontology/concept-wiring";
 
 const store = () => useWidgetEditorStore.getState();
 const PAGES = [{ id: "p1", title: "Overview" }];
@@ -31,7 +32,11 @@ beforeEach(() => {
 });
 
 describe("Click action offers concepts (#2485)", () => {
-  const open = (field: string, connectionId = "pg") => {
+  const open = (
+    field: string,
+    connectionId = "pg",
+    terms: WiringTerm[] = [],
+  ) => {
     useWidgetEditorStore.setState({
       chartType: "table",
       connectionId,
@@ -50,6 +55,7 @@ describe("Click action offers concepts (#2485)", () => {
         clickActionCollisions={[]}
         pages={PAGES}
         concepts={[CUSTOMER]}
+        terms={terms}
       />,
     );
   };
@@ -60,7 +66,7 @@ describe("Click action offers concepts (#2485)", () => {
       open(field);
       fireEvent.click(
         screen.getByRole("button", {
-          name: `Set Customer ($customer) to this ${field}`,
+          name: `Set Customer ($param_customer) to this ${field}`,
         }),
       );
       expect(store().actionRules[0].parameterMapping).toEqual({
@@ -70,6 +76,22 @@ describe("Click action offers concepts (#2485)", () => {
       expect(Object.keys(store().actionRules[0])).not.toContain("conceptId");
     },
   );
+
+  it("names the entity on the button when the key's name is on two entities", () => {
+    const property = (entity: string): WiringTerm => ({
+      kind: "property",
+      key: "email",
+      parentKey: `entity:${entity}`,
+      displayName: "",
+      hidden: false,
+    });
+    open("email", "pg", [property("customers"), property("staff")]);
+    expect(
+      screen.getByRole("button", {
+        name: "Set Customer ($param_customer) to this email (customers.email)",
+      }),
+    ).toBeTruthy();
+  });
 
   it.each([
     ["a field that is no key", "total", "pg"],
@@ -82,16 +104,18 @@ describe("Click action offers concepts (#2485)", () => {
 
 describe("New selector for a concept (#2485)", () => {
   it("names the selector after the concept and sets its plain parameter", () => {
-    render(<ConceptSelectorStart concepts={[CUSTOMER]} />);
+    const onPick = vi.fn();
+    render(<ConceptSelectorStart concepts={[CUSTOMER]} onPick={onPick} />);
     fireEvent.click(
       screen.getByRole("button", { name: "New selector for Customer" }),
     );
+    expect(onPick).toHaveBeenCalledWith(CUSTOMER);
     expect(store().title).toBe("Customer");
     expect(store().paramWidgetName).toBe("customer");
   });
 
   it("offers nothing without a concept", () => {
-    render(<ConceptSelectorStart concepts={[]} />);
+    render(<ConceptSelectorStart concepts={[]} onPick={vi.fn()} />);
     expect(screen.queryByRole("button")).toBeNull();
   });
 });

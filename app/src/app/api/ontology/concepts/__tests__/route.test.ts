@@ -146,6 +146,8 @@ type IdHandler = (
   ctx: { params: Promise<{ id: string }> },
 ) => Promise<Response>;
 
+const URL_ALL = "http://localhost/api/ontology/concepts";
+
 describe("/api/ontology/concepts", () => {
   let GET: Handler;
   let POST: Handler;
@@ -195,7 +197,7 @@ describe("/api/ontology/concepts", () => {
         storedSide("k1", side("graph", "Person", "email")),
         storedSide("k1", side("sql", "customers", "email")),
       ]);
-      const res = await GET();
+      const res = await GET(new Request(URL_ALL));
       expect(res.status).toBe(200);
       const { data } = await res.json();
       expect(data.concepts).toHaveLength(1);
@@ -219,7 +221,7 @@ describe("/api/ontology/concepts", () => {
         storedSide("k1", side("sql", "customers", "email")),
         storedSide("k1", side("sql", "orders", "customer_id")),
       ]);
-      const { data } = await (await GET()).json();
+      const { data } = await (await GET(new Request(URL_ALL))).json();
       expect(
         data.concepts[0].sides.map((s: { entityKey: string }) => s.entityKey),
       ).toEqual(["customers", "orders"]);
@@ -237,7 +239,7 @@ describe("/api/ontology/concepts", () => {
         storedSide("k1", side("sql", "customers", "email")),
         storedSide("k2", side("sql", "orders", "customer_id")),
       ]);
-      const { data } = await (await GET()).json();
+      const { data } = await (await GET(new Request(URL_ALL))).json();
       expect(data.concepts).toHaveLength(1);
       expect(data.concepts[0].sides).toHaveLength(1);
       expect(data.concepts[0].sides[0].connectionId).toBe("graph");
@@ -256,7 +258,7 @@ describe("/api/ontology/concepts", () => {
         storedSide("k1", side("sql", "customers", "email")),
         storedSide("k2", side("graph", "Order", "id")),
       ]);
-      const { data } = await (await GET()).json();
+      const { data } = await (await GET(new Request(URL_ALL))).json();
       expect(data.concepts).toHaveLength(2);
       const [hidden, whole] = data.concepts.map((c: object) =>
         Object.keys(c).sort(),
@@ -272,14 +274,14 @@ describe("/api/ontology/concepts", () => {
     });
 
     it("reads the concepts in name order", async () => {
-      await GET();
+      await GET(new Request(URL_ALL));
       expect(orderBys).toEqual([ontologyConcepts.name]);
     });
 
     it("shows an admin every concept, even one with no side", async () => {
       mockRequireSession.mockResolvedValue(ADMIN);
       rows.set(ontologyConcepts, [CUSTOMER]);
-      const { data } = await (await GET()).json();
+      const { data } = await (await GET(new Request(URL_ALL))).json();
       expect(data.concepts).toHaveLength(1);
       expect(data.concepts[0].sides).toEqual([]);
       expect(whereOf(connections)).not.toContain('["visibility","shared"]');
@@ -293,7 +295,7 @@ describe("/api/ontology/concepts", () => {
       async (_w, s, missing) => {
         rows.set(ontologyConcepts, [CUSTOMER]);
         rows.set(ontologyConceptSides, [storedSide("k1", s)]);
-        const { data } = await (await GET()).json();
+        const { data } = await (await GET(new Request(URL_ALL))).json();
         expect(data.concepts[0].sides[0].missing).toBe(missing);
         expect(inserts).toEqual([]);
         expect(deletes).toEqual([]);
@@ -313,12 +315,39 @@ describe("/api/ontology/concepts", () => {
         storedSide("k1", side("graph", "Person", "email")),
         storedSide("k1", side("sql", "customers", "email")),
       ]);
-      const res = await GET();
+      const res = await GET(new Request(URL_ALL));
       expect(res.status).toBe(200);
       const { data } = await res.json();
       expect(
         data.concepts[0].sides.map((x: { missing: unknown }) => x.missing),
       ).toEqual([null, null]);
+    });
+
+    it("with live=0 reads no connection's structure, flags nothing, and still hides what the caller cannot use", async () => {
+      mockRequireSession.mockResolvedValue({ ...CREATOR, userId: "u9" });
+      rows.set(connections, [G]);
+      rows.set(ontologyConcepts, [CUSTOMER]);
+      rows.set(ontologyConceptSides, [
+        storedSide("k1", side("graph", "Gone", "email")),
+        storedSide("k1", side("sql", "customers", "email")),
+      ]);
+      const res = await GET(
+        new Request("http://localhost/api/ontology/concepts?live=0"),
+      );
+      const { data } = await res.json();
+      expect(mockFetchTerms).not.toHaveBeenCalled();
+      expect(data.concepts[0].sides).toEqual([
+        { ...side("graph", "Gone", "email"), missing: null },
+      ]);
+    });
+
+    it("reads the structure by default, so a gone entity is flagged", async () => {
+      rows.set(ontologyConcepts, [CUSTOMER]);
+      rows.set(ontologyConceptSides, [
+        storedSide("k1", side("graph", "Gone", "email")),
+      ]);
+      const { data } = await (await GET(new Request(URL_ALL))).json();
+      expect(data.concepts[0].sides[0].missing).toBe("entity");
     });
 
     it("does not flag a side when its connection describes no structure", async () => {
@@ -327,7 +356,7 @@ describe("/api/ontology/concepts", () => {
       rows.set(ontologyConceptSides, [
         storedSide("k1", side("sql", "customers", "email")),
       ]);
-      const { data } = await (await GET()).json();
+      const { data } = await (await GET(new Request(URL_ALL))).json();
       expect(data.concepts[0].sides[0].missing).toBeNull();
     });
   });
@@ -446,7 +475,7 @@ describe("/api/ontology/concepts", () => {
         () => DELETE(makeRequest({}), makeParams("k1")),
         () => mockDb.delete,
       ],
-      ["GET", () => GET(), () => mockDb.select],
+      ["GET", () => GET(new Request(URL_ALL)), () => mockDb.select],
     ])(
       "never echoes a failed statement from %s",
       async (name, run, failing) => {

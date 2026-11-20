@@ -29,13 +29,13 @@ const KEY = ["ontology-concepts"];
 const URL = "/api/ontology/concepts";
 
 /** The concepts the caller can see, each with the sides on their connections. */
-export function useConcepts() {
+export function useConcepts({ live = true }: { live?: boolean } = {}) {
   return useQuery<Concept[]>({
-    queryKey: KEY,
+    queryKey: live ? KEY : [...KEY, "sides"],
     queryFn: async ({ signal }) =>
       (
         await unwrapResponse<{ concepts: Concept[] }>(
-          await fetch(URL, { signal }),
+          await fetch(live ? URL : `${URL}?live=0`, { signal }),
         )
       ).concepts,
     retry: 1,

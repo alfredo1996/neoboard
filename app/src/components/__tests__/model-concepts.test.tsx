@@ -117,7 +117,7 @@ describe("ConceptsSection", () => {
     it("shows a concept's name, parameter, description and its sides under their connections", () => {
       show();
       expect(screen.getByText("Customer")).toBeTruthy();
-      expect(screen.getByText("$customer")).toBeTruthy();
+      expect(screen.getByText("$param_customer")).toBeTruthy();
       expect(screen.getByText("Someone who has bought from us")).toBeTruthy();
       const orders = screen.getByTestId("concept-side-group-k1-sql");
       expect(within(orders).getByText("Orders")).toBeTruthy();

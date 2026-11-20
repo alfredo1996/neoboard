@@ -27,7 +27,7 @@ function matches(c: Concept, q: string) {
     c.parameter,
     c.description,
     ...c.sides.flatMap((s) => [s.entityKey, s.keyPropertyKey]),
-  ].some((s) => s.toLowerCase().includes(q.replace(/^\$/, "")));
+  ].some((s) => s.toLowerCase().includes(q.replace(/^\$(param_)?/, "")));
 }
 
 function groupByConnection(c: Concept) {
@@ -60,7 +60,7 @@ function ConceptRow({
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="break-words font-semibold">{concept.name}</span>
           <code className="rounded bg-muted px-1.5 py-0.5 text-caption font-normal text-muted-foreground">
-            ${concept.parameter}
+            $param_{concept.parameter}
           </code>
         </div>
         {concept.description && (

@@ -192,10 +192,10 @@ export function QueryEditorPanel({
   const { isFetching, refreshSchema } = useConnectionSchema(connectionId);
   const schema = useSchemaStore((s) => s.getSchema(connectionId));
   const terms = useEditorTerms(connectionId);
-  const { data: concepts } = useConcepts();
+  const { data: concepts } = useConcepts({ live: false });
   const parameters = useMemo(
-    () => parameterCompletions(concepts ?? [], connectionId),
-    [concepts, connectionId],
+    () => parameterCompletions(concepts ?? [], connectionId, terms),
+    [concepts, connectionId, terms],
   );
   const content = contentFor(editorLanguage);
   const templates = content?.templates ?? [];

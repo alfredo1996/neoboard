@@ -4,40 +4,105 @@ import type { Concept, ConceptSide } from "@/hooks/use-concepts";
 const liveSides = (c: Concept, connectionId: string): ConceptSide[] =>
   c.sides.filter((s) => s.connectionId === connectionId && !s.missing);
 
+/** What wiring reads of a connection's term: the structure and the creator's words. */
+export interface WiringTerm {
+  kind: string;
+  key: string;
+  parentKey: string;
+  displayName: string;
+  hidden: boolean;
+  orphaned?: boolean;
+}
+
+export interface FieldOffer {
+  concept: Concept;
+  /**
+   * The entity whose key it is, set only when the key's name is also a
+   * property of another entity on the connection: a bare `id` could be either.
+   */
+  entity?: string;
+}
+
+const lastSegment = (field: string) => field.slice(field.lastIndexOf(".") + 1);
+
+const entityLabel = (terms: readonly WiringTerm[], entityKey: string) =>
+  terms.find((t) => t.kind === "entity" && t.key === entityKey)?.displayName ||
+  entityKey;
+
+/** The connections where the concept has a side the connection still reports. */
+export const conceptConnectionIds = (c: Concept): string[] => [
+  ...new Set(c.sides.filter((s) => !s.missing).map((s) => s.connectionId)),
+];
+
 /**
  * The concepts for which `field` is the key on `connectionId`: any side of the
  * concept there, so a second side on the same connection counts (#2484). A
- * result column carries no table, so the match is by the key property's name.
- * Only plain parameter names are saved from it (#2415 decision 10).
+ * result column may carry its table (`p.email`), so the match is on the key
+ * property's name after the last dot. When `terms` show that name on more than
+ * one entity, the offer says which entity it would filter (#2485). Only plain
+ * parameter names are saved from it (#2415 decision 10).
  */
 export function conceptsForField(
   concepts: readonly Concept[],
   connectionId: string,
   field: string,
-): Concept[] {
+  terms: readonly WiringTerm[] = [],
+): FieldOffer[] {
   if (!connectionId || !field) return [];
-  return concepts.filter((c) =>
-    liveSides(c, connectionId).some((s) => s.keyPropertyKey === field),
+  const name = lastSegment(field);
+  const owners = new Set(
+    terms
+      .filter((t) => t.kind === "property" && t.key === name && !t.orphaned)
+      .map((t) => t.parentKey),
   );
+  return concepts.flatMap((concept) => {
+    const side = liveSides(concept, connectionId).find(
+      (s) => s.keyPropertyKey === name,
+    );
+    if (!side) return [];
+    return [
+      owners.size > 1
+        ? { concept, entity: entityLabel(terms, side.entityKey) }
+        : { concept },
+    ];
+  });
 }
 
 /**
  * Autocomplete entries for the concepts mapped on `connectionId`: the
- * parameter as a query consumes it (`$param_<name>`) and what it filters.
+ * parameter as a query consumes it (`$param_<name>`) and what it filters, in
+ * the creator's words; a hidden entity or property is left out of the hint.
  */
 export function parameterCompletions(
   concepts: readonly Concept[],
   connectionId: string,
+  terms: readonly WiringTerm[] = [],
 ): { label: string; detail: string }[] {
   if (!connectionId) return [];
+  const find = (kind: string, key: string, parentKey: string) =>
+    terms.find(
+      (t) => t.kind === kind && t.key === key && t.parentKey === parentKey,
+    );
   return concepts.flatMap((c) => {
     const sides = liveSides(c, connectionId);
     if (sides.length === 0) return [];
-    const keys = sides.map((s) => `${s.entityKey}.${s.keyPropertyKey}`);
+    const keys = sides.flatMap((s) => {
+      const entity = find("entity", s.entityKey, "");
+      const property = find(
+        "property",
+        s.keyPropertyKey,
+        `entity:${s.entityKey}`,
+      );
+      if (entity?.hidden || property?.hidden) return [];
+      return [
+        `${entity?.displayName || s.entityKey}.${property?.displayName || s.keyPropertyKey}`,
+      ];
+    });
     return [
       {
         label: `$param_${c.parameter}`,
-        detail: `${c.name}: filters by ${keys.join(", ")}`,
+        detail:
+          keys.length > 0 ? `${c.name}: filters by ${keys.join(", ")}` : c.name,
       },
     ];
   });

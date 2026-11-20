@@ -1,9 +1,23 @@
 import { describe, it, expect, vi } from "vitest";
 import { EditorState } from "@codemirror/state";
-import { CompletionContext } from "@codemirror/autocomplete";
-import type { Completion } from "@codemirror/autocomplete";
-import type { EditorView } from "@codemirror/view";
-import { parameterSource } from "../parameter-completion";
+import { EditorView } from "@codemirror/view";
+import {
+  autocompletion,
+  CompletionContext,
+  currentCompletions,
+  startCompletion,
+} from "@codemirror/autocomplete";
+import { cypher } from "../cypher-lang/cypher";
+import { parameterExtension, parameterSource } from "../parameter-completion";
+
+// The ANTLR parser has ESM resolution issues in Vitest's Node environment
+// (as in cypher-lang-smoke.test.ts); its own completions are none here.
+vi.mock("@neo4j-cypher/language-support", () => ({
+  applySyntaxColouring: vi.fn(() => []),
+  autocomplete: vi.fn(() => []),
+  shouldAutoCompleteYield: vi.fn(() => false),
+  testData: { DbSchema: {} },
+}));
 
 const PARAMS = [
   { label: "$param_customer", detail: "Customer: filters by customers.email" },
@@ -16,30 +30,13 @@ function complete(doc: string, params = PARAMS) {
 }
 
 describe("parameterSource (#2485)", () => {
-  it("offers the parameter with its hint after a $, starting where the language's own sources do", () => {
+  it("offers the parameter with its hint after a $, from the $ so the label replaces it", () => {
     const r = complete("WHERE c.email = $cu");
-    // After the `$` (index 16), so it shares a start with the SQL sources.
-    expect(r).toMatchObject({ from: 17 });
+    expect(r).toMatchObject({ from: 16 });
     const options = (r && "options" in r && r.options) || [];
     expect(options.map(({ label, detail }) => ({ label, detail }))).toEqual(
       PARAMS,
     );
-  });
-
-  it("applies by replacing the typed $ and word with the label, and touches nothing else", () => {
-    const r = complete("WHERE c.email = $cu");
-    const option = (r && "options" in r && r.options[0]) as Completion;
-    const dispatch = vi.fn();
-    (option.apply as (...a: unknown[]) => void)(
-      { dispatch } as unknown as EditorView,
-      option,
-      17,
-      19,
-    );
-    expect(dispatch).toHaveBeenCalledWith({
-      changes: { from: 16, to: 19, insert: "$param_customer" },
-      selection: { anchor: 16 + "$param_customer".length },
-    });
   });
 
   it.each([
@@ -47,5 +44,29 @@ describe("parameterSource (#2485)", () => {
     ["no parameters", "WHERE c.email = $cu", []],
   ])("offers nothing with %s", (_, doc, params) => {
     expect(complete(doc, params)).toBeNull();
+  });
+});
+
+describe("the editor wiring (#2485)", () => {
+  it.each([
+    ["cypher, whose own source overrides language data", cypher({})],
+    ["a language that sets no override", autocompletion()],
+  ])("lists the parameter beside %s", async (_, language) => {
+    const doc = "MATCH (n) WHERE n.id = $cu";
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({
+        doc,
+        selection: { anchor: doc.length },
+        extensions: [language, parameterExtension(EditorState, () => PARAMS)],
+      }),
+    });
+    startCompletion(view);
+    await vi.waitFor(() =>
+      expect(currentCompletions(view.state).map((c) => c.label)).toContain(
+        "$param_customer",
+      ),
+    );
+    view.destroy();
   });
 });
