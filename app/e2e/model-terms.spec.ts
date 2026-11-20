@@ -150,19 +150,16 @@ test.describe.serial("Model page terms (#2415)", () => {
     ).toBeDisabled();
   });
 
-  test("a reader reaches the Model page from the connection's menu", async ({
+  test("a reader reaches the Model page from the connection's card link", async ({
     authPage,
     page,
   }) => {
     await authPage.login(CAROL.email, CAROL.password);
     await page.goto("/connections");
     await page
-      .getByRole("button", {
-        name: `Connection actions for ${graphName}`,
-        exact: true,
-      })
+      .getByRole("row", { name: new RegExp(graphName) })
+      .getByRole("link", { name: "Model", exact: true })
       .click();
-    await page.getByRole("menuitem", { name: "Model", exact: true }).click();
     await expect(page).toHaveURL(/\/model#connection-/);
     await expect(
       section(page, graphName).getByLabel("Description of Person", {

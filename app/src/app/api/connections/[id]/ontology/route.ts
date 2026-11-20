@@ -162,7 +162,9 @@ export async function PUT(
 
     const { tenantId } = session;
     await db.transaction(async (tx) => {
-      for (const t of validation.data.terms) {
+      // One term's writes run in order; terms touch different rows, so they
+      // are issued together on the transaction (no await in a loop).
+      const writes = validation.data.terms.map(async (t) => {
         const term = and(
           eq(ontologyTerms.tenantId, tenantId),
           eq(ontologyTerms.connectionId, connection.id),
@@ -172,7 +174,7 @@ export async function PUT(
         );
         if (t.remove) {
           await tx.delete(ontologyTerms).where(term);
-          continue;
+          return;
         }
         const meaning = {
           ...(t.displayName !== undefined && { displayName: t.displayName }),
@@ -210,7 +212,8 @@ export async function PUT(
               eq(ontologyTerms.hidden, false),
             ),
           );
-      }
+      });
+      await Promise.all(writes);
     });
     return apiSuccess(await readOntology(connection, tenantId, live));
   } catch (error) {

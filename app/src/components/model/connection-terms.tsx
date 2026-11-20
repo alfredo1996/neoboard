@@ -194,11 +194,11 @@ export function ConnectionTerms({
   let body;
   if (isLoading) {
     body = (
-      <div role="status" aria-label="Loading terms" className="grid gap-2">
+      <output aria-label="Loading terms" className="grid gap-2">
         <Skeleton className="h-8 w-full" />
         <Skeleton className="h-8 w-full" />
         <Skeleton className="h-8 w-2/3" />
-      </div>
+      </output>
     );
   } else if (isError) {
     body = (

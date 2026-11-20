@@ -58,6 +58,21 @@ const ident = (name: string): string =>
 
 const idents = (names: string[]): string => names.map(ident).join(",");
 
+/** A table as an entity and its columns, the primary-key ones flagged. */
+function tableTerms(table: NonNullable<DatabaseSchema["tables"]>[number]) {
+  const pk = new Set(table.primaryKey ?? []);
+  return [
+    entity(table.name),
+    ...table.columns.map((c): SchemaTerm => ({
+      kind: "property",
+      key: c.name,
+      parentKey: `entity:${table.name}`,
+      type: c.type,
+      ...(pk.has(c.name) ? { primaryKey: true } : {}),
+    })),
+  ];
+}
+
 /** The term list for today's two schema shapes (graph fields, `tables`). */
 export function toTerms(schema: DatabaseSchema): SchemaTerm[] {
   const terms: SchemaTerm[] = [];
@@ -74,19 +89,7 @@ export function toTerms(schema: DatabaseSchema): SchemaTerm[] {
     }
   }
 
-  for (const table of schema.tables ?? []) {
-    terms.push(entity(table.name));
-    const pk = new Set(table.primaryKey ?? []);
-    for (const c of table.columns) {
-      terms.push({
-        kind: "property",
-        key: c.name,
-        parentKey: `entity:${table.name}`,
-        type: c.type,
-        ...(pk.has(c.name) ? { primaryKey: true } : {}),
-      });
-    }
-  }
+  for (const table of schema.tables ?? []) terms.push(...tableTerms(table));
 
   for (const type of schema.relationshipTypes ?? []) {
     const joins = (schema.relationshipPatterns ?? [])
