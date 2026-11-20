@@ -105,6 +105,23 @@ function resolvePlaceholder(
 }
 
 /**
+ * The dependency hint, below the field as the kit's help text, so dependent
+ * and independent fields start at the same height (#2523). No id means no
+ * parent (an empty parent name included), so nothing renders.
+ */
+function DependencyHint({
+  id,
+  parentName,
+}: Readonly<{ id: string | undefined; parentName: string }>) {
+  if (!id) return null;
+  return (
+    <p id={id} className="text-xs text-muted-foreground">
+      Filtered by {parentName}
+    </p>
+  );
+}
+
+/**
  * Single-select dropdown for a parameter widget seeded from a DB query.
  * Pure presentational — receives options as props, calls onChange.
  *
@@ -188,13 +205,7 @@ function ParamSelector({
   const label = !labelledBy && !scopedLabel && (
     <ParamLabel parameterName={parameterName} id={labelId} />
   );
-  // Below the field, as the kit's help text, so dependent and independent
-  // fields start at the same height (#2523).
-  const hint = parentParameterName && (
-    <p id={hintId} className="text-xs text-muted-foreground">
-      Filtered by {parentName}
-    </p>
-  );
+  const hint = <DependencyHint id={hintId} parentName={parentName} />;
 
   const clearButton = value && (
     <>
