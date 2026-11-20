@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { OntologyTerm } from "@/lib/ontology/merge";
 import { ConnectionTerms } from "../model/connection-terms";
 
@@ -71,7 +71,7 @@ describe("ConnectionTerms", () => {
     expect(screen.getByText("Person → Person")).toBeTruthy();
   });
 
-  it("saves a description on blur, with the term's other fields unchanged", () => {
+  it("saves a description on blur, sending only that field", () => {
     show();
     const field = screen.getByLabelText("Description of Person");
     fireEvent.change(field, { target: { value: "Someone who buys" } });
@@ -82,11 +82,40 @@ describe("ConnectionTerms", () => {
         kind: "entity",
         key: "Person",
         parentKey: "",
-        displayName: "Customer",
         description: "Someone who buys",
-        hidden: false,
       },
     ]);
+  });
+
+  it("two quick saves of one term each carry only their own field, so neither erases the other", () => {
+    show();
+    const name = screen.getByLabelText("Display name of Person");
+    const description = screen.getByLabelText("Description of Person");
+    fireEvent.change(name, { target: { value: "Client" } });
+    fireEvent.blur(name);
+    fireEvent.change(description, { target: { value: "Buys" } });
+    fireEvent.blur(description);
+    const sent = mockSave.mock.calls.map((c) => c[0][0]);
+    expect(sent).toEqual([
+      { kind: "entity", key: "Person", parentKey: "", displayName: "Client" },
+      { kind: "entity", key: "Person", parentKey: "", description: "Buys" },
+    ]);
+  });
+
+  it("names a property's parent in its field labels, so same-named properties stay apart", () => {
+    mockState = {
+      data: {
+        terms: [
+          term({ key: "Person" }),
+          term({ key: "Movie" }),
+          term({ kind: "property", key: "name", parentKey: "entity:Person" }),
+          term({ kind: "property", key: "name", parentKey: "entity:Movie" }),
+        ],
+      },
+    };
+    show();
+    expect(screen.getByLabelText("Description of Person.name")).toBeTruthy();
+    expect(screen.getByLabelText("Description of Movie.name")).toBeTruthy();
   });
 
   it("does not save a field that was left as it was", () => {
@@ -98,10 +127,9 @@ describe("ConnectionTerms", () => {
   it("hides a term from its switch", () => {
     show();
     fireEvent.click(screen.getByRole("switch", { name: "Hide Person" }));
-    expect(mockSave.mock.calls[0][0][0]).toMatchObject({
-      key: "Person",
-      hidden: true,
-    });
+    expect(mockSave.mock.calls[0][0]).toEqual([
+      { kind: "entity", key: "Person", parentKey: "", hidden: true },
+    ]);
   });
 
   it("shows a reader the text and no way to edit", () => {
@@ -130,6 +158,47 @@ describe("ConnectionTerms", () => {
     expect(screen.getByText("Orphaned")).toBeTruthy();
     expect(screen.getByText("kept note")).toBeTruthy();
     expect(screen.queryByLabelText("Description of Gone")).toBeNull();
+  });
+
+  it("removes an orphan's stored meaning from its Remove action", () => {
+    show();
+    fireEvent.click(screen.getByRole("button", { name: "Remove Gone" }));
+    expect(mockSave.mock.calls[0][0]).toEqual([
+      { kind: "entity", key: "Gone", parentKey: "", remove: true },
+    ]);
+  });
+
+  it("offers Remove only on an orphan, and only to someone who can edit", () => {
+    show();
+    expect(screen.getAllByRole("button", { name: /^Remove / })).toHaveLength(1);
+    cleanup();
+    show({ canEdit: false });
+    expect(screen.queryByRole("button", { name: /^Remove / })).toBeNull();
+  });
+
+  it("shows a table join with its columns", () => {
+    mockState = {
+      data: {
+        terms: [
+          term({
+            kind: "relationship",
+            key: "orders(customer_id)->customers(id)",
+            joins: [
+              {
+                from: "orders",
+                to: "customers",
+                fromColumns: ["customer_id"],
+                toColumns: ["id"],
+              },
+            ],
+          }),
+        ],
+      },
+    };
+    show();
+    expect(
+      screen.getByText("orders(customer_id) → customers(id)"),
+    ).toBeTruthy();
   });
 
   it("filters by the search text", () => {

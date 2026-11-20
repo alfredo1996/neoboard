@@ -28,6 +28,7 @@ import {
 import { FileCode } from "lucide-react";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import { useConnectionSchema } from "@/hooks/use-schema";
+import { useEditorTerms } from "@/hooks/use-ontology";
 import { useSchemaStore } from "@/stores/schema-store";
 
 // CodeMirror accesses real DOM APIs — load it only client-side.
@@ -187,6 +188,7 @@ export function QueryEditorPanel({
   // and also writes to the Zustand store for synchronous reads.
   const { isFetching, refreshSchema } = useConnectionSchema(connectionId);
   const schema = useSchemaStore((s) => s.getSchema(connectionId));
+  const terms = useEditorTerms(connectionId);
   const content = contentFor(editorLanguage);
   const templates = content?.templates ?? [];
   const hint = queryHintFor(chartType, content);
@@ -368,6 +370,7 @@ export function QueryEditorPanel({
         stoppable={stoppable}
         language={editorLanguage}
         schema={schema}
+        terms={terms}
         placeholder={placeholderFor(editorLanguage, content)}
         // The query box grows with its text to 320px, then scrolls inside; it is
         // the only nested scroller (#2388). Expanded, it is half the

@@ -726,6 +726,7 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
     expect(row.getAllByRole("menuitem").map((i) => i.textContent)).toEqual([
       "Delete…",
     ]);
+    expect(row.queryByText("Model")).toBeNull();
   });
 
   it("leaves a not-installed connection out of Test all", async () => {
@@ -1164,19 +1165,24 @@ describe("ConnectionsPage — kit rows (#2254)", () => {
     expect(screen.queryByRole("searchbox")).toBeNull();
   });
 
-  it("gives a connection the user cannot manage no menu actions", () => {
+  it("gives a connection the user cannot manage only the Model link", () => {
     mockConnections = rows(1, { isOwner: false, visibility: "shared" });
     render(<ConnectionsPage />);
-    expect(rowOf("conn-1").queryAllByRole("menuitem")).toHaveLength(0);
+    const items = rowOf("conn-1").getAllByRole("menuitem");
+    expect(items.map((i) => i.textContent)).toEqual(["Model"]);
   });
 
   // #2328: the server refuses a reader every management call.
-  it("offers a reader no New connection, no first-connection button and no row actions on a connection they still own", () => {
+  it("offers a reader no New connection, no first-connection button and only the Model link on a connection they still own", () => {
     mockRole = "reader";
     mockConnections = rows(1, { isOwner: true });
     const { unmount } = render(<ConnectionsPage />);
     expect(screen.queryByRole("button", { name: "New connection" })).toBeNull();
-    expect(rowOf("conn-1").queryAllByRole("menuitem")).toHaveLength(0);
+    expect(
+      rowOf("conn-1")
+        .getAllByRole("menuitem")
+        .map((i) => i.textContent),
+    ).toEqual(["Model"]);
     unmount();
     mockConnections = [];
     render(<ConnectionsPage />);

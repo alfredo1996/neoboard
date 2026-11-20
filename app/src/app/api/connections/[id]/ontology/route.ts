@@ -28,13 +28,19 @@ const putSchema = z.object({
         kind: z.enum(["entity", "relationship", "property"]),
         key: z.string().min(1).max(500),
         parentKey: z.string().max(520).default(""),
+        // Only the fields sent change, so two saves of one term cannot erase
+        // each other.
         displayName: z
           .string()
-          .max(MAX_NAME, "Name is limited to 200 characters"),
+          .max(MAX_NAME, "Name is limited to 200 characters")
+          .optional(),
         description: z
           .string()
-          .max(MAX_DESCRIPTION, "Description is limited to 2,000 characters"),
-        hidden: z.boolean(),
+          .max(MAX_DESCRIPTION, "Description is limited to 2,000 characters")
+          .optional(),
+        hidden: z.boolean().optional(),
+        /** Deletes the stored meaning; the only thing an orphan accepts. */
+        remove: z.boolean().optional(),
       }),
     )
     .max(1000),
@@ -122,9 +128,11 @@ export async function GET(
  * PUT /api/connections/{id}/ontology
  *
  * Saves the meaning of the terms in the body: display name, description and
- * hidden. A creator or admin who can use the connection only; every key must
- * be one the connection reports now. A term with nothing said is removed, so a
- * row exists only for a term someone described or hid.
+ * hidden, only the fields sent. A creator or admin who can use the connection
+ * only; every key must be one the connection reports now, except a term sent
+ * with `remove: true`, which deletes its stored meaning (how an orphan goes).
+ * A term with nothing said is dropped, so a row exists only for a term
+ * someone described or hid.
  */
 export async function PUT(
   request: Request,
@@ -145,6 +153,8 @@ export async function PUT(
       live.map((t) => JSON.stringify([t.kind, t.key, t.parentKey])),
     );
     for (const t of validation.data.terms) {
+      // A removal needs no live key: it is how an orphan goes.
+      if (t.remove) continue;
       if (!known.has(JSON.stringify([t.kind, t.key, t.parentKey]))) {
         return badRequest(`The connection has no ${t.kind} "${t.key}"`);
       }
@@ -153,21 +163,21 @@ export async function PUT(
     const { tenantId } = session;
     await db.transaction(async (tx) => {
       for (const t of validation.data.terms) {
-        const where = and(
+        const term = and(
           eq(ontologyTerms.tenantId, tenantId),
           eq(ontologyTerms.connectionId, connection.id),
           eq(ontologyTerms.kind, t.kind),
           eq(ontologyTerms.key, t.key),
           eq(ontologyTerms.parentKey, t.parentKey),
         );
-        if (!t.displayName && !t.description && !t.hidden) {
-          await tx.delete(ontologyTerms).where(where);
+        if (t.remove) {
+          await tx.delete(ontologyTerms).where(term);
           continue;
         }
         const meaning = {
-          displayName: t.displayName,
-          description: t.description,
-          hidden: t.hidden,
+          ...(t.displayName !== undefined && { displayName: t.displayName }),
+          ...(t.description !== undefined && { description: t.description }),
+          ...(t.hidden !== undefined && { hidden: t.hidden }),
         };
         await tx
           .insert(ontologyTerms)
@@ -189,6 +199,17 @@ export async function PUT(
             ],
             set: { ...meaning, updatedAt: new Date() },
           });
+        // A row exists only for a term someone described or hid.
+        await tx
+          .delete(ontologyTerms)
+          .where(
+            and(
+              term,
+              eq(ontologyTerms.displayName, ""),
+              eq(ontologyTerms.description, ""),
+              eq(ontologyTerms.hidden, false),
+            ),
+          );
       }
     });
     return apiSuccess(await readOntology(connection, tenantId, live));

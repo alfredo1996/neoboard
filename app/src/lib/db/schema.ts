@@ -171,6 +171,9 @@ export const connections = pgTable(
       name: "connection_tenant_user_fk",
     }).onDelete("cascade"),
     index("connection_tenant_id_idx").on(table.tenantId, table.id),
+    // The target of the composite FKs that tie a row to its connection and
+    // tenant together (#2415, as dashboard_tenant_id_unique is, #1646).
+    unique("connection_tenant_id_unique").on(table.tenantId, table.id),
   ],
 );
 
@@ -489,9 +492,7 @@ export const ontologyTerms = pgTable(
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     tenantId: text("tenant_id").notNull().default("default"),
-    connectionId: text("connection_id")
-      .notNull()
-      .references(() => connections.id, { onDelete: "cascade" }),
+    connectionId: text("connection_id").notNull(),
     kind: text("kind").notNull(),
     key: text("key").notNull(),
     parentKey: text("parent_key").notNull().default(""),
@@ -501,6 +502,11 @@ export const ontologyTerms = pgTable(
     updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.tenantId, table.connectionId],
+      foreignColumns: [connections.tenantId, connections.id],
+      name: "ontology_term_tenant_connection_fk",
+    }).onDelete("cascade"),
     unique("ontology_term_tenant_connection_term_unique").on(
       table.tenantId,
       table.connectionId,

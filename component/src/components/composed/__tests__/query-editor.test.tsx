@@ -378,6 +378,35 @@ describe("QueryEditor — unified editor init", () => {
     const firstCall = mockResolveLanguageExt.mock.calls[0] as unknown[];
     expect(firstCall[1]).toEqual(schema);
   });
+
+  it("leaves the terms a creator hid out of the schema it completes from", async () => {
+    const schema = {
+      type: "any-tabular-connector",
+      tables: [
+        { name: "users", columns: [] },
+        { name: "audit", columns: [] },
+      ],
+    };
+    const terms = [
+      {
+        kind: "entity",
+        key: "audit",
+        parentKey: "",
+        displayName: "",
+        description: "",
+        hidden: true,
+      },
+    ];
+
+    render(<QueryEditor language="sql" schema={schema} terms={terms} />);
+    await flushAsync();
+
+    const firstCall = mockResolveLanguageExt.mock.calls[0] as unknown[];
+    expect(firstCall[1]).toEqual({
+      ...schema,
+      tables: [{ name: "users", columns: [] }],
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

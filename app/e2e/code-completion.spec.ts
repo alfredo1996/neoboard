@@ -10,6 +10,7 @@ import {
   test,
   expect,
   ALICE,
+  TEST_PG_PORT,
   createTestDashboard,
   SEEDED_PG_OPTION,
   uid,
@@ -230,6 +231,86 @@ test.describe("Code completion — Cypher + SQL", () => {
 
     // The seeded PostgreSQL database exposes a "movies" table.
     expect(await hasCompletionItem(page, /movies/i)).toBe(true);
+  });
+
+  // #2415: what the Model page says about a term reaches the editor.
+  test("completion shows a described term's description and leaves a hidden one out", async ({
+    page,
+  }) => {
+    const name = `model-complete-${uid()}`;
+    const created = await page.request.post("/api/connections", {
+      data: {
+        name,
+        type: "postgresql",
+        config: {
+          uri: `postgresql://localhost:${TEST_PG_PORT}`,
+          username: "neoboard",
+          password: "neoboard",
+          database: "movies",
+        },
+      },
+    });
+    expect(created.status()).toBe(201);
+    const id = (await created.json()).data.id as string;
+    try {
+      const put = await page.request.put(`/api/connections/${id}/ontology`, {
+        data: {
+          terms: [
+            {
+              kind: "property",
+              key: "released",
+              parentKey: "entity:movies",
+              description: "release year",
+            },
+            {
+              kind: "property",
+              key: "tagline",
+              parentKey: "entity:movies",
+              hidden: true,
+            },
+          ],
+        },
+      });
+      expect(put.ok()).toBeTruthy();
+
+      // The editor's connection list was read before this connection existed.
+      await page.reload();
+      await expect(editingCrumb(page)).toBeVisible();
+
+      await page
+        .getByRole("button", { name: "Add Widget", exact: true })
+        .first()
+        .click();
+      const dialog = page.getByRole("dialog", {
+        name: "Add Widget",
+        exact: true,
+      });
+      const termsRead = page.waitForResponse(
+        (r) =>
+          r.url().includes(`/api/connections/${id}/ontology`) &&
+          r.request().method() === "GET" &&
+          r.ok(),
+      );
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
+      await page.getByRole("option", { name }).click();
+      await termsRead;
+      await waitForEditorReady(dialog, page);
+      await waitForSchemaLoaded(dialog, page);
+
+      await typeInCmEditor(dialog, page, "SELECT movies.");
+      await page.keyboard.press("Control+Space");
+      await waitForAutocompletePopup(page);
+
+      expect(await hasCompletionItem(page, /released.*release year/s)).toBe(
+        true,
+      );
+      expect(await hasCompletionItem(page, /title/)).toBe(true);
+      expect(await hasCompletionItem(page, /tagline/)).toBe(false);
+    } finally {
+      await page.request.delete(`/api/connections/${id}?force=true`);
+    }
   });
 
   // #2054: the editor's dialog hears Escape before CodeMirror does, so Escape

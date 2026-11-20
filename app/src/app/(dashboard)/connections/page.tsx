@@ -618,7 +618,7 @@ export default function ConnectionsPage() {
                         c.widgetCount ?? 0,
                       ]}
                       menu={
-                        (canUse || canManage || canToggle) && (
+                        (installed || canManage || canToggle) && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -631,7 +631,7 @@ export default function ConnectionsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {canUse && (
+                              {installed && (
                                 <DropdownMenuItem asChild>
                                   <a href={`/model#connection-${c.id}`}>
                                     <Network className="mr-2 h-4 w-4" />

@@ -370,9 +370,10 @@ const SPEC = {
         tags: ["Connections"],
         summary: "Describe or hide a connection's terms",
         description:
-          "Saves display name, description and hidden for the terms in the body. Creators and admins who can use the connection; " +
-          "readers are refused (403). Every `kind`, `key` and `parentKey` must be a term the connection reports now (400). Names " +
-          "are limited to 200 characters and descriptions to 2,000, and are stored and shown as text. A term sent with an empty " +
+          "Saves display name, description and hidden for the terms in the body, changing only the fields sent. Creators and admins " +
+          "who can use the connection; readers are refused (403). Every `kind`, `key` and `parentKey` must be a term the connection " +
+          "reports now (400), unless the term is sent with `remove: true`, which deletes its stored meaning (how an orphaned term goes). " +
+          "Names are limited to 200 characters and descriptions to 2,000, and are stored and shown as text. A term left with an empty " +
           "name, an empty description and `hidden: false` has its stored row removed. Returns the terms as GET does.",
         requestBody: jsonBody("#/components/schemas/OntologyTermsRequest"),
         responses: {
@@ -1635,7 +1636,6 @@ const SPEC = {
           config: { $ref: "#/components/schemas/ConnectionConfig" },
         },
       },
-      // nullable sits on the component: OpenAPI 3.0 ignores siblings of a $ref.
       OntologyTerm: {
         type: "object",
         required: [
@@ -1674,11 +1674,24 @@ const SPEC = {
           joins: {
             type: "array",
             description:
-              "A relationship's endpoints, one pair for each entity pair it joins.",
+              "A relationship's endpoints. One term per relationship: a graph relationship type (one pair for each entity pair it joins) or a SQL foreign key (one pair, keyed `table(columns)->refTable(refColumns)`).",
             items: {
               type: "object",
               required: ["from", "to"],
-              properties: { from: { type: "string" }, to: { type: "string" } },
+              properties: {
+                from: { type: "string" },
+                to: { type: "string" },
+                fromColumns: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "A table join's columns on the source side.",
+                },
+                toColumns: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "A table join's columns on the referenced side.",
+                },
+              },
             },
           },
           displayName: { type: "string", maxLength: 200 },
@@ -1710,7 +1723,7 @@ const SPEC = {
             maxItems: 1000,
             items: {
               type: "object",
-              required: ["kind", "key", "displayName", "description", "hidden"],
+              required: ["kind", "key"],
               properties: {
                 kind: {
                   type: "string",
@@ -1721,11 +1734,17 @@ const SPEC = {
                 displayName: { type: "string", maxLength: 200 },
                 description: { type: "string", maxLength: 2000 },
                 hidden: { type: "boolean" },
+                remove: {
+                  type: "boolean",
+                  description:
+                    "Deletes the term's stored meaning. The only thing accepted for a key the connection no longer reports.",
+                },
               },
             },
           },
         },
       },
+      // nullable sits on the component: OpenAPI 3.0 ignores siblings of a $ref.
       DatabaseSchema: {
         type: "object",
         nullable: true,
@@ -1758,8 +1777,7 @@ const SPEC = {
           nodeProperties: {
             type: "object",
             description:
-              "Properties seen per node type, keyed as the connector reports the type: a key may be quoted, and a node " +
-              "with several labels gives one combined key.",
+              "Properties seen per node type, keyed by the plain type name. A node with several labels is listed under each of them.",
             additionalProperties: {
               type: "array",
               items: { $ref: "#/components/schemas/SchemaProperty" },
@@ -1768,7 +1786,7 @@ const SPEC = {
           relProperties: {
             type: "object",
             description:
-              "Properties seen per relationship type, keyed as the connector reports the type (a key may be quoted).",
+              "Properties seen per relationship type, keyed by the plain type name.",
             additionalProperties: {
               type: "array",
               items: { $ref: "#/components/schemas/SchemaProperty" },

@@ -15,7 +15,6 @@ import {
   TableHeader,
   TableRow,
   Tag,
-  useToast,
 } from "@neoboard/components";
 import { useOntology, useSaveTerms } from "@/hooks/use-ontology";
 import { groupTerms } from "@/lib/ontology/group";
@@ -39,11 +38,24 @@ interface TermRowProps {
   readonly canEdit: boolean;
   readonly nested: boolean;
   readonly onSave: (term: OntologyTerm, changes: Partial<OntologyTerm>) => void;
+  readonly onRemove: (term: OntologyTerm) => void;
 }
 
-function TermRow({ term, canEdit, nested, onSave }: TermRowProps) {
-  // Orphaned terms are no longer in the connection: the server only takes
-  // terms it reports now, so theirs stay as saved.
+/** A property is named with its parent, since property names repeat. */
+function nameOf(term: OntologyTerm) {
+  const parent = term.parentKey.slice(term.parentKey.indexOf(":") + 1);
+  return term.kind === "property" && parent
+    ? `${parent}.${term.key}`
+    : term.key;
+}
+
+const side = (table: string, columns?: string[]) =>
+  columns ? `${table}(${columns.join(", ")})` : table;
+
+function TermRow({ term, canEdit, nested, onSave, onRemove }: TermRowProps) {
+  const name = nameOf(term);
+  // Orphaned terms are no longer in the connection: the server takes no edit
+  // for them, only their removal.
   const editable = canEdit && !term.orphaned;
   const isProperty = term.kind === "property";
   return (
@@ -65,7 +77,7 @@ function TermRow({ term, canEdit, nested, onSave }: TermRowProps) {
           <Input
             // A new key resets the field once the saved value comes back.
             key={term.displayName}
-            aria-label={`Display name of ${term.key}`}
+            aria-label={`Display name of ${name}`}
             placeholder="Add a name"
             maxLength={200}
             defaultValue={term.displayName}
@@ -82,7 +94,7 @@ function TermRow({ term, canEdit, nested, onSave }: TermRowProps) {
         {editable ? (
           <Input
             key={term.description}
-            aria-label={`Description of ${term.key}`}
+            aria-label={`Description of ${name}`}
             placeholder="Add a description"
             maxLength={2000}
             defaultValue={term.description}
@@ -103,19 +115,30 @@ function TermRow({ term, canEdit, nested, onSave }: TermRowProps) {
             <Tag>{KIND_WORD[term.kind] ?? term.kind}</Tag>
             {term.joins?.map((j) => (
               <div key={`${j.from}>${j.to}`}>
-                {j.from} → {j.to}
+                {side(j.from, j.fromColumns)} → {side(j.to, j.toColumns)}
               </div>
             ))}
           </>
         )}
       </TableCell>
       <TableCell>
-        <Switch
-          aria-label={`Hide ${term.key}`}
-          checked={term.hidden}
-          disabled={!editable}
-          onCheckedChange={(hidden) => onSave(term, { hidden })}
-        />
+        {canEdit && term.orphaned ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label={`Remove ${name}`}
+            onClick={() => onRemove(term)}
+          >
+            Remove
+          </Button>
+        ) : (
+          <Switch
+            aria-label={`Hide ${name}`}
+            checked={term.hidden}
+            disabled={!editable}
+            onCheckedChange={(hidden) => onSave(term, { hidden })}
+          />
+        )}
       </TableCell>
     </TableRow>
   );
@@ -136,7 +159,6 @@ export function ConnectionTerms({
   canEdit,
   search,
 }: ConnectionTermsProps) {
-  const { toast } = useToast();
   const { data, isLoading, isError, isFetching, refetch } =
     useOntology(connectionId);
   const save = useSaveTerms(connectionId);
@@ -147,19 +169,25 @@ export function ConnectionTerms({
     [terms, search, showHidden],
   );
 
+  // Only the changed field is sent: props may be stale when a second save
+  // follows a first, and a whole term would put the old value back.
   function onSave(term: OntologyTerm, changes: Partial<OntologyTerm>) {
-    const { kind, key, parentKey, displayName, description, hidden } = {
-      ...term,
-      ...changes,
-    };
-    save.mutate([{ kind, key, parentKey, displayName, description, hidden }], {
-      onError: (e) =>
-        toast({
-          title: "Could not save",
-          description: e instanceof Error ? e.message : "Something went wrong.",
-          variant: "destructive",
-        }),
-    });
+    const { kind, key, parentKey } = term;
+    const { displayName, description, hidden } = changes;
+    save.mutate([
+      {
+        kind,
+        key,
+        parentKey,
+        ...(displayName !== undefined && { displayName }),
+        ...(description !== undefined && { description }),
+        ...(hidden !== undefined && { hidden }),
+      },
+    ]);
+  }
+
+  function onRemove({ kind, key, parentKey }: OntologyTerm) {
+    save.mutate([{ kind, key, parentKey, remove: true }]);
   }
 
   let body;
@@ -208,6 +236,7 @@ export function ConnectionTerms({
               canEdit={canEdit}
               nested={false}
               onSave={onSave}
+              onRemove={onRemove}
             />,
             ...g.properties.map((p) => (
               <TermRow
@@ -216,6 +245,7 @@ export function ConnectionTerms({
                 canEdit={canEdit}
                 nested
                 onSave={onSave}
+                onRemove={onRemove}
               />
             )),
           ])}

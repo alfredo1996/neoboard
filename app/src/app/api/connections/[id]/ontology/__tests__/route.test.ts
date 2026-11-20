@@ -12,6 +12,7 @@ const mockFetchTerms = vi.fn<() => Promise<SchemaTerm[]>>();
 const selects: unknown[][] = [];
 const wheres: unknown[] = [];
 const upserts: unknown[] = [];
+const sets: unknown[] = [];
 const deletes: unknown[] = [];
 
 // A select resolves to the next queued result, whether or not `.limit()` ends it.
@@ -33,8 +34,9 @@ const mockDb = {
   select: vi.fn(selectChain),
   insert: vi.fn(() => ({
     values: (v: unknown) => ({
-      onConflictDoUpdate: () => {
+      onConflictDoUpdate: (c: { set: unknown }) => {
         upserts.push(v);
+        sets.push(c.set);
         return Promise.resolve();
       },
     }),
@@ -64,6 +66,7 @@ vi.mock("drizzle-orm", async (orig) => ({
   ...(await orig<typeof import("drizzle-orm")>()),
   eq: (col: { name: string }, val: unknown) => ({ eq: [col.name, val] }),
   and: (...parts: unknown[]) => ({ and: parts }),
+  or: (...parts: unknown[]) => ({ or: parts }),
 }));
 
 const CREATOR = {
@@ -78,6 +81,7 @@ const READER = {
   canWrite: false,
   tenantId: "t1",
 };
+const ADMIN = { ...CREATOR, userId: "u3", role: "admin" };
 const CONN = { id: "c1", userId: "u1", type: "x", configEncrypted: "enc" };
 
 const LIVE: SchemaTerm[] = [
@@ -98,6 +102,7 @@ describe("/api/connections/[id]/ontology", () => {
     selects.length = 0;
     wheres.length = 0;
     upserts.length = 0;
+    sets.length = 0;
     deletes.length = 0;
     mockFetchTerms.mockResolvedValue(LIVE);
     const mod = await import("../route");
@@ -154,6 +159,23 @@ describe("/api/connections/[id]/ontology", () => {
       expect(storedWhere).toContain('["connection_id","c1"]');
     });
 
+    it.each([
+      ["a creator", CREATOR, true],
+      ["an admin", ADMIN, false],
+    ])(
+      "looks the connection up by the session's tenant, and by owner or shared for %s",
+      async (_who, session, scoped) => {
+        mockRequireSession.mockResolvedValue(session);
+        selects.push([]);
+        await GET({} as Request, makeParams("c1"));
+        const w = JSON.stringify(wheres[0]);
+        expect(w).toContain('["id","c1"]');
+        expect(w).toContain('["tenant_id","t1"]');
+        expect(w.includes('["visibility","shared"]')).toBe(scoped);
+        expect(w.includes(`["userId","${session.userId}"]`)).toBe(scoped);
+      },
+    );
+
     it("is the same for a reader, who may read", async () => {
       mockRequireSession.mockResolvedValue(READER);
       selects.push([CONN], []);
@@ -179,6 +201,23 @@ describe("/api/connections/[id]/ontology", () => {
       expect(res.status).toBe(404);
       expect(mockDb.insert).not.toHaveBeenCalled();
     });
+
+    it.each([
+      ["a creator", CREATOR, true],
+      ["an admin", ADMIN, false],
+    ])(
+      "looks the connection up by the session's tenant, and by owner or shared for %s",
+      async (_who, session, scoped) => {
+        mockRequireSession.mockResolvedValue(session);
+        selects.push([]);
+        await put([edit({ displayName: "x" })]);
+        const w = JSON.stringify(wheres[0]);
+        expect(w).toContain('["id","c1"]');
+        expect(w).toContain('["tenant_id","t1"]');
+        expect(w.includes('["visibility","shared"]')).toBe(scoped);
+        expect(w.includes(`["userId","${session.userId}"]`)).toBe(scoped);
+      },
+    );
 
     it("refuses a key the live structure does not report", async () => {
       mockRequireSession.mockResolvedValue(CREATOR);
@@ -234,13 +273,60 @@ describe("/api/connections/[id]/ontology", () => {
       expect(upserts[0]).toMatchObject({ description: "<b>x</b>" });
     });
 
-    it("removes the row when the term is emptied again", async () => {
+    it("changes only the fields it is sent, so two saves of one term cannot erase each other", async () => {
+      mockRequireSession.mockResolvedValue(CREATOR);
+      selects.push([CONN], []);
+      await put([
+        { kind: "entity", key: "Person", parentKey: "", description: "who" },
+      ]);
+      expect(upserts[0]).not.toHaveProperty("displayName");
+      expect(upserts[0]).not.toHaveProperty("hidden");
+      expect(Object.keys(sets[0] as object).sort()).toEqual([
+        "description",
+        "updatedAt",
+      ]);
+    });
+
+    it("then drops the row if nothing is said about the term any more", async () => {
       mockRequireSession.mockResolvedValue(CREATOR);
       selects.push([CONN], []);
       const res = await put([edit({})]);
       expect(res.status).toBe(200);
+      const w = JSON.stringify(deletes[0]);
+      expect(w).toContain('["tenant_id","t1"]');
+      expect(w).toContain('["display_name",""]');
+      expect(w).toContain('["description",""]');
+      expect(w).toContain('["hidden",false]');
+    });
+
+    it("removes the stored meaning of a term the connection no longer reports", async () => {
+      mockRequireSession.mockResolvedValue(CREATOR);
+      selects.push([CONN], []);
+      const res = await put([
+        { kind: "entity", key: "Gone", parentKey: "", remove: true },
+      ]);
+      expect(res.status).toBe(200);
       expect(upserts).toHaveLength(0);
-      expect(JSON.stringify(deletes[0])).toContain('["tenant_id","t1"]');
+      const w = JSON.stringify(deletes[0]);
+      expect(w).toContain('["tenant_id","t1"]');
+      expect(w).toContain('["key","Gone"]');
+    });
+
+    it("still refuses to edit a term the connection no longer reports", async () => {
+      mockRequireSession.mockResolvedValue(CREATOR);
+      selects.push([CONN]);
+      const res = await put([edit({ key: "Gone", displayName: "x" })]);
+      expect(res.status).toBe(400);
+      expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it("lets a reader remove nothing", async () => {
+      mockRequireSession.mockResolvedValue(READER);
+      const res = await put([
+        { kind: "entity", key: "Gone", parentKey: "", remove: true },
+      ]);
+      expect(res.status).toBe(403);
+      expect(mockDb.delete).not.toHaveBeenCalled();
     });
   });
 });

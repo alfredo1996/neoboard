@@ -94,7 +94,7 @@ test.describe.serial("Model page terms (#2415)", () => {
 
     const cases = [
       { name: graphName, term: "Person", text: "Someone in the film business" },
-      { name: sqlName, term: "released", text: "release year" },
+      { name: sqlName, term: "movies.released", text: "release year" },
     ];
     for (const { name, term, text } of cases) {
       const box = section(page, name);
@@ -148,5 +148,31 @@ test.describe.serial("Model page terms (#2415)", () => {
     await expect(
       box.getByRole("switch", { name: "Hide Person", exact: true }),
     ).toBeDisabled();
+  });
+
+  test("a reader reaches the Model page from the connection's menu", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(CAROL.email, CAROL.password);
+    await page.goto("/connections");
+    await page
+      .getByRole("button", {
+        name: `Connection actions for ${graphName}`,
+        exact: true,
+      })
+      .click();
+    await page.getByRole("menuitem", { name: "Model", exact: true }).click();
+    await expect(page).toHaveURL(/\/model#connection-/);
+    await expect(
+      section(page, graphName).getByLabel("Description of Person", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await expect(
+      section(page, graphName).getByText("Someone in the film business", {
+        exact: true,
+      }),
+    ).toBeVisible({ timeout: 30_000 });
   });
 });

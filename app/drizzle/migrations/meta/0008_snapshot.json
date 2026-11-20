@@ -1,5 +1,5 @@
 {
-  "id": "47ff29cd-80e2-40a2-9ead-9cdc1fe2cd78",
+  "id": "745112b4-156d-4a2c-b92a-1b6b080804e6",
   "prevId": "6e93d4b5-f549-402d-a0b3-f292b35b2cec",
   "version": "7",
   "dialect": "postgresql",
@@ -413,7 +413,13 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "connection_tenant_id_unique": {
+          "name": "connection_tenant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["tenant_id", "id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -700,12 +706,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "ontology_term_connection_id_connection_id_fk": {
-          "name": "ontology_term_connection_id_connection_id_fk",
+        "ontology_term_tenant_connection_fk": {
+          "name": "ontology_term_tenant_connection_fk",
           "tableFrom": "ontology_term",
           "tableTo": "connection",
-          "columnsFrom": ["connection_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": ["tenant_id", "connection_id"],
+          "columnsTo": ["tenant_id", "id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
