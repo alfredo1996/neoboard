@@ -1242,72 +1242,6 @@ test.describe("Graph chart exploration", () => {
     await expect(dialog).not.toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("Query Failed")).not.toBeVisible();
   });
-
-  // Flaky: right-click canvas center is non-deterministic with graph layout
-  test.fixme("graph chart — collapse removes expanded neighbors", async ({
-    page,
-  }) => {
-    await addGraphWidget(page);
-
-    const exploration = page.locator("[data-testid='graph-exploration']");
-    await expect(exploration).toBeVisible({ timeout: 15_000 });
-
-    const nodeCountEl = page.locator("[data-testid='graph-node-count']");
-    await expect(nodeCountEl).toBeVisible({ timeout: 10_000 });
-    const initialText = await nodeCountEl.textContent();
-
-    // NVL renders overlay divs, so force: true is needed for canvas clicks
-    const canvas = exploration.locator("canvas").first();
-    await expect(canvas).toBeVisible({ timeout: 10_000 });
-    const box = await canvas.boundingBox();
-    if (box) {
-      await canvas.click({
-        button: "right",
-        position: { x: box.width / 2, y: box.height / 2 },
-        force: true,
-      });
-    }
-
-    const expandBtn = page.getByRole("button", { name: "Expand" });
-    const canExpand = await expandBtn.isVisible().catch(() => false);
-    if (canExpand) {
-      await expandBtn.click();
-
-      // Wait for expansion to complete by checking node count changes
-      await expect(async () => {
-        const afterText = await nodeCountEl.textContent();
-        expect(afterText).toBeTruthy();
-      }).toPass({ timeout: 10_000 });
-
-      // Capture expanded node count for later comparison
-      const expandedText = await nodeCountEl.textContent();
-      const expandedCount = parseInt(expandedText ?? "0", 10);
-
-      // Right-click same position again to get Collapse option
-      if (box) {
-        await canvas.click({
-          button: "right",
-          position: { x: box.width / 2, y: box.height / 2 },
-          force: true,
-        });
-      }
-
-      const collapseBtn = page.getByRole("button", { name: "Collapse" });
-      const canCollapse = await collapseBtn.isVisible().catch(() => false);
-      if (canCollapse) {
-        await collapseBtn.click();
-
-        // Wait for collapse to complete — node count should decrease
-        await expect(async () => {
-          const afterText = await nodeCountEl.textContent();
-          const afterCount = parseInt(afterText ?? "0", 10);
-          expect(afterCount).toBeLessThanOrEqual(expandedCount);
-        }).toPass({ timeout: 10_000 });
-      }
-    }
-
-    await expect(page.getByText("Query Failed")).not.toBeVisible();
-  });
 });
 
 // #2061 review: Expand used to hang on the viewer's own connection list, so an
@@ -2201,6 +2135,199 @@ test.describe("Graph inspector (#2515)", () => {
       await expect(dialog).toBeHidden();
     } finally {
       await removeParallelPair(page, ids);
+    }
+  });
+});
+
+/**
+ * Right-click the node whose hover tooltip names `caption` (#2522). The force
+ * layout moves nodes between runs and after every Expand, so the node is found
+ * by what the app shows: once the layout overlay is gone, hover a spiral of
+ * points out from the canvas centre until the tooltip carries the caption, then
+ * right-click there. The spiral repeats inside a 25 s deadline (well under the
+ * test timeout) so a node that settles late is still found, and a miss throws
+ * the named error. Grid step: NVL draws a node without a size as a 25 px
+ * circle, so on screen its radius is at least ~12 px at zoom 1; a step of 16 px
+ * (<= sqrt(2) * 12) means any such node holds a sample point.
+ */
+async function rightClickNodeByCaption(
+  page: import("@playwright/test").Page,
+  canvas: import("@playwright/test").Locator,
+  caption: string,
+) {
+  await expect(page.getByTestId("graph-loading-overlay")).toHaveCount(0);
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  const { x, y, width, height } = box!;
+  const step = 16;
+  const tooltip = page.getByTestId("graph-hover");
+  const named = tooltip.getByText(caption, { exact: true });
+  const menu = page.getByTestId("graph-context-menu");
+  const maxRing = Math.ceil(Math.max(width, height) / 2 / step);
+  const miss = `no point on the graph canvas shows a node named "${caption}"`;
+  await expect(async () => {
+    // A tooltip left from an earlier hover would match at the first point.
+    await page.mouse.move(0, 0);
+    await expect(tooltip).toBeHidden();
+    for (let ring = 0; ring <= maxRing; ring++) {
+      for (let dx = -ring; dx <= ring; dx++) {
+        for (let dy = -ring; dy <= ring; dy++) {
+          // Only the square ring's border; inner points were hovered already.
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
+          const px = width / 2 + dx * step;
+          const py = height / 2 + dy * step;
+          if (px < 0 || py < 0 || px > width || py > height) continue;
+          await page.mouse.move(x + px, y + py);
+          const shown = await named
+            .waitFor({ state: "visible", timeout: 100 })
+            .then(() => true)
+            .catch(() => false);
+          if (!shown) continue;
+          await page.mouse.click(x + px, y + py, { button: "right" });
+          // The menu must have opened, and the pointer must still be on the
+          // node the tooltip names: a node drifting away would open a
+          // neighbour's menu.
+          const opened = await menu
+            .waitFor({ state: "visible", timeout: 500 })
+            .then(() => true)
+            .catch(() => false);
+          if (opened && (await named.isVisible())) return;
+        }
+      }
+    }
+    throw new Error(miss);
+  })
+    .toPass({ timeout: 25_000, intervals: [250] })
+    // toPass reports only "Timeout exceeded": name what was missing.
+    .catch(() => {
+      throw new Error(miss);
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Graph Collapse (#2522): Expand adds a node's neighbours, Collapse removes them
+// ---------------------------------------------------------------------------
+
+test.describe("Graph Collapse (#2522)", () => {
+  test.describe.configure({ timeout: 120_000 });
+
+  test("Collapse removes exactly the neighbours Expand added", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const tag = `e2e2522_${uid()}`;
+    const hub = `Hub ${tag}`;
+    const leaves = ["Leaf A", "Leaf B", "Leaf C"].map((n) => `${n} ${tag}`);
+    let seeded = false;
+    let connectionId: string | undefined;
+    let dashboardId: string | undefined;
+
+    try {
+      const connRes = await page.request.post("/api/connections", {
+        data: {
+          name: `collapse-${tag}`,
+          type: "neo4j",
+          config: {
+            uri: TEST_NEO4J_BOLT_URL,
+            username: "neo4j",
+            password: "neoboard123",
+          },
+        },
+      });
+      expect(connRes.status()).toBe(201);
+      connectionId = (await connRes.json()).data.id;
+
+      const seed = await page.request.post("/api/query/write", {
+        data: {
+          connectionId,
+          query:
+            "CREATE (h:E2E2522 {tag: $tag, name: $hub}) WITH h UNWIND $leaves AS l CREATE (h)-[:LINKS]->(:E2E2522 {tag: $tag, name: l})",
+          params: { tag, hub, leaves },
+        },
+      });
+      expect(seed.ok()).toBeTruthy();
+      seeded = true;
+
+      ({ id: dashboardId } = await createTestDashboard(
+        page.request,
+        `collapse-${tag}`,
+      ));
+      const put = await page.request.put(`/api/dashboards/${dashboardId}`, {
+        data: {
+          layoutJson: {
+            version: 2,
+            pages: [
+              {
+                id: "p1",
+                title: "Page 1",
+                widgets: [
+                  {
+                    id: "w-graph",
+                    chartType: "graph",
+                    connectionId,
+                    query: `MATCH (h:E2E2522 {tag: '${tag}', name: '${hub}'}) RETURN h`,
+                    settings: { title: "Hub", chartOptions: {} },
+                  },
+                ],
+                gridLayout: [{ i: "w-graph", x: 0, y: 0, w: 12, h: 8 }],
+              },
+            ],
+          },
+        },
+      });
+      expect(put.ok()).toBeTruthy();
+
+      await page.goto(`/${dashboardId}`);
+      const exploration = page.getByTestId("graph-exploration");
+      const canvas = exploration.locator("canvas").first();
+      const nodeCount = exploration.getByTestId("graph-node-count");
+      const menu = page.getByTestId("graph-context-menu");
+      await expect(nodeCount).toHaveText("1 nodes", {
+        timeout: 15_000,
+      });
+
+      await rightClickNodeByCaption(page, canvas, hub);
+      await menu.getByRole("button", { name: "Expand", exact: true }).click();
+      await expect(nodeCount).toHaveText(`${1 + leaves.length} nodes`, {
+        timeout: 15_000,
+      });
+      // The chart itself draws them: its legend counts its own nodes prop.
+      const legendCount = exploration.getByTestId("graph-legend-count-E2E2522");
+      await expect(legendCount).toHaveText(`${1 + leaves.length}`);
+
+      // The layout has moved the hub: find it again by its caption.
+      await rightClickNodeByCaption(page, canvas, hub);
+      await menu.getByRole("button", { name: "Collapse", exact: true }).click();
+      await expect(nodeCount).toHaveText("1 nodes", {
+        timeout: 15_000,
+      });
+      await expect(legendCount).toHaveText("1");
+
+      // What is left is the hub, not a leaf: it is found by caption and,
+      // having nothing expanded, offers Expand and no Collapse.
+      await rightClickNodeByCaption(page, canvas, hub);
+      await expect(
+        menu.getByRole("button", { name: "Expand", exact: true }),
+      ).toBeVisible();
+      await expect(
+        menu.getByRole("button", { name: "Collapse", exact: true }),
+      ).toHaveCount(0);
+    } finally {
+      if (seeded)
+        await page.request.post("/api/query/write", {
+          data: {
+            connectionId,
+            query: "MATCH (n:E2E2522 {tag: $tag}) DETACH DELETE n",
+            params: { tag },
+          },
+        });
+      if (dashboardId)
+        await page.request.delete(`/api/dashboards/${dashboardId}`);
+      if (connectionId)
+        await page.request.delete(
+          `/api/connections/${connectionId}?force=true`,
+        );
     }
   });
 });

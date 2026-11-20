@@ -103,7 +103,7 @@ const BASELINE = {
   "auto-refresh.spec.ts": { role: 4 },
   "bar-stack-mode.spec.ts": { role: 5, text: 1 },
   "chart-export.spec.ts": { role: 5 },
-  "charts.spec.ts": { role: 97, text: 36 },
+  "charts.spec.ts": { role: 95, text: 35 },
   "code-completion.spec.ts": { role: 19 },
   "connection-advanced.spec.ts": { role: 18, text: 11 },
   "connection-sharing.spec.ts": { role: 6 },
