@@ -924,6 +924,46 @@ describe("GraphChart", () => {
       });
     });
 
+    it("fits on the first settle only, not on every later layout settle (#2517)", () => {
+      const onPositionsChange = vi.fn();
+      const { rerender } = render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={sampleEdges}
+          onPositionsChange={onPositionsChange}
+        />,
+      );
+      const fit = vi.fn();
+      (capturedProps.ref as { current: unknown }).current = {
+        fit,
+        getNodePositions: () => [{ id: "1", x: 1, y: 2 }],
+      };
+      const settle = () =>
+        act(() => {
+          (
+            capturedProps.nvlCallbacks as { onLayoutDone: () => void }
+          ).onLayoutDone();
+        });
+      settle();
+      expect(fit).toHaveBeenCalledTimes(1);
+      // A drag or a selection settles the layout again: the camera stays,
+      // but positions are still reported.
+      settle();
+      settle();
+      expect(fit).toHaveBeenCalledTimes(1);
+      expect(onPositionsChange).toHaveBeenCalledTimes(3);
+      // New data re-arms the fit.
+      rerender(
+        <GraphChart
+          nodes={[...sampleNodes]}
+          edges={sampleEdges}
+          onPositionsChange={onPositionsChange}
+        />,
+      );
+      settle();
+      expect(fit).toHaveBeenCalledTimes(2);
+    });
+
     it("removes loading overlay after onLayoutDone fires", () => {
       render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
       expect(screen.getByTestId("graph-loading-overlay")).toBeInTheDocument();

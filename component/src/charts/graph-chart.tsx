@@ -466,8 +466,12 @@ function GraphChartInner({
   // Using useEffect would race with onLayoutDone (which fires before
   // effects run when the simulation completes on the main thread).
   const prevNodesRef = useRef(nodes);
+  // The layout fit runs once per node set; later settles (a drag, a select)
+  // must not take the camera from a user who is inspecting (#2517).
+  const fittedRef = useRef(false);
   if (prevNodesRef.current !== nodes) {
     prevNodesRef.current = nodes;
+    fittedRef.current = false;
     if (layoutReady) setLayoutReady(false);
   }
 
@@ -727,7 +731,10 @@ function GraphChartInner({
             ),
           );
         }
-        fitGraph();
+        if (!fittedRef.current) {
+          fittedRef.current = true;
+          fitGraph();
+        }
         setLayoutReady(true);
       },
     }),
