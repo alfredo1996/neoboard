@@ -110,10 +110,41 @@ describe("toTerms", () => {
       },
       {
         kind: "relationship",
-        key: "orders(customer_id)",
+        key: "orders(customer_id)->customers(id)",
         parentKey: "",
-        joins: [{ from: "orders", to: "customers" }],
+        joins: [
+          {
+            from: "orders",
+            to: "customers",
+            fromColumns: ["customer_id"],
+            toColumns: ["id"],
+          },
+        ],
       },
+    ]);
+  });
+
+  it("gives two foreign keys on the same columns, to different tables, their own terms", () => {
+    const fk = (refTable: string) => ({
+      columns: ["owner_id"],
+      refTable,
+      refColumns: ["id"],
+    });
+    const keys = toTerms({
+      type: "t",
+      tables: [
+        {
+          name: "docs",
+          columns: [{ name: "owner_id", type: "integer", nullable: true }],
+          foreignKeys: [fk("users"), fk("teams")],
+        },
+      ],
+    })
+      .filter((t) => t.kind === "relationship")
+      .map((t) => t.key);
+    expect(keys).toEqual([
+      "docs(owner_id)->users(id)",
+      "docs(owner_id)->teams(id)",
     ]);
   });
 

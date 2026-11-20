@@ -457,6 +457,44 @@ export class MyDbSchemaManager implements SchemaManager {
 }
 ```
 
+### Describing the data model (optional)
+
+The Model page lists a connection's entities, relationships and properties, and lets a creator give each a display name, a description and a hidden flag. NeoBoard reads that list from your connector, never from the schema's keys. If your `fetchSchema` returns the usual graph fields or `tables`, do nothing: the SDK's `toTerms(schema)` turns them into terms. If your source does not fit those shapes, add `describeTerms(config)` to your schema manager and return the terms yourself, like this.
+
+```ts
+// src/terms.ts
+import type { SchemaTerm } from "@neoboard/connector-sdk";
+
+/** What `MyDbSchemaManager.describeTerms(config)` returns. */
+export function describeMyDbTerms(): SchemaTerm[] {
+  return [
+    { kind: "entity", key: "orders", parentKey: "" },
+    {
+      kind: "property",
+      key: "id",
+      parentKey: "entity:orders",
+      type: "integer",
+      primaryKey: true,
+    },
+    {
+      kind: "relationship",
+      key: "orders(customer_id)->customers(id)",
+      parentKey: "",
+      joins: [
+        {
+          from: "orders",
+          to: "customers",
+          fromColumns: ["customer_id"],
+          toColumns: ["id"],
+        },
+      ],
+    },
+  ];
+}
+```
+
+A term is `{ kind, key, parentKey, type?, primaryKey?, joins? }`. `key` is the name you report and must stay the same across refreshes, because a saved meaning is matched to it. A property's `parentKey` is `entity:<key>` or `relationship:<key>` of the term it belongs to. A relationship is one term per relationship type (or one per foreign key), carrying `joins: [{ from, to }]`: a graph type lists every entity pair it joins, and a table join also names its columns so a query can be written from it. Name a foreign key after its target, `orders(customer_id)->customers(id)`, so two keys on the same columns never collide. A connector with no schema manager gets a Model page that says it does not describe its structure.
+
 ## 6. The plugin object
 
 The package's default export is the `ConnectorPlugin`: the descriptor plus the factories that need the driver. `createModule` is the only place a driver gets instantiated, and it is the only method NeoBoard calls with credentials.

@@ -8,9 +8,16 @@ import type { DatabaseSchema } from "./types";
 
 export type TermKind = "entity" | "relationship" | "property";
 
+/**
+ * One pair of entities a relationship joins. A table join also names its
+ * columns, the source's and the referenced table's, so a query can be written
+ * from the term.
+ */
 export interface TermJoin {
   from: string;
   to: string;
+  fromColumns?: string[];
+  toColumns?: string[];
 }
 
 export interface SchemaTerm {
@@ -29,7 +36,7 @@ export interface SchemaTerm {
   primaryKey?: boolean;
   /**
    * A relationship's endpoints: one pair per entity pair it joins, since one
-   * graph relationship type can join several.
+   * graph relationship type can join several. A table foreign key has one.
    */
   joins?: TermJoin[];
 }
@@ -94,9 +101,17 @@ export function toTerms(schema: DatabaseSchema): SchemaTerm[] {
     for (const fk of table.foreignKeys ?? []) {
       terms.push({
         kind: "relationship",
-        key: `${table.name}(${fk.columns.join(",")})`,
+        // The key names its target, so two keys on the same columns differ.
+        key: `${table.name}(${fk.columns.join(",")})->${fk.refTable}(${fk.refColumns.join(",")})`,
         parentKey: "",
-        joins: [{ from: table.name, to: fk.refTable }],
+        joins: [
+          {
+            from: table.name,
+            to: fk.refTable,
+            fromColumns: fk.columns,
+            toColumns: fk.refColumns,
+          },
+        ],
       });
     }
   }

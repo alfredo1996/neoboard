@@ -106,12 +106,8 @@ describe("Neo4j schema introspection — complex live model (#742 item 7)", () =
     expect(schema.relationshipTypes).toContain("CT_MANAGES");
 
     // Keys are the plain type name: Neo4j's backtick quoting is removed (#2415).
-    const propsFor = (needle: string) => {
-      const key = Object.keys(schema.relProperties).find((k) =>
-        k.includes(needle),
-      );
-      return (schema.relProperties[key ?? ""] ?? []).map((p) => p.name);
-    };
+    const propsFor = (key: string) =>
+      (schema.relProperties[key] ?? []).map((p) => p.name);
     expect(propsFor("CT_WORKS_AT")).toEqual(
       expect.arrayContaining(["ctSince", "ctRole"]),
     );
@@ -126,18 +122,21 @@ describe("Neo4j schema introspection — complex live model (#742 item 7)", () =
     };
     // Keys are plain labels: the quoting is removed, and a dual-labeled node's
     // properties are listed under each of its labels (#2415).
-    const propsFor = (needle: string) => {
-      const key = Object.keys(schema.nodeProperties).find((k) =>
-        k.includes(needle),
-      );
-      return (schema.nodeProperties[key ?? ""] ?? []).map((p) => p.name);
-    };
+    const propsFor = (label: string) =>
+      (schema.nodeProperties[label] ?? []).map((p) => p.name);
     expect(propsFor("CoverageTestCompany")).toEqual(
       expect.arrayContaining(["ctName", "ctFounded"]),
     );
     expect(propsFor("CoverageTestPerson")).toEqual(
       expect.arrayContaining(["ctName", "ctAge", "ctBadge"]),
     );
+    // The dual-labeled node is listed under each of its labels.
+    expect(propsFor("CoverageTestEmployee")).toEqual(
+      expect.arrayContaining(["ctName", "ctAge", "ctBadge"]),
+    );
+    expect(
+      Object.keys(schema.nodeProperties).some((k) => k.includes("`")),
+    ).toBe(false);
   });
 });
 
