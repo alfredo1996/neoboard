@@ -409,10 +409,13 @@ function tooltipPos(
   const w = box?.clientWidth || Infinity;
   const h = box?.clientHeight || Infinity;
   const min = inset?.side === "left" ? inset.width : 0;
-  const max = w - TOOLTIP_W - (inset?.side === "right" ? inset.width : 0);
+  // The room beside the panel; the tooltip narrows to fit it.
+  const room = Math.max(0, w - (inset?.width ?? 0));
+  const width = Math.min(TOOLTIP_W, room);
   return {
-    left: Math.max(min, Math.min(x + 12, max)),
+    left: Math.max(min, Math.min(x + 12, min + room - width)),
     top: Math.max(0, Math.min(y + 12, h - TOOLTIP_H)),
+    width,
   };
 }
 
@@ -509,6 +512,7 @@ function GraphChartInner({
     sub: string;
     x: number;
     y: number;
+    w: number;
   } | null>(null);
   // A seed, read once: later position reports must not move nodes under NVL.
   const [seedPositions] = useState(initialPositions);
@@ -691,7 +695,11 @@ function GraphChartInner({
     (): InteractiveNvlWrapperProps["mouseEventCallbacks"] => ({
       onHover: (element, _hit, event) => {
         const box = containerRef.current?.getBoundingClientRect();
-        const { left: x, top: y } = tooltipPos(
+        const {
+          left: x,
+          top: y,
+          width: w,
+        } = tooltipPos(
           (event?.clientX ?? 0) - (box?.left ?? 0),
           (event?.clientY ?? 0) - (box?.top ?? 0),
           containerRef.current,
@@ -708,6 +716,7 @@ function GraphChartInner({
             sub: element.type ?? "",
             x,
             y,
+            w,
           });
         }
         const node = nodesRef.current.find((c) => c.id === element.id);
@@ -717,6 +726,7 @@ function GraphChartInner({
           sub: colorLabel(node) ?? "",
           x,
           y,
+          w,
         });
       },
       onDrag: true,
@@ -906,12 +916,14 @@ function GraphChartInner({
       <div
         role="toolbar"
         aria-label="Graph controls"
-        style={
-          overlayInset?.side === "right"
+        style={{
+          // Wraps in the room beside the panel rather than running off the edge.
+          maxWidth: `calc(100% - ${(overlayInset?.width ?? 0) + 16}px)`,
+          ...(overlayInset?.side === "right"
             ? { right: overlayInset.width + 8 }
-            : undefined
-        }
-        className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md border border-border/50 bg-background/80 px-1.5 py-1 opacity-0 shadow-sm backdrop-blur-sm transition-opacity focus-within:opacity-100 group-hover/graph:opacity-100 group-focus-within/graph:opacity-100 [@media(hover:none)]:opacity-100"
+            : undefined),
+        }}
+        className="absolute top-2 right-2 z-10 flex flex-wrap items-center justify-end gap-1 rounded-md border border-border/50 bg-background/80 px-1.5 py-1 opacity-0 shadow-sm backdrop-blur-sm transition-opacity focus-within:opacity-100 group-hover/graph:opacity-100 group-focus-within/graph:opacity-100 [@media(hover:none)]:opacity-100"
       >
         <button
           onClick={zoomIn}
@@ -1107,7 +1119,7 @@ function GraphChartInner({
       {hover && (
         <div
           className="pointer-events-none absolute z-30 max-w-56 rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md"
-          style={{ left: hover.x, top: hover.y }}
+          style={{ left: hover.x, top: hover.y, maxWidth: hover.w }}
           data-testid="graph-hover"
         >
           <div className="truncate font-medium">{hover.title}</div>

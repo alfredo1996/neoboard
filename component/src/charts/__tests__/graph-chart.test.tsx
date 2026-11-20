@@ -1680,6 +1680,55 @@ describe("GraphChart look (#2229)", () => {
       expect(screen.getByRole("toolbar").style.right).toBe("");
     });
 
+    it("wraps the toolbar inside the space beside the panel instead of clipping it", () => {
+      render(
+        <GraphChart
+          nodes={movies}
+          edges={rels}
+          overlayInset={{ side: "right", width: 300 }}
+        />,
+      );
+      const bar = screen.getByRole("toolbar");
+      expect(bar.style.maxWidth).toBe("calc(100% - 316px)");
+      expect(bar).toHaveClass("flex-wrap");
+    });
+
+    it("narrows the hover tooltip to the space beside the panel", () => {
+      const hoverAt = (side: "left" | "right") => {
+        const { container } = render(
+          <GraphChart
+            nodes={movies}
+            edges={rels}
+            overlayInset={{ side, width: 200 }}
+          />,
+        );
+        const box = container.firstElementChild as HTMLElement;
+        Object.defineProperty(box, "clientWidth", { value: 400 });
+        Object.defineProperty(box, "clientHeight", { value: 200 });
+        const cb = capturedProps.mouseEventCallbacks as {
+          onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+        };
+        act(() =>
+          cb.onHover({ id: "p2" }, [], {
+            clientX: 390,
+            clientY: 5,
+          } as MouseEvent),
+        );
+        const tip = screen.getByTestId("graph-hover");
+        return {
+          left: parseInt(tip.style.left, 10),
+          width: parseInt(tip.style.maxWidth, 10),
+        };
+      };
+      const right = hoverAt("right");
+      expect(right.left).toBeGreaterThanOrEqual(0);
+      expect(right.left + right.width).toBeLessThanOrEqual(200);
+      cleanup();
+      const left = hoverAt("left");
+      expect(left.left).toBeGreaterThanOrEqual(200);
+      expect(left.left + left.width).toBeLessThanOrEqual(400);
+    });
+
     it("keeps the hover tooltip out of the panel", () => {
       const { container } = render(
         <GraphChart

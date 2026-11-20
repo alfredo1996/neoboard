@@ -92,13 +92,41 @@ describe("PropertyPanel width rule", () => {
     );
   });
 
-  it("puts a non-empty list or map under its key", () => {
+  it("keeps a short list or map beside its key", () => {
     layout(600);
-    one(["a"]);
+    const { unmount } = one(["a", "b"]);
+    expect(screen.getByTestId("property-row")).toHaveAttribute(
+      "data-wide",
+      "false",
+    );
+    unmount();
+    one({ a: 1 });
+    expect(screen.getByTestId("property-row")).toHaveAttribute(
+      "data-wide",
+      "false",
+    );
+  });
+
+  it("moves a list or map that does not fit under its key", () => {
+    layout(300);
+    const { unmount } = one(["alpha", "beta", "gamma", "delta", "epsilon"]);
     expect(screen.getByTestId("property-row")).toHaveAttribute(
       "data-wide",
       "true",
     );
+    unmount();
+    one({ first: "alpha", second: "beta", third: "gamma" });
+    expect(screen.getByTestId("property-row")).toHaveAttribute(
+      "data-wide",
+      "true",
+    );
+  });
+
+  it("clips the hidden sizer so a long value cannot widen the panel", () => {
+    layout(300);
+    one("x".repeat(500));
+    const sizer = document.querySelector("[data-text]") as HTMLElement;
+    expect(sizer.parentElement).toHaveClass("overflow-hidden");
   });
 });
 

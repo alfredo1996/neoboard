@@ -162,19 +162,17 @@ export function propertyRawText(value: PropertyValue): string {
   return String(value);
 }
 
-/**
- * What a scalar shows, so its width can be measured; null for a list or map
- * with content, which always reads under its key.
- */
-function scalarText(value: PropertyValue): string | null {
+/** What a value shows on one line, so its width can be measured. */
+function scalarText(value: PropertyValue): string {
   if (value === undefined) return "-";
   if (value === null) return "null";
   if (value === "") return "(empty)";
   if (typeof value === "string") return value;
   if (typeof value === "number") return formatNumber(value);
   if (typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) return value.length === 0 ? "(empty list)" : null;
-  return Object.keys(value).length === 0 ? "(empty map)" : null;
+  if (Array.isArray(value) && value.length === 0) return "(empty list)";
+  if (Object.keys(value).length === 0) return "(empty map)";
+  return JSON.stringify(value);
 }
 
 /** Row geometry, mirrored from the grid below: key column, copy slot, gaps. */
@@ -213,7 +211,7 @@ function PropertyRow({
     return () => observer.disconnect();
   }, [text]);
 
-  const wide = text === null || !fits;
+  const wide = !fits;
 
   return (
     <div
@@ -240,15 +238,18 @@ function PropertyRow({
         <ValueView value={item.value} />
       </div>
       <div className="col-start-3 row-start-1">{action}</div>
-      {text !== null && (
-        // Measures the value on one line, whichever layout it is in now.
+      {/* Measures the value on one line, whichever layout it is in now. The
+          clip keeps a long value from widening the scrolling panel. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none invisible absolute inset-x-0 top-0 h-0 overflow-hidden"
+      >
         <span
           ref={sizerRef}
-          aria-hidden="true"
           data-text={text}
-          className="pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap text-body before:content-[attr(data-text)]"
+          className="inline-block whitespace-nowrap text-body before:content-[attr(data-text)]"
         />
-      )}
+      </div>
     </div>
   );
 }

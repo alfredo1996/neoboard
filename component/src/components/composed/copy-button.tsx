@@ -83,7 +83,7 @@ function CopyButton({
         size={size}
         aria-label={ariaLabel ?? "Copy"}
         className={className}
-        onClick={handleCopy}
+        onClick={() => void handleCopy()}
       >
         {icon}
         <span className="sr-only" aria-live="polite">
@@ -100,7 +100,7 @@ function CopyButton({
       size={size}
       aria-label={ariaLabel}
       className={cn("gap-1.5", className)}
-      onClick={handleCopy}
+      onClick={() => void handleCopy()}
     >
       {icon}
       {/* aria-live so screen-reader users hear the copy confirmation. */}
