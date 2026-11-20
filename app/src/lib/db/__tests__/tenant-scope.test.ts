@@ -1076,6 +1076,8 @@ describe("tenant scoping guard (#1226)", () => {
       auditLogs: "audit_log",
       revokedSessions: "revoked_session",
       ontologyTerms: "ontology_term",
+      ontologyConcepts: "ontology_concept",
+      ontologyConceptSides: "ontology_concept_side",
     });
   });
 

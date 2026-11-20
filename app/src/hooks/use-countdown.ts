@@ -36,7 +36,10 @@ export function getNextCountdown(prev: number | null, total: number): number {
 export function useCountdown(intervalMs: number | false): number | null {
   const total = getInitialSeconds(intervalMs);
 
-  const [state, setState] = useState<{ left: number | null; forTotal: number | null }>({
+  const [state, setState] = useState<{
+    left: number | null;
+    forTotal: number | null;
+  }>({
     left: total,
     forTotal: total,
   });

@@ -13,7 +13,9 @@ function isPreference(value: string | null): value is ThemePreference {
 }
 
 function getOsDark(): boolean {
-  return globalThis.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+  return (
+    globalThis.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false
+  );
 }
 
 function resolveTheme(pref: ThemePreference): ResolvedTheme {
@@ -51,8 +53,15 @@ function applyTheme(resolved: ResolvedTheme) {
 }
 
 export function useTheme() {
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const [preference, resolvedTheme] = snapshot.split("|") as [ThemePreference, ResolvedTheme];
+  const snapshot = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
+  const [preference, resolvedTheme] = snapshot.split("|") as [
+    ThemePreference,
+    ResolvedTheme,
+  ];
 
   useEffect(() => {
     applyTheme(resolvedTheme);

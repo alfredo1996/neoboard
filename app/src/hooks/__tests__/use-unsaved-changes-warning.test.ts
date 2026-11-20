@@ -82,9 +82,9 @@ describe("unsaved changes warning — store integration", () => {
       ],
     };
     useDashboardStore.getState().setLayout(layout);
-    useDashboardStore.getState().updateGridLayout([
-      { i: "w1", x: 0, y: 0, w: 6, h: 4 },
-    ]);
+    useDashboardStore
+      .getState()
+      .updateGridLayout([{ i: "w1", x: 0, y: 0, w: 6, h: 4 }]);
     expect(useDashboardStore.getState().hasUnsavedChanges()).toBe(true);
   });
 

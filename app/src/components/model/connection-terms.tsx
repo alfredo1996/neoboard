@@ -16,6 +16,8 @@ import {
   Tag,
 } from "@neoboard/components";
 import { useOntology, useSaveTerms } from "@/hooks/use-ontology";
+import { useConcepts } from "@/hooks/use-concepts";
+import { entityParentKey } from "@/lib/ontology/term-keys";
 import { groupTerms } from "@/lib/ontology/group";
 import type { OntologyTerm } from "@/lib/ontology/merge";
 
@@ -36,6 +38,8 @@ interface TermRowProps {
   readonly term: OntologyTerm;
   readonly canEdit: boolean;
   readonly nested: boolean;
+  /** The concepts this property is the key of, on this connection. */
+  readonly conceptKeys?: readonly string[];
   readonly onSave: (term: OntologyTerm, changes: Partial<OntologyTerm>) => void;
   readonly onRemove: (term: OntologyTerm) => void;
 }
@@ -51,7 +55,14 @@ function nameOf(term: OntologyTerm) {
 const side = (table: string, columns?: string[]) =>
   columns ? `${table}(${columns.join(", ")})` : table;
 
-function TermRow({ term, canEdit, nested, onSave, onRemove }: TermRowProps) {
+function TermRow({
+  term,
+  canEdit,
+  nested,
+  conceptKeys,
+  onSave,
+  onRemove,
+}: TermRowProps) {
   const name = nameOf(term);
   // Orphaned terms are no longer in the connection: the server takes no edit
   // for them, only their removal.
@@ -64,6 +75,11 @@ function TermRow({ term, canEdit, nested, onSave, onRemove }: TermRowProps) {
           {term.key}
         </code>
         {term.primaryKey && <Tag className="ml-2">Key</Tag>}
+        {conceptKeys?.map((name) => (
+          <Tag key={name} className="ml-2">
+            {name} key
+          </Tag>
+        ))}
         {term.orphaned && (
           <Tag className="ml-2 rounded-full border-warning bg-warning/10 text-warning">
             Orphaned
@@ -163,6 +179,19 @@ export function ConnectionTerms({
   const { data, isLoading, isError, isFetching, refetch } =
     useOntology(connectionId);
   const save = useSaveTerms(connectionId);
+  const { data: concepts } = useConcepts();
+  // Concept names by the property that keys them here, for the "<Concept> key" tag.
+  const conceptKeys = useMemo(() => {
+    const byKey = new Map<string, string[]>();
+    for (const c of concepts ?? []) {
+      for (const s of c.sides) {
+        if (s.connectionId !== connectionId) continue;
+        const k = `${entityParentKey(s.entityKey)}|${s.keyPropertyKey}`;
+        byKey.set(k, [...(byKey.get(k) ?? []), c.name]);
+      }
+    }
+    return byKey;
+  }, [concepts, connectionId]);
   const [showHidden, setShowHidden] = useState(false);
   const terms = data?.terms;
   const groups = useMemo(
@@ -244,6 +273,7 @@ export function ConnectionTerms({
                 key={`${p.kind}|${p.key}|${p.parentKey}`}
                 term={p}
                 canEdit={canEdit}
+                conceptKeys={conceptKeys.get(`${p.parentKey}|${p.key}`)}
                 nested
                 onSave={onSave}
                 onRemove={onRemove}

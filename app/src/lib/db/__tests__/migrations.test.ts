@@ -158,6 +158,8 @@ describe("Database migrations", () => {
       "audit_log",
       "revoked_session",
       "ontology_term",
+      "ontology_concept",
+      "ontology_concept_side",
     ];
 
     const columns = await client`
@@ -190,6 +192,8 @@ describe("Database migrations", () => {
     "audit_log",
     "revoked_session",
     "ontology_term",
+    "ontology_concept",
+    "ontology_concept_side",
   ];
 
   it("indexes tenant_id as the LEADING column on every tenant-scoped table (#1646)", async () => {
@@ -227,6 +231,7 @@ describe("Database migrations", () => {
       "user_tenant_id_unique",
       "dashboard_tenant_id_unique",
       "connection_tenant_id_unique",
+      "ontology_concept_tenant_id_unique",
     ]) {
       expect(byName.get(name)?.contype, `${name} missing`).toBe("u");
     }
@@ -238,6 +243,8 @@ describe("Database migrations", () => {
       "widget_template_tenant_created_by_fk",
       "api_key_tenant_user_fk",
       "ontology_term_tenant_connection_fk",
+      "ontology_concept_side_tenant_concept_fk",
+      "ontology_concept_side_tenant_connection_fk",
     ]) {
       const c = byName.get(name);
       expect(c?.contype, `${name} missing`).toBe("f");
@@ -277,6 +284,37 @@ describe("Database migrations", () => {
       await client`SELECT id FROM ontology_term WHERE connection_id = 'c-o' AND tenant_id = 't1'`;
     expect(left).toHaveLength(0);
     await client`DELETE FROM "user" WHERE id = 'u-o' AND tenant_id = 't1'`;
+    await client.end();
+  }, 60_000);
+
+  it("keeps several sides of a concept on one connection, drops them with the connection, and refuses a foreign tenant (#2484)", async () => {
+    const client = postgres(connectionString, { max: 1 });
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    await client`INSERT INTO "user" (id, email, tenant_id) VALUES ('u-k', 'k@x', 't1')`;
+    await client`INSERT INTO connection (id, "userId", tenant_id, name, type, "configEncrypted")
+                 VALUES ('c-k', 'u-k', 't1', 'own', 'neo4j', 'enc')`;
+    await client`INSERT INTO ontology_concept (id, tenant_id, name, parameter)
+                 VALUES ('k1', 't1', 'Customer', 'customer')`;
+    await client`INSERT INTO ontology_concept_side (id, tenant_id, concept_id, connection_id, entity_key, key_property_key)
+                 VALUES ('s1', 't1', 'k1', 'c-k', 'customers', 'id'), ('s2', 't1', 'k1', 'c-k', 'orders', 'customer_id')`;
+    await expect(
+      client`INSERT INTO ontology_concept_side (id, tenant_id, concept_id, connection_id, entity_key, key_property_key)
+             VALUES ('s3', 't1', 'k1', 'c-k', 'orders', 'customer_id')`,
+    ).rejects.toMatchObject({ code: "23505" });
+    await expect(
+      client`INSERT INTO ontology_concept (id, tenant_id, name, parameter)
+             VALUES ('k2', 't1', 'Other', 'customer')`,
+    ).rejects.toMatchObject({ code: "23505" });
+    await expect(
+      client`INSERT INTO ontology_concept_side (id, tenant_id, concept_id, connection_id, entity_key, key_property_key)
+             VALUES ('s4', 't2', 'k1', 'c-k', 'a', 'b')`,
+    ).rejects.toMatchObject({ code: "23503" });
+    await client`DELETE FROM connection WHERE id = 'c-k' AND tenant_id = 't1'`;
+    const left =
+      await client`SELECT id FROM ontology_concept_side WHERE tenant_id = 't1'`;
+    expect(left).toHaveLength(0);
+    await client`DELETE FROM ontology_concept WHERE id = 'k1' AND tenant_id = 't1'`;
+    await client`DELETE FROM "user" WHERE id = 'u-k' AND tenant_id = 't1'`;
     await client.end();
   }, 60_000);
 
@@ -354,7 +392,7 @@ describe("Database migrations", () => {
       SELECT count(*)::int AS n FROM pg_constraint
       WHERE contype = 'f' AND array_length(conkey, 1) = 2 AND connamespace = 'public'::regnamespace
     `;
-    expect(fks[0].n).toBe(7); // the six of #1646 and ontology_term's (#2415)
+    expect(fks[0].n).toBe(9); // the six of #1646, ontology_term's (#2415) and the concept side's two (#2484)
     for (const t of ["dashboard", "connection", "dashboard_share", "api_key"]) {
       const rows = await client.unsafe(`SELECT count(*)::int AS n FROM "${t}"`);
       expect(rows[0].n, `${t} lost rows across the upgrade`).toBe(1);
