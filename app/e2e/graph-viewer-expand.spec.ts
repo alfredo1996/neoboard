@@ -173,11 +173,23 @@ test.describe("Graph node menu by access level (#1828)", () => {
 });
 /** Pixels of the canvas that differ from its top-left pixel: the node area, which grows with the zoom. */
 async function nodeArea(page: Page): Promise<number> {
+  // The hover tooltip and the hover-revealed toolbar are drawn over the
+  // canvas: step off the graph, wait for the tooltip to go, and mask what is
+  // left, so only the nodes are measured.
+  await page.mouse.move(0, 0);
+  await expect(page.getByTestId("graph-hover")).toBeHidden();
   const shot = await page
     .getByTestId("graph-exploration")
     .locator("canvas")
     .first()
-    .screenshot();
+    .screenshot({
+      mask: [
+        page.getByTestId("graph-hover"),
+        page.getByTestId("graph-node-count"),
+        page.getByTestId("graph-legend"),
+        page.getByTestId("graph-zoom-in").locator(".."),
+      ],
+    });
   return page.evaluate(async (b64) => {
     const img = new Image();
     img.src = `data:image/png;base64,${b64}`;

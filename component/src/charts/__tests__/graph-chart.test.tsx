@@ -964,6 +964,50 @@ describe("GraphChart", () => {
       expect(fit).toHaveBeenCalledTimes(2);
     });
 
+    it("fits again after the layout is switched (#2517)", () => {
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      const fit = vi.fn();
+      (capturedProps.ref as { current: unknown }).current = {
+        fit,
+        getNodePositions: () => [],
+      };
+      const settle = () =>
+        act(() => {
+          (
+            capturedProps.nvlCallbacks as { onLayoutDone: () => void }
+          ).onLayoutDone();
+        });
+      settle();
+      fireEvent.change(screen.getByLabelText("Graph layout"), {
+        target: { value: "circular" },
+      });
+      settle();
+      expect(fit).toHaveBeenCalledTimes(2);
+    });
+
+    it.each(["onZoom", "onPan"])(
+      "%s before the first settle keeps the user's view (#2517)",
+      (name) => {
+        render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+        const fit = vi.fn();
+        (capturedProps.ref as { current: unknown }).current = {
+          fit,
+          getNodePositions: () => [],
+        };
+        const mouse = capturedProps.mouseEventCallbacks as Record<
+          string,
+          () => void
+        >;
+        act(() => mouse[name]());
+        act(() => {
+          (
+            capturedProps.nvlCallbacks as { onLayoutDone: () => void }
+          ).onLayoutDone();
+        });
+        expect(fit).not.toHaveBeenCalled();
+      },
+    );
+
     it("removes loading overlay after onLayoutDone fires", () => {
       render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
       expect(screen.getByTestId("graph-loading-overlay")).toBeInTheDocument();
