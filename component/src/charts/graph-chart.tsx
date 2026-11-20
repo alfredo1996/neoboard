@@ -386,6 +386,11 @@ function edgeColor(color: string | undefined, dark: boolean): string {
 /**
  * Maps our internal GraphEdge type to an NVL Relationship.
  */
+/** NVL's id for the index-th edge, also how a click is mapped back to it. */
+function relationshipId(edge: GraphEdge, index: number): string {
+  return `rel-${edge.source}-${edge.target}-${index}`;
+}
+
 function toNvlRelationship(
   edge: GraphEdge,
   index: number,
@@ -393,7 +398,7 @@ function toNvlRelationship(
   dark: boolean,
 ): NvlRelationship {
   return {
-    id: `rel-${edge.source}-${edge.target}-${index}`,
+    id: relationshipId(edge, index),
     from: edge.source,
     to: edge.target,
     caption: showRelationshipLabels ? edge.label : undefined,
@@ -708,8 +713,9 @@ function GraphChartInner({
         event: MouseEvent,
       ) => {
         if (!onRelationshipClickRef.current) return;
+        // By NVL's id: several relationships can join the same two nodes (#2518).
         const graphEdge = edgesRef.current.find(
-          (e) => e.source === rel.from && e.target === rel.to,
+          (e, i) => relationshipId(e, i) === rel.id,
         ) ?? { source: rel.from, target: rel.to, label: rel.type };
         onRelationshipClickRef.current({
           edge: graphEdge as GraphEdge,

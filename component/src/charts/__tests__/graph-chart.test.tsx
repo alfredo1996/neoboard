@@ -1437,6 +1437,50 @@ describe("GraphChart look (#2229)", () => {
     }
   });
 
+  describe("relationship click (#2518)", () => {
+    const parallel = [
+      { source: "1", target: "2", label: "R", properties: { n: 1 } },
+      { source: "1", target: "2", label: "R", properties: { n: 2 } },
+    ];
+    const click = (rel: object) =>
+      (
+        capturedProps.mouseEventCallbacks as {
+          onRelationshipClick: (r: object, h: unknown, e: object) => void;
+        }
+      ).onRelationshipClick(rel, null, { clientX: 1, clientY: 2 });
+
+    it("passes the clicked relationship, not the first one between the same nodes", () => {
+      const onRelationshipClick = vi.fn();
+      render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={parallel}
+          onRelationshipClick={onRelationshipClick}
+        />,
+      );
+      const rels = capturedProps.rels as { id: string }[];
+      click({ ...rels[1], from: "1", to: "2", type: "R" });
+      expect(onRelationshipClick.mock.calls[0][0].edge).toBe(parallel[1]);
+    });
+
+    it("falls back to the end nodes and type for an id it does not know", () => {
+      const onRelationshipClick = vi.fn();
+      render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={parallel}
+          onRelationshipClick={onRelationshipClick}
+        />,
+      );
+      click({ id: "gone", from: "1", to: "2", type: "R" });
+      expect(onRelationshipClick.mock.calls[0][0].edge).toEqual({
+        source: "1",
+        target: "2",
+        label: "R",
+      });
+    });
+  });
+
   it("puts the consumer's footer in the same row as the legend, not over it", () => {
     render(
       <GraphChart
