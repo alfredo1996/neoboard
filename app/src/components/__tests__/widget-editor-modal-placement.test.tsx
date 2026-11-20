@@ -21,7 +21,13 @@ vi.mock("@/hooks/use-schema", () => ({
   useConnectionSchema: () => ({ isFetching: false, refreshSchema: vi.fn() }),
 }));
 vi.mock("@/stores/schema-store", () => ({ useSchemaStore: () => null }));
-vi.mock("@/hooks/use-ontology", () => ({ useEditorTerms: () => undefined }));
+vi.mock("@/hooks/use-ontology", () => ({
+  useEditorTerms: () => undefined,
+  useOntology: () => ({ data: undefined }),
+}));
+vi.mock("@/hooks/use-concepts", () => ({
+  useConcepts: () => ({ data: undefined }),
+}));
 vi.mock("@/hooks/use-query-execution", () => ({
   useQueryExecution: () => ({
     mutate: vi.fn(),

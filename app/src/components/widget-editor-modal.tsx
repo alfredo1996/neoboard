@@ -87,6 +87,11 @@ import { TemplateBrowser } from "./widget-editor/template-browser";
 import { useAutoPreview } from "./widget-editor/use-auto-preview";
 import { CachingSection } from "./widget-editor/caching-section";
 import { InteractionSection } from "./widget-editor/interaction-section";
+import { ConceptSelectorStart } from "./widget-editor/concept-selector-start";
+import { useConcepts } from "@/hooks/use-concepts";
+import type { Concept } from "@/hooks/use-concepts";
+import { useOntology } from "@/hooks/use-ontology";
+import { conceptConnectionIds } from "@/lib/ontology/concept-wiring";
 import { RulesSection } from "./widget-editor/rules-section";
 import { WriteModeSection } from "./widget-editor/write-mode-section";
 import { AfterSubmitRefresh } from "./widget-editor/after-submit-refresh";
@@ -604,6 +609,22 @@ export function WidgetEditorModal({
     useWidgetEditorStore.setState({ parameterSuggestions });
   }, [parameterSuggestions]);
 
+  // The concepts this creator can see: wiring offers them, nothing is stored
+  // of them but plain parameter names (#2485).
+  const { data: concepts } = useConcepts({ live: false });
+  const { data: ontology } = useOntology(connectionId);
+  // A new selector named for a concept lists only the connections that concept
+  // is mapped on; no options query is written from it (#2485).
+  const isNewEditor = mode === "add" || mode === "lab-create";
+  const pickedConcept = isNewEditor
+    ? concepts?.find((c) => c.parameter === paramWidgetName)
+    : undefined;
+  const pickConcept = (c: Concept) => {
+    const ids = conceptConnectionIds(c);
+    if (ids.length > 0 && !ids.includes(connectionId)) {
+      handleConnectionChange(ids[0]);
+    }
+  };
   const isParamSelect = chartType === "parameter-select";
   const isForm = chartType === "form";
   const isMarkdown = chartType === "markdown";
@@ -720,7 +741,13 @@ export function WidgetEditorModal({
       <ConnectionSelect
         connectionId={connectionId}
         onConnectionChange={handleConnectionChange}
-        connections={connections}
+        connections={
+          isParamSelect && pickedConcept
+            ? connections.filter((c) =>
+                conceptConnectionIds(pickedConcept).includes(c.id),
+              )
+            : connections
+        }
       />
       {/* Per-card database selector. A selector's option list loads from it
           too (#1824). A template stores no database, so the library has none (#1813). */}
@@ -743,6 +770,12 @@ export function WidgetEditorModal({
             name: "Filter" as const,
             render: () => (
               <>
+                {isNewEditor && (
+                  <ConceptSelectorStart
+                    concepts={concepts ?? []}
+                    onPick={pickConcept}
+                  />
+                )}
                 <ParameterConfigSection
                   seedQueryExecution={seedQueryExecution}
                   seedPreviewOptions={seedPreviewOptions}
@@ -875,6 +908,8 @@ export function WidgetEditorModal({
             render: () => (
               <InteractionSection
                 clickActionCollisions={clickActionCollisions}
+                concepts={concepts}
+                terms={ontology?.terms}
                 pages={(layout?.pages ?? []).map((p) => ({
                   id: p.id,
                   title: p.title,

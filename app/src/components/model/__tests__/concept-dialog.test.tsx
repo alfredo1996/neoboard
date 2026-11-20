@@ -56,3 +56,11 @@ describe("ConceptDialog connection select", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("ConceptDialog parameter wording (#2485)", () => {
+  it("tells the parameter as a query reads it, and never as a bare $name", () => {
+    renderDialog("graph");
+    expect(screen.getAllByText(/\$param_customer/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/\$customer\b/)).toBeNull();
+  });
+});

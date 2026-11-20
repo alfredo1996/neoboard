@@ -437,7 +437,18 @@ const SPEC = {
           "The concepts of the caller's tenant: one thing (Customer) linked across connections by a key. Each carries only its " +
           "sides on connections the caller can use; a concept with no such side is left out, except for an admin, who sees all. " +
           "A side whose entity or key property its connection no longer reports has `missing` set to `entity` or `keyProperty`; " +
-          "nothing is written by a read, and a connection that describes no structure flags nothing.",
+          "nothing is written by a read, and a connection that describes no structure flags nothing. `live=0` skips reading " +
+          "each mapped connection's schema and flags nothing (the query editor, which only needs the sides).",
+        parameters: [
+          {
+            name: "live",
+            in: "query",
+            required: false,
+            description:
+              "`0` skips the live schema read and the `missing` flag.",
+            schema: { type: "string", enum: ["0", "1"] },
+          },
+        ],
         responses: {
           200: jsonResponse("The concepts", "#/components/schemas/Concepts"),
           401: R.unauthorized,

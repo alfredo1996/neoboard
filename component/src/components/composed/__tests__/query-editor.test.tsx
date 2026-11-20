@@ -87,6 +87,7 @@ vi.mock("@codemirror/state", () => ({
       return { type: "state", config };
     },
     readOnly: { of: (v: boolean) => ({ type: "readOnly", value: v }) },
+    languageData: { of: (f: unknown) => ({ type: "languageData", f }) },
   },
   Compartment: class MockCompartment {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -171,6 +172,22 @@ describe("QueryEditor", () => {
     render(<QueryEditor />);
     await flushAsync();
     expect(screen.getByText("Run")).toBeInTheDocument();
+  });
+
+  it("adds the parameter source to the editor state through language data (#2485)", async () => {
+    render(
+      <QueryEditor
+        parameters={[{ label: "$param_customer", detail: "Customer" }]}
+      />,
+    );
+    await flushAsync();
+    const ext = lastStateConfig?.extensions.find(
+      (e) => (e as { type?: string }).type === "languageData",
+    ) as { f: () => { autocomplete: (ctx: unknown) => unknown }[] };
+    const result = ext.f()[0].autocomplete({
+      matchBefore: () => ({ from: 0, to: 1, text: "$" }),
+    }) as { options: { label: string }[] };
+    expect(result.options.map((o) => o.label)).toEqual(["$param_customer"]);
   });
 
   it("renders CodeMirror container", async () => {

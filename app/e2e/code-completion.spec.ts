@@ -11,6 +11,7 @@ import {
   expect,
   ALICE,
   TEST_PG_PORT,
+  TEST_NEO4J_BOLT_URL,
   createTestDashboard,
   SEEDED_PG_OPTION,
   uid,
@@ -310,6 +311,119 @@ test.describe("Code completion — Cypher + SQL", () => {
       expect(await hasCompletionItem(page, /tagline/)).toBe(false);
     } finally {
       await page.request.delete(`/api/connections/${id}?force=true`);
+    }
+  });
+
+  // #2485: a concept's parameter is suggested, with what it filters, on a
+  // connection where the concept has a side, in SQL and in Cypher. That no
+  // other connection gets it is a unit test: a missing suggestion cannot be
+  // told from a slow popup.
+  test("completion suggests a concept's parameter, with what it filters, on a mapped connection", async ({
+    page,
+  }) => {
+    const suffix = uid();
+    const parameter = `cust_${suffix}`;
+    const ids: string[] = [];
+    let conceptId = "";
+    try {
+      const make = async (
+        name: string,
+        type: string,
+        config: Record<string, string>,
+      ) => {
+        const res = await page.request.post("/api/connections", {
+          data: { name, type, config },
+        });
+        expect(res.status()).toBe(201);
+        const id = (await res.json()).data.id as string;
+        ids.push(id);
+        return id;
+      };
+      const sqlName = `wiring-complete-sql-${suffix}`;
+      const graphName = `wiring-complete-graph-${suffix}`;
+      const sqlId = await make(sqlName, "postgresql", {
+        uri: `postgresql://localhost:${TEST_PG_PORT}`,
+        username: "neoboard",
+        password: "neoboard",
+        database: "movies",
+      });
+      const graphId = await make(graphName, "neo4j", {
+        uri: TEST_NEO4J_BOLT_URL,
+        username: "neo4j",
+        password: "neoboard123",
+      });
+      const concept = await page.request.post("/api/ontology/concepts", {
+        data: {
+          name: `Customer ${suffix}`,
+          parameter,
+          description: "",
+          sides: [
+            {
+              connectionId: sqlId,
+              entityKey: "movies",
+              keyPropertyKey: "title",
+            },
+            {
+              connectionId: graphId,
+              entityKey: "Movie",
+              keyPropertyKey: "title",
+            },
+          ],
+        },
+      });
+      expect(concept.status()).toBe(201);
+      conceptId = (await concept.json()).data.id as string;
+
+      // The editor's connection list was read before these connections existed.
+      await page.reload();
+      await expect(editingCrumb(page)).toBeVisible();
+      await page
+        .getByRole("button", { name: "Add Widget", exact: true })
+        .first()
+        .click();
+      const dialog = page.getByRole("dialog", {
+        name: "Add Widget",
+        exact: true,
+      });
+      const complete = async (option: string, query: string, hint: RegExp) => {
+        await dialog
+          .getByRole("combobox", { name: "Connection", exact: true })
+          .click();
+        await page.getByRole("option", { name: option }).click();
+        await waitForEditorReady(dialog, page);
+        await waitForSchemaLoaded(dialog, page);
+        await typeInCmEditor(dialog, page, query);
+        // The click that focuses the editor puts the caret mid-line.
+        await page.keyboard.press("End");
+        await page.keyboard.press("Control+Space");
+        await waitForAutocompletePopup(page);
+        expect(await hasCompletionItem(page, hint)).toBe(true);
+        await page.keyboard.press("Escape");
+      };
+
+      await complete(
+        `${sqlName} PostgreSQL`,
+        "SELECT title FROM movies WHERE title = $",
+        new RegExp(
+          `\\$param_${parameter}.*Customer ${suffix}: filters by movies\\.title`,
+          "s",
+        ),
+      );
+      await complete(
+        `${graphName} Neo4j`,
+        "MATCH (m:Movie) WHERE m.title = $",
+        new RegExp(
+          `\\$param_${parameter}.*Customer ${suffix}: filters by Movie\\.title`,
+          "s",
+        ),
+      );
+    } finally {
+      if (conceptId) {
+        await page.request.delete(`/api/ontology/concepts/${conceptId}`);
+      }
+      for (const id of ids) {
+        await page.request.delete(`/api/connections/${id}?force=true`);
+      }
     }
   });
 

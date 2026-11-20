@@ -268,7 +268,7 @@ function ConceptForm({
           <Field
             label="Parameter"
             id="concept-parameter"
-            help="Set by clicks and filters. Derived from the name."
+            help={`Set by clicks and filters. A query reads it as $param_${parameter || "customer"}.`}
           >
             <Input
               className="font-mono"
@@ -332,7 +332,7 @@ function ConceptForm({
         )}
         <p className="m-0 text-meta text-muted-foreground">
           Values travel exactly. The keys must hold the same values on every
-          side: a click that sets <code>${parameter || "customer"}</code>{" "}
+          side: a click that sets <code>$param_{parameter || "customer"}</code>{" "}
           filters each mapped key by that same value.
         </p>
         {error && (

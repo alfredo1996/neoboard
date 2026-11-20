@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 
@@ -16,6 +16,7 @@ vi.mock("next/dynamic", () => ({
         data-placeholder={String(props.placeholder ?? "")}
         data-show-run={String(props.showRun)}
         data-terms={JSON.stringify(props.terms ?? null)}
+        data-parameters={JSON.stringify(props.parameters ?? null)}
       >
         {props.toolbar as React.ReactNode}
       </div>
@@ -28,6 +29,13 @@ vi.mock("next/dynamic", () => ({
 // Mock schema hooks so they don't make real requests
 vi.mock("@/hooks/use-schema", () => ({
   useConnectionSchema: () => ({ isFetching: false, refreshSchema: vi.fn() }),
+}));
+let mockConcepts: unknown[] | undefined;
+afterEach(() => {
+  mockConcepts = undefined;
+});
+vi.mock("@/hooks/use-concepts", () => ({
+  useConcepts: () => ({ data: mockConcepts }),
 }));
 let mockTerms: unknown[] | undefined;
 vi.mock("@/hooks/use-ontology", () => ({
@@ -111,6 +119,76 @@ describe("QueryEditorPanel", () => {
       JSON.parse(screen.getByTestId("query-editor").dataset.terms ?? "null"),
     ).toEqual(mockTerms);
     mockTerms = undefined;
+  });
+
+  it.each([
+    [
+      "a mapped connection",
+      "pg",
+      [
+        {
+          label: "$param_customer",
+          detail: "Customer: filters by customers.email",
+        },
+      ],
+    ],
+    ["an unmapped connection", "other", []],
+  ])(
+    "suggests a concept's parameter on %s (#2485)",
+    (_, connectionId, want) => {
+      mockConcepts = [
+        {
+          id: "c1",
+          name: "Customer",
+          parameter: "customer",
+          description: "",
+          sides: [
+            {
+              connectionId: "pg",
+              entityKey: "customers",
+              keyPropertyKey: "email",
+            },
+          ],
+        },
+      ];
+      useWidgetEditorStore.getState().setConnectionId(connectionId);
+      render(<QueryEditorPanel editorLanguage="sql" />);
+      const got = screen.getByTestId("query-editor").dataset.parameters;
+      expect(JSON.parse(got ?? "null")).toEqual(want);
+    },
+  );
+
+  it("words the parameter's hint with the creator's display names (#2485)", () => {
+    mockConcepts = [
+      {
+        id: "c1",
+        name: "Customer",
+        parameter: "customer",
+        description: "",
+        sides: [
+          {
+            connectionId: "pg",
+            entityKey: "customers",
+            keyPropertyKey: "email",
+          },
+        ],
+      },
+    ];
+    mockTerms = [
+      {
+        kind: "entity",
+        key: "customers",
+        parentKey: "",
+        displayName: "Clients",
+        hidden: false,
+      },
+    ];
+    useWidgetEditorStore.getState().setConnectionId("pg");
+    render(<QueryEditorPanel editorLanguage="sql" />);
+    const got = screen.getByTestId("query-editor").dataset.parameters;
+    expect(JSON.parse(got ?? "null")[0].detail).toBe(
+      "Customer: filters by Clients.email",
+    );
   });
 
   it("does NOT show warning on fresh modal open (no query, no connection)", () => {

@@ -26,10 +26,13 @@ const postSchema = z.object(conceptFields);
  * Every concept of the caller's tenant, each with only its sides on
  * connections the caller can use; a concept with none is hidden, except from
  * an admin, who sees all. A side whose entity or key property the connection no
- * longer reports is flagged `missing`, per read.
+ * longer reports is flagged `missing`, per read. `?live=0` skips that read of
+ * every mapped connection's schema and flags nothing: the editor only needs the
+ * sides to offer a concept (#2485).
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const live = new URL(request.url).searchParams.get("live") !== "0";
     const session = await requireSession();
     const { tenantId } = session;
     const [concepts, sides, usable] = await Promise.all([
@@ -47,7 +50,9 @@ export async function GET() {
     const usableIds = new Set(usable.map((c) => c.id));
     const visible = sides.filter((s) => usableIds.has(s.connectionId));
     const used = new Set(visible.map((s) => s.connectionId));
-    const live = await liveTermsById(usable.filter((c) => used.has(c.id)));
+    const terms = live
+      ? await liveTermsById(usable.filter((c) => used.has(c.id)))
+      : new Map<string, undefined>();
     const out = concepts
       .map((c) => ({
         id: c.id,
@@ -62,7 +67,7 @@ export async function GET() {
               entityKey,
               keyPropertyKey,
             })),
-          live,
+          terms,
         ),
       }))
       .filter((c) => c.sides.length > 0 || session.role === "admin");
