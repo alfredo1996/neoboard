@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@neoboard/components";
+import { markRefresh, takeRefresh } from "@/hooks/refresh-flag";
 import { unwrapResponse } from "@/lib/api/api-client";
 import type { OntologyTerm } from "@/lib/ontology/merge";
 
@@ -25,16 +26,29 @@ const ontologyKey = (connectionId: string) => ["ontology", connectionId];
  * cached for five minutes; `refetch` is the Model page's refresh.
  */
 export function useOntology(connectionId: string) {
-  return useQuery<OntologyResponse>({
+  const query = useQuery<OntologyResponse>({
     enabled: connectionId !== "",
     queryKey: ontologyKey(connectionId),
     queryFn: async ({ signal }) =>
       unwrapResponse<OntologyResponse>(
-        await fetch(`/api/connections/${connectionId}/ontology`, { signal }),
+        await fetch(
+          `/api/connections/${connectionId}/ontology${takeRefresh(`ontology:${connectionId}`)}`,
+          { signal },
+        ),
       ),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
+  // The only caller of refetch is a Refresh button: it reads the database
+  // again, past the server's cache (#2514).
+  const { refetch } = query;
+  return {
+    ...query,
+    refetch: (...args: Parameters<typeof refetch>) => {
+      markRefresh(`ontology:${connectionId}`);
+      return refetch(...args);
+    },
+  };
 }
 
 /**

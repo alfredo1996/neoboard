@@ -116,7 +116,10 @@ export async function POST(request: Request) {
       });
 
     // Fire-and-forget: pre-warm the schema cache for the new connection
-    prefetchSchema(type, checked.config);
+    prefetchSchema(type, checked.config, {
+      tenantId,
+      connectionId: connection.id,
+    });
 
     auditRequest(request, {
       tenantId,

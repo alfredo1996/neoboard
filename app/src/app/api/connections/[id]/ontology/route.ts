@@ -89,10 +89,15 @@ async function readOntology(
   return { terms: mergeTerms(live, stored) };
 }
 
-function liveTerms(connection: { type: string; configEncrypted: string }) {
+function liveTerms(
+  connection: { id: string; type: string; configEncrypted: string },
+  tenantId: string,
+  refresh = false,
+) {
   return fetchConnectionTerms(
     connection.type,
     decryptJson<ConnectionCredentials>(connection.configEncrypted),
+    { tenantId, connectionId: connection.id, refresh },
   );
 }
 
@@ -104,7 +109,7 @@ function liveTerms(connection: { type: string; configEncrypted: string }) {
  * reads it.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -112,11 +117,13 @@ export async function GET(
     const { id } = await params;
     const connection = await findUsable(id, session);
     if (!connection) return notFound("Connection not found");
+    // The Model page's Refresh reads the database again (#2514).
+    const refresh = new URL(request.url).searchParams.get("refresh") === "1";
     return apiSuccess(
       await readOntology(
         connection,
         session.tenantId,
-        await liveTerms(connection),
+        await liveTerms(connection, session.tenantId, refresh),
       ),
     );
   } catch (error) {
@@ -148,7 +155,9 @@ export async function PUT(
     const connection = await findUsable(id, session);
     if (!connection) return notFound("Connection not found");
 
-    const live = await liveTerms(connection);
+    // Checked against the cached read, not a fresh one: a save never waits on
+    // a full introspection (#2514).
+    const live = await liveTerms(connection, session.tenantId);
     const known = new Set(
       live.map((t) => JSON.stringify([t.kind, t.key, t.parentKey])),
     );

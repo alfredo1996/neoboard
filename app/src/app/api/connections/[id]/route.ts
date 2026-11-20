@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/auth/session";
 import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { encryptJson, decryptJson } from "@/lib/crypto/crypto";
 import { prefetchSchema } from "@/lib/connector/schema-prefetch";
+import { forgetIntrospections } from "@/lib/connector/schema-cache";
 import { closeConnection } from "@/lib/query/query-executor";
 import { forgetDeadConnector } from "@/lib/query/middleware/dead-connector";
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
@@ -210,6 +211,8 @@ export async function PATCH(
     // dial again at once rather than replaying that failure for the memo's
     // whole TTL (#1888).
     forgetDeadConnector(tenantId, id);
+    // And what was read of its structure (#2514).
+    forgetIntrospections(tenantId, id);
 
     // Evict the old cached driver so stale credentials aren't reused
     if (oldCredentials) {
@@ -218,7 +221,12 @@ export async function PATCH(
 
     // Fire-and-forget: re-warm the schema cache after a config update. A
     // validated config is complete — its kept secrets included.
-    if (finalConfig) prefetchSchema(connection.type, finalConfig);
+    if (finalConfig) {
+      prefetchSchema(connection.type, finalConfig, {
+        tenantId,
+        connectionId: id,
+      });
+    }
 
     auditRequest(request, {
       tenantId,
@@ -318,6 +326,7 @@ export async function DELETE(
     }
 
     forgetDeadConnector(tenantId, id);
+    forgetIntrospections(tenantId, id);
 
     // Evict the cached driver so the connection pool is closed. Corrupted
     // credentials leave nothing to evict.

@@ -5,12 +5,13 @@
  * utility, and the hook itself via renderHook with a real QueryClient.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { DatabaseSchema } from "@neoboard/connection";
 import { useSchemaStore } from "@/stores/schema-store";
 import { createRefreshSchema, useConnectionSchema } from "@/hooks/use-schema";
+import { takeRefresh } from "@/hooks/refresh-flag";
 
 const neo4jSchema: DatabaseSchema = {
   type: "neo4j",
@@ -234,6 +235,9 @@ describe("useConnectionSchema hook", () => {
 
   beforeEach(() => {
     useSchemaStore.setState({ schemas: {} });
+    // A Refresh pressed with no query mounted leaves its mark; drop it.
+    for (const id of ["conn-1", "conn-refresh", "pg-42"])
+      takeRefresh(`schema:${id}`);
     queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -365,5 +369,29 @@ describe("useConnectionSchema hook", () => {
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(result.current.data?.type).toBe("postgresql");
+  });
+
+  // #2514: the server keeps what it read for five minutes; Refresh asks for a
+  // fresh read, and only that one request does.
+  it("Refresh asks the server to read the database again, once", async () => {
+    const reply = () =>
+      new Response(JSON.stringify(neo4jSchema), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => reply());
+
+    const { result } = renderHook(() => useConnectionSchema("conn-fresh"), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await act(() => result.current.refreshSchema());
+    await act(() => queryClient.invalidateQueries());
+
+    expect(vi.mocked(globalThis.fetch).mock.calls.map((c) => c[0])).toEqual([
+      "/api/connections/conn-fresh/schema",
+      "/api/connections/conn-fresh/schema?refresh=1",
+      "/api/connections/conn-fresh/schema",
+    ]);
   });
 });

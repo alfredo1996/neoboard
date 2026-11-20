@@ -53,6 +53,25 @@ describe("use-ontology", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("/api/connections/c1/ontology");
   });
 
+  it("the Model page's refetch asks the server to read the database again, every time", async () => {
+    fetchMock.mockImplementation(async () => ok([{ key: "A" }]));
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useOntology("c1"), { wrapper });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+    await act(async () => {
+      await result.current.refetch();
+    });
+    await act(async () => {
+      await result.current.refetch();
+    });
+    // The second refetch also asks for a fresh read: each press is a Refresh.
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+      "/api/connections/c1/ontology",
+      "/api/connections/c1/ontology?refresh=1",
+      "/api/connections/c1/ontology?refresh=1",
+    ]);
+  });
+
   it("hands the editor only the live terms that were described or hidden", async () => {
     const t = (over: object) => ({
       kind: "entity",

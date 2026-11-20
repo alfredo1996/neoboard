@@ -6,6 +6,7 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { unwrapResponse } from "@/lib/api/api-client";
+import { markRefresh, takeRefresh } from "@/hooks/refresh-flag";
 import { useSchemaStore } from "@/stores/schema-store";
 import type { DatabaseSchema } from "@neoboard/connection";
 
@@ -22,6 +23,7 @@ export function createRefreshSchema(queryClient: QueryClient) {
       queryKey: ["connection-schema", connectionId],
     });
     useSchemaStore.getState().clearSchema(connectionId);
+    markRefresh(`schema:${connectionId}`);
     return queryClient.invalidateQueries({
       queryKey: ["connection-schema", connectionId],
     });
@@ -45,9 +47,10 @@ export function useConnectionSchema(connectionId: string | null | undefined) {
   const query = useQuery<DatabaseSchema>({
     queryKey: ["connection-schema", connectionId],
     queryFn: async ({ signal }) => {
-      const r = await fetch(`/api/connections/${connectionId}/schema`, {
-        signal,
-      });
+      const r = await fetch(
+        `/api/connections/${connectionId}/schema${takeRefresh(`schema:${connectionId}`)}`,
+        { signal },
+      );
       const schema = await unwrapResponse<DatabaseSchema>(r);
       setSchema(connectionId!, schema);
       return schema;

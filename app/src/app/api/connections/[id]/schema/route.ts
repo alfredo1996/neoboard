@@ -9,7 +9,7 @@ import { apiSuccess } from "@/lib/api/api-response";
 import { notFound, handleRouteError } from "@/lib/api/api-utils";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -39,7 +39,12 @@ export async function GET(
       connection.configEncrypted,
     );
 
-    const schema = await fetchConnectionSchema(connection.type, credentials);
+    const schema = await fetchConnectionSchema(connection.type, credentials, {
+      tenantId,
+      connectionId: connection.id,
+      // The editor's Refresh reads the database again (#2514).
+      refresh: new URL(request.url).searchParams.get("refresh") === "1",
+    });
 
     return apiSuccess(schema);
   } catch (error) {

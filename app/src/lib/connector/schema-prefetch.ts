@@ -4,7 +4,18 @@ import {
   getSchemaManager,
 } from "@/lib/connector/connection-adapter";
 import type { SchemaTerm } from "@neoboard/connection";
+import type { DatabaseSchema } from "@neoboard/connection";
 import { driverConfig } from "@/lib/connector/container-host";
+import {
+  cachedIntrospection,
+  type IntrospectionScope,
+} from "@/lib/connector/schema-cache";
+
+/** Whose connection is read, and whether to read it live (#2514). */
+export interface SchemaScope extends IntrospectionScope {
+  /** Skip the cache: the Model page's and the editor's Refresh. */
+  refresh?: boolean;
+}
 
 /**
  * Fetch the database schema for a given connection.
@@ -14,13 +25,23 @@ import { driverConfig } from "@/lib/connector/container-host";
 export async function fetchConnectionSchema(
   type: string,
   credentials: ConnectionCredentials,
+  scope: SchemaScope,
 ): Promise<unknown> {
   // Registry-keyed dispatch (#1119) — no hardcoded per-type branching.
   const manager = getSchemaManager(type);
   if (!manager) return null; // connector type has no schema introspection
-  // Built exactly as the query path builds it, so the schema comes from the
-  // same host as the connection's queries (#1919).
-  return manager.fetchSchema(await driverConfig(credentials));
+  // One read per connection serves the schema and the terms (#2514). Keyed on
+  // the stored config, before the host rewrite below.
+  return cachedIntrospection(
+    scope,
+    credentials,
+    "schema",
+    async () =>
+      // Built exactly as the query path builds it, so the schema comes from
+      // the same host as the connection's queries (#1919).
+      manager.fetchSchema(await driverConfig(credentials)),
+    scope,
+  );
 }
 
 /**
@@ -31,8 +52,26 @@ export async function fetchConnectionSchema(
 export async function fetchConnectionTerms(
   type: string,
   credentials: ConnectionCredentials,
+  scope: SchemaScope,
 ): Promise<SchemaTerm[]> {
-  return describeConnectionTerms(type, await driverConfig(credentials));
+  // The schema comes through the cache, so the terms cost no second read.
+  return cachedIntrospection(
+    scope,
+    credentials,
+    "terms",
+    async () =>
+      describeConnectionTerms(
+        type,
+        await driverConfig(credentials),
+        () =>
+          fetchConnectionSchema(
+            type,
+            credentials,
+            scope,
+          ) as Promise<DatabaseSchema>,
+      ),
+    scope,
+  );
 }
 
 /**
@@ -42,8 +81,11 @@ export async function fetchConnectionTerms(
 export function prefetchSchema(
   type: string,
   credentials: ConnectionCredentials,
+  scope: IntrospectionScope,
 ): void {
-  fetchConnectionSchema(type, credentials).catch(() => {
-    // Non-critical: schema prefetch failure should not surface to the user
-  });
+  fetchConnectionSchema(type, credentials, { ...scope, refresh: true }).catch(
+    () => {
+      // Non-critical: schema prefetch failure should not surface to the user
+    },
+  );
 }
