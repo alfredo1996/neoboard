@@ -157,6 +157,7 @@ describe("Database migrations", () => {
       "sso_provider",
       "audit_log",
       "revoked_session",
+      "ontology_term",
     ];
 
     const columns = await client`
@@ -188,6 +189,7 @@ describe("Database migrations", () => {
     "sso_provider",
     "audit_log",
     "revoked_session",
+    "ontology_term",
   ];
 
   it("indexes tenant_id as the LEADING column on every tenant-scoped table (#1646)", async () => {
@@ -224,6 +226,7 @@ describe("Database migrations", () => {
     for (const name of [
       "user_tenant_id_unique",
       "dashboard_tenant_id_unique",
+      "connection_tenant_id_unique",
     ]) {
       expect(byName.get(name)?.contype, `${name} missing`).toBe("u");
     }
@@ -234,11 +237,46 @@ describe("Database migrations", () => {
       "dashboard_share_tenant_user_fk",
       "widget_template_tenant_created_by_fk",
       "api_key_tenant_user_fk",
+      "ontology_term_tenant_connection_fk",
     ]) {
       const c = byName.get(name);
       expect(c?.contype, `${name} missing`).toBe("f");
       expect(Number(c?.width), `${name} is not composite`).toBe(2);
     }
+    await client.end();
+  }, 60_000);
+
+  it("refuses a term that points at a connection of another tenant (#2415)", async () => {
+    const client = postgres(connectionString, { max: 1 });
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    await client`INSERT INTO "user" (id, email, tenant_id) VALUES ('u-x', 'x@x', 't1')`;
+    await client`INSERT INTO connection (id, "userId", tenant_id, name, type, "configEncrypted")
+                 VALUES ('c-x', 'u-x', 't1', 'own', 'neo4j', 'enc')`;
+    await expect(
+      client`INSERT INTO ontology_term (id, tenant_id, connection_id, kind, key, parent_key)
+             VALUES ('ox', 't2', 'c-x', 'entity', 'Person', '')`,
+    ).rejects.toMatchObject({ code: "23503" });
+    await client`DELETE FROM "user" WHERE id = 'u-x' AND tenant_id = 't1'`;
+    await client.end();
+  }, 60_000);
+
+  it("keeps one row per term and drops a connection's terms with it (#2415)", async () => {
+    const client = postgres(connectionString, { max: 1 });
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    await client`INSERT INTO "user" (id, email, tenant_id) VALUES ('u-o', 'o@x', 't1')`;
+    await client`INSERT INTO connection (id, "userId", tenant_id, name, type, "configEncrypted")
+                 VALUES ('c-o', 'u-o', 't1', 'own', 'neo4j', 'enc')`;
+    await client`INSERT INTO ontology_term (id, tenant_id, connection_id, kind, key, parent_key)
+                 VALUES ('o1', 't1', 'c-o', 'entity', 'Person', '')`;
+    await expect(
+      client`INSERT INTO ontology_term (id, tenant_id, connection_id, kind, key, parent_key)
+             VALUES ('o2', 't1', 'c-o', 'entity', 'Person', '')`,
+    ).rejects.toMatchObject({ code: "23505" });
+    await client`DELETE FROM connection WHERE id = 'c-o' AND tenant_id = 't1'`;
+    const left =
+      await client`SELECT id FROM ontology_term WHERE connection_id = 'c-o' AND tenant_id = 't1'`;
+    expect(left).toHaveLength(0);
+    await client`DELETE FROM "user" WHERE id = 'u-o' AND tenant_id = 't1'`;
     await client.end();
   }, 60_000);
 
@@ -316,7 +354,7 @@ describe("Database migrations", () => {
       SELECT count(*)::int AS n FROM pg_constraint
       WHERE contype = 'f' AND array_length(conkey, 1) = 2 AND connamespace = 'public'::regnamespace
     `;
-    expect(fks[0].n).toBe(6);
+    expect(fks[0].n).toBe(7); // the six of #1646 and ontology_term's (#2415)
     for (const t of ["dashboard", "connection", "dashboard_share", "api_key"]) {
       const rows = await client.unsafe(`SELECT count(*)::int AS n FROM "${t}"`);
       expect(rows[0].n, `${t} lost rows across the upgrade`).toBe(1);

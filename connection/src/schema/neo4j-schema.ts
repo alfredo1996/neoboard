@@ -14,6 +14,37 @@ const PATTERN_SAMPLE = 1000;
 const PATTERN_CONCURRENCY = 8;
 
 /**
+ * The names in a type as `db.schema.*TypeProperties()` quotes it: ":`Movie`",
+ * or ":`Person`:`Actor`" for a node with two labels (#2415). Plain ":Movie"
+ * still reads as "Movie".
+ */
+function namesOf(quoted: string): string[] {
+  const names = [...quoted.matchAll(/`((?:[^`]|``)+)`/g)].map((m) =>
+    m[1].replaceAll("``", "`"),
+  );
+  return names.length > 0 ? names : [quoted.replace(/^:/, "")];
+}
+
+/** Adds the property to each name, once. */
+function addProperty(
+  into: Record<string, PropertyDef[]>,
+  names: string[],
+  row: { propertyName: string; propertyTypes: string[] },
+): void {
+  // A type with no properties comes back as one row with a null name.
+  if (row.propertyName == null) return;
+  const type = Array.isArray(row.propertyTypes)
+    ? (row.propertyTypes[0] ?? "String")
+    : String(row.propertyTypes);
+  for (const name of names) {
+    const list = (into[name] ??= []);
+    if (!list.some((p) => p.name === row.propertyName)) {
+      list.push({ name: row.propertyName, type });
+    }
+  }
+}
+
+/**
  * Fetches schema information from a Neo4j database.
  *
  * Runs four APOC/built-in procedures:
@@ -67,28 +98,15 @@ export class Neo4jSchemaManager implements SchemaManager {
           ),
         ]);
 
-      const nodePropsMap: Record<string, PropertyDef[]> = {};
+      // No prototype: a label named `constructor` is a name, not Object's.
+      const nodePropsMap: Record<string, PropertyDef[]> = Object.create(null);
       for (const row of nodeProperties) {
-        const label = row.nodeType.replace(/^:/, "");
-        if (!nodePropsMap[label]) nodePropsMap[label] = [];
-        nodePropsMap[label].push({
-          name: row.propertyName,
-          type: Array.isArray(row.propertyTypes)
-            ? (row.propertyTypes[0] ?? "String")
-            : String(row.propertyTypes),
-        });
+        addProperty(nodePropsMap, namesOf(row.nodeType), row);
       }
 
-      const relPropsMap: Record<string, PropertyDef[]> = {};
+      const relPropsMap: Record<string, PropertyDef[]> = Object.create(null);
       for (const row of relProperties) {
-        const relType = row.relType.replace(/^:/, "");
-        if (!relPropsMap[relType]) relPropsMap[relType] = [];
-        relPropsMap[relType].push({
-          name: row.propertyName,
-          type: Array.isArray(row.propertyTypes)
-            ? (row.propertyTypes[0] ?? "String")
-            : String(row.propertyTypes),
-        });
+        addProperty(relPropsMap, namesOf(row.relType), row);
       }
 
       const relationshipPatterns = await this._relationshipPatterns(

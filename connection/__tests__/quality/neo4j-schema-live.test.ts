@@ -105,15 +105,9 @@ describe("Neo4j schema introspection — complex live model (#742 item 7)", () =
     expect(schema.relationshipTypes).toContain("CT_WORKS_AT");
     expect(schema.relationshipTypes).toContain("CT_MANAGES");
 
-    // Contract quirk worth pinning: rel-property keys come from
-    // db.schema.relTypeProperties() and keep Neo4j's backtick quoting —
-    // "`CT_WORKS_AT`", not "CT_WORKS_AT".
-    const propsFor = (needle: string) => {
-      const key = Object.keys(schema.relProperties).find((k) =>
-        k.includes(needle),
-      );
-      return (schema.relProperties[key ?? ""] ?? []).map((p) => p.name);
-    };
+    // Keys are the plain type name: Neo4j's backtick quoting is removed (#2415).
+    const propsFor = (key: string) =>
+      (schema.relProperties[key] ?? []).map((p) => p.name);
     expect(propsFor("CT_WORKS_AT")).toEqual(
       expect.arrayContaining(["ctSince", "ctRole"]),
     );
@@ -122,25 +116,27 @@ describe("Neo4j schema introspection — complex live model (#742 item 7)", () =
     );
   });
 
-  it("maps node properties to their labels (backticked, multi-label combined keys)", async () => {
+  it("maps node properties to their labels", async () => {
     const schema = (await new Neo4jSchemaManager().fetchSchema(getAuth())) as {
       nodeProperties: Record<string, Array<{ name: string; type: string }>>;
     };
-    // Contract quirk worth pinning: node-property keys come from
-    // db.schema.nodeTypeProperties() — backtick-quoted, and a dual-labeled
-    // node yields ONE combined key ("`CoverageTestPerson`:`CoverageTestEmployee`").
-    const propsFor = (needle: string) => {
-      const key = Object.keys(schema.nodeProperties).find((k) =>
-        k.includes(needle),
-      );
-      return (schema.nodeProperties[key ?? ""] ?? []).map((p) => p.name);
-    };
+    // Keys are plain labels: the quoting is removed, and a dual-labeled node's
+    // properties are listed under each of its labels (#2415).
+    const propsFor = (label: string) =>
+      (schema.nodeProperties[label] ?? []).map((p) => p.name);
     expect(propsFor("CoverageTestCompany")).toEqual(
       expect.arrayContaining(["ctName", "ctFounded"]),
     );
     expect(propsFor("CoverageTestPerson")).toEqual(
       expect.arrayContaining(["ctName", "ctAge", "ctBadge"]),
     );
+    // The dual-labeled node is listed under each of its labels.
+    expect(propsFor("CoverageTestEmployee")).toEqual(
+      expect.arrayContaining(["ctName", "ctAge", "ctBadge"]),
+    );
+    expect(
+      Object.keys(schema.nodeProperties).some((k) => k.includes("`")),
+    ).toBe(false);
   });
 });
 

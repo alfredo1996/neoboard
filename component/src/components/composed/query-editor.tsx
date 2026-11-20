@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { useDarkMode } from "@/charts/use-dark-mode";
 import { resolveLanguageExt } from "@/lib/language-resolvers";
 import type { DatabaseSchema } from "@/lib/schema-transforms";
+import { hideTerms, termOption } from "@/lib/term-meaning";
+import type { TermMeaning } from "@/lib/term-meaning";
 import type { Extension } from "@codemirror/state";
 
 // ---------------------------------------------------------------------------
@@ -55,6 +57,11 @@ export interface QueryEditorProps {
   runAndSaveHint?: boolean;
   /** Schema for autocompletion. Passed from the app layer. */
   schema?: DatabaseSchema;
+  /**
+   * What a creator said about the schema's terms (#2415): hidden terms are left
+   * out of autocomplete, and a described one shows its name and description.
+   */
+  terms?: readonly TermMeaning[];
   /** Accessible name of the text field (#2345). Defaults to "Query editor". */
   "aria-label"?: string;
   /** Id of the element that names the text field; wins over `aria-label`. */
@@ -169,6 +176,7 @@ async function buildExtensions(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- opaque CM Compartment
   placeholderCompartment: any,
   compartments: CompartmentExts,
+  getTerms: () => readonly TermMeaning[] | undefined,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic CM types
 ): Promise<any[]> {
   const [
@@ -226,7 +234,7 @@ async function buildExtensions(
     ]),
     runKeymap,
     compartments.lang,
-    autocompletion(),
+    autocompletion({ addToOptions: [termOption(getTerms)] }),
     placeholderCompartment.of(cmPlaceholder(placeholder)),
     compartments.theme,
     compartments.name,
@@ -254,7 +262,8 @@ function QueryEditor({
   readOnly = false,
   className,
   runAndSaveHint = false,
-  schema,
+  schema: rawSchema,
+  terms,
   "aria-label": ariaLabel = "Query editor",
   "aria-labelledby": ariaLabelledby,
   showRun = true,
@@ -280,6 +289,14 @@ function QueryEditor({
   // it creates the editor, preventing a readOnly-stuck-on-true race condition.
   const languageRef = React.useRef(language);
   const readOnlyRef = React.useRef(readOnly);
+  const schema = React.useMemo(
+    () => (rawSchema && terms ? hideTerms(rawSchema, terms) : rawSchema),
+    [rawSchema, terms],
+  );
+  const termsRef = React.useRef(terms);
+  React.useEffect(() => {
+    termsRef.current = terms;
+  }, [terms]);
   const schemaRef = React.useRef(schema);
   const placeholderRef = React.useRef(placeholder);
   const nameAttrs = (): Record<string, string> =>
@@ -462,6 +479,7 @@ function QueryEditor({
             EditorView.contentAttributes.of(nameAttrsRef.current),
           ),
         },
+        () => termsRef.current,
       );
 
       if (abortSignal.aborted || !containerRef.current) return;

@@ -17,6 +17,9 @@ export type {
   TableDef,
   ColumnDef,
   PropertyDef,
+  SchemaTerm,
+  TermKind,
+  TermJoin,
 } from "@neoboard/connector-sdk";
 // Each connector's schema manager is reached through `getSchemaManager(type)`,
 // not exported by name: a connector-named export is one more thing that
@@ -56,5 +59,6 @@ export {
   getConnector,
   getAllConnectors,
   getSchemaManager,
+  describeConnectionTerms,
   toConnectorError,
 } from "./connector-registry";

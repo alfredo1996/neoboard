@@ -7,6 +7,7 @@ import {
   Database,
   Users,
   Library,
+  Network,
   Settings,
 } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
@@ -90,6 +91,13 @@ function DashboardShell({
                   icon: <Database className="h-4 w-4" />,
                   active: pathname === "/connections",
                   onSelect: go("/connections"),
+                },
+                {
+                  id: "model",
+                  label: "Model",
+                  icon: <Network className="h-4 w-4" />,
+                  active: pathname === "/model",
+                  onSelect: go("/model"),
                 },
                 {
                   id: "widget-library",

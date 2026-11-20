@@ -228,6 +228,62 @@ describe("Neo4jSchemaManager", () => {
     expect(schema.relProperties?.[":ACTED_IN"]).toBeUndefined();
   });
 
+  it("keys properties by the plain label, whatever Neo4j's quoting, and gives each label of a multi-label node its properties", async () => {
+    mockFourCalls(
+      [],
+      [],
+      [
+        nodePropRecord(":`Movie`", "title", ["String"]),
+        nodePropRecord(":`Person`:`Actor`", "name", ["String"]),
+        nodePropRecord(":`Actor`", "name", ["String"]),
+      ],
+      [relPropRecord(":`ACTED_IN`", "roles", ["StringArray"])],
+    );
+
+    const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+    expect(schema.nodeProperties).toEqual({
+      Movie: [{ name: "title", type: "String" }],
+      Person: [{ name: "name", type: "String" }],
+      Actor: [{ name: "name", type: "String" }],
+    });
+    expect(Object.keys(schema.relProperties ?? {})).toEqual(["ACTED_IN"]);
+  });
+
+  it("lists no property for a type the procedures report with none (a null name)", async () => {
+    // Neo4j answers one row with a null propertyName for a type without properties.
+    const none = null as unknown as string;
+    mockFourCalls(
+      [],
+      [],
+      [nodePropRecord(":`Tag`", none, [])],
+      [relPropRecord(":`DIRECTED`", none, [])],
+    );
+
+    const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+    expect(schema.nodeProperties).toEqual({});
+    expect(schema.relProperties).toEqual({});
+  });
+
+  it("reads a label or type named like an Object property as a name (CR3)", async () => {
+    mockFourCalls(
+      [labelRecord("constructor")],
+      [relTypeRecord("toString")],
+      [nodePropRecord(":`constructor`", "a", ["String"])],
+      [relPropRecord(":`toString`", "b", ["String"])],
+    );
+
+    const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+
+    expect(schema.nodeProperties?.constructor).toEqual([
+      { name: "a", type: "String" },
+    ]);
+    expect(schema.relProperties?.toString).toEqual([
+      { name: "b", type: "String" },
+    ]);
+  });
+
   it("returns empty collections for empty databases", async () => {
     mockFourCalls([], [], [], []);
 

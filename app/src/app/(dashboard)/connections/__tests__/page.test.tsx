@@ -726,6 +726,7 @@ describe("ConnectionsPage — connector facts come from the descriptors (#1899)"
     expect(row.getAllByRole("menuitem").map((i) => i.textContent)).toEqual([
       "Delete…",
     ]);
+    expect(row.queryByRole("link", { name: "Model" })).toBeNull();
   });
 
   it("leaves a not-installed connection out of Test all", async () => {
@@ -1133,13 +1134,13 @@ describe("ConnectionsPage — kit rows (#2254)", () => {
         .slice(0, 4)
         .map((c) => c.textContent);
     expect(cells("Movies")).toEqual([
-      "MoviesAcme Sheets",
+      "MoviesAcme SheetsModel",
       "Connected",
       "Private",
       "14",
     ]);
     expect(cells("Sales")).toEqual([
-      "SalesAny",
+      "SalesAnyModel",
       "Can't connect",
       "Shared",
       "0",
@@ -1164,19 +1165,27 @@ describe("ConnectionsPage — kit rows (#2254)", () => {
     expect(screen.queryByRole("searchbox")).toBeNull();
   });
 
-  it("gives a connection the user cannot manage no menu actions", () => {
+  it("gives a connection the user cannot manage a Model link and no actions menu", () => {
     mockConnections = rows(1, { isOwner: false, visibility: "shared" });
     render(<ConnectionsPage />);
-    expect(rowOf("conn-1").queryAllByRole("menuitem")).toHaveLength(0);
+    const row = rowOf("conn-1");
+    expect(row.getByRole("link", { name: "Model" })).toHaveAttribute(
+      "href",
+      "/model#connection-c1",
+    );
+    expect(row.queryAllByRole("menuitem")).toHaveLength(0);
   });
 
   // #2328: the server refuses a reader every management call.
-  it("offers a reader no New connection, no first-connection button and no row actions on a connection they still own", () => {
+  it("offers a reader no New connection, no first-connection button and a Model link and no menu on a connection they still own", () => {
     mockRole = "reader";
     mockConnections = rows(1, { isOwner: true });
     const { unmount } = render(<ConnectionsPage />);
     expect(screen.queryByRole("button", { name: "New connection" })).toBeNull();
     expect(rowOf("conn-1").queryAllByRole("menuitem")).toHaveLength(0);
+    expect(
+      rowOf("conn-1").getByRole("link", { name: "Model" }),
+    ).toBeInTheDocument();
     unmount();
     mockConnections = [];
     render(<ConnectionsPage />);

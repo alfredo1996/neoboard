@@ -3,6 +3,7 @@
  */
 
 import type { ConnectorConfig } from "../generalized/descriptor";
+import type { SchemaTerm } from "./terms";
 
 export interface PropertyDef {
   name: string;
@@ -67,4 +68,10 @@ export interface DatabaseSchema {
 export interface SchemaManager {
   /** Takes the same single config bag as `ConnectorPlugin.createModule`. */
   fetchSchema(config: ConnectorConfig): Promise<DatabaseSchema>;
+  /**
+   * The connector's own list of terms (#2415), for a source whose structure
+   * does not fit `DatabaseSchema`. Without it the terms are `toTerms` of
+   * `fetchSchema`.
+   */
+  describeTerms?(config: ConnectorConfig): Promise<SchemaTerm[]>;
 }

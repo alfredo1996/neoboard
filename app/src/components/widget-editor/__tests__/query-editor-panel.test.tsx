@@ -15,6 +15,7 @@ vi.mock("next/dynamic", () => ({
         data-class-name={String(props.className ?? "")}
         data-placeholder={String(props.placeholder ?? "")}
         data-show-run={String(props.showRun)}
+        data-terms={JSON.stringify(props.terms ?? null)}
       >
         {props.toolbar as React.ReactNode}
       </div>
@@ -27,6 +28,10 @@ vi.mock("next/dynamic", () => ({
 // Mock schema hooks so they don't make real requests
 vi.mock("@/hooks/use-schema", () => ({
   useConnectionSchema: () => ({ isFetching: false, refreshSchema: vi.fn() }),
+}));
+let mockTerms: unknown[] | undefined;
+vi.mock("@/hooks/use-ontology", () => ({
+  useEditorTerms: () => mockTerms,
 }));
 vi.mock("@/stores/schema-store", () => ({
   useSchemaStore: () => null,
@@ -97,6 +102,15 @@ const QUERY_SYNTAX =
 describe("QueryEditorPanel", () => {
   beforeEach(() => {
     useWidgetEditorStore.getState().resetForAdd();
+  });
+
+  it("gives the editor what creators said about the connection's terms, for autocomplete (#2415)", () => {
+    mockTerms = [{ kind: "entity", key: "Person", hidden: true }];
+    render(<QueryEditorPanel editorLanguage="cypher" />);
+    expect(
+      JSON.parse(screen.getByTestId("query-editor").dataset.terms ?? "null"),
+    ).toEqual(mockTerms);
+    mockTerms = undefined;
   });
 
   it("does NOT show warning on fresh modal open (no query, no connection)", () => {

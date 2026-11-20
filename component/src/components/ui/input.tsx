@@ -16,6 +16,8 @@ export interface InputProps extends Omit<
   "size"
 > {
   size?: ControlSize;
+  /** Plain text at rest; the edge and fill show on hover and focus. For a cell edited in place. */
+  inPlace?: boolean;
 }
 
 /**
@@ -24,7 +26,7 @@ export interface InputProps extends Omit<
  * When not to: use Textarea for multi-line text, QueryEditor for Cypher/SQL, Select or Combobox for picking from options.
  */
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, size = "default", ...rawProps }, ref) => {
+  ({ className, type, size = "default", inPlace, ...rawProps }, ref) => {
     const props = useFieldControl(rawProps);
     return (
       <input
@@ -34,6 +36,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           fieldBaseClasses,
           invalidControlClasses,
           controlSizes[size],
+          inPlace &&
+            "border-transparent bg-transparent hover:bg-field focus-visible:bg-field",
           className,
         )}
         ref={ref}

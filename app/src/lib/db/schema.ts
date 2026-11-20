@@ -171,6 +171,9 @@ export const connections = pgTable(
       name: "connection_tenant_user_fk",
     }).onDelete("cascade"),
     index("connection_tenant_id_idx").on(table.tenantId, table.id),
+    // The target of the composite FKs that tie a row to its connection and
+    // tenant together (#2415, as dashboard_tenant_id_unique is, #1646).
+    unique("connection_tenant_id_unique").on(table.tenantId, table.id),
   ],
 );
 
@@ -471,6 +474,49 @@ export const ssoProviders = pgTable(
   ],
 );
 
+// ─── Ontology terms (#2415) ─────────────────────────────────────────
+
+/**
+ * What a creator said about a term of a connection's data model: its display
+ * name, description and whether it is hidden. The structure itself is never
+ * stored; a row exists only once someone describes or hides a term, and is
+ * matched to the live structure by (kind, key, parent_key) on every read.
+ * `parent_key` is '' for none, never NULL, so the unique key holds for every
+ * row. Orphaned (the connection no longer reports the term) is worked out at
+ * read time.
+ */
+export const ontologyTerms = pgTable(
+  "ontology_term",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    tenantId: text("tenant_id").notNull().default("default"),
+    connectionId: text("connection_id").notNull(),
+    kind: text("kind").notNull(),
+    key: text("key").notNull(),
+    parentKey: text("parent_key").notNull().default(""),
+    displayName: text("display_name").notNull().default(""),
+    description: text("description").notNull().default(""),
+    hidden: boolean("hidden").notNull().default(false),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tenantId, table.connectionId],
+      foreignColumns: [connections.tenantId, connections.id],
+      name: "ontology_term_tenant_connection_fk",
+    }).onDelete("cascade"),
+    unique("ontology_term_tenant_connection_term_unique").on(
+      table.tenantId,
+      table.connectionId,
+      table.kind,
+      table.key,
+      table.parentKey,
+    ),
+  ],
+);
+
 // ─── Audit log ──────────────────────────────────────────────────────
 
 export const auditLogs = pgTable(
@@ -510,6 +556,7 @@ export type NewAuditLog = typeof auditLogs.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Connection = typeof connections.$inferSelect;
+export type OntologyTermRow = typeof ontologyTerms.$inferSelect;
 export type NewConnection = typeof connections.$inferInsert;
 export type Dashboard = typeof dashboards.$inferSelect;
 export type NewDashboard = typeof dashboards.$inferInsert;

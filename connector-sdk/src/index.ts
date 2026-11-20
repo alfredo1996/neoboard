@@ -92,6 +92,8 @@ export type {
   ForeignKeyDef,
   SchemaManager,
 } from "./schema/types";
+export { toTerms } from "./schema/terms";
+export type { SchemaTerm, TermKind, TermJoin } from "./schema/terms";
 
 /// Connector descriptor (pure data) + config validation
 export type {

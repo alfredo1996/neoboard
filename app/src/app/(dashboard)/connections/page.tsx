@@ -588,10 +588,25 @@ export default function ConnectionsPage() {
                       key={c.id}
                       title={c.name}
                       description={
-                        installed
-                          ? (c.displayAddress ??
-                            connectorLabel(connectors, c.type))
-                          : `${c.type} — connector not installed`
+                        // The Model link sits outside the actions menu: that
+                        // stays owner and admin only, and anyone who can use
+                        // the connection reads its terms.
+                        <span className="flex gap-2">
+                          <span className="truncate">
+                            {installed
+                              ? (c.displayAddress ??
+                                connectorLabel(connectors, c.type))
+                              : `${c.type} — connector not installed`}
+                          </span>
+                          {installed && (
+                            <a
+                              href={`/model#connection-${c.id}`}
+                              className="relative z-10 shrink-0 text-primary hover:underline"
+                            >
+                              Model
+                            </a>
+                          )}
+                        </span>
                       }
                       onOpen={canUse ? (opener) => edit(opener) : undefined}
                       meta={[

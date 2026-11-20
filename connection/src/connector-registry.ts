@@ -18,6 +18,8 @@ import {
   type ConnectorPlugin,
   type ConnectorRegistry,
   type SchemaManager,
+  type SchemaTerm,
+  toTerms,
 } from "@neoboard/connector-sdk";
 import { neo4jPlugin } from "./neo4j/plugin";
 import { postgresPlugin } from "./postgresql/plugin";
@@ -95,6 +97,21 @@ export function getAllConnectors(): ConnectorPlugin[] {
  */
 export function getSchemaManager(type: string): SchemaManager | undefined {
   return registry.get(type)?.createSchemaManager?.();
+}
+
+/**
+ * A connection's data-model terms (#2415): the connector's own list when its
+ * schema manager has one, else today's schema shapes adapted by `toTerms`.
+ * `[]` for a connector that describes no structure.
+ */
+export async function describeConnectionTerms(
+  type: string,
+  config: ConnectorConfig,
+): Promise<SchemaTerm[]> {
+  const manager = getSchemaManager(type);
+  if (!manager) return [];
+  if (manager.describeTerms) return manager.describeTerms(config);
+  return toTerms(await manager.fetchSchema(config));
 }
 
 /**

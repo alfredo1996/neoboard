@@ -21,6 +21,13 @@ forking the app.
 - **`ConnectorPlugin`** — a descriptor plus `createModule(config)` and an
   optional `createSchemaManager()`. `createModule` takes **one config bag**
   keyed by the fields' keys; the connector builds its own driver auth from it.
+- **`SchemaManager`** — `fetchSchema(config)`, and optionally
+  `describeTerms(config)`: the connector's own list of `SchemaTerm`s
+  (`{ kind, key, parentKey, type?, primaryKey?, joins? }`) for the Model page.
+  Without it the terms are **`toTerms(schema)`** of `fetchSchema`. A
+  relationship is one term per relationship type or SQL foreign key, with
+  `joins: [{ from, to, fromColumns?, toColumns? }]`; a foreign key's key names
+  its target, `orders(customer_id)->customers(id)`.
 - **`validateConfig(descriptor, config)`** — pure validation of a config bag
   against a descriptor (required, integer ranges, select membership, URI
   rules; unknown keys stripped), returning per-field errors.
