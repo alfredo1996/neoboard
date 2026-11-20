@@ -326,9 +326,9 @@ function ConceptForm({
           </div>
         </div>
         {duplicate && (
-          <p role="status" className="m-0 text-sm text-destructive">
+          <output className="m-0 block text-sm text-destructive">
             Two sides are the same: remove one.
-          </p>
+          </output>
         )}
         <p className="m-0 text-meta text-muted-foreground">
           Values travel exactly. The keys must hold the same values on every

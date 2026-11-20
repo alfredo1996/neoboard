@@ -1816,7 +1816,11 @@ const SPEC = {
         required: ["name", "parameter", "sides"],
         properties: {
           name: { type: "string", maxLength: 200 },
-          parameter: { type: "string", maxLength: 100, pattern: "^\\w+$" },
+          parameter: {
+            type: "string",
+            maxLength: 100,
+            pattern: String.raw`^\w+$`,
+          },
           description: { type: "string", maxLength: 2000, default: "" },
           sides: {
             type: "array",

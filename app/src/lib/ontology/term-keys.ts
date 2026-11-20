@@ -13,6 +13,7 @@ export const entityParentKey = (entityKey: string) => `entity:${entityKey}`;
 export function slugParameter(name: string): string {
   return name
     .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/g, "_")
-    .replaceAll(/^_+|_+$/g, "");
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .join("_");
 }

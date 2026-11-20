@@ -104,7 +104,7 @@ type UsableConnection = {
 };
 
 /** The caller's usable connections in their tenant, optionally only `ids`. */
-export async function usableConnections(
+export function usableConnections(
   session: Session,
   ids?: string[],
 ): Promise<UsableConnection[]> {
