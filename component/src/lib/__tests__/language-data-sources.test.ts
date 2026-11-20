@@ -25,6 +25,24 @@ describe("languageDataSources (#2485)", () => {
     ).toEqual(["$param_customer"]);
   });
 
+  it("accepts a list of completions as a source", async () => {
+    const doc = "SELECT $x";
+    const state = EditorState.create({
+      doc,
+      extensions: [
+        EditorState.languageData.of(() => [
+          { autocomplete: [{ label: "$x" }] },
+        ]),
+      ],
+    });
+    const result = await languageDataSources(
+      new CompletionContext(state, doc.length, false),
+    );
+    expect(
+      result && "options" in result && result.options.map((o) => o.label),
+    ).toEqual(["$x"]);
+  });
+
   it("gives nothing when none was added", async () => {
     const state = EditorState.create({ doc: "MATCH (n) RETURN $" });
     expect(

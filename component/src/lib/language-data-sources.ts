@@ -1,4 +1,6 @@
+import { completeFromList } from "@codemirror/autocomplete";
 import type {
+  Completion,
   CompletionContext,
   CompletionResult,
   CompletionSource,
@@ -13,12 +15,13 @@ import type {
 export const languageDataSources: CompletionSource = async (
   context: CompletionContext,
 ): Promise<CompletionResult | null> => {
-  const sources = context.state.languageDataAt<CompletionSource>(
-    "autocomplete",
-    context.pos,
-  );
+  const sources = context.state.languageDataAt<
+    CompletionSource | readonly Completion[]
+  >("autocomplete", context.pos);
   for (const source of sources) {
-    const result = await source(context);
+    const result = await (
+      typeof source === "function" ? source : completeFromList([...source])
+    )(context);
     if (result) return result;
   }
   return null;
