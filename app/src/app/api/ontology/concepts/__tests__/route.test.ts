@@ -20,6 +20,7 @@ const wheres: { table: unknown; where: unknown }[] = [];
 const inserts: { table: unknown; values: unknown }[] = [];
 const deletes: { table: unknown; where: unknown }[] = [];
 const updates: unknown[] = [];
+const orderBys: unknown[] = [];
 
 const mockDb = {
   select: vi.fn(() => ({
@@ -29,6 +30,10 @@ const mockDb = {
         const r = rows.get(table) ?? [];
         return Object.assign(Promise.resolve(r), {
           limit: () => Promise.resolve(r),
+          orderBy: (o: unknown) => {
+            orderBys.push(o);
+            return Promise.resolve(r);
+          },
         });
       },
     }),
@@ -72,6 +77,9 @@ vi.mock("drizzle-orm", async (orig) => ({
   eq: (col: { name: string }, val: unknown) => ({ eq: [col.name, val] }),
   and: (...parts: unknown[]) => ({ and: parts }),
   or: (...parts: unknown[]) => ({ or: parts }),
+  inArray: (col: { name: string }, vals: unknown[]) => ({
+    inArray: [col.name, vals],
+  }),
 }));
 
 const CREATOR = { userId: "u1", role: "creator", tenantId: "t1" };
@@ -150,6 +158,7 @@ describe("/api/ontology/concepts", () => {
     inserts.length = 0;
     deletes.length = 0;
     updates.length = 0;
+    orderBys.length = 0;
     mockFetchTerms.mockImplementation(async (type) => TERMS[type] ?? []);
     mockRequireSession.mockResolvedValue(CREATOR);
     rows.set(connections, [G, S]);
@@ -215,7 +224,7 @@ describe("/api/ontology/concepts", () => {
       ).toEqual(["customers", "orders"]);
     });
 
-    it("shows a reader only the sides on connections they can use, and hides a concept with none", async () => {
+    it("shows a creator only the sides on connections they can use, and hides a concept with none", async () => {
       // The connections table answers what the caller may use: only the graph.
       rows.set(connections, [G]);
       rows.set(ontologyConcepts, [
@@ -231,8 +240,15 @@ describe("/api/ontology/concepts", () => {
       expect(data.concepts).toHaveLength(1);
       expect(data.concepts[0].sides).toHaveLength(1);
       expect(data.concepts[0].sides[0].connectionId).toBe("graph");
+      // The only hint of the rest, for wording a delete.
+      expect(data.concepts[0].partial).toBe(true);
       // The usable filter is owner-or-shared for a creator.
       expect(whereOf(connections)).toContain('["visibility","shared"]');
+    });
+
+    it("reads the concepts in name order", async () => {
+      await GET();
+      expect(orderBys).toEqual([ontologyConcepts.name]);
     });
 
     it("shows an admin every concept, even one with no side", async () => {
@@ -241,6 +257,7 @@ describe("/api/ontology/concepts", () => {
       const { data } = await (await GET()).json();
       expect(data.concepts).toHaveLength(1);
       expect(data.concepts[0].sides).toEqual([]);
+      expect(data.concepts[0].partial).toBe(false);
       expect(whereOf(connections)).not.toContain('["visibility","shared"]');
     });
 
@@ -343,10 +360,81 @@ describe("/api/ontology/concepts", () => {
       expect(inserts).toEqual([]);
     });
 
+    it("explains two identical sides in plain words", async () => {
+      const dup = side("sql", "customers", "email");
+      const res = await post(body({ sides: [dup, dup] }));
+      expect((await res.json()).error.message).toContain(
+        "Two sides are the same",
+      );
+    });
+
+    it("does not name the concept that holds the parameter", async () => {
+      rows.set(ontologyConcepts, [CUSTOMER]);
+      const res = await post(body({ name: "Other" }));
+      expect((await res.json()).error.message).not.toContain("Customer");
+    });
+
+    it.each([
+      ["POST", () => post()],
+      ["PATCH", () => patch(body())],
+    ])(
+      "answers 409 when a concurrent %s hits a unique index",
+      async (_m, run) => {
+        if (_m === "PATCH") rows.set(ontologyConcepts, [CUSTOMER]);
+        rows.set(ontologyConceptSides, [
+          storedSide("k1", side("graph", "Person", "email")),
+        ]);
+        const sql = "Failed query: insert into ontology_concepts";
+        mockDb.transaction.mockRejectedValueOnce(
+          Object.assign(new Error(sql), { cause: { code: "23505" } }),
+        );
+        const res = await run();
+        expect(res.status).toBe(409);
+        expect(JSON.stringify(await res.json())).not.toContain("Failed query");
+      },
+    );
+
+    it.each([
+      ["POST", () => post(), () => mockDb.transaction],
+      ["PATCH", () => patch(body()), () => mockDb.transaction],
+      [
+        "DELETE",
+        () => DELETE(makeRequest({}), makeParams("k1")),
+        () => mockDb.delete,
+      ],
+      ["GET", () => GET(), () => mockDb.select],
+    ])(
+      "never echoes a failed statement from %s",
+      async (name, run, failing) => {
+        if (name !== "POST") {
+          rows.set(ontologyConcepts, [CUSTOMER]);
+          rows.set(ontologyConceptSides, [
+            storedSide("k1", side("graph", "Person", "email")),
+          ]);
+        }
+        const boom = new Error("Failed query: select * from ontology_concepts");
+        failing().mockImplementationOnce(() => {
+          throw boom;
+        });
+        const res = await run();
+        expect(res.status).toBe(500);
+        expect(JSON.stringify(await res.json())).not.toContain("Failed query");
+      },
+    );
+
     it.each([
       ["a parameter with a space", { parameter: "my customer" }],
       ["an empty parameter", { parameter: "" }],
       ["no sides", { sides: [] }],
+      [
+        "two identical sides",
+        {
+          sides: [
+            side("sql", "customers", "email"),
+            side("sql", "customers", "email"),
+          ],
+        },
+      ],
       ["a name over 200 characters", { name: "x".repeat(201) }],
       ["a description over 2000 characters", { description: "x".repeat(2001) }],
     ])("refuses %s", async (_w, over) => {
@@ -395,12 +483,15 @@ describe("/api/ontology/concepts", () => {
       expect((await patch(body())).status).toBe(200);
     });
 
-    it("is 404 for a concept of another tenant", async () => {
+    it("is 404 for a concept of another tenant, looked up by the session's tenant", async () => {
+      mockRequireSession.mockResolvedValue({ ...CREATOR, tenantId: "t2" });
       rows.set(ontologyConcepts, []);
       expect((await patch(body())).status).toBe(404);
       expect((await DELETE(makeRequest({}), makeParams("k1"))).status).toBe(
         404,
       );
+      expect(whereOf(ontologyConcepts)).toContain('["tenant_id","t2"]');
+      expect(whereOf(ontologyConcepts)).not.toContain('"t1"');
     });
 
     it("is refused for a reader, on both", async () => {
@@ -412,15 +503,72 @@ describe("/api/ontology/concepts", () => {
       expect(deletes).toEqual([]);
     });
 
-    it("is refused for a creator when a side sits on a connection they cannot use, but not for an admin", async () => {
-      rows.set(connections, [G]);
-      expect((await patch(body())).status).toBe(403);
-      expect((await DELETE(makeRequest({}), makeParams("k1"))).status).toBe(
-        403,
-      );
-      mockRequireSession.mockResolvedValue(ADMIN);
-      rows.set(connections, [G, S]);
-      expect((await patch(body())).status).toBe(200);
+    describe("a concept with a side on a connection the creator cannot use", () => {
+      beforeEach(() => rows.set(connections, [G]));
+      const only = body({ sides: [side("graph", "Person", "email")] });
+      const sidesDelete = () =>
+        JSON.stringify(
+          deletes
+            .filter((d) => d.table === ontologyConceptSides)
+            .map((d) => d.where),
+        );
+
+      it("keeps the hidden side when the creator edits their own", async () => {
+        const res = await patch(only);
+        expect(res.status).toBe(200);
+        // Only the graph sides are replaced; the sql side is never deleted.
+        expect(sidesDelete()).toContain('["connection_id",["graph"]]');
+        expect(sidesDelete()).not.toContain("sql");
+        const added = inserts.find((i) => i.table === ontologyConceptSides)
+          ?.values as { connectionId: string }[];
+        expect(added.map((a) => a.connectionId)).toEqual(["graph"]);
+      });
+
+      it("still refuses a side in the body on a connection they cannot use", async () => {
+        expect((await patch(body())).status).toBe(403);
+        expect(updates).toEqual([]);
+      });
+
+      it("removes only their sides on delete, and keeps the concept", async () => {
+        const res = await DELETE(makeRequest({}), makeParams("k1"));
+        expect(res.status).toBe(200);
+        expect(sidesDelete()).toContain('["connection_id",["graph"]]');
+        expect(deletes.some((d) => d.table === ontologyConcepts)).toBe(false);
+      });
+
+      it("reveals nothing of the hidden side in either answer", async () => {
+        const patched = JSON.stringify(await (await patch(only)).json());
+        const deleted = JSON.stringify(
+          await (await DELETE(makeRequest({}), makeParams("k1"))).json(),
+        );
+        for (const text of [patched, deleted]) {
+          expect(text).not.toMatch(/sql|customers/);
+        }
+      });
+
+      it("answers 404, like a missing id, when none of the sides is theirs", async () => {
+        rows.set(ontologyConceptSides, [
+          storedSide("k1", side("sql", "customers", "email")),
+        ]);
+        expect((await patch(only)).status).toBe(404);
+        expect((await DELETE(makeRequest({}), makeParams("k1"))).status).toBe(
+          404,
+        );
+        expect(deletes).toEqual([]);
+      });
+
+      it("lets an admin change every side and delete the whole concept", async () => {
+        mockRequireSession.mockResolvedValue(ADMIN);
+        rows.set(connections, [G, S]);
+        expect((await patch(body())).status).toBe(200);
+        const del = deletes.find((d) => d.table === ontologyConceptSides);
+        expect(JSON.stringify(del?.where)).not.toContain("connection_id");
+        deletes.length = 0;
+        expect((await DELETE(makeRequest({}), makeParams("k1"))).status).toBe(
+          200,
+        );
+        expect(deletes.some((d) => d.table === ontologyConcepts)).toBe(true);
+      });
     });
 
     it("deletes a concept by tenant and id", async () => {

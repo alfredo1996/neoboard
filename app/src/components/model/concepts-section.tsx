@@ -14,6 +14,9 @@ export interface ConceptsSectionProps {
   /** Creators and admins edit; readers see. */
   readonly canEdit: boolean;
   readonly search: string;
+  /** Open the New concept dialog; the page header holds its button. */
+  readonly newOpen: boolean;
+  readonly onNewClose: () => void;
 }
 
 /** A search matches a concept's name, parameter, description or any side. */
@@ -35,14 +38,19 @@ function groupByConnection(c: Concept) {
   return [...groups];
 }
 
+/** One chart colour per connection, in the order the page lists them. */
+const dotColor = (i: number) => `hsl(var(--chart-${(i % 10) + 1}))`;
+
 function ConceptRow({
   concept,
   names,
+  order,
   canEdit,
   onEdit,
 }: Readonly<{
   concept: Concept;
   names: Map<string, string>;
+  order: Map<string, number>;
   canEdit: boolean;
   onEdit: () => void;
 }>) {
@@ -68,7 +76,13 @@ function ConceptRow({
             data-testid={`concept-side-group-${concept.id}-${connectionId}`}
             className="grid grid-cols-[minmax(0,200px)_minmax(0,1fr)] gap-3"
           >
-            <span className="text-muted-foreground">
+            <span className="flex items-center gap-2 text-muted-foreground">
+              <span
+                aria-hidden="true"
+                data-testid="connection-dot"
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ background: dotColor(order.get(connectionId) ?? 0) }}
+              />
               {names.get(connectionId) ?? connectionId}
             </span>
             <div className="grid gap-1">
@@ -94,7 +108,7 @@ function ConceptRow({
         ))}
         {concept.sides.length > 1 && (
           <p className="m-0 text-meta text-muted-foreground">
-            Values must match exactly on both sides.
+            Values must match exactly on every side.
           </p>
         )}
       </div>
@@ -123,11 +137,17 @@ export function ConceptsSection({
   connections,
   canEdit,
   search,
+  newOpen,
+  onNewClose,
 }: ConceptsSectionProps) {
   const { data, isLoading, isError } = useConcepts();
-  const [dialog, setDialog] = useState<{ concept?: Concept } | null>(null);
+  const [editing, setEditing] = useState<Concept | null>(null);
   const names = useMemo(
     () => new Map(connections.map((c) => [c.id, c.name])),
+    [connections],
+  );
+  const order = useMemo(
+    () => new Map(connections.map((c, i) => [c.id, i])),
     [connections],
   );
   const q = search.trim().toLowerCase();
@@ -158,8 +178,9 @@ export function ConceptsSection({
         key={c.id}
         concept={c}
         names={names}
+        order={order}
         canEdit={canEdit}
-        onEdit={() => setDialog({ concept: c })}
+        onEdit={() => setEditing(c)}
       />
     ));
   }
@@ -177,13 +198,16 @@ export function ConceptsSection({
             reaches widgets on every connection mapped here.
           </p>
         </div>
-        {canEdit && <Button onClick={() => setDialog({})}>New concept</Button>}
       </div>
       {body}
       <ConceptDialog
-        open={dialog !== null}
-        onOpenChange={(o) => !o && setDialog(null)}
-        concept={dialog?.concept}
+        open={newOpen || editing !== null}
+        onOpenChange={(o) => {
+          if (o) return;
+          setEditing(null);
+          onNewClose();
+        }}
+        concept={editing ?? undefined}
         connections={connections}
       />
     </section>

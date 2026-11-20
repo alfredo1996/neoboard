@@ -7,7 +7,8 @@ import { fetchConnectionTerms } from "@/lib/connector/schema-prefetch";
 import { usableConnection } from "@/lib/db/connection-access";
 import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
 import { entityParentKey } from "@/lib/ontology/term-keys";
-import { badRequest, forbidden } from "@/lib/api/api-utils";
+import { badRequest, forbidden, handleRouteError } from "@/lib/api/api-utils";
+import { apiError } from "@/lib/api/api-response";
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
 import type { SchemaTerm } from "@neoboard/connection";
 import type { UserRole } from "@/lib/db/schema";
@@ -52,8 +53,48 @@ export const conceptFields = {
   sides: z
     .array(sideSchema)
     .min(1, "A concept needs at least one side")
-    .max(50),
+    .max(50)
+    .superRefine((sides, ctx) => {
+      const seen = new Set<string>();
+      for (const s of sides) {
+        const k = JSON.stringify([
+          s.connectionId,
+          s.entityKey,
+          s.keyPropertyKey,
+        ]);
+        if (seen.has(k)) {
+          ctx.addIssue({
+            code: "custom",
+            message: "Two sides are the same: remove one",
+          });
+          return;
+        }
+        seen.add(k);
+      }
+    }),
 };
+
+const UNIQUE_VIOLATION = "23505";
+const codeOf = (e: unknown) => (e as { code?: unknown } | null)?.code;
+
+/**
+ * A route's catch: a unique violation (a concurrent save of the same name,
+ * parameter or side; drizzle wraps the driver's error as `cause`) is a 409,
+ * and no other failure ever echoes the statement drizzle puts in its message.
+ */
+export function conceptRouteError(error: unknown, fallback: string) {
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  if (
+    codeOf(error) === UNIQUE_VIOLATION ||
+    codeOf(cause) === UNIQUE_VIOLATION
+  ) {
+    return apiError(
+      "CONFLICT",
+      "Another concept already uses this name or parameter, or this concept changed meanwhile. Reload and try again.",
+    );
+  }
+  return handleRouteError(error, fallback, { safeMessage: true });
+}
 
 type Session = { userId: string; role: UserRole; tenantId: string };
 type UsableConnection = {
@@ -203,5 +244,5 @@ export async function findClash(
   if (!other) return undefined;
   return other.name === fields.name
     ? `A concept named "${fields.name}" already exists`
-    : `The parameter "${fields.parameter}" is already used by "${other.name}"`;
+    : `The parameter "${fields.parameter}" is already used by another concept`;
 }

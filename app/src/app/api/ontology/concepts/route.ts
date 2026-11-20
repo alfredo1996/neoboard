@@ -6,14 +6,11 @@ import { randomId } from "@/lib/random-id";
 import { requireSession } from "@/lib/auth/session";
 import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { apiError, apiSuccess } from "@/lib/api/api-response";
-import {
-  validateBody,
-  readJsonBody,
-  handleRouteError,
-} from "@/lib/api/api-utils";
+import { validateBody, readJsonBody } from "@/lib/api/api-utils";
 import {
   checkSidesAgainstTerms,
   conceptFields,
+  conceptRouteError,
   findClash,
   flagSides,
   liveTermsById,
@@ -39,7 +36,8 @@ export async function GET() {
       db
         .select()
         .from(ontologyConcepts)
-        .where(eq(ontologyConcepts.tenantId, tenantId)),
+        .where(eq(ontologyConcepts.tenantId, tenantId))
+        .orderBy(ontologyConcepts.name),
       db
         .select()
         .from(ontologyConceptSides)
@@ -56,6 +54,11 @@ export async function GET() {
         name: c.name,
         parameter: c.parameter,
         description: c.description,
+        // Some side is out of the caller's sight: all a creator learns of it,
+        // to word a delete (it removes only their sides).
+        partial: sides.some(
+          (s) => s.conceptId === c.id && !usableIds.has(s.connectionId),
+        ),
         sides: flagSides(
           visible
             .filter((s) => s.conceptId === c.id)
@@ -70,7 +73,7 @@ export async function GET() {
       .filter((c) => c.sides.length > 0 || session.role === "admin");
     return apiSuccess({ concepts: out });
   } catch (error) {
-    return handleRouteError(error, "Failed to read the concepts");
+    return conceptRouteError(error, "Failed to read the concepts");
   }
 }
 
@@ -110,6 +113,6 @@ export async function POST(request: Request) {
     });
     return apiSuccess({ id, ...fields, sides }, 201);
   } catch (error) {
-    return handleRouteError(error, "Failed to save the concept");
+    return conceptRouteError(error, "Failed to save the concept");
   }
 }

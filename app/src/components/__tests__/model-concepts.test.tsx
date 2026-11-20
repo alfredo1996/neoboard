@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   cleanup,
@@ -58,14 +59,32 @@ const CUSTOMER: Concept = {
   ],
 };
 
-function show(canEdit = true, search = "") {
-  return render(
-    <ConceptsSection
-      connections={CONNECTIONS}
-      canEdit={canEdit}
-      search={search}
-    />,
+// The page owns the New concept button, in its header; this stands in for it.
+function Host({
+  canEdit,
+  search,
+}: Readonly<{ canEdit: boolean; search: string }>) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      {canEdit && (
+        <button type="button" onClick={() => setOpen(true)}>
+          New concept
+        </button>
+      )}
+      <ConceptsSection
+        connections={CONNECTIONS}
+        canEdit={canEdit}
+        search={search}
+        newOpen={open}
+        onNewClose={() => setOpen(false)}
+      />
+    </>
   );
+}
+
+function show(canEdit = true, search = "") {
+  return render(<Host canEdit={canEdit} search={search} />);
 }
 
 describe("ConceptsSection", () => {
@@ -111,10 +130,20 @@ describe("ConceptsSection", () => {
       expect(within(graph).getByText("Person")).toBeTruthy();
     });
 
+    it("marks each connection with its own chart colour", () => {
+      show();
+      const dot = (c: string) =>
+        within(screen.getByTestId(`concept-side-group-k1-${c}`)).getByTestId(
+          "connection-dot",
+        ).style.background;
+      expect(dot("graph")).toContain("--chart-1");
+      expect(dot("sql")).toContain("--chart-2");
+    });
+
     it("says that values must match exactly, for a concept with more than one side", () => {
       show();
       expect(
-        screen.getByText("Values must match exactly on both sides."),
+        screen.getByText("Values must match exactly on every side."),
       ).toBeTruthy();
     });
 
@@ -182,9 +211,12 @@ describe("ConceptsSection", () => {
       return screen.findByRole("dialog");
     };
     const pick = (dialog: HTMLElement, label: string, i: number, v: string) =>
-      fireEvent.change(within(dialog).getAllByLabelText(label)[i], {
-        target: { value: v },
-      });
+      fireEvent.change(
+        within(dialog).getByLabelText(`${label}, side ${i + 1}`),
+        {
+          target: { value: v },
+        },
+      );
 
     it("fills the parameter from the name until the parameter is edited", async () => {
       const dialog = await open();
@@ -203,7 +235,7 @@ describe("ConceptsSection", () => {
       const dialog = await open();
       pick(dialog, "Connection", 0, "graph");
       const entities = within(dialog)
-        .getAllByLabelText("Entity")[0]
+        .getByLabelText("Entity, side 1")
         .querySelectorAll("option");
       // The hidden, the orphaned and the relationship are not offered.
       expect([...entities].map((o) => o.textContent)).toEqual([
@@ -212,7 +244,7 @@ describe("ConceptsSection", () => {
       ]);
       pick(dialog, "Entity", 0, "Person");
       const keys = within(dialog)
-        .getAllByLabelText("Key property")[0]
+        .getByLabelText("Key property, side 1")
         .querySelectorAll("option");
       expect([...keys].map((o) => o.textContent)).toEqual([
         "Select a key property",
@@ -222,7 +254,7 @@ describe("ConceptsSection", () => {
       pick(dialog, "Connection", 0, "sql");
       pick(dialog, "Entity", 0, "orders");
       const sqlKeys = within(dialog)
-        .getAllByLabelText("Key property")[0]
+        .getByLabelText("Key property, side 1")
         .querySelectorAll("option");
       expect([...sqlKeys].map((o) => o.textContent)).toEqual([
         "Select a key property",
@@ -244,8 +276,11 @@ describe("ConceptsSection", () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "Add side" }));
       // The new side starts on the same connection.
       expect(
-        (within(dialog).getAllByLabelText("Connection")[1] as HTMLSelectElement)
-          .value,
+        (
+          within(dialog).getByLabelText(
+            "Connection, side 2",
+          ) as HTMLSelectElement
+        ).value,
       ).toBe("sql");
       pick(dialog, "Entity", 1, "orders");
       pick(dialog, "Key property", 1, "customer_id");
@@ -302,11 +337,11 @@ describe("ConceptsSection", () => {
     it("removes a side", async () => {
       const dialog = await open();
       fireEvent.click(within(dialog).getByRole("button", { name: "Add side" }));
-      expect(within(dialog).getAllByLabelText("Entity")).toHaveLength(2);
+      expect(within(dialog).getAllByLabelText(/^Entity, side/)).toHaveLength(2);
       fireEvent.click(
-        within(dialog).getAllByRole("button", { name: "Remove side" })[0],
+        within(dialog).getByRole("button", { name: "Remove side 1" }),
       );
-      expect(within(dialog).getAllByLabelText("Entity")).toHaveLength(1);
+      expect(within(dialog).getAllByLabelText(/^Entity, side/)).toHaveLength(1);
     });
   });
 
@@ -318,7 +353,7 @@ describe("ConceptsSection", () => {
       expect(
         (within(dialog).getByLabelText(/^Name/) as HTMLInputElement).value,
       ).toBe("Customer");
-      expect(within(dialog).getAllByLabelText("Entity")).toHaveLength(3);
+      expect(within(dialog).getAllByLabelText(/^Entity, side/)).toHaveLength(3);
       fireEvent.change(within(dialog).getByLabelText(/^Description/), {
         target: { value: "Buyer" },
       });
@@ -340,9 +375,110 @@ describe("ConceptsSection", () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
       expect(mockDelete).not.toHaveBeenCalled();
       fireEvent.click(
-        within(dialog).getByRole("button", { name: "Confirm delete" }),
+        within(dialog).getByRole("button", { name: "Remove this concept" }),
       );
       await waitFor(() => expect(mockDelete).toHaveBeenCalledWith("k1"));
+    });
+
+    it("words the delete by whether every side is the caller's", async () => {
+      mockConcepts = { data: [{ ...CUSTOMER, partial: true }] };
+      show();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Customer" }));
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+      expect(
+        within(dialog).getByRole("button", {
+          name: "Remove your sides of this concept",
+        }),
+      ).toBeTruthy();
+    });
+
+    it("lists a side's missing term as the current choice, labelled with its state", async () => {
+      mockConcepts = {
+        data: [
+          {
+            ...CUSTOMER,
+            sides: [
+              {
+                connectionId: "graph",
+                entityKey: "Store",
+                keyPropertyKey: "id",
+              },
+            ],
+          },
+        ],
+      };
+      show();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Customer" }));
+      const dialog = await screen.findByRole("dialog");
+      const entity = within(dialog).getByLabelText(
+        "Entity, side 1",
+      ) as HTMLSelectElement;
+      expect(entity.value).toBe("Store");
+      expect(entity.selectedOptions[0].textContent).toBe(
+        "Store (no longer in the database)",
+      );
+    });
+
+    it("shows a display name beside the key in the options", async () => {
+      mockTerms.graph = [
+        term({ key: "Person", displayName: "Customer" }),
+        prop("Person", "email", { displayName: "Email address" }),
+      ];
+      show();
+      fireEvent.click(screen.getByRole("button", { name: "New concept" }));
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText("Connection, side 1"), {
+        target: { value: "graph" },
+      });
+      fireEvent.change(within(dialog).getByLabelText("Entity, side 1"), {
+        target: { value: "Person" },
+      });
+      const labels = (l: string) =>
+        [...within(dialog).getByLabelText(l).querySelectorAll("option")].map(
+          (o) => o.textContent,
+        );
+      expect(labels("Entity, side 1")).toContain("Person · Customer");
+      expect(labels("Key property, side 1")).toContain("email · Email address");
+    });
+
+    it("disables Save, and says why, while two sides are the same", async () => {
+      show();
+      fireEvent.click(screen.getByRole("button", { name: "New concept" }));
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText(/^Name/), {
+        target: { value: "Customer" },
+      });
+      const fill = (i: number) => {
+        fireEvent.change(
+          within(dialog).getByLabelText(`Connection, side ${i}`),
+          {
+            target: { value: "sql" },
+          },
+        );
+        fireEvent.change(within(dialog).getByLabelText(`Entity, side ${i}`), {
+          target: { value: "customers" },
+        });
+        fireEvent.change(
+          within(dialog).getByLabelText(`Key property, side ${i}`),
+          { target: { value: "email" } },
+        );
+      };
+      fill(1);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Add side" }));
+      fill(2);
+      const save = within(dialog).getByRole("button", {
+        name: "Save",
+      }) as HTMLButtonElement;
+      expect(save.disabled).toBe(true);
+      expect(within(dialog).getByText(/Two sides are the same/)).toBeTruthy();
+      fireEvent.change(within(dialog).getByLabelText("Entity, side 2"), {
+        target: { value: "orders" },
+      });
+      fireEvent.change(within(dialog).getByLabelText("Key property, side 2"), {
+        target: { value: "customer_id" },
+      });
+      expect(save.disabled).toBe(false);
     });
   });
 });

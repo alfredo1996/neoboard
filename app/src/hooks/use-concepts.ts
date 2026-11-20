@@ -18,6 +18,8 @@ export interface Concept {
   parameter: string;
   description: string;
   sides: ConceptSide[];
+  /** The caller sees only some of the sides: a delete removes just theirs. */
+  partial?: boolean;
 }
 
 export type ConceptInput = Pick<

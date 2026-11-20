@@ -12,6 +12,10 @@ let mockState: {
   isFetching?: boolean;
 };
 
+let mockConcepts: unknown[] = [];
+vi.mock("@/hooks/use-concepts", () => ({
+  useConcepts: () => ({ data: mockConcepts }),
+}));
 vi.mock("@/hooks/use-ontology", () => ({
   useOntology: () => ({ ...mockState, refetch: mockRefetch }),
   useSaveTerms: () => ({ mutate: mockSave }),
@@ -59,8 +63,31 @@ function show(props: { canEdit?: boolean; search?: string } = {}) {
 
 describe("ConnectionTerms", () => {
   beforeEach(() => {
+    mockConcepts = [];
     vi.clearAllMocks();
     mockState = { data: { terms: TERMS } };
+  });
+
+  it("tags the key property of each concept mapped on this connection", () => {
+    mockState = { data: { terms: TERMS } };
+    mockConcepts = [
+      {
+        id: "k1",
+        name: "Customer",
+        sides: [
+          { connectionId: "c1", entityKey: "Person", keyPropertyKey: "email" },
+          {
+            connectionId: "other",
+            entityKey: "Person",
+            keyPropertyKey: "name",
+          },
+        ],
+      },
+    ];
+    show();
+    expect(screen.getAllByText("Customer key")).toHaveLength(1);
+    const row = screen.getByText("Customer key").closest("tr");
+    expect(row?.textContent).toContain("email");
   });
 
   it("lists entities, relationships and properties with their types and joins", () => {

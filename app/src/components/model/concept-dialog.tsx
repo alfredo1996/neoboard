@@ -24,6 +24,7 @@ import {
   type ConceptSide,
 } from "@/hooks/use-concepts";
 import { entityParentKey, slugParameter } from "@/lib/ontology/term-keys";
+import type { OntologyTerm } from "@/lib/ontology/merge";
 
 export interface ConceptConnection {
   readonly id: string;
@@ -40,18 +41,65 @@ const selectClass = `${fieldBaseClasses} ${controlSizes.default}`;
 
 interface SideRowProps {
   readonly side: Side;
+  /** 1-based, so a screen reader can tell the rows apart. */
+  readonly n: number;
   readonly connections: readonly ConceptConnection[];
   readonly onChange: (side: Side) => void;
   readonly onRemove: () => void;
+}
+
+/** `key · display name`, or the key alone. */
+const termLabel = (t: OntologyTerm) =>
+  t.displayName ? `${t.key} · ${t.displayName}` : t.key;
+
+/**
+ * The offered terms. A saved choice the picker would not offer (the database
+ * dropped it, or it is hidden) still shows, labelled with its state, so the
+ * form never holds a value the person cannot see.
+ */
+function TermOptions({
+  terms,
+  all,
+  kind,
+  current,
+  parentKey,
+  loaded,
+}: Readonly<{
+  terms: OntologyTerm[];
+  all: OntologyTerm[];
+  kind: string;
+  current: string;
+  parentKey: string;
+  loaded: boolean;
+}>) {
+  const offered = terms.some((t) => t.key === current);
+  const found = all.find(
+    (t) => t.kind === kind && t.key === current && t.parentKey === parentKey,
+  );
+  let state = "no longer in the database";
+  if (found && !found.orphaned) state = "hidden";
+  return (
+    <>
+      {current && loaded && !offered && (
+        <option value={current}>{`${current} (${state})`}</option>
+      )}
+      {terms.map((t) => (
+        <option key={t.key} value={t.key}>
+          {termLabel(t)}
+        </option>
+      ))}
+    </>
+  );
 }
 
 /**
  * One side: a connection, then an entity of it, then one of that entity's
  * properties. Only terms still in the database and not hidden are offered.
  */
-function SideRow({ side, connections, onChange, onRemove }: SideRowProps) {
+function SideRow({ side, n, connections, onChange, onRemove }: SideRowProps) {
   const { data } = useOntology(side.connectionId);
-  const terms = (data?.terms ?? []).filter((t) => !t.orphaned && !t.hidden);
+  const all = data?.terms ?? [];
+  const terms = all.filter((t) => !t.orphaned && !t.hidden);
   const entities = terms.filter((t) => t.kind === "entity");
   const keys = terms.filter(
     (t) =>
@@ -60,7 +108,7 @@ function SideRow({ side, connections, onChange, onRemove }: SideRowProps) {
   return (
     <div className="grid grid-cols-[1fr_1fr_1fr_auto] items-center gap-2">
       <select
-        aria-label="Connection"
+        aria-label={`Connection, side ${n}`}
         className={selectClass}
         value={side.connectionId}
         onChange={(e) =>
@@ -78,7 +126,7 @@ function SideRow({ side, connections, onChange, onRemove }: SideRowProps) {
         ))}
       </select>
       <select
-        aria-label="Entity"
+        aria-label={`Entity, side ${n}`}
         className={selectClass}
         value={side.entityKey}
         onChange={(e) =>
@@ -86,31 +134,37 @@ function SideRow({ side, connections, onChange, onRemove }: SideRowProps) {
         }
       >
         <option value="">Select an entity</option>
-        {entities.map((t) => (
-          <option key={t.key} value={t.key}>
-            {t.key}
-          </option>
-        ))}
+        <TermOptions
+          terms={entities}
+          all={all}
+          kind="entity"
+          current={side.entityKey}
+          parentKey=""
+          loaded={Boolean(data)}
+        />
       </select>
       <select
-        aria-label="Key property"
+        aria-label={`Key property, side ${n}`}
         className={selectClass}
         value={side.keyPropertyKey}
         disabled={!side.entityKey}
         onChange={(e) => onChange({ ...side, keyPropertyKey: e.target.value })}
       >
         <option value="">Select a key property</option>
-        {keys.map((t) => (
-          <option key={t.key} value={t.key}>
-            {t.key}
-          </option>
-        ))}
+        <TermOptions
+          terms={keys}
+          all={all}
+          kind="property"
+          current={side.keyPropertyKey}
+          parentKey={entityParentKey(side.entityKey)}
+          loaded={Boolean(data)}
+        />
       </select>
       <Button
         type="button"
         size="sm"
         variant="ghost"
-        aria-label="Remove side"
+        aria-label={`Remove side ${n}`}
         onClick={onRemove}
       >
         ✕
@@ -160,10 +214,19 @@ function ConceptForm({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string>();
 
+  // Blank sides are only unfinished, so only filled ones can repeat.
+  const filled = sides.filter((s) => s.entityKey && s.keyPropertyKey);
+  const duplicate =
+    new Set(
+      filled.map((s) =>
+        JSON.stringify([s.connectionId, s.entityKey, s.keyPropertyKey]),
+      ),
+    ).size !== filled.length;
   const complete =
     name.trim() !== "" &&
     parameter !== "" &&
     sides.length > 0 &&
+    !duplicate &&
     sides.every((s) => s.connectionId && s.entityKey && s.keyPropertyKey);
 
   async function run(action: () => Promise<unknown>) {
@@ -223,10 +286,11 @@ function ConceptForm({
         </Field>
         <div className="grid gap-2">
           <p className="m-0 text-sm font-medium">Mapping</p>
-          {sides.map((s) => (
+          {sides.map((s, i) => (
             <SideRow
               key={s.uid}
               side={s}
+              n={i + 1}
               connections={connections}
               onChange={(next) => setSide(s.uid, next)}
               onRemove={() =>
@@ -256,6 +320,11 @@ function ConceptForm({
             </Button>
           </div>
         </div>
+        {duplicate && (
+          <p role="status" className="m-0 text-sm text-destructive">
+            Two sides are the same: remove one.
+          </p>
+        )}
         <p className="m-0 text-meta text-muted-foreground">
           Values travel exactly. The keys must hold the same values on every
           side: a click that sets <code>${parameter || "customer"}</code>{" "}
@@ -277,7 +346,9 @@ function ConceptForm({
               disabled={remove.isPending}
               onClick={() => run(() => remove.mutateAsync(concept.id))}
             >
-              Confirm delete
+              {concept.partial
+                ? "Remove your sides of this concept"
+                : "Remove this concept"}
             </Button>
           ) : (
             <Button

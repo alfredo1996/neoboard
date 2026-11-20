@@ -90,7 +90,9 @@ test.describe.serial("Model page concepts (#2484)", () => {
     index: number,
     value: string,
   ) => {
-    const control = dialog.getByLabel(label, { exact: true }).nth(index);
+    const control = dialog.getByLabel(`${label}, side ${index + 1}`, {
+      exact: true,
+    });
     // The options of an entity or key picker arrive once the connection's terms do.
     await expect(control.locator(`option[value="${value}"]`)).toHaveCount(1, {
       timeout: 30_000,

@@ -431,8 +431,10 @@ const SPEC = {
         tags: ["Connections"],
         summary: "Replace a concept",
         description:
-          "Replaces the name, parameter, description and sides under the rules of creating one. A creator who cannot use a " +
-          "connection one of its stored sides sits on is refused (403); an admin is not.",
+          "Replaces the name, parameter, description and the sides on connections the caller can use, under the rules of creating " +
+          "one; sides on other connections stay as they are (a side in the body on one the caller cannot use is refused, 403). " +
+          "An admin changes every side. A concept with no side the caller can use answers 404, as a missing one does. " +
+          "Two identical sides answer 400.",
         requestBody: jsonBody("#/components/schemas/ConceptRequest"),
         responses: {
           200: jsonResponse("The concept", "#/components/schemas/Concept"),
@@ -450,7 +452,9 @@ const SPEC = {
         tags: ["Connections"],
         summary: "Delete a concept",
         description:
-          "Deletes the concept and its sides. Same access as replacing one. Deleting a connection removes its sides.",
+          "An admin deletes the concept and its sides. A creator removes only their sides, those on connections they can use; the " +
+          "concept goes when none remain and stays for others otherwise. 404 when the caller can use none of its sides. " +
+          "Deleting a connection removes its sides.",
         responses: {
           200: R.deleteSuccess,
           401: R.unauthorized,
@@ -1833,6 +1837,11 @@ const SPEC = {
           sides: {
             type: "array",
             items: { $ref: "#/components/schemas/ConceptSide" },
+          },
+          partial: {
+            type: "boolean",
+            description:
+              "Listing only: some side is on a connection the caller cannot use, so deleting removes only their sides.",
           },
         },
       },
