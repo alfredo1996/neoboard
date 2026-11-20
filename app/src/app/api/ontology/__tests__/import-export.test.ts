@@ -535,6 +535,50 @@ describe("ontology export and import (#2510)", () => {
       expect(writesTo(ontologyTerms)[0].values).toHaveLength(1);
     });
 
+    it("writes one side when two file connections map to one local connection (CR1)", async () => {
+      rows.set(connections, [conn("graph")]);
+      const file = fileOf();
+      file.concepts[0].sides = [
+        side("f-graph", "Person", "email"),
+        side("f-sql", "Person", "email"),
+      ];
+      const mapping = { "f-graph": "graph", "f-sql": "graph" };
+      const { data } = await (
+        await post(importBody({ payload: file, connectionMapping: mapping }))
+      ).json();
+      expect(data.preview.concepts.new).toBe(1);
+      await post(
+        importBody({ payload: file, connectionMapping: mapping, apply: true }),
+      );
+      expect(writesTo(ontologyConceptSides)[0].values).toHaveLength(1);
+    });
+
+    it("does not re-insert a side the stored concept already has (CR1)", async () => {
+      rows.set(ontologyConcepts, [CUSTOMER]);
+      rows.set(ontologyConceptSides, [
+        storedSide("s1", side("graph", "Person", "email")),
+      ]);
+      const file = fileOf();
+      file.concepts[0].sides = [side("f-graph", "Person", "email")];
+      await post(importBody({ payload: file, apply: true }));
+      expect(writesTo(ontologyConceptSides)).toHaveLength(0);
+    });
+
+    it("403s an unusable mapped target before any introspection or write (CR4)", async () => {
+      rows.set(connections, [conn("graph")]); // the mock ignores the id filter
+      const res = await post(
+        importBody({
+          connectionMapping: { "f-graph": "graph", "f-sql": "hidden" },
+          apply: true,
+        }),
+      );
+      expect(res.status).toBe(403);
+      expect(mockFetchTerms).not.toHaveBeenCalled();
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+      expect(inserts).toHaveLength(0);
+      expect(updates).toHaveLength(0);
+    });
+
     it("a file connection id like an Object property is skipped, not mapped", async () => {
       rows.set(connections, []); // nothing is mapped, so nothing is usable
       const file = fileOf();

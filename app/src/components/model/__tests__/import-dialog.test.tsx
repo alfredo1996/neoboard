@@ -229,4 +229,57 @@ describe("ImportDialog", () => {
       ),
     );
   });
+
+  it("drops a preview still pending when the pairing changes (CR2)", async () => {
+    let resolve!: (v: unknown) => void;
+    mutateAsync.mockReturnValue(new Promise((r) => (resolve = r)));
+    open();
+    await upload(fileText);
+    await screen.findByLabelText("Warehouse");
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Skip Warehouse" }));
+    resolve({ applied: false, preview: PREVIEW });
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByTestId("import-counts")).toBeNull();
+    expect(screen.getByRole("button", { name: "Preview" })).toBeTruthy();
+  });
+
+  it("Confirm applies the very input that was previewed (CR2)", async () => {
+    await toPreview();
+    mutateAsync.mockResolvedValue({ applied: true, preview: PREVIEW });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(2));
+    expect(mutateAsync).toHaveBeenLastCalledWith({
+      payload: JSON.parse(fileText),
+      connectionMapping: { f1: "l2" },
+      apply: true,
+    });
+  });
+
+  it.each([
+    ["a numeric id", { id: 5, name: "x", terms: [] }],
+    ["an empty id", { id: "", name: "x", terms: [] }],
+    ["a name that is not a string", { id: "f1", name: {}, terms: [] }],
+    ["a connection that is not an object", null],
+  ])("refuses a file with %s before it reaches render (CR5)", async (_n, c) => {
+    open();
+    await upload(
+      JSON.stringify({
+        format: "neoboard-ontology",
+        version: 1,
+        connections: [c],
+        concepts: [],
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain(
+        "not a NeoBoard ontology file",
+      ),
+    );
+    expect(screen.getByRole("button", { name: "Preview" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
 });

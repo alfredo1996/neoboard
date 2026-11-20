@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Alert,
   AlertDescription,
@@ -51,9 +51,19 @@ function readFile(text: string): { payload: unknown; list: FileConnection[] } {
   if (f?.format !== "neoboard-ontology" || !Array.isArray(f.connections)) {
     throw new Error("This is not a NeoBoard ontology file");
   }
+  // The server's file rules: an id and a name that are strings, the id not empty.
+  const valid = f.connections.every(
+    (c) =>
+      c !== null &&
+      typeof c === "object" &&
+      typeof c.id === "string" &&
+      c.id !== "" &&
+      typeof c.name === "string",
+  );
+  if (!valid) throw new Error("This is not a NeoBoard ontology file");
   const list = (f.connections as FileConnection[]).map((c) => ({
     id: c.id,
-    name: typeof c.name === "string" ? c.name : "",
+    name: c.name,
   }));
   return { payload, list };
 }
@@ -150,11 +160,22 @@ export function ImportDialog({
   } | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
-  const [preview, setPreview] = useState<OntologyImportResult | null>(null);
+  // The preview with the exact input it was made from: Confirm applies that.
+  const [preview, setPreview] = useState<{
+    result: OntologyImportResult;
+    input: { payload: unknown; connectionMapping: Record<string, string> };
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by anything that changes the input; a response for an older one is dropped.
+  const generation = useRef(0);
+  const invalidate = () => {
+    generation.current++;
+    setPreview(null);
+  };
 
   const close = (next: boolean) => {
     if (!next) {
+      generation.current++;
       setFile(null);
       setPreview(null);
       setError(null);
@@ -163,16 +184,18 @@ export function ImportDialog({
     onOpenChange(next);
   };
 
-  const toggleSkip = (id: string) =>
+  const toggleSkip = (id: string) => {
+    invalidate();
     setSkipped((prev) => {
       const next = new Set(prev);
       if (!next.delete(id)) next.add(id);
       return next;
     });
+  };
 
   const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    setPreview(null);
+    invalidate();
     setError(null);
     setFile(null);
     if (!f) return;
@@ -198,23 +221,30 @@ export function ImportDialog({
   };
 
   const send = async (apply: boolean) => {
-    if (!file) return;
+    const input = apply
+      ? preview?.input
+      : file && {
+          payload: file.payload,
+          connectionMapping: Object.fromEntries(
+            Object.entries(mapping).filter(
+              ([id, to]) => to && !skipped.has(id),
+            ),
+          ),
+        };
+    if (!input) return;
+    const mine = generation.current;
     setError(null);
     try {
-      const result = await run.mutateAsync({
-        payload: file.payload,
-        connectionMapping: Object.fromEntries(
-          Object.entries(mapping).filter(([id, to]) => to && !skipped.has(id)),
-        ),
-        apply,
-      });
+      const result = await run.mutateAsync({ ...input, apply });
+      if (mine !== generation.current) return;
       if (apply) {
         toast({ title: "Model imported" });
         close(false);
       } else {
-        setPreview(result);
+        setPreview({ result, input });
       }
     } catch (err) {
+      if (mine !== generation.current) return;
       setError(err instanceof Error ? err.message : "The import failed");
     }
   };
@@ -231,7 +261,7 @@ export function ImportDialog({
         </DialogHeader>
         <div className="min-w-0 space-y-4 py-4">
           {preview ? (
-            <Summary result={preview} />
+            <Summary result={preview.result} />
           ) : (
             <>
               <Field label="Model file (.json)" id="ontology-file">
@@ -264,9 +294,10 @@ export function ImportDialog({
                       {!skipped.has(c.id) && (
                         <Select
                           value={mapping[c.id] ?? ""}
-                          onValueChange={(val) =>
-                            setMapping((m) => ({ ...m, [c.id]: val }))
-                          }
+                          onValueChange={(val) => {
+                            invalidate();
+                            setMapping((m) => ({ ...m, [c.id]: val }));
+                          }}
                         >
                           <SelectTrigger aria-label={c.name || c.id}>
                             <SelectValue placeholder="Select connection" />

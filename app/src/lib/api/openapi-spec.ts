@@ -415,7 +415,7 @@ const SPEC = {
           "connection id in the file with a local one; one left out is skipped. Without `apply` the answer is a preview and nothing is " +
           "written. With `apply: true` the file wins for what it holds, nothing absent from it is deleted, and a key the live structure " +
           "no longer has is written and reported as orphaned; all writes are one transaction. An unknown format or a newer version is " +
-          "refused (400). Names are limited to 200 characters and descriptions to 2,000.",
+          "refused (400). The preview lists what it left out in `skipped`, and each item carries a stable `id`. Names are limited to 200 characters and descriptions to 2,000.",
         requestBody: jsonBody("#/components/schemas/OntologyImportRequest"),
         responses: {
           200: jsonResponse(
@@ -1932,7 +1932,27 @@ const SPEC = {
           },
           concepts: {
             type: "array",
-            items: { $ref: "#/components/schemas/ConceptRequest" },
+            items: { $ref: "#/components/schemas/OntologyFileConcept" },
+          },
+        },
+      },
+      OntologyFileConcept: {
+        type: "object",
+        required: ["name", "parameter", "sides"],
+        description:
+          "A concept in the file. Unlike a created concept it may have no sides: an admin's export keeps a concept whose sides are all on connections no one can use.",
+        properties: {
+          name: { type: "string", maxLength: 200 },
+          parameter: {
+            type: "string",
+            maxLength: 100,
+            pattern: String.raw`^\w+$`,
+          },
+          description: { type: "string", maxLength: 2000, default: "" },
+          sides: {
+            type: "array",
+            maxItems: 50,
+            items: { $ref: "#/components/schemas/ConceptSide" },
           },
         },
       },
@@ -1970,10 +1990,30 @@ const SPEC = {
                 items: {
                   type: "object",
                   properties: {
+                    id: {
+                      type: "string",
+                      description:
+                        "Stable key of the item within the preview (a JSON array string).",
+                    },
                     kind: { type: "string", enum: ["term", "concept"] },
                     label: { type: "string" },
                     status: { type: "string", enum: ["new", "changed"] },
                     orphaned: { type: "boolean" },
+                  },
+                },
+              },
+              skipped: {
+                type: "array",
+                description:
+                  "What the import leaves out, named from the file's own data: a concept, or one side of a concept on a connection that is not mapped.",
+                items: {
+                  type: "object",
+                  properties: {
+                    kind: {
+                      type: "string",
+                      enum: ["concept", "side"],
+                    },
+                    label: { type: "string" },
                   },
                 },
               },
