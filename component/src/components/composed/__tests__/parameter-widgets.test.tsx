@@ -1395,7 +1395,7 @@ describe("ParamSelector — cascading props (migrated from CascadingSelector)", 
         onChange={vi.fn()}
       />,
     );
-    expect(screen.queryByText(/depends on/i)).toBeNull();
+    expect(screen.queryByText(/Filtered by/)).toBeNull();
   });
 
   it("shows 'Select parent first' placeholder when parent is absent", () => {
@@ -1552,7 +1552,7 @@ describe("ParamMultiSelector — cascading props", () => {
     );
     expect(screen.getByRole("combobox")).not.toBeDisabled();
     expect(screen.queryByText(/first…/)).toBeNull();
-    expect(screen.queryByText(/depends on/)).toBeNull();
+    expect(screen.queryByText(/Filtered by/)).toBeNull();
   });
 
   it("lets an explicit placeholder win over the parent prompt", () => {
@@ -1580,7 +1580,7 @@ describe("ParamMultiSelector — cascading props", () => {
       />,
     );
     expect(screen.getByRole("combobox")).not.toBeDisabled();
-    expect(screen.queryByText(/depends on/)).toBeNull();
+    expect(screen.queryByText(/Filtered by/)).toBeNull();
   });
 });
 
