@@ -51,8 +51,16 @@ export function buildLabelColorMap(
  */
 function graphPrimitiveString(val: unknown): string {
   if (val === null || val === undefined) return "";
-  if (typeof val !== "object") return String(val);
-  return JSON.stringify(val);
+  if (typeof val === "string") return val;
+  if (
+    typeof val === "number" ||
+    typeof val === "boolean" ||
+    typeof val === "bigint"
+  ) {
+    return String(val);
+  }
+  // Lists and maps as JSON; a function or symbol (never in row data) as "".
+  return JSON.stringify(val) ?? "";
 }
 
 /**
