@@ -84,6 +84,9 @@ export function graphInspectorWidth(graphWidth: number): number {
   return Math.min(380, Math.max(graphWidth / 3, Math.min(280, graphWidth / 2)));
 }
 
+/** Under this width the header's Copy is an icon, so the title keeps room. */
+const NARROW_PANEL = 240;
+
 /** Rows shown in a connection group before "+N more". */
 const GROUP_PREVIEW = 5;
 
@@ -335,7 +338,14 @@ function GraphInspector({
               style={{ backgroundColor: element.color }}
             />
           )}
-          <span className="line-clamp-2 [overflow-wrap:anywhere]">
+          <span
+            title={element.title}
+            className={cn(
+              "min-w-0",
+              // One word never breaks: it ends in an ellipsis. Words wrap.
+              /\s/.test(element.title) ? "line-clamp-2" : "truncate",
+            )}
+          >
             {element.title}
           </span>
         </h3>
@@ -343,6 +353,9 @@ function GraphInspector({
           <CopyButton
             value={elementJson}
             variant="ghost"
+            {...(width < NARROW_PANEL
+              ? { size: "icon-sm" as const }
+              : { label: "Copy" })}
             aria-label={`Copy ${kind.toLowerCase()} as JSON`}
             onCopied={() => onCopied?.(`the ${kind.toLowerCase()} as JSON`)}
             onBlocked={blocked(elementJson)}

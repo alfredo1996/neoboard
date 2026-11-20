@@ -1729,6 +1729,67 @@ describe("GraphChart look (#2229)", () => {
       expect(left.left + left.width).toBeLessThanOrEqual(400);
     });
 
+    it.each([
+      ["left", 200, 600, 40],
+      ["left", 200, 600, 590],
+      ["right", 200, 600, 590],
+      ["right", 500, 600, 10],
+    ] as const)(
+      "keeps the whole tooltip box in the free region (%s inset %i, box %i, pointer %i)",
+      (side, inset, boxW, px) => {
+        const { container } = render(
+          <GraphChart
+            nodes={movies}
+            edges={rels}
+            overlayInset={{ side, width: inset }}
+          />,
+        );
+        const box = container.firstElementChild as HTMLElement;
+        Object.defineProperty(box, "clientWidth", { value: boxW });
+        Object.defineProperty(box, "clientHeight", { value: 200 });
+        const cb = capturedProps.mouseEventCallbacks as {
+          onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+        };
+        act(() =>
+          cb.onHover({ id: "p2" }, [], {
+            clientX: px,
+            clientY: 5,
+          } as MouseEvent),
+        );
+        const tip = screen.getByTestId("graph-hover");
+        const left = parseFloat(tip.style.left);
+        const w = parseFloat(tip.style.maxWidth);
+        const lo = side === "left" ? inset : 0;
+        const hi = side === "left" ? boxW : boxW - inset;
+        expect(left).toBeGreaterThanOrEqual(lo);
+        expect(left + w).toBeLessThanOrEqual(hi);
+      },
+    );
+
+    it("moves a standing tooltip off a panel that opens under it", () => {
+      const props = { nodes: movies, edges: rels };
+      const { container, rerender } = render(<GraphChart {...props} />);
+      const box = container.firstElementChild as HTMLElement;
+      Object.defineProperty(box, "clientWidth", { value: 600 });
+      Object.defineProperty(box, "clientHeight", { value: 200 });
+      const cb = capturedProps.mouseEventCallbacks as {
+        onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+      };
+      act(() =>
+        cb.onHover({ id: "p2" }, [], {
+          clientX: 500,
+          clientY: 5,
+        } as MouseEvent),
+      );
+      rerender(
+        <GraphChart {...props} overlayInset={{ side: "right", width: 300 }} />,
+      );
+      const tip = screen.getByTestId("graph-hover");
+      expect(
+        parseFloat(tip.style.left) + parseFloat(tip.style.maxWidth),
+      ).toBeLessThanOrEqual(300);
+    });
+
     it("keeps the hover tooltip out of the panel", () => {
       const { container } = render(
         <GraphChart

@@ -124,6 +124,33 @@ describe("GraphInspector header", () => {
   });
 });
 
+describe("GraphInspector narrow header (#2515)", () => {
+  it.each([
+    [239, false],
+    [300, true],
+  ])("at %ipx the header Copy shows its text: %s", (width, text) => {
+    setup({ width });
+    const copy = screen.getByRole("button", { name: "Copy node as JSON" });
+    expect(copy.textContent).toBe(text ? "Copy" : "");
+  });
+
+  it("never breaks the title inside a word", () => {
+    setup({ element: rel, width: 170 });
+    const title = screen.getByText("REVIEWED", { selector: "span" });
+    expect(title).toHaveAttribute("title", "REVIEWED");
+    expect(title.className).not.toMatch(/overflow-wrap|anywhere|break-all/);
+    // One word truncates on a line; words wrap up to two.
+    expect(title).toHaveClass("truncate");
+  });
+
+  it("wraps a title of several words on word boundaries, up to two lines", () => {
+    setup({ element: { ...rel, title: "ACTED IN MOVIE" }, width: 170 });
+    const title = screen.getByText("ACTED IN MOVIE", { selector: "span" });
+    expect(title).toHaveClass("line-clamp-2");
+    expect(title.className).not.toMatch(/anywhere|break-/);
+  });
+});
+
 describe("GraphInspector stepper", () => {
   it("says which of the parallel relationships this is", () => {
     setup({ element: rel });

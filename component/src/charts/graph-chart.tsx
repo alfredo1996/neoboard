@@ -510,9 +510,10 @@ function GraphChartInner({
   const [hover, setHover] = useState<{
     title: string;
     sub: string;
+    /** The pointer, in the container; the tooltip is placed at render, so a
+     *  panel that opens under a standing tooltip still clears it. */
     x: number;
     y: number;
-    w: number;
   } | null>(null);
   // A seed, read once: later position reports must not move nodes under NVL.
   const [seedPositions] = useState(initialPositions);
@@ -591,8 +592,6 @@ function GraphChartInner({
   const onRelationshipClickRef = useRef(onRelationshipClick);
   onRelationshipClickRef.current = onRelationshipClick;
 
-  const overlayInsetRef = useRef(overlayInset);
-  overlayInsetRef.current = overlayInset;
   const captionMapRef = useRef(captionMap);
   captionMapRef.current = captionMap;
   const nodesRef = useRef(nodes);
@@ -695,16 +694,8 @@ function GraphChartInner({
     (): InteractiveNvlWrapperProps["mouseEventCallbacks"] => ({
       onHover: (element, _hit, event) => {
         const box = containerRef.current?.getBoundingClientRect();
-        const {
-          left: x,
-          top: y,
-          width: w,
-        } = tooltipPos(
-          (event?.clientX ?? 0) - (box?.left ?? 0),
-          (event?.clientY ?? 0) - (box?.top ?? 0),
-          containerRef.current,
-          overlayInsetRef.current,
-        );
+        const x = (event?.clientX ?? 0) - (box?.left ?? 0);
+        const y = (event?.clientY ?? 0) - (box?.top ?? 0);
         if (!element) return setHover(null);
         if ("from" in element) {
           const name = (id: string) => {
@@ -716,7 +707,6 @@ function GraphChartInner({
             sub: element.type ?? "",
             x,
             y,
-            w,
           });
         }
         const node = nodesRef.current.find((c) => c.id === element.id);
@@ -726,7 +716,6 @@ function GraphChartInner({
           sub: colorLabel(node) ?? "",
           x,
           y,
-          w,
         });
       },
       onDrag: true,
@@ -1119,7 +1108,15 @@ function GraphChartInner({
       {hover && (
         <div
           className="pointer-events-none absolute z-30 max-w-56 rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md"
-          style={{ left: hover.x, top: hover.y, maxWidth: hover.w }}
+          style={(() => {
+            const t = tooltipPos(
+              hover.x,
+              hover.y,
+              containerRef.current,
+              overlayInset,
+            );
+            return { left: t.left, top: t.top, maxWidth: t.width };
+          })()}
           data-testid="graph-hover"
         >
           <div className="truncate font-medium">{hover.title}</div>
