@@ -16,7 +16,9 @@ export const markRefresh = (
   queryKey: QueryKey,
   key: string,
 ) => {
-  if (queryClient.getQueryCache().find({ queryKey, type: "active" })) {
+  if (
+    queryClient.getQueryCache().findAll({ queryKey, type: "active" }).length > 0
+  ) {
     pending.add(key);
   }
 };

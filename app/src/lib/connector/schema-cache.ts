@@ -75,7 +75,8 @@ export function forgetIntrospections(
   connectionId: string,
 ): void {
   const p = prefix(tenantId, connectionId);
-  for (const key of [...cache.keys()]) {
+  // Deleting from a Map while iterating its keys is safe in JS.
+  for (const key of cache.keys()) {
     if (key.startsWith(p)) cache.delete(key);
   }
 }

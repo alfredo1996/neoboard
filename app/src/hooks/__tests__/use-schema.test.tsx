@@ -111,7 +111,7 @@ describe("createRefreshSchema utility", () => {
     return {
       cancelQueries: vi.fn().mockResolvedValue(undefined),
       invalidateQueries: vi.fn().mockResolvedValue(undefined),
-      getQueryCache: () => ({ find: () => undefined }),
+      getQueryCache: () => ({ findAll: () => [] }),
       ...overrides,
     } as unknown as QueryClient;
   }

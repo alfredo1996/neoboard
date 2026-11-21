@@ -3,8 +3,7 @@ import {
   describeConnectionTerms,
   getSchemaManager,
 } from "@/lib/connector/connection-adapter";
-import type { SchemaTerm } from "@neoboard/connection";
-import type { DatabaseSchema } from "@neoboard/connection";
+import type { DatabaseSchema, SchemaTerm } from "@neoboard/connection";
 import { driverConfig } from "@/lib/connector/container-host";
 import {
   cachedIntrospection,

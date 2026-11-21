@@ -51,12 +51,13 @@ export function useConnectionSchema(connectionId: string | null | undefined) {
   const query = useQuery<DatabaseSchema>({
     queryKey: ["connection-schema", connectionId],
     queryFn: async ({ signal }) => {
+      const flag = `schema:${connectionId}`;
       const r = await fetch(
-        `/api/connections/${connectionId}/schema${peekRefresh(`schema:${connectionId}`)}`,
+        `/api/connections/${connectionId}/schema${peekRefresh(flag)}`,
         { signal },
       );
       const schema = await unwrapResponse<DatabaseSchema>(r);
-      clearRefresh(`schema:${connectionId}`);
+      clearRefresh(flag);
       setSchema(connectionId!, schema);
       return schema;
     },
