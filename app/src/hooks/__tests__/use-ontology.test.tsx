@@ -79,6 +79,33 @@ describe("use-ontology", () => {
     ]);
   });
 
+  it("a refresh whose first request fails before the server keeps its flag for the retry", async () => {
+    let n = 0;
+    fetchMock.mockImplementation(async () => {
+      if (++n === 2) throw new TypeError("network");
+      return ok([{ key: "A" }]);
+    });
+    const { wrapper } = setup();
+    const { result } = renderHook(
+      () => ({ q: useOntology("c1"), refresh: useRefreshOntology("c1") }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.q.data).toBeDefined());
+    await act(async () => {
+      await result.current.refresh();
+    });
+    await waitFor(() => expect(n).toBe(3), { timeout: 4000 });
+    await act(async () => {
+      await result.current.q.refetch();
+    });
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+      "/api/connections/c1/ontology",
+      "/api/connections/c1/ontology?refresh=1",
+      "/api/connections/c1/ontology?refresh=1",
+      "/api/connections/c1/ontology",
+    ]);
+  });
+
   it("keeps one refresh function across renders, and leaves TanStack's result unwrapped", async () => {
     fetchMock.mockImplementation(async () => ok([{ key: "A" }]));
     const { wrapper } = setup();

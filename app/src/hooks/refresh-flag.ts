@@ -2,8 +2,8 @@ import type { QueryClient, QueryKey } from "@tanstack/react-query";
 
 /**
  * Connections whose next read must skip the server's introspection cache
- * (#2514): the Model page's and the editor's Refresh. Taken by the request
- * that follows, so a later ordinary read is served from the cache again.
+ * (#2514): the Model page's and the editor's Refresh. Cleared when the request
+ * that follows succeeds, so a later ordinary read is served from the cache again.
  */
 const pending = new Set<string>();
 
@@ -21,6 +21,14 @@ export const markRefresh = (
   }
 };
 
-/** `?refresh=1` when `key` was marked, else nothing; clears the mark. */
-export const takeRefresh = (key: string) =>
-  pending.delete(key) ? "?refresh=1" : "";
+/**
+ * `?refresh=1` while `key` is marked. Reading does not clear it: a request that
+ * fails before the server is retried, and the retry must still skip the cache.
+ */
+export const peekRefresh = (key: string) =>
+  pending.has(key) ? "?refresh=1" : "";
+
+/** Clears the mark once a refresh has been answered. */
+export const clearRefresh = (key: string) => {
+  pending.delete(key);
+};

@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@neoboard/components";
-import { markRefresh, takeRefresh } from "@/hooks/refresh-flag";
+import { clearRefresh, markRefresh, peekRefresh } from "@/hooks/refresh-flag";
 import { unwrapResponse } from "@/lib/api/api-client";
 import type { OntologyTerm } from "@/lib/ontology/merge";
 
@@ -29,13 +29,17 @@ export function useOntology(connectionId: string) {
   return useQuery<OntologyResponse>({
     enabled: connectionId !== "",
     queryKey: ontologyKey(connectionId),
-    queryFn: async ({ signal }) =>
-      unwrapResponse<OntologyResponse>(
+    queryFn: async ({ signal }) => {
+      const flag = `ontology:${connectionId}`;
+      const data = await unwrapResponse<OntologyResponse>(
         await fetch(
-          `/api/connections/${connectionId}/ontology${takeRefresh(`ontology:${connectionId}`)}`,
+          `/api/connections/${connectionId}/ontology${peekRefresh(flag)}`,
           { signal },
         ),
-      ),
+      );
+      clearRefresh(flag);
+      return data;
+    },
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
