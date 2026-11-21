@@ -45,6 +45,16 @@ describe("describeConnectionTerms", () => {
     ]);
   });
 
+  it("adapts the schema the caller read, not a second read of its own (#2514)", async () => {
+    const fetchSchema = jest.fn().mockRejectedValue(new Error("not used"));
+    registerConnector(plugin({ createSchemaManager: () => ({ fetchSchema }) }));
+    const readSchema = async () => ({ type: "terms-db", labels: ["B"] });
+    await expect(
+      describeConnectionTerms("terms-db", {}, readSchema),
+    ).resolves.toEqual([{ kind: "entity", key: "B", parentKey: "" }]);
+    expect(fetchSchema).not.toHaveBeenCalled();
+  });
+
   it("gives no terms for a connector with no schema manager, or an unknown type", async () => {
     registerConnector(plugin({}));
     await expect(describeConnectionTerms("terms-db", {})).resolves.toEqual([]);

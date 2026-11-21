@@ -15,7 +15,11 @@ import {
   TableRow,
   Tag,
 } from "@neoboard/components";
-import { useOntology, useSaveTerms } from "@/hooks/use-ontology";
+import {
+  useOntology,
+  useRefreshOntology,
+  useSaveTerms,
+} from "@/hooks/use-ontology";
 import { useConcepts } from "@/hooks/use-concepts";
 import { entityParentKey } from "@/lib/ontology/term-keys";
 import { groupTerms } from "@/lib/ontology/group";
@@ -178,6 +182,7 @@ export function ConnectionTerms({
 }: ConnectionTermsProps) {
   const { data, isLoading, isError, isFetching, refetch } =
     useOntology(connectionId);
+  const refresh = useRefreshOntology(connectionId);
   const save = useSaveTerms(connectionId);
   const { data: concepts } = useConcepts();
   // Concept names by the property that keys them here, for the "<Concept> key" tag.
@@ -323,7 +328,7 @@ export function ConnectionTerms({
             className="gap-2"
             disabled={isFetching}
             aria-label={`Refresh the structure of ${name}`}
-            onClick={() => refetch()}
+            onClick={() => refresh()}
           >
             <RefreshCw
               className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`}

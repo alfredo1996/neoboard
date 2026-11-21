@@ -10,9 +10,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
 
+const scope = { tenantId: "t1", connectionId: "c1", configEncrypted: "enc" };
 const getSchemaManager = vi.fn();
 vi.mock("@/lib/connector/connection-adapter", () => ({
   getSchemaManager: (type: string) => getSchemaManager(type),
+  // Reads the schema it is handed, as the real one does (#2514).
+  describeConnectionTerms: async (
+    _type: string,
+    _config: unknown,
+    schemaOf: () => Promise<{ labels: string[] }>,
+  ) => (await schemaOf()).labels,
 }));
 
 // The deployment facts `resolveContainerHost` reads — mocked at the leaves, so
@@ -25,12 +32,15 @@ vi.mock("@/lib/connector/host-alias", () => ({
   hostAliasResolves: async () => true,
 }));
 
+import { resetSchemaCacheForTests } from "@/lib/connector/schema-cache";
 import {
+  fetchConnectionTerms,
   fetchConnectionSchema,
   prefetchSchema,
 } from "@/lib/connector/schema-prefetch";
 
 beforeEach(() => {
+  resetSchemaCacheForTests();
   getSchemaManager.mockReset();
   containerised = false;
 });
@@ -47,7 +57,7 @@ describe("fetchConnectionSchema", () => {
     const fetchSchema = vi.fn().mockResolvedValue(schema);
     getSchemaManager.mockReturnValue({ fetchSchema });
 
-    const result = await fetchConnectionSchema("neo4j", creds);
+    const result = await fetchConnectionSchema("neo4j", creds, scope);
 
     expect(getSchemaManager).toHaveBeenCalledWith("neo4j");
     // ONE argument: the config bag itself — no authType, nothing renamed.
@@ -70,7 +80,7 @@ describe("fetchConnectionSchema", () => {
       maxPoolSize: 3,
     };
 
-    await fetchConnectionSchema("postgresql", full);
+    await fetchConnectionSchema("postgresql", full, scope);
 
     expect(fetchSchema.mock.calls).toEqual([[full]]);
     // The URI is as typed: the connector applies `database` itself.
@@ -84,6 +94,7 @@ describe("fetchConnectionSchema", () => {
     const result = await fetchConnectionSchema(
       "unknown" as unknown as Parameters<typeof fetchConnectionSchema>[0],
       creds,
+      scope,
     );
     expect(result).toBeNull();
   });
@@ -99,7 +110,7 @@ describe("prefetchSchema", () => {
   it("fires the fetch for the resolved manager", async () => {
     const fetchSchema = vi.fn().mockResolvedValue({});
     getSchemaManager.mockReturnValue({ fetchSchema });
-    prefetchSchema("postgresql", creds);
+    prefetchSchema("postgresql", creds, scope);
     await vi.waitFor(() => expect(fetchSchema).toHaveBeenCalled());
   });
 
@@ -107,7 +118,7 @@ describe("prefetchSchema", () => {
     const fetchSchema = vi.fn().mockRejectedValue(new Error("boom"));
     getSchemaManager.mockReturnValue({ fetchSchema });
     // Must not throw synchronously or reject unhandled.
-    expect(() => prefetchSchema("postgresql", creds)).not.toThrow();
+    expect(() => prefetchSchema("postgresql", creds, scope)).not.toThrow();
     await vi.waitFor(() => expect(fetchSchema).toHaveBeenCalled());
   });
 });
@@ -119,6 +130,49 @@ describe("schema-prefetch module exports", () => {
 
   it("exports prefetchSchema as a function", () => {
     expect(typeof prefetchSchema).toBe("function");
+  });
+});
+
+// #2514: the editor, the Model page and every save read one connection; one
+// introspection serves them all.
+describe("one introspection per connection (#2514)", () => {
+  const creds: ConnectionCredentials = { uri: "bolt://localhost:7687" };
+  const schema = { type: "neo4j", labels: ["Person"] };
+
+  it("serves the schema and the terms from one read", async () => {
+    const fetchSchema = vi.fn().mockResolvedValue(schema);
+    getSchemaManager.mockReturnValue({ fetchSchema });
+
+    await fetchConnectionSchema("neo4j", creds, scope);
+    expect(await fetchConnectionTerms("neo4j", creds, scope)).toEqual([
+      "Person",
+    ]);
+    await fetchConnectionTerms("neo4j", creds, scope);
+
+    expect(fetchSchema).toHaveBeenCalledTimes(1);
+  });
+
+  it("a schema Refresh is seen by the next terms read", async () => {
+    const fetchSchema = vi
+      .fn()
+      .mockResolvedValueOnce({ type: "neo4j", labels: ["Old"] })
+      .mockResolvedValue({ type: "neo4j", labels: ["New"] });
+    getSchemaManager.mockReturnValue({ fetchSchema });
+
+    expect(await fetchConnectionTerms("neo4j", creds, scope)).toEqual(["Old"]);
+    await fetchConnectionSchema("neo4j", creds, { ...scope, refresh: true });
+
+    expect(await fetchConnectionTerms("neo4j", creds, scope)).toEqual(["New"]);
+  });
+
+  it("reads again when asked to refresh", async () => {
+    const fetchSchema = vi.fn().mockResolvedValue(schema);
+    getSchemaManager.mockReturnValue({ fetchSchema });
+
+    await fetchConnectionSchema("neo4j", creds, scope);
+    await fetchConnectionTerms("neo4j", creds, { ...scope, refresh: true });
+
+    expect(fetchSchema).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -137,7 +191,7 @@ describe("fetchConnectionSchema in a container (#1919)", () => {
       database: "movies",
     };
 
-    await fetchConnectionSchema("graphdb", stored);
+    await fetchConnectionSchema("graphdb", stored, scope);
 
     expect(fetchSchema).toHaveBeenCalledWith({
       uri: "bolt://host.docker.internal:7687",
@@ -153,7 +207,7 @@ describe("fetchConnectionSchema in a container (#1919)", () => {
     const fetchSchema = vi.fn().mockResolvedValue({});
     getSchemaManager.mockReturnValue({ fetchSchema });
 
-    await fetchConnectionSchema("files", { path: "/data" });
+    await fetchConnectionSchema("files", { path: "/data" }, scope);
 
     expect(fetchSchema).toHaveBeenCalledWith({ path: "/data" });
   });

@@ -14,7 +14,14 @@ import {
 // ---------------------------------------------------------------------------
 
 const mockRequireSession = vi.fn();
-const mockFetchTerms = vi.fn<(type: string) => Promise<SchemaTerm[]>>();
+const mockFetchTerms =
+  vi.fn<
+    (
+      type: string,
+      config?: unknown,
+      scope?: { refresh?: boolean },
+    ) => Promise<SchemaTerm[]>
+  >();
 const rows = new Map<unknown, unknown[]>();
 const wheres: { table: unknown; where: unknown }[] = [];
 const inserts: { table: unknown; values: unknown }[] = [];
@@ -419,8 +426,29 @@ describe("/api/ontology/concepts", () => {
         const res = await post(body({ sides: [s] }));
         expect(res.status).toBe(400);
         expect(inserts).toEqual([]);
+        expect(mockFetchTerms).toHaveBeenCalledTimes(2); // cached, then fresh
       },
     );
+
+    it("reads past the cache once for an entity it does not know, and saves it when the database has it (#2514)", async () => {
+      rows.set(connections, [S]);
+      mockFetchTerms.mockImplementation(async (type, _c, scope) => {
+        const live = TERMS[type] ?? [];
+        return scope?.refresh
+          ? [...live, ent("invoices"), prop("invoices", "number")]
+          : live;
+      });
+      const res = await post(
+        body({ sides: [side("sql", "invoices", "number")] }),
+      );
+      expect(res.status).toBe(201);
+    });
+
+    it("never waits on a second read when every side is known (#2514)", async () => {
+      rows.set(connections, [S]);
+      await post(body({ sides: [side("sql", "customers", "email")] }));
+      expect(mockFetchTerms).toHaveBeenCalledTimes(1);
+    });
 
     it.each([
       ["name", { name: "Customer", parameter: "other" }],

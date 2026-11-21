@@ -155,7 +155,11 @@ describe("POST /api/connections — validated by the connector's descriptor", ()
       maxRows: 2000,
     };
     expect(mockEncryptJson).toHaveBeenCalledExactlyOnceWith(expected);
-    expect(mockPrefetchSchema).toHaveBeenCalledWith(TYPE, expected);
+    expect(mockPrefetchSchema).toHaveBeenCalledWith(
+      TYPE,
+      expected,
+      expect.objectContaining({ tenantId: expect.any(String) }),
+    );
   });
 
   it("answers 400 with a message per field and echoes no value", async () => {

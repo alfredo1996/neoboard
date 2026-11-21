@@ -99,6 +99,7 @@ export function conceptRouteError(error: unknown, fallback: string) {
 type Session = { userId: string; role: UserRole; tenantId: string };
 type UsableConnection = {
   id: string;
+  tenantId: string;
   name: string;
   type: string;
   configEncrypted: string;
@@ -112,6 +113,7 @@ export function usableConnections(
   return db
     .select({
       id: connections.id,
+      tenantId: connections.tenantId,
       name: connections.name,
       type: connections.type,
       configEncrypted: connections.configEncrypted,
@@ -127,10 +129,16 @@ export function usableConnections(
 }
 
 // async, so a decrypt that throws rejects (and settles) instead of escaping.
-const termsOf = async (c: UsableConnection) =>
+const termsOf = async (c: UsableConnection, refresh = false) =>
   fetchConnectionTerms(
     c.type,
     decryptJson<ConnectionCredentials>(c.configEncrypted),
+    {
+      tenantId: c.tenantId,
+      connectionId: c.id,
+      configEncrypted: c.configEncrypted,
+      refresh,
+    },
   );
 
 const has = (
@@ -162,33 +170,40 @@ export async function usableOrForbidden(
   return { usable };
 }
 
+const badSide = (sides: SideInput[], terms: Map<string, SchemaTerm[]>) => {
+  for (const s of sides) {
+    const live = terms.get(s.connectionId) ?? [];
+    if (!has(live, "entity", s.entityKey, "")) {
+      return `The connection has no entity "${s.entityKey}"`;
+    }
+    if (
+      !has(live, "property", s.keyPropertyKey, entityParentKey(s.entityKey))
+    ) {
+      return `"${s.entityKey}" has no property "${s.keyPropertyKey}"`;
+    }
+  }
+  return undefined;
+};
+
 /**
  * Checks each side against its connection's live terms: the entity and the key
- * property must be there. A Response when one is not.
+ * property must be there. A Response when one is not. The cached read answers
+ * first; a side it refuses may be new in the database, so the connections are
+ * read once more, past the cache, before it is refused (#2514).
  */
 export async function checkSidesAgainstTerms(
   sides: SideInput[],
   usable: UsableConnection[],
 ) {
-  const terms = new Map(
-    await Promise.all(
-      usable.map(async (c) => [c.id, await termsOf(c)] as const),
-    ),
-  );
-  for (const s of sides) {
-    const live = terms.get(s.connectionId) ?? [];
-    if (!has(live, "entity", s.entityKey, "")) {
-      return badRequest(`The connection has no entity "${s.entityKey}"`);
-    }
-    if (
-      !has(live, "property", s.keyPropertyKey, entityParentKey(s.entityKey))
-    ) {
-      return badRequest(
-        `"${s.entityKey}" has no property "${s.keyPropertyKey}"`,
-      );
-    }
-  }
-  return undefined;
+  const read = async (refresh: boolean) =>
+    new Map(
+      await Promise.all(
+        usable.map(async (c) => [c.id, await termsOf(c, refresh)] as const),
+      ),
+    );
+  const bad =
+    badSide(sides, await read(false)) && badSide(sides, await read(true));
+  return bad ? badRequest(bad) : undefined;
 }
 
 export interface ReadSide extends SideInput {
@@ -220,7 +235,7 @@ export function flagSides(
 
 /** The live terms of each connection, `undefined` where one cannot be read. */
 export async function liveTermsById(usable: UsableConnection[]) {
-  const settled = await Promise.allSettled(usable.map(termsOf));
+  const settled = await Promise.allSettled(usable.map((c) => termsOf(c)));
   return new Map(
     usable.map((c, i) => {
       const r = settled[i];

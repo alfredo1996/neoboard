@@ -123,10 +123,28 @@ describe("/api/connections/[id]/ontology", () => {
   });
 
   describe("GET", () => {
+    it.each([
+      ["", false],
+      ["?refresh=1", true],
+    ])("with url %s asks for refresh=%s (#2514)", async (query, refresh) => {
+      mockRequireSession.mockResolvedValue(CREATOR);
+      selects.push([CONN], []);
+      await GET(new Request(`http://localhost/x${query}`), makeParams("c1"));
+      expect(mockFetchTerms).toHaveBeenCalledWith("x", expect.anything(), {
+        tenantId: "t1",
+        connectionId: "c1",
+        configEncrypted: "enc",
+        refresh,
+      });
+    });
+
     it("is 404 for a connection the caller cannot use", async () => {
       mockRequireSession.mockResolvedValue(CREATOR);
       selects.push([]);
-      const res = await GET({} as Request, makeParams("c1"));
+      const res = await GET(
+        new Request("http://localhost/x"),
+        makeParams("c1"),
+      );
       expect(res.status).toBe(404);
     });
 
@@ -145,7 +163,10 @@ describe("/api/connections/[id]/ontology", () => {
           },
         ],
       );
-      const res = await GET({} as Request, makeParams("c1"));
+      const res = await GET(
+        new Request("http://localhost/x"),
+        makeParams("c1"),
+      );
       expect(res.status).toBe(200);
       const { data } = await res.json();
       expect(data.terms[0]).toMatchObject({
@@ -167,7 +188,7 @@ describe("/api/connections/[id]/ontology", () => {
       async (_who, session, scoped) => {
         mockRequireSession.mockResolvedValue(session);
         selects.push([]);
-        await GET({} as Request, makeParams("c1"));
+        await GET(new Request("http://localhost/x"), makeParams("c1"));
         const w = JSON.stringify(wheres[0]);
         expect(w).toContain('["id","c1"]');
         expect(w).toContain('["tenant_id","t1"]');
@@ -179,12 +200,45 @@ describe("/api/connections/[id]/ontology", () => {
     it("is the same for a reader, who may read", async () => {
       mockRequireSession.mockResolvedValue(READER);
       selects.push([CONN], []);
-      const res = await GET({} as Request, makeParams("c1"));
+      const res = await GET(
+        new Request("http://localhost/x"),
+        makeParams("c1"),
+      );
       expect(res.status).toBe(200);
     });
   });
 
   describe("PUT", () => {
+    it("checks keys against the cached read, never a fresh one (#2514)", async () => {
+      mockRequireSession.mockResolvedValue(CREATOR);
+      selects.push([CONN], []);
+      await put([edit({ displayName: "x" })]);
+      expect(mockFetchTerms).toHaveBeenCalledWith("x", expect.anything(), {
+        tenantId: "t1",
+        connectionId: "c1",
+        configEncrypted: "enc",
+        refresh: false,
+      });
+      expect(mockFetchTerms).toHaveBeenCalledTimes(1);
+    });
+
+    it("reads once more, past the cache, for a key it does not know, and saves it when the database has it", async () => {
+      mockRequireSession.mockResolvedValue(CREATOR);
+      selects.push([CONN]);
+      const fresh: SchemaTerm = { kind: "entity", key: "Newer", parentKey: "" };
+      mockFetchTerms
+        .mockResolvedValueOnce(LIVE)
+        .mockResolvedValueOnce([...LIVE, fresh]);
+      const res = await put([edit({ key: "Newer", displayName: "x" })]);
+      expect(res.status).toBe(200);
+      expect(mockFetchTerms).toHaveBeenCalledTimes(2);
+      expect(mockFetchTerms).toHaveBeenLastCalledWith(
+        "x",
+        expect.anything(),
+        expect.objectContaining({ refresh: true }),
+      );
+    });
+
     it("refuses a reader and writes nothing", async () => {
       mockRequireSession.mockResolvedValue(READER);
       selects.push([CONN]);
@@ -224,6 +278,7 @@ describe("/api/connections/[id]/ontology", () => {
       selects.push([CONN]);
       const res = await put([edit({ key: "Nope", displayName: "x" })]);
       expect(res.status).toBe(400);
+      expect(mockFetchTerms).toHaveBeenCalledTimes(2); // cached, then once fresh
       expect(mockDb.insert).not.toHaveBeenCalled();
     });
 

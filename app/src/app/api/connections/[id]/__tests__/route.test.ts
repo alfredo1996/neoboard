@@ -83,6 +83,10 @@ const mockForgetDeadConnector = vi.fn();
 vi.mock("@/lib/query/middleware/dead-connector", () => ({
   forgetDeadConnector: mockForgetDeadConnector,
 }));
+const mockForgetIntrospections = vi.fn();
+vi.mock("@/lib/connector/schema-cache", () => ({
+  forgetIntrospections: mockForgetIntrospections,
+}));
 vi.mock("next/server", () => nextResponseMockFactory());
 vi.mock("@/lib/auth/errors", () => ({ UnauthorizedError, ForbiddenError }));
 
@@ -539,6 +543,10 @@ describe("PATCH /api/connections/[id]", () => {
     // A repointed connection must be dialled again at once: the memo would
     // otherwise replay the old host's failure for its whole TTL (#1888).
     expect(mockForgetDeadConnector).toHaveBeenCalledExactlyOnceWith("t1", "c1");
+    expect(mockForgetIntrospections).toHaveBeenCalledExactlyOnceWith(
+      "t1",
+      "c1",
+    );
     expect(mockCloseConnection).toHaveBeenCalledWith("neo4j", {
       uri: "bolt://localhost:7687",
       username: "neo4j",
@@ -546,11 +554,19 @@ describe("PATCH /api/connections/[id]", () => {
       database: "neo4j",
       connectionTimeout: 5000,
     });
-    expect(mockPrefetchSchema).toHaveBeenCalledWith("neo4j", {
-      uri: "bolt://new-host",
-      username: "neo4j",
-      password: "newpass",
-    });
+    expect(mockPrefetchSchema).toHaveBeenCalledWith(
+      "neo4j",
+      {
+        uri: "bolt://new-host",
+        username: "neo4j",
+        password: "newpass",
+      },
+      {
+        tenantId: "t1",
+        connectionId: "c1",
+        configEncrypted: expect.any(String),
+      },
+    );
   });
 
   it("recomputes the stored address when the config changes (#2265)", async () => {
@@ -757,11 +773,19 @@ describe("PATCH /api/connections/[id]", () => {
       makeParams("c1"),
     );
 
-    expect(mockPrefetchSchema).toHaveBeenCalledWith("postgresql", {
-      uri: "postgresql://localhost:5432",
-      username: "pg",
-      password: "newpass",
-    });
+    expect(mockPrefetchSchema).toHaveBeenCalledWith(
+      "postgresql",
+      {
+        uri: "postgresql://localhost:5432",
+        username: "pg",
+        password: "newpass",
+      },
+      {
+        tenantId: "t1",
+        connectionId: "c1",
+        configEncrypted: expect.any(String),
+      },
+    );
   });
 });
 
@@ -829,6 +853,10 @@ describe("DELETE /api/connections/[id]", () => {
     expect(body.error).toBeNull();
     // Nothing left to remember (#1888).
     expect(mockForgetDeadConnector).toHaveBeenCalledExactlyOnceWith("t1", "c1");
+    expect(mockForgetIntrospections).toHaveBeenCalledExactlyOnceWith(
+      "t1",
+      "c1",
+    );
 
     // Both the pre-delete read and the delete itself are scoped to
     // id + owner + session tenant (#1607).

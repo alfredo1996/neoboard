@@ -5,7 +5,7 @@
  * utility, and the hook itself via renderHook with a real QueryClient.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { DatabaseSchema } from "@neoboard/connection";
@@ -111,6 +111,7 @@ describe("createRefreshSchema utility", () => {
     return {
       cancelQueries: vi.fn().mockResolvedValue(undefined),
       invalidateQueries: vi.fn().mockResolvedValue(undefined),
+      getQueryCache: () => ({ find: () => undefined }),
       ...overrides,
     } as unknown as QueryClient;
   }
@@ -365,5 +366,74 @@ describe("useConnectionSchema hook", () => {
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     expect(result.current.data?.type).toBe("postgresql");
+  });
+
+  it("a Refresh whose first request fails before the server keeps its flag for the retry", async () => {
+    let n = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      if (++n === 2) throw new TypeError("network");
+      return new Response(JSON.stringify(neo4jSchema), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    const { result } = renderHook(() => useConnectionSchema("conn-retry"), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await act(() => result.current.refreshSchema());
+    await waitFor(() => expect(n).toBe(3), { timeout: 4000 });
+    await act(() => queryClient.invalidateQueries());
+
+    expect(vi.mocked(globalThis.fetch).mock.calls.map((c) => c[0])).toEqual([
+      "/api/connections/conn-retry/schema",
+      "/api/connections/conn-retry/schema?refresh=1",
+      "/api/connections/conn-retry/schema?refresh=1",
+      "/api/connections/conn-retry/schema",
+    ]);
+  });
+
+  // #2514: the server keeps what it read for five minutes; Refresh asks for a
+  // fresh read, and only that one request does.
+  it("Refresh asks the server to read the database again, once", async () => {
+    const reply = () =>
+      new Response(JSON.stringify(neo4jSchema), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => reply());
+
+    const { result } = renderHook(() => useConnectionSchema("conn-fresh"), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await act(() => result.current.refreshSchema());
+    await act(() => queryClient.invalidateQueries());
+
+    expect(vi.mocked(globalThis.fetch).mock.calls.map((c) => c[0])).toEqual([
+      "/api/connections/conn-fresh/schema",
+      "/api/connections/conn-fresh/schema?refresh=1",
+      "/api/connections/conn-fresh/schema",
+    ]);
+  });
+
+  it("a Refresh with no query mounted leaves the next ordinary read un-refreshed", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(JSON.stringify(neo4jSchema), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    await createRefreshSchema(queryClient)("conn-idle");
+
+    const { result } = renderHook(() => useConnectionSchema("conn-idle"), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(vi.mocked(globalThis.fetch).mock.calls.map((c) => c[0])).toEqual([
+      "/api/connections/conn-idle/schema",
+    ]);
   });
 });
