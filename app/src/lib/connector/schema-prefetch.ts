@@ -30,12 +30,9 @@ export async function fetchConnectionSchema(
   // Registry-keyed dispatch (#1119) — no hardcoded per-type branching.
   const manager = getSchemaManager(type);
   if (!manager) return null; // connector type has no schema introspection
-  // One read per connection serves the schema and the terms (#2514). Keyed on
-  // the stored config, before the host rewrite below.
+  // One read per connection serves the schema and the terms (#2514).
   return cachedIntrospection(
     scope,
-    credentials,
-    "schema",
     async () =>
       // Built exactly as the query path builds it, so the schema comes from
       // the same host as the connection's queries (#1919).
@@ -54,23 +51,18 @@ export async function fetchConnectionTerms(
   credentials: ConnectionCredentials,
   scope: SchemaScope,
 ): Promise<SchemaTerm[]> {
-  // The schema comes through the cache, so the terms cost no second read.
-  return cachedIntrospection(
-    scope,
-    credentials,
-    "terms",
-    async () =>
-      describeConnectionTerms(
+  // ponytail: no cache layer of its own, so a schema Refresh is the terms'
+  // Refresh too (#2514). A connector with its own `describeTerms` is read
+  // uncached each time; give it a layer if one ever proves slow.
+  return describeConnectionTerms(
+    type,
+    await driverConfig(credentials),
+    () =>
+      fetchConnectionSchema(
         type,
-        await driverConfig(credentials),
-        () =>
-          fetchConnectionSchema(
-            type,
-            credentials,
-            scope,
-          ) as Promise<DatabaseSchema>,
-      ),
-    scope,
+        credentials,
+        scope,
+      ) as Promise<DatabaseSchema>,
   );
 }
 

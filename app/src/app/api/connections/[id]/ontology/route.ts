@@ -97,7 +97,12 @@ function liveTerms(
   return fetchConnectionTerms(
     connection.type,
     decryptJson<ConnectionCredentials>(connection.configEncrypted),
-    { tenantId, connectionId: connection.id, refresh },
+    {
+      tenantId,
+      connectionId: connection.id,
+      configEncrypted: connection.configEncrypted,
+      refresh,
+    },
   );
 }
 
@@ -155,18 +160,29 @@ export async function PUT(
     const connection = await findUsable(id, session);
     if (!connection) return notFound("Connection not found");
 
-    // Checked against the cached read, not a fresh one: a save never waits on
-    // a full introspection (#2514).
-    const live = await liveTerms(connection, session.tenantId);
-    const known = new Set(
-      live.map((t) => JSON.stringify([t.kind, t.key, t.parentKey])),
-    );
-    for (const t of validation.data.terms) {
+    // Checked against the cached read, so a save whose keys are all known
+    // never waits on an introspection (#2514). A key it does not know may be
+    // new in the database (a replica, a schema-only Refresh, an API client):
+    // read once more, past the cache, before refusing it.
+    const unknownKey = (live: Awaited<ReturnType<typeof liveTerms>>) => {
+      const known = new Set(
+        live.map((t) => JSON.stringify([t.kind, t.key, t.parentKey])),
+      );
       // A removal needs no live key: it is how an orphan goes.
-      if (t.remove) continue;
-      if (!known.has(JSON.stringify([t.kind, t.key, t.parentKey]))) {
-        return badRequest(`The connection has no ${t.kind} "${t.key}"`);
-      }
+      return validation.data.terms.find(
+        (t) =>
+          !t.remove && !known.has(JSON.stringify([t.kind, t.key, t.parentKey])),
+      );
+    };
+    let live = await liveTerms(connection, session.tenantId);
+    if (unknownKey(live)) {
+      live = await liveTerms(connection, session.tenantId, true);
+    }
+    const missing = unknownKey(live);
+    if (missing) {
+      return badRequest(
+        `The connection has no ${missing.kind} "${missing.key}"`,
+      );
     }
 
     const { tenantId } = session;

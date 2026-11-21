@@ -112,7 +112,12 @@ describe("GET /api/connections/[id]/schema", () => {
       expect(mockFetchConnectionSchema).toHaveBeenCalledWith(
         "neo4j",
         { uri: "bolt://localhost" },
-        { tenantId: "t1", connectionId: "c1", refresh },
+        {
+          tenantId: "t1",
+          connectionId: "c1",
+          configEncrypted: "enc",
+          refresh,
+        },
       );
     },
   );

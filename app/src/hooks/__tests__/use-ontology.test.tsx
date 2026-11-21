@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   useEditorTerms,
   useOntology,
+  useRefreshOntology,
   useSaveTerms,
 } from "@/hooks/use-ontology";
 
@@ -53,23 +54,61 @@ describe("use-ontology", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("/api/connections/c1/ontology");
   });
 
-  it("the Model page's refetch asks the server to read the database again, every time", async () => {
+  it("the Model page's refresh asks the server to read the database again, every time; a plain refetch does not", async () => {
     fetchMock.mockImplementation(async () => ok([{ key: "A" }]));
     const { wrapper } = setup();
-    const { result } = renderHook(() => useOntology("c1"), { wrapper });
-    await waitFor(() => expect(result.current.data).toBeDefined());
+    const { result } = renderHook(
+      () => ({ q: useOntology("c1"), refresh: useRefreshOntology("c1") }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.q.data).toBeDefined());
     await act(async () => {
-      await result.current.refetch();
+      await result.current.refresh();
     });
     await act(async () => {
-      await result.current.refetch();
+      await result.current.refresh();
     });
-    // The second refetch also asks for a fresh read: each press is a Refresh.
+    await act(async () => {
+      await result.current.q.refetch(); // "Try again"
+    });
     expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
       "/api/connections/c1/ontology",
       "/api/connections/c1/ontology?refresh=1",
       "/api/connections/c1/ontology?refresh=1",
+      "/api/connections/c1/ontology",
     ]);
+  });
+
+  it("keeps one refresh function across renders, and leaves TanStack's result unwrapped", async () => {
+    fetchMock.mockImplementation(async () => ok([{ key: "A" }]));
+    const { wrapper } = setup();
+    const { result, rerender } = renderHook(
+      () => ({ q: useOntology("c1"), refresh: useRefreshOntology("c1") }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.q.data).toBeDefined());
+    const first = result.current;
+    rerender();
+    expect(result.current.refresh).toBe(first.refresh);
+    expect(result.current.q.refetch).toBe(first.q.refetch);
+  });
+
+  it("a Refresh with no query mounted does not mark the next ordinary read", async () => {
+    fetchMock.mockImplementation(async () => ok([{ key: "A" }]));
+    const { wrapper } = setup();
+    const { result: idle } = renderHook(() => useRefreshOntology("c1"), {
+      wrapper,
+    });
+    await act(async () => {
+      await idle.current();
+    });
+    renderHook(() => useOntology("c1"), { wrapper });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(
+      fetchMock.mock.calls.every(
+        (c) => c[0] === "/api/connections/c1/ontology",
+      ),
+    ).toBe(true);
   });
 
   it("hands the editor only the live terms that were described or hidden", async () => {

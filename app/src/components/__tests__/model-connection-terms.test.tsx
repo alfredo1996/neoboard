@@ -5,6 +5,7 @@ import { ConnectionTerms } from "../model/connection-terms";
 
 const mockSave = vi.fn();
 const mockRefetch = vi.fn();
+const mockRefresh = vi.fn();
 let mockState: {
   data?: { terms: OntologyTerm[] };
   isLoading?: boolean;
@@ -18,6 +19,7 @@ vi.mock("@/hooks/use-concepts", () => ({
 }));
 vi.mock("@/hooks/use-ontology", () => ({
   useOntology: () => ({ ...mockState, refetch: mockRefetch }),
+  useRefreshOntology: () => mockRefresh,
   useSaveTerms: () => ({ mutate: mockSave }),
 }));
 
@@ -285,6 +287,8 @@ describe("ConnectionTerms", () => {
         name: "Refresh the structure of Demo graph",
       }),
     );
-    expect(mockRefetch).toHaveBeenCalledTimes(1);
+    // The Refresh reads past the server's cache; Try again does not (#2514).
+    expect(mockRefresh).toHaveBeenCalledTimes(1);
+    expect(mockRefetch).not.toHaveBeenCalled();
   });
 });

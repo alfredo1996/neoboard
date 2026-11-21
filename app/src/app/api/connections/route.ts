@@ -119,6 +119,7 @@ export async function POST(request: Request) {
     prefetchSchema(type, checked.config, {
       tenantId,
       connectionId: connection.id,
+      configEncrypted,
     });
 
     auditRequest(request, {

@@ -561,7 +561,11 @@ describe("PATCH /api/connections/[id]", () => {
         username: "neo4j",
         password: "newpass",
       },
-      { tenantId: "t1", connectionId: "c1" },
+      {
+        tenantId: "t1",
+        connectionId: "c1",
+        configEncrypted: expect.any(String),
+      },
     );
   });
 
@@ -776,7 +780,11 @@ describe("PATCH /api/connections/[id]", () => {
         username: "pg",
         password: "newpass",
       },
-      { tenantId: "t1", connectionId: "c1" },
+      {
+        tenantId: "t1",
+        connectionId: "c1",
+        configEncrypted: expect.any(String),
+      },
     );
   });
 });

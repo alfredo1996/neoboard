@@ -133,6 +133,7 @@ describe("/api/connections/[id]/ontology", () => {
       expect(mockFetchTerms).toHaveBeenCalledWith("x", expect.anything(), {
         tenantId: "t1",
         connectionId: "c1",
+        configEncrypted: "enc",
         refresh,
       });
     });
@@ -215,8 +216,27 @@ describe("/api/connections/[id]/ontology", () => {
       expect(mockFetchTerms).toHaveBeenCalledWith("x", expect.anything(), {
         tenantId: "t1",
         connectionId: "c1",
+        configEncrypted: "enc",
         refresh: false,
       });
+      expect(mockFetchTerms).toHaveBeenCalledTimes(1);
+    });
+
+    it("reads once more, past the cache, for a key it does not know, and saves it when the database has it", async () => {
+      mockRequireSession.mockResolvedValue(CREATOR);
+      selects.push([CONN]);
+      const fresh: SchemaTerm = { kind: "entity", key: "Newer", parentKey: "" };
+      mockFetchTerms
+        .mockResolvedValueOnce(LIVE)
+        .mockResolvedValueOnce([...LIVE, fresh]);
+      const res = await put([edit({ key: "Newer", displayName: "x" })]);
+      expect(res.status).toBe(200);
+      expect(mockFetchTerms).toHaveBeenCalledTimes(2);
+      expect(mockFetchTerms).toHaveBeenLastCalledWith(
+        "x",
+        expect.anything(),
+        expect.objectContaining({ refresh: true }),
+      );
     });
 
     it("refuses a reader and writes nothing", async () => {
@@ -258,6 +278,7 @@ describe("/api/connections/[id]/ontology", () => {
       selects.push([CONN]);
       const res = await put([edit({ key: "Nope", displayName: "x" })]);
       expect(res.status).toBe(400);
+      expect(mockFetchTerms).toHaveBeenCalledTimes(2); // cached, then once fresh
       expect(mockDb.insert).not.toHaveBeenCalled();
     });
 

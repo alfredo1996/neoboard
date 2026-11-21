@@ -30,7 +30,19 @@ vi.mock("@/lib/auth/session", () => ({
     tenantId: "t1",
   }),
 }));
-vi.mock("@/lib/db", () => ({ db: { select: vi.fn(selectChain) } }));
+const writes = {
+  insert: () => ({
+    values: () => ({ onConflictDoUpdate: () => Promise.resolve() }),
+  }),
+  delete: () => ({ where: () => Promise.resolve() }),
+};
+vi.mock("@/lib/db", () => ({
+  db: {
+    select: vi.fn(selectChain),
+    ...writes,
+    transaction: (fn: (tx: unknown) => unknown) => fn(writes),
+  },
+}));
 vi.mock("@/lib/crypto/crypto", () => ({
   decryptJson: () => ({ uri: "x://host" }),
 }));
@@ -58,13 +70,16 @@ const at = (query = "") => new Request(`http://localhost/x${query}`);
 describe("one introspection between /schema and /ontology (#2514)", () => {
   let schemaGET: Handler;
   let ontologyGET: Handler;
+  let ontologyPUT: Handler;
 
   beforeEach(async () => {
     vi.resetModules();
     fetchSchema.mockReset();
     fetchSchema.mockResolvedValue({ type: "x", labels: ["Person"] });
     schemaGET = (await import("../schema/route")).GET as Handler;
-    ontologyGET = (await import("../ontology/route")).GET as Handler;
+    const ontology = await import("../ontology/route");
+    ontologyGET = ontology.GET as Handler;
+    ontologyPUT = ontology.PUT as Handler;
     // Each test starts with an empty cache, whichever module copy holds it.
     (await import("@/lib/connector/schema-cache")).resetSchemaCacheForTests();
   });
@@ -75,6 +90,25 @@ describe("one introspection between /schema and /ontology (#2514)", () => {
     await ontologyGET(at(), makeParams("c1"));
 
     expect((await res.json()).data.terms).toHaveLength(1);
+    expect(fetchSchema).toHaveBeenCalledTimes(1);
+  });
+
+  it("checks a save's keys against the read the page just made", async () => {
+    await ontologyGET(at(), makeParams("c1"));
+    const res = await ontologyPUT(
+      new Request("http://localhost/x", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          terms: [
+            { kind: "entity", key: "Person", parentKey: "", displayName: "P" },
+          ],
+        }),
+      }),
+      makeParams("c1"),
+    );
+
+    expect(res.status).toBe(200);
     expect(fetchSchema).toHaveBeenCalledTimes(1);
   });
 

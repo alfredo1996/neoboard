@@ -11,7 +11,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { DatabaseSchema } from "@neoboard/connection";
 import { useSchemaStore } from "@/stores/schema-store";
 import { createRefreshSchema, useConnectionSchema } from "@/hooks/use-schema";
-import { takeRefresh } from "@/hooks/refresh-flag";
 
 const neo4jSchema: DatabaseSchema = {
   type: "neo4j",
@@ -112,6 +111,7 @@ describe("createRefreshSchema utility", () => {
     return {
       cancelQueries: vi.fn().mockResolvedValue(undefined),
       invalidateQueries: vi.fn().mockResolvedValue(undefined),
+      getQueryCache: () => ({ find: () => undefined }),
       ...overrides,
     } as unknown as QueryClient;
   }
@@ -235,9 +235,6 @@ describe("useConnectionSchema hook", () => {
 
   beforeEach(() => {
     useSchemaStore.setState({ schemas: {} });
-    // A Refresh pressed with no query mounted leaves its mark; drop it.
-    for (const id of ["conn-1", "conn-refresh", "pg-42"])
-      takeRefresh(`schema:${id}`);
     queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -392,6 +389,26 @@ describe("useConnectionSchema hook", () => {
       "/api/connections/conn-fresh/schema",
       "/api/connections/conn-fresh/schema?refresh=1",
       "/api/connections/conn-fresh/schema",
+    ]);
+  });
+
+  it("a Refresh with no query mounted leaves the next ordinary read un-refreshed", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(JSON.stringify(neo4jSchema), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    );
+    await createRefreshSchema(queryClient)("conn-idle");
+
+    const { result } = renderHook(() => useConnectionSchema("conn-idle"), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(vi.mocked(globalThis.fetch).mock.calls.map((c) => c[0])).toEqual([
+      "/api/connections/conn-idle/schema",
     ]);
   });
 });

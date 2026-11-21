@@ -10,7 +10,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
 
-const scope = { tenantId: "t1", connectionId: "c1" };
+const scope = { tenantId: "t1", connectionId: "c1", configEncrypted: "enc" };
 const getSchemaManager = vi.fn();
 vi.mock("@/lib/connector/connection-adapter", () => ({
   getSchemaManager: (type: string) => getSchemaManager(type),
@@ -150,6 +150,19 @@ describe("one introspection per connection (#2514)", () => {
     await fetchConnectionTerms("neo4j", creds, scope);
 
     expect(fetchSchema).toHaveBeenCalledTimes(1);
+  });
+
+  it("a schema Refresh is seen by the next terms read", async () => {
+    const fetchSchema = vi
+      .fn()
+      .mockResolvedValueOnce({ type: "neo4j", labels: ["Old"] })
+      .mockResolvedValue({ type: "neo4j", labels: ["New"] });
+    getSchemaManager.mockReturnValue({ fetchSchema });
+
+    expect(await fetchConnectionTerms("neo4j", creds, scope)).toEqual(["Old"]);
+    await fetchConnectionSchema("neo4j", creds, { ...scope, refresh: true });
+
+    expect(await fetchConnectionTerms("neo4j", creds, scope)).toEqual(["New"]);
   });
 
   it("reads again when asked to refresh", async () => {

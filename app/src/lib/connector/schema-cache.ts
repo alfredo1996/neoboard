@@ -24,6 +24,8 @@ const cache = (holder.__neoboardSchemaCache ??= new Map<string, Entry>());
 export interface IntrospectionScope {
   tenantId: string;
   connectionId: string;
+  /** The stored, still-encrypted config: it keys the entry, so a changed one misses. */
+  configEncrypted: string;
 }
 
 const SEP = "\u0000";
@@ -31,32 +33,31 @@ const prefix = (tenantId: string, connectionId: string) =>
   `${tenantId}${SEP}${connectionId}${SEP}`;
 
 /**
- * The connection's config as a hash: a changed connection misses, and the
- * decrypted config is neither stored nor logged.
- */
-const hashConfig = (config: unknown) =>
-  createHash("sha256").update(JSON.stringify(config)).digest("hex");
-
-/**
- * Reads `load` once per tenant, connection and config for five minutes;
- * concurrent misses share one read, a failure is not kept, and `refresh`
- * reads again and replaces the entry.
+ * Reads `load` once per tenant, connection and stored config for five
+ * minutes; concurrent misses share one read, a failure is not kept, and
+ * `refresh` reads again and replaces the entry. The key hashes the ciphertext,
+ * so no decrypted material feeds it (a key rotation misses once).
+ *
+ * ponytail: a partially failed read (a per-type sample that resolved to `[]`)
+ * is cached like a full one; Refresh recovers.
  */
 export function cachedIntrospection<T>(
   scope: IntrospectionScope,
-  config: unknown,
-  kind: string,
   load: () => Promise<T>,
   options: { refresh?: boolean } = {},
 ): Promise<T> {
-  const key = `${prefix(scope.tenantId, scope.connectionId)}${hashConfig(config)}${SEP}${kind}`;
+  const key =
+    prefix(scope.tenantId, scope.connectionId) +
+    createHash("sha256").update(scope.configEncrypted).digest("hex");
   const hit = cache.get(key);
   if (hit && !options.refresh && hit.expires > Date.now()) {
+    // Re-inserted, so the first key in the map is the least recently used.
+    cache.delete(key);
+    cache.set(key, hit);
     return hit.promise as Promise<T>;
   }
   const promise = load();
   const entry: Entry = { expires: Date.now() + SCHEMA_CACHE_TTL_MS, promise };
-  // Re-inserted, so the oldest key is always the first one in the map.
   cache.delete(key);
   cache.set(key, entry);
   while (cache.size > SCHEMA_CACHE_MAX_ENTRIES) {

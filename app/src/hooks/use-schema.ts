@@ -23,7 +23,11 @@ export function createRefreshSchema(queryClient: QueryClient) {
       queryKey: ["connection-schema", connectionId],
     });
     useSchemaStore.getState().clearSchema(connectionId);
-    markRefresh(`schema:${connectionId}`);
+    markRefresh(
+      queryClient,
+      ["connection-schema", connectionId],
+      `schema:${connectionId}`,
+    );
     return queryClient.invalidateQueries({
       queryKey: ["connection-schema", connectionId],
     });

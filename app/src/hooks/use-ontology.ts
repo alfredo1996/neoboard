@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@neoboard/components";
 import { markRefresh, takeRefresh } from "@/hooks/refresh-flag";
@@ -23,10 +23,10 @@ const ontologyKey = (connectionId: string) => ["ontology", connectionId];
 /**
  * A connection's terms (#2415): the structure its connector reports with the
  * saved meaning laid over it. Every read introspects the connection, so it is
- * cached for five minutes; `refetch` is the Model page's refresh.
+ * cached for five minutes; `useRefreshOntology` is the Model page's refresh.
  */
 export function useOntology(connectionId: string) {
-  const query = useQuery<OntologyResponse>({
+  return useQuery<OntologyResponse>({
     enabled: connectionId !== "",
     queryKey: ontologyKey(connectionId),
     queryFn: async ({ signal }) =>
@@ -39,16 +39,20 @@ export function useOntology(connectionId: string) {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-  // The only caller of refetch is a Refresh button: it reads the database
-  // again, past the server's cache (#2514).
-  const { refetch } = query;
-  return {
-    ...query,
-    refetch: (...args: Parameters<typeof refetch>) => {
-      markRefresh(`ontology:${connectionId}`);
-      return refetch(...args);
-    },
-  };
+}
+
+/**
+ * The Model page's Refresh: reads the database again, past the server's cache
+ * (#2514). Stable across renders. A plain `refetch` ("Try again") is an
+ * ordinary read.
+ */
+export function useRefreshOntology(connectionId: string) {
+  const queryClient = useQueryClient();
+  return useCallback(() => {
+    const queryKey = ontologyKey(connectionId);
+    markRefresh(queryClient, queryKey, `ontology:${connectionId}`);
+    return queryClient.invalidateQueries({ queryKey });
+  }, [queryClient, connectionId]);
 }
 
 /**

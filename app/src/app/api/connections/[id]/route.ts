@@ -225,6 +225,7 @@ export async function PATCH(
       prefetchSchema(connection.type, finalConfig, {
         tenantId,
         connectionId: id,
+        configEncrypted: updates.configEncrypted as string,
       });
     }
 

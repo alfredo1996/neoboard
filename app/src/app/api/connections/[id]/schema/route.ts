@@ -42,6 +42,7 @@ export async function GET(
     const schema = await fetchConnectionSchema(connection.type, credentials, {
       tenantId,
       connectionId: connection.id,
+      configEncrypted: connection.configEncrypted,
       // The editor's Refresh reads the database again (#2514).
       refresh: new URL(request.url).searchParams.get("refresh") === "1",
     });
