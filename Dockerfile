@@ -13,8 +13,10 @@ COPY connector-sdk/package.json ./connector-sdk/
 COPY connection/package.json ./connection/
 COPY cli/package.json ./cli/
 
-# Single install resolves all workspaces — hoists shared deps to root
-RUN npm ci
+# Single install resolves all workspaces — hoists shared deps to root.
+# A stalled download must error and retry, not hang the emulated arm64 build
+# (#2530). 120 s per request x 4 attempts bounds a dead fetch at ~8 min.
+RUN npm_config_fetch_timeout=120000 npm_config_fetch_retries=3 npm ci
 
 # ---- build: compile Next.js standalone output ----
 FROM node:22-alpine AS build

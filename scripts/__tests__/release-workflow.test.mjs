@@ -67,7 +67,9 @@ function stepScript(block, name) {
   const lines = block.split("\n");
   const at = lines.findIndex((l) => l.trim() === `- name: ${name}`);
   expect(at, `step "${name}" not found`).toBeGreaterThan(-1);
-  const next = lines.findIndex((l, i) => i > at && l.trim().startsWith("- name:"));
+  const next = lines.findIndex(
+    (l, i) => i > at && l.trim().startsWith("- name:"),
+  );
   const run = lines.findIndex((l, i) => i > at && /^\s+run: \|$/.test(l));
   expect(run, `step "${name}" has no run: | script`).toBeGreaterThan(-1);
   if (next !== -1) expect(run).toBeLessThan(next);
@@ -96,11 +98,27 @@ function runStep(script, { cwd, ref, env = {} }) {
   try {
     execFileSync(
       "bash",
-      ["-e", "-c", script.replaceAll("/tmp/release-body.md", join(dir, "body.md"))],
-      { cwd, env: { ...process.env, ...env, GITHUB_REF: ref, GITHUB_OUTPUT: join(dir, "output") }, stdio: "pipe" },
+      [
+        "-e",
+        "-c",
+        script.replaceAll("/tmp/release-body.md", join(dir, "body.md")),
+      ],
+      {
+        cwd,
+        env: {
+          ...process.env,
+          ...env,
+          GITHUB_REF: ref,
+          GITHUB_OUTPUT: join(dir, "output"),
+        },
+        stdio: "pipe",
+      },
     );
     const outputs = Object.fromEntries(
-      read("output").split("\n").filter(Boolean).map((l) => l.split("=")),
+      read("output")
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => l.split("=")),
     );
     return { outputs, body: read("body.md") };
   } finally {
@@ -202,6 +220,21 @@ describe("release workflow: multi-arch build", () => {
   });
 });
 
+describe("release workflow: a hung build is bounded (#2530)", () => {
+  it("caps the docker job well under GitHub's 6-hour default", () => {
+    const m = DOCKER.match(/^ {4}timeout-minutes:\s*(\d+)\s*$/m);
+    expect(m, "docker job sets timeout-minutes").not.toBeNull();
+    expect(Number(m[1])).toBeLessThanOrEqual(90);
+  });
+
+  it("gives the deps stage's npm ci a short fetch timeout and retries", () => {
+    const file = readFileSync(join(ROOT, "Dockerfile"), "utf8");
+    const deps = file.split(/^FROM /m).find((s) => s.includes(" AS deps"));
+    expect(deps).toMatch(/npm_config_fetch_timeout=\d{1,6}\b/);
+    expect(deps).toMatch(/npm_config_fetch_retries=\d+/);
+  });
+});
+
 describe("release workflow: signing", () => {
   it("signs after the push, not before", () => {
     // cosign signs a digest that must already exist in the registry.
@@ -234,7 +267,9 @@ describe("release workflow: image name (#1780)", () => {
   // release goes red. So the name is lowercased once and every step reads it.
   // Built from the step's real `id:`, so a renamed id fails the reader checks
   // here instead of emptying `images:`, IMAGE and image-ref in a live release.
-  const imageId = DOCKER.match(/- name: Compute the image name\n\s+id: (\S+)\n/)?.[1];
+  const imageId = DOCKER.match(
+    /- name: Compute the image name\n\s+id: (\S+)\n/,
+  )?.[1];
   const IMAGE = `\${{ steps.${imageId}.outputs.name }}`;
 
   it("gives the image-name step an id the readers can reference", () => {
@@ -258,11 +293,15 @@ describe("release workflow: image name (#1780)", () => {
   it("pushes, signs and scans that one name", () => {
     expect(DOCKER).toContain(`images: ${IMAGE}\n`);
     expect(DOCKER).toContain(`IMAGE: ${IMAGE}\n`);
-    expect(DOCKER).toContain(`image-ref: ${IMAGE}@\${{ steps.build.outputs.digest }}\n`);
+    expect(DOCKER).toContain(
+      `image-ref: ${IMAGE}@\${{ steps.build.outputs.digest }}\n`,
+    );
   });
 
   it("computes the name before the first step that reads it", () => {
-    expect(DOCKER.indexOf("- name: Compute the image name")).toBeGreaterThan(-1);
+    expect(DOCKER.indexOf("- name: Compute the image name")).toBeGreaterThan(
+      -1,
+    );
     expect(DOCKER.indexOf("- name: Compute the image name")).toBeLessThan(
       DOCKER.indexOf(IMAGE),
     );
@@ -316,7 +355,17 @@ describe("release workflow: tag classification", () => {
     const git = (...args) =>
       execFileSync(
         "git",
-        ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false", ...args],
+        [
+          "-c",
+          "user.name=t",
+          "-c",
+          "user.email=t@t",
+          "-c",
+          "commit.gpgsign=false",
+          "-c",
+          "tag.gpgsign=false",
+          ...args,
+        ],
         { cwd: dir, stdio: "pipe" },
       );
     git("init", "-q");
@@ -328,7 +377,10 @@ describe("release workflow: tag classification", () => {
   function classify(tag, tags) {
     const cwd = repoWithTags(tags);
     try {
-      return runStep(stepScript(RELEASE, "Classify the tag"), { cwd, ref: `refs/tags/${tag}` }).outputs;
+      return runStep(stepScript(RELEASE, "Classify the tag"), {
+        cwd,
+        ref: `refs/tags/${tag}`,
+      }).outputs;
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
@@ -346,13 +398,17 @@ describe("release workflow: tag classification", () => {
   });
 
   it("never lets a back-published patch take latest (#982)", () => {
-    expect(classify("v1.5.1", ["v1.5.0", "v1.6.0", "v1.5.1"]).is_latest).toBe("false");
+    expect(classify("v1.5.1", ["v1.5.0", "v1.6.0", "v1.5.1"]).is_latest).toBe(
+      "false",
+    );
   });
 
   it("never lets an rc take latest, though sort -V ranks it above the release (#1224)", () => {
     // `printf 'v1.4.0\nv1.4.0-rc.1\n' | sort -V` puts the rc last. This is
     // also what makes an rc tag a safe way to dry-run the whole workflow.
-    expect(classify("v1.4.0-rc.1", ["v1.4.0", "v1.4.0-rc.1"]).is_latest).toBe("false");
+    expect(classify("v1.4.0-rc.1", ["v1.4.0", "v1.4.0-rc.1"]).is_latest).toBe(
+      "false",
+    );
     expect(classify("v1.4.0-rc.1", ["v1.4.0-rc.1"]).is_latest).toBe("false");
   });
 
@@ -366,12 +422,18 @@ describe("release workflow: tag classification", () => {
 
   it("feeds both facts to the GitHub Release, so its Latest badge matches the image's", () => {
     expect(CREATE).toContain("softprops/action-gh-release@");
-    expect(CREATE).toMatch(/^ {10}prerelease: \$\{\{ steps\.tag\.outputs\.plain != 'true' \}\}$/m);
-    expect(CREATE).toMatch(/^ {10}make_latest: \$\{\{ steps\.tag\.outputs\.is_latest \}\}$/m);
+    expect(CREATE).toMatch(
+      /^ {10}prerelease: \$\{\{ steps\.tag\.outputs\.plain != 'true' \}\}$/m,
+    );
+    expect(CREATE).toMatch(
+      /^ {10}make_latest: \$\{\{ steps\.tag\.outputs\.is_latest \}\}$/m,
+    );
   });
 
   it("moves the docker latest tag on the same fact, computed once", () => {
-    expect(stripComments(RELEASE)).toMatch(/^ {6}is_latest: \$\{\{ steps\.tag\.outputs\.is_latest \}\}$/m);
+    expect(stripComments(RELEASE)).toMatch(
+      /^ {6}is_latest: \$\{\{ steps\.tag\.outputs\.is_latest \}\}$/m,
+    );
     expect(DOCKER).toContain(
       "type=raw,value=latest,enable=${{ needs.release.outputs.is_latest == 'true' }}",
     );
@@ -380,17 +442,28 @@ describe("release workflow: tag classification", () => {
 });
 
 describe("release workflow: GitHub Release body", () => {
-  const EXTRACT = stepScript(jobBlock("release"), "Extract changelog for this version");
-  const version = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version;
+  const EXTRACT = stepScript(
+    jobBlock("release"),
+    "Extract changelog for this version",
+  );
+  const version = JSON.parse(
+    readFileSync(join(ROOT, "package.json"), "utf8"),
+  ).version;
 
   it("is the CHANGELOG section for the tag's version, and only that section", () => {
-    const { body } = runStep(EXTRACT, { cwd: ROOT, ref: `refs/tags/v${version}` });
+    const { body } = runStep(EXTRACT, {
+      cwd: ROOT,
+      ref: `refs/tags/v${version}`,
+    });
     expect(body.trim()).toBe(changelogSection(version));
     expect(body).not.toContain("## [");
   });
 
   it("falls back to the tag name when the CHANGELOG has no section for it", () => {
-    const { body } = runStep(EXTRACT, { cwd: ROOT, ref: `refs/tags/v${version}-rc.1` });
+    const { body } = runStep(EXTRACT, {
+      cwd: ROOT,
+      ref: `refs/tags/v${version}-rc.1`,
+    });
     expect(body.trim()).toBe(`Release v${version}-rc.1`);
   });
 });
