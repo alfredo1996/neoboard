@@ -199,7 +199,7 @@ component/src/
 ├── charts/                 # ECharts wrappers (BaseChart + 14 types)
 ├── components/
 │   ├── ui/                 # 39 shadcn/ui primitives
-│   ├── composed/           # 33 higher-order components
+│   ├── composed/           # 34 higher-order components
 │   └── kit/                # Page kit: page header, filter line, list, settings section, stat, sidebar, app shell
 ├── hooks/                  # useWidgetSize, useContainerSize
 └── lib/                    # Utilities, design tokens, Cypher language

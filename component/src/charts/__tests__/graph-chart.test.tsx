@@ -645,6 +645,22 @@ describe("GraphChart", () => {
     expect(personNode?.caption).toBe("1956");
   });
 
+  it("reports the default captions it picked, so a parent can match the canvas (#2515)", async () => {
+    const onCaptionMapChange = vi.fn();
+    render(
+      <GraphChart
+        nodes={labeledNodes}
+        edges={labeledEdges}
+        onCaptionMapChange={onCaptionMapChange}
+      />,
+    );
+    await waitFor(() =>
+      expect(onCaptionMapChange).toHaveBeenCalledWith(
+        expect.objectContaining({ Person: "name", Movie: "title" }),
+      ),
+    );
+  });
+
   it("fires onCaptionMapChange when caption property is changed", async () => {
     const onCaptionMapChange = vi.fn();
     render(
@@ -923,6 +939,90 @@ describe("GraphChart", () => {
         "2": { x: 3, y: 4 },
       });
     });
+
+    it("fits on the first settle only, not on every later layout settle (#2517)", () => {
+      const onPositionsChange = vi.fn();
+      const { rerender } = render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={sampleEdges}
+          onPositionsChange={onPositionsChange}
+        />,
+      );
+      const fit = vi.fn();
+      (capturedProps.ref as { current: unknown }).current = {
+        fit,
+        getNodePositions: () => [{ id: "1", x: 1, y: 2 }],
+      };
+      const settle = () =>
+        act(() => {
+          (
+            capturedProps.nvlCallbacks as { onLayoutDone: () => void }
+          ).onLayoutDone();
+        });
+      settle();
+      expect(fit).toHaveBeenCalledTimes(1);
+      // A drag or a selection settles the layout again: the camera stays,
+      // but positions are still reported.
+      settle();
+      settle();
+      expect(fit).toHaveBeenCalledTimes(1);
+      expect(onPositionsChange).toHaveBeenCalledTimes(3);
+      // New data re-arms the fit.
+      rerender(
+        <GraphChart
+          nodes={[...sampleNodes]}
+          edges={sampleEdges}
+          onPositionsChange={onPositionsChange}
+        />,
+      );
+      settle();
+      expect(fit).toHaveBeenCalledTimes(2);
+    });
+
+    it("fits again after the layout is switched (#2517)", () => {
+      render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+      const fit = vi.fn();
+      (capturedProps.ref as { current: unknown }).current = {
+        fit,
+        getNodePositions: () => [],
+      };
+      const settle = () =>
+        act(() => {
+          (
+            capturedProps.nvlCallbacks as { onLayoutDone: () => void }
+          ).onLayoutDone();
+        });
+      settle();
+      fireEvent.change(screen.getByLabelText("Graph layout"), {
+        target: { value: "circular" },
+      });
+      settle();
+      expect(fit).toHaveBeenCalledTimes(2);
+    });
+
+    it.each(["onZoom", "onPan"])(
+      "%s before the first settle keeps the user's view (#2517)",
+      (name) => {
+        render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
+        const fit = vi.fn();
+        (capturedProps.ref as { current: unknown }).current = {
+          fit,
+          getNodePositions: () => [],
+        };
+        const mouse = capturedProps.mouseEventCallbacks as Record<
+          string,
+          () => void
+        >;
+        act(() => mouse[name]());
+        act(() => {
+          (
+            capturedProps.nvlCallbacks as { onLayoutDone: () => void }
+          ).onLayoutDone();
+        });
+        expect(fit).not.toHaveBeenCalled();
+      },
+    );
 
     it("removes loading overlay after onLayoutDone fires", () => {
       render(<GraphChart nodes={sampleNodes} edges={sampleEdges} />);
@@ -1397,6 +1497,50 @@ describe("GraphChart look (#2229)", () => {
     }
   });
 
+  describe("relationship click (#2518)", () => {
+    const parallel = [
+      { source: "1", target: "2", label: "R", properties: { n: 1 } },
+      { source: "1", target: "2", label: "R", properties: { n: 2 } },
+    ];
+    const click = (rel: object) =>
+      (
+        capturedProps.mouseEventCallbacks as {
+          onRelationshipClick: (r: object, h: unknown, e: object) => void;
+        }
+      ).onRelationshipClick(rel, null, { clientX: 1, clientY: 2 });
+
+    it("passes the clicked relationship, not the first one between the same nodes", () => {
+      const onRelationshipClick = vi.fn();
+      render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={parallel}
+          onRelationshipClick={onRelationshipClick}
+        />,
+      );
+      const rels = capturedProps.rels as { id: string }[];
+      click({ ...rels[1], from: "1", to: "2", type: "R" });
+      expect(onRelationshipClick.mock.calls[0][0].edge).toBe(parallel[1]);
+    });
+
+    it("falls back to the end nodes and type for an id it does not know", () => {
+      const onRelationshipClick = vi.fn();
+      render(
+        <GraphChart
+          nodes={sampleNodes}
+          edges={parallel}
+          onRelationshipClick={onRelationshipClick}
+        />,
+      );
+      click({ id: "gone", from: "1", to: "2", type: "R" });
+      expect(onRelationshipClick.mock.calls[0][0].edge).toEqual({
+        source: "1",
+        target: "2",
+        label: "R",
+      });
+    });
+  });
+
   it("puts the consumer's footer in the same row as the legend, not over it", () => {
     render(
       <GraphChart
@@ -1499,6 +1643,193 @@ describe("GraphChart look (#2229)", () => {
     const tip = screen.getByTestId("graph-hover");
     expect(parseInt(tip.style.left, 10)).toBeLessThanOrEqual(300 - 224);
     expect(parseInt(tip.style.top, 10)).toBeLessThanOrEqual(200 - 48);
+  });
+
+  describe("selectedRelationshipId and overlayInset (#2515)", () => {
+    const twoRels = [
+      { id: "r-a", source: "p1", target: "m1", label: "REVIEWED" },
+      { id: "r-b", source: "p1", target: "m1", label: "REVIEWED" },
+    ];
+
+    it("selects only the relationship it names, by the edge's own id", () => {
+      render(
+        <GraphChart
+          nodes={movies}
+          edges={twoRels}
+          selectedRelationshipId="r-b"
+        />,
+      );
+      const sent = capturedProps.rels as { selected?: boolean }[];
+      expect(sent.map((r) => r.selected)).toEqual([false, true]);
+    });
+
+    it("selects nothing when no relationship is named", () => {
+      render(<GraphChart nodes={movies} edges={twoRels} />);
+      const sent = capturedProps.rels as { selected?: boolean }[];
+      expect(sent.map((r) => r.selected)).toEqual([false, false]);
+    });
+
+    it("keeps the toolbar and the bottom row clear of a panel on the right", () => {
+      render(
+        <GraphChart
+          nodes={movies}
+          edges={rels}
+          overlayInset={{ side: "right", width: 300 }}
+        />,
+      );
+      expect(screen.getByRole("toolbar").style.right).toBe("308px");
+      const row = screen.getByTestId("graph-legend").parentElement!;
+      expect(row.style.right).toBe("308px");
+      expect(row.style.left).toBe("");
+    });
+
+    it("keeps the bottom row clear of a panel on the left", () => {
+      render(
+        <GraphChart
+          nodes={movies}
+          edges={rels}
+          overlayInset={{ side: "left", width: 300 }}
+        />,
+      );
+      const row = screen.getByTestId("graph-legend").parentElement!;
+      expect(row.style.left).toBe("308px");
+      expect(screen.getByRole("toolbar").style.right).toBe("");
+    });
+
+    it("wraps the toolbar inside the space beside the panel instead of clipping it", () => {
+      render(
+        <GraphChart
+          nodes={movies}
+          edges={rels}
+          overlayInset={{ side: "right", width: 300 }}
+        />,
+      );
+      const bar = screen.getByRole("toolbar");
+      expect(bar.style.maxWidth).toBe("calc(100% - 316px)");
+      expect(bar).toHaveClass("flex-wrap");
+    });
+
+    it("narrows the hover tooltip to the space beside the panel", () => {
+      const hoverAt = (side: "left" | "right") => {
+        const { container } = render(
+          <GraphChart
+            nodes={movies}
+            edges={rels}
+            overlayInset={{ side, width: 200 }}
+          />,
+        );
+        const box = container.firstElementChild as HTMLElement;
+        Object.defineProperty(box, "clientWidth", { value: 400 });
+        Object.defineProperty(box, "clientHeight", { value: 200 });
+        const cb = capturedProps.mouseEventCallbacks as {
+          onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+        };
+        act(() =>
+          cb.onHover({ id: "p2" }, [], {
+            clientX: 390,
+            clientY: 5,
+          } as MouseEvent),
+        );
+        const tip = screen.getByTestId("graph-hover");
+        return {
+          left: parseInt(tip.style.left, 10),
+          width: parseInt(tip.style.maxWidth, 10),
+        };
+      };
+      const right = hoverAt("right");
+      expect(right.left).toBeGreaterThanOrEqual(0);
+      expect(right.left + right.width).toBeLessThanOrEqual(200);
+      cleanup();
+      const left = hoverAt("left");
+      expect(left.left).toBeGreaterThanOrEqual(200);
+      expect(left.left + left.width).toBeLessThanOrEqual(400);
+    });
+
+    it.each([
+      ["left", 200, 600, 40],
+      ["left", 200, 600, 590],
+      ["right", 200, 600, 590],
+      ["right", 500, 600, 10],
+    ] as const)(
+      "keeps the whole tooltip box in the free region (%s inset %i, box %i, pointer %i)",
+      (side, inset, boxW, px) => {
+        const { container } = render(
+          <GraphChart
+            nodes={movies}
+            edges={rels}
+            overlayInset={{ side, width: inset }}
+          />,
+        );
+        const box = container.firstElementChild as HTMLElement;
+        Object.defineProperty(box, "clientWidth", { value: boxW });
+        Object.defineProperty(box, "clientHeight", { value: 200 });
+        const cb = capturedProps.mouseEventCallbacks as {
+          onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+        };
+        act(() =>
+          cb.onHover({ id: "p2" }, [], {
+            clientX: px,
+            clientY: 5,
+          } as MouseEvent),
+        );
+        const tip = screen.getByTestId("graph-hover");
+        const left = parseFloat(tip.style.left);
+        const w = parseFloat(tip.style.maxWidth);
+        const lo = side === "left" ? inset : 0;
+        const hi = side === "left" ? boxW : boxW - inset;
+        expect(left).toBeGreaterThanOrEqual(lo);
+        expect(left + w).toBeLessThanOrEqual(hi);
+      },
+    );
+
+    it("moves a standing tooltip off a panel that opens under it", () => {
+      const props = { nodes: movies, edges: rels };
+      const { container, rerender } = render(<GraphChart {...props} />);
+      const box = container.firstElementChild as HTMLElement;
+      Object.defineProperty(box, "clientWidth", { value: 600 });
+      Object.defineProperty(box, "clientHeight", { value: 200 });
+      const cb = capturedProps.mouseEventCallbacks as {
+        onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+      };
+      act(() =>
+        cb.onHover({ id: "p2" }, [], {
+          clientX: 500,
+          clientY: 5,
+        } as MouseEvent),
+      );
+      rerender(
+        <GraphChart {...props} overlayInset={{ side: "right", width: 300 }} />,
+      );
+      const tip = screen.getByTestId("graph-hover");
+      expect(
+        parseFloat(tip.style.left) + parseFloat(tip.style.maxWidth),
+      ).toBeLessThanOrEqual(300);
+    });
+
+    it("keeps the hover tooltip out of the panel", () => {
+      const { container } = render(
+        <GraphChart
+          nodes={movies}
+          edges={rels}
+          overlayInset={{ side: "right", width: 300 }}
+        />,
+      );
+      const box = container.firstElementChild as HTMLElement;
+      Object.defineProperty(box, "clientWidth", { value: 600 });
+      Object.defineProperty(box, "clientHeight", { value: 200 });
+      const cb = capturedProps.mouseEventCallbacks as {
+        onHover: (el: unknown, hit: unknown, e: MouseEvent) => void;
+      };
+      act(() =>
+        cb.onHover({ id: "p2" }, [], {
+          clientX: 500,
+          clientY: 5,
+        } as MouseEvent),
+      );
+      expect(parseInt(screen.getByTestId("graph-hover").style.left, 10)).toBe(
+        600 - 300 - 224,
+      );
+    });
   });
 
   it("leaves relationship types off the canvas at rest (they show on hover)", () => {

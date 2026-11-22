@@ -171,3 +171,150 @@ test.describe("Graph node menu by access level (#1828)", () => {
     }
   });
 });
+/** Pixels of the canvas that differ from its top-left pixel: the node area, which grows with the zoom. */
+async function nodeArea(page: Page): Promise<number> {
+  // The hover tooltip and the hover-revealed toolbar are drawn over the
+  // canvas: step off the graph, wait for the tooltip to go, and mask what is
+  // left, so only the nodes are measured.
+  await page.mouse.move(0, 0);
+  await expect(page.getByTestId("graph-hover")).toBeHidden();
+  const shot = await page
+    .getByTestId("graph-exploration")
+    .locator("canvas")
+    .first()
+    .screenshot({
+      mask: [
+        page.getByTestId("graph-hover"),
+        page.getByTestId("graph-node-count"),
+        page.getByTestId("graph-legend"),
+        page.getByTestId("graph-zoom-in").locator(".."),
+      ],
+    });
+  return page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const ctx = c.getContext("2d")!;
+    ctx.drawImage(img, 0, 0);
+    const d = ctx.getImageData(0, 0, c.width, c.height).data;
+    let n = 0;
+    for (let i = 4; i < d.length; i += 4) {
+      if (
+        Math.abs(d[i] - d[0]) +
+          Math.abs(d[i + 1] - d[1]) +
+          Math.abs(d[i + 2] - d[2]) >
+        40
+      )
+        n++;
+    }
+    return n;
+  }, shot.toString("base64"));
+}
+
+test.describe("Graph camera while inspecting (#2517)", () => {
+  test.describe.configure({ timeout: 90_000 });
+
+  test("a node drag does not refit the view; the Fit button does", async ({
+    page,
+  }) => {
+    const suffix = uid();
+    let connectionId: string | undefined;
+    let dashboardId: string | undefined;
+    try {
+      await new AuthPage(page).login(ALICE.email, ALICE.password);
+      const connRes = await page.request.post("/api/connections", {
+        data: {
+          name: `graph-camera-${suffix}`,
+          type: "neo4j",
+          config: {
+            uri: TEST_NEO4J_BOLT_URL,
+            username: "neo4j",
+            password: "neoboard123",
+          },
+        },
+      });
+      expect(connRes.status()).toBe(201);
+      connectionId = (await connRes.json()).data.id as string;
+      ({ id: dashboardId } = await createTestDashboard(
+        page.request,
+        `graph-camera-${suffix}`,
+      ));
+      const put = await page.request.put(`/api/dashboards/${dashboardId}`, {
+        data: {
+          layoutJson: {
+            version: 2,
+            pages: [
+              {
+                id: "p1",
+                title: "Page 1",
+                widgets: [
+                  {
+                    id: "w-graph",
+                    chartType: "graph",
+                    connectionId,
+                    query: "MATCH (p:Person) RETURN p LIMIT 1",
+                    settings: { title: "One person" },
+                  },
+                ],
+                gridLayout: [{ i: "w-graph", x: 0, y: 0, w: 12, h: 8 }],
+              },
+            ],
+          },
+        },
+      });
+      expect(put.ok()).toBeTruthy();
+      await page.goto(`/${dashboardId}`);
+      const canvas = page
+        .getByTestId("graph-exploration")
+        .locator("canvas")
+        .first();
+      await expect(canvas).toBeVisible({ timeout: 15_000 });
+      // Let the first layout and its fit finish, then step out so the Fit
+      // button has somewhere to go.
+      await expect
+        .poll(() => nodeArea(page), { timeout: 15_000 })
+        .toBeGreaterThan(50);
+      await page.waitForTimeout(1_500);
+      const zoomOut = page.getByRole("button", {
+        name: "Zoom out",
+        exact: true,
+      });
+      await zoomOut.click();
+      await zoomOut.click();
+      await page.waitForTimeout(1_000);
+      const zoomed = await nodeArea(page);
+
+      // Drag the node and let the layout settle.
+      const box = (await canvas.boundingBox())!;
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      await page.mouse.move(cx, cy);
+      await page.mouse.down();
+      await page.mouse.move(cx + 25, cy + 15, { steps: 8 });
+      await page.mouse.up();
+      await page.waitForTimeout(2_500);
+      const afterDrag = await nodeArea(page);
+      expect(afterDrag / zoomed).toBeGreaterThan(0.9);
+      expect(afterDrag / zoomed).toBeLessThan(1.25);
+
+      await page
+        .getByRole("button", { name: "Fit graph", exact: true })
+        .click();
+      await expect
+        .poll(async () => (await nodeArea(page)) / afterDrag, {
+          timeout: 10_000,
+        })
+        .toBeGreaterThan(1.3);
+    } finally {
+      if (dashboardId)
+        await page.request.delete(`/api/dashboards/${dashboardId}`);
+      if (connectionId)
+        await page.request.delete(
+          `/api/connections/${connectionId}?force=true`,
+        );
+    }
+  });
+});

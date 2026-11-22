@@ -42,8 +42,9 @@ vi.mock("@neoboard/components", () => ({
       ))}
     </div>
   ),
-  PropertyPanel: () => <div data-testid="property-panel" />,
-  Tag: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  GraphInspector: () => <div data-testid="graph-inspector" />,
+  graphInspectorWidth: () => 280,
+  useDarkMode: () => false,
   useGraphExploration: ({
     initialNodes,
     initialEdges,
@@ -64,6 +65,12 @@ vi.mock("@neoboard/components", () => ({
     canExpand: () => true,
     canCollapse: () => false,
   }),
+}));
+
+vi.mock("@neoboard/components/charts/graph-labels", () => ({
+  graphNodeCaption: () => "",
+  describeGraphNode: () => ({ caption: "", color: undefined }),
+  relationshipId: () => "",
 }));
 
 vi.mock("@/lib/plugin/chart-helpers", () => ({
