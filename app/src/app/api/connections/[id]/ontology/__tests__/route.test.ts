@@ -401,6 +401,32 @@ describe("/api/connections/[id]/ontology", () => {
         ]);
       });
 
+      it("writes an explicit empty name, and each upsert sets only its own term's fields", async () => {
+        mockRequireSession.mockResolvedValue(CREATOR);
+        selects.push([CONN], []);
+        await put([
+          { kind: "entity", key: "Person", parentKey: "", displayName: "" },
+          {
+            kind: "property",
+            key: "name",
+            parentKey: "entity:Person",
+            hidden: true,
+          },
+        ]);
+        // two shapes, so two upserts: the ON CONFLICT SET of one never names
+        // a column the other term was sent, and so cannot overwrite it
+        expect(upserts).toEqual([
+          expect.objectContaining({ key: "Person", displayName: "" }),
+          expect.objectContaining({ key: "name", hidden: true }),
+        ]);
+        expect(upserts[0]).not.toHaveProperty("hidden");
+        expect(upserts[1]).not.toHaveProperty("displayName");
+        expect(sets.map((x) => Object.keys(x as object).sort())).toEqual([
+          ["displayName", "updatedAt"],
+          ["hidden", "updatedAt"],
+        ]);
+      });
+
       it("writes a term sent twice once, the later one winning", async () => {
         mockRequireSession.mockResolvedValue(CREATOR);
         selects.push([CONN], []);

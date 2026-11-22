@@ -283,4 +283,48 @@ describe("use-ontology", () => {
       variant: "destructive",
     });
   });
+
+  it("puts back the old value when a save fails and the terms cannot be read again either (#2534)", async () => {
+    fetchMock.mockRejectedValue(new TypeError("offline"));
+    const { client, wrapper } = setup();
+    client.setQueryData(["ontology", "c1"], {
+      terms: [term("A", { description: "kept" })],
+    });
+    const { result } = renderHook(() => useSaveTerms("c1"), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync([meaning]).catch(() => undefined);
+    });
+    expect(client.getQueryData(["ontology", "c1"])).toEqual({
+      terms: [term("A", { description: "kept" })],
+    });
+  });
+
+  it("lets a later save's edit stand when an earlier save of the same field fails", async () => {
+    const answers: Array<{ ok: (r: Response) => void; no: () => void }> = [];
+    fetchMock.mockImplementation(
+      () =>
+        new Promise<Response>((ok, no) =>
+          answers.push({ ok, no: () => no(new TypeError("offline")) }),
+        ),
+    );
+    const { client, wrapper } = setup();
+    client.setQueryData(["ontology", "c1"], { terms: [term("A")] });
+    const { result } = renderHook(() => useSaveTerms("c1"), { wrapper });
+    const named = (displayName: string) => [
+      { kind: "entity", key: "A", parentKey: "", displayName },
+    ];
+    act(() => {
+      result.current.mutate(named("one"));
+      result.current.mutate(named("two"));
+    });
+    await waitFor(() => expect(answers).toHaveLength(2));
+    await act(async () => answers[0].no());
+    await act(async () =>
+      answers[1].ok(ok([term("A", { displayName: "two" })])),
+    );
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(client.getQueryData(["ontology", "c1"])).toEqual({
+      terms: [term("A", { displayName: "two" })],
+    });
+  });
 });
