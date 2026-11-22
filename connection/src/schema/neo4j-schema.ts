@@ -12,6 +12,69 @@ import { optionalString } from "../config-bag";
 
 const PATTERN_SAMPLE = 1000;
 const PATTERN_CONCURRENCY = 8;
+// Each exact property procedure scans the whole store. Past this budget the
+// properties come from SAMPLE_SIZE entities per label or type instead (#2532).
+const PROCEDURE_TIMEOUT_MS = 5000;
+const SAMPLE_SIZE = 1000;
+
+/** Neo4j's TransactionTimedOut family, whichever side raised it. */
+function isTimeout(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === "string" && code.includes("TransactionTimedOut");
+}
+
+// valueType() names, as the procedures spell them in propertyTypes.
+const VALUE_TYPES: Record<string, string> = {
+  STRING: "String",
+  INTEGER: "Long",
+  FLOAT: "Double",
+  BOOLEAN: "Boolean",
+  DATE: "Date",
+  "ZONED DATETIME": "DateTime",
+  "LOCAL DATETIME": "LocalDateTime",
+  "ZONED TIME": "Time",
+  "LOCAL TIME": "LocalTime",
+  DURATION: "Duration",
+  POINT: "Point",
+};
+
+/**
+ * `valueType()` ("LIST<STRING NOT NULL> NOT NULL") in the procedures'
+ * vocabulary ("StringArray"); "" where it has no name for it.
+ */
+export function procedureType(valueType: unknown): string {
+  if (typeof valueType !== "string") return "";
+  const t = valueType.replace(/ NOT NULL$/, "");
+  const list = /^LIST<(.*)>$/.exec(t);
+  if (list) {
+    const inner = procedureType(list[1]);
+    return inner ? `${inner}Array` : "";
+  }
+  return VALUE_TYPES[t] ?? "";
+}
+
+/** Runs fn over items, `limit` at a time, results in item order. */
+async function mapConcurrent<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  // Each worker chains to the next free item when its call settles.
+  const worker = (): Promise<void> => {
+    if (next >= items.length) return Promise.resolve();
+    const i = next++;
+    return fn(items[i]).then((r) => {
+      out[i] = r;
+      return worker();
+    });
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  );
+  return out;
+}
 
 /**
  * The names in a type as `db.schema.*TypeProperties()` quotes it: ":`Movie`",
@@ -23,6 +86,17 @@ function namesOf(quoted: string): string[] {
     m[1].replaceAll("``", "`"),
   );
   return names.length > 0 ? names : [quoted.replace(/^:/, "")];
+}
+
+type SessionOpener = () => ReturnType<
+  ReturnType<typeof neo4j.driver>["session"]
+>;
+
+/** A row of a property procedure, or of a sample in the same shape. */
+interface PropertyRow {
+  type: string;
+  propertyName: string;
+  propertyTypes: string[];
 }
 
 /** Adds the property to each name, once. */
@@ -54,6 +128,14 @@ function addProperty(
  *  - db.schema.relTypeProperties()
  */
 export class Neo4jSchemaManager implements SchemaManager {
+  private readonly procedureTimeoutMs: number;
+
+  /** `procedureTimeoutMs`: the budget of each exact property procedure; tests lower it. */
+  constructor(options: { procedureTimeoutMs?: number } = {}) {
+    this.procedureTimeoutMs =
+      options.procedureTimeoutMs ?? PROCEDURE_TIMEOUT_MS;
+  }
+
   async fetchSchema(config: ConnectorConfig): Promise<DatabaseSchema> {
     const module = new Neo4jConnectionModule(config);
     // neo4j-driver and neo4j-driver-core each export their own structurally
@@ -80,33 +162,37 @@ export class Neo4jSchemaManager implements SchemaManager {
             openSession,
             "CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType",
           ),
-          this._runQuery<{
-            nodeType: string;
-            propertyName: string;
-            propertyTypes: string[];
-          }>(
+          this._propertyRows(
             openSession,
+            "nodeType",
             "CALL db.schema.nodeTypeProperties() YIELD nodeType, propertyName, propertyTypes",
           ),
-          this._runQuery<{
-            relType: string;
-            propertyName: string;
-            propertyTypes: string[];
-          }>(
+          this._propertyRows(
             openSession,
+            "relType",
             "CALL db.schema.relTypeProperties() YIELD relType, propertyName, propertyTypes",
           ),
         ]);
 
       // No prototype: a label named `constructor` is a name, not Object's.
       const nodePropsMap: Record<string, PropertyDef[]> = Object.create(null);
-      for (const row of nodeProperties) {
-        addProperty(nodePropsMap, namesOf(row.nodeType), row);
+      for (const row of nodeProperties ??
+        (await this._sampleProperties(
+          openSession,
+          labels.map((r) => r.label),
+          "(n:{ident})",
+        ))) {
+        addProperty(nodePropsMap, namesOf(row.type), row);
       }
 
       const relPropsMap: Record<string, PropertyDef[]> = Object.create(null);
-      for (const row of relProperties) {
-        addProperty(relPropsMap, namesOf(row.relType), row);
+      for (const row of relProperties ??
+        (await this._sampleProperties(
+          openSession,
+          relationshipTypes.map((r) => r.relationshipType),
+          "()-[n:{ident}]->()",
+        ))) {
+        addProperty(relPropsMap, namesOf(row.type), row);
       }
 
       const relationshipPatterns = await this._relationshipPatterns(
@@ -137,35 +223,99 @@ export class Neo4jSchemaManager implements SchemaManager {
    * invents pairs on multi-label nodes; raise the sample if a rare pair matters.
    */
   private async _relationshipPatterns(
-    openSession: () => ReturnType<ReturnType<typeof neo4j.driver>["session"]>,
+    openSession: SessionOpener,
     types: string[],
   ): Promise<RelationshipPattern[]> {
-    // Samples run PATTERN_CONCURRENCY at a time; a failed sample gives that
-    // type no pattern instead of failing the whole schema (#2508).
-    const perType: RelationshipPattern[][] = new Array(types.length);
-    let next = 0;
-    // Each worker chains to the next free type when its sample settles.
-    const worker = (): Promise<void> => {
-      if (next >= types.length) return Promise.resolve();
-      const i = next++;
-      return this._typePatterns(openSession, types[i])
-        .catch((): RelationshipPattern[] => [])
-        .then((patterns) => {
-          perType[i] = patterns;
-          return worker();
-        });
-    };
-    await Promise.all(
-      Array.from(
-        { length: Math.min(PATTERN_CONCURRENCY, types.length) },
-        worker,
+    // A failed sample gives that type no pattern instead of failing the whole
+    // schema (#2508).
+    const perType = await mapConcurrent(types, PATTERN_CONCURRENCY, (type) =>
+      this._typePatterns(openSession, type).catch(
+        (): RelationshipPattern[] => [],
       ),
     );
     return perType.flat();
   }
 
+  /**
+   * One exact property procedure under its own budget. null when it timed out,
+   * so the caller samples; any other error fails the read, as before.
+   */
+  private async _propertyRows(
+    openSession: SessionOpener,
+    typeColumn: string,
+    query: string,
+  ): Promise<PropertyRow[] | null> {
+    try {
+      const rows = await this._runQuery<Record<string, never>>(
+        openSession,
+        query,
+        this.procedureTimeoutMs,
+      );
+      return rows.map((r) => ({
+        type: r[typeColumn],
+        propertyName: r.propertyName,
+        propertyTypes: r.propertyTypes,
+      }));
+    } catch (error) {
+      if (isTimeout(error)) return null;
+      throw error;
+    }
+  }
+
+  /**
+   * Properties from up to SAMPLE_SIZE entities per name, in the procedures'
+   * row shape and type vocabulary. A failed sample leaves that name without
+   * properties. Names come from the database's own catalog, quoted as
+   * identifiers exactly as _typePatterns does (see there for the backslash).
+   */
+  private async _sampleProperties(
+    openSession: SessionOpener,
+    names: string[],
+    pattern: string,
+  ): Promise<PropertyRow[]> {
+    const perName = await mapConcurrent(names, PATTERN_CONCURRENCY, (name) =>
+      this._sampleOne(openSession, name, pattern).catch(
+        (): PropertyRow[] => [],
+      ),
+    );
+    return perName.flat();
+  }
+
+  private async _sampleOne(
+    openSession: SessionOpener,
+    name: string,
+    pattern: string,
+  ): Promise<PropertyRow[]> {
+    if (name.includes("\\")) return [];
+    const ident = "`" + name.replaceAll("`", "``") + "`";
+    const head =
+      `MATCH ${pattern.replace("{ident}", ident)} WITH n LIMIT ${SAMPLE_SIZE} ` +
+      "UNWIND keys(n) AS k ";
+    // A name is quoted in the procedures' own form, so namesOf reads it back.
+    const type = ":" + ident;
+    let rows: Array<{ propertyName: string; propertyTypes: unknown[] }>;
+    try {
+      rows = await this._runQuery(
+        openSession,
+        head +
+          "RETURN k AS propertyName, collect(DISTINCT valueType(n[k])) AS propertyTypes",
+      );
+    } catch {
+      // valueType() is Neo4j 5.13+: without it the names stay, the types are unset.
+      rows = await this._runQuery(
+        openSession,
+        head + "RETURN DISTINCT k AS propertyName",
+      );
+    }
+    return rows.map((r) => ({
+      type,
+      propertyName: r.propertyName,
+      propertyTypes: [procedureType(r.propertyTypes?.[0])],
+    }));
+  }
+
   private async _typePatterns(
-    openSession: () => ReturnType<ReturnType<typeof neo4j.driver>["session"]>,
+    openSession: SessionOpener,
     type: string,
   ): Promise<RelationshipPattern[]> {
     // The name comes from db.relationshipTypes(), the database's own
@@ -200,17 +350,14 @@ export class Neo4jSchemaManager implements SchemaManager {
   }
 
   private async _runQuery<T>(
-    openSession: () => ReturnType<ReturnType<typeof neo4j.driver>["session"]>,
+    openSession: SessionOpener,
     query: string,
+    timeout: number = DEFAULT_CONNECTION_CONFIG.timeout,
   ): Promise<T[]> {
     const session = openSession();
     try {
       // Server-enforced transaction timeout; these ran unbounded (#1302).
-      const result = await session.run(
-        query,
-        {},
-        { timeout: DEFAULT_CONNECTION_CONFIG.timeout },
-      );
+      const result = await session.run(query, {}, { timeout });
       return result.records.map((record) => {
         const obj: Record<string, unknown> = {};
         for (const key of record.keys) {
