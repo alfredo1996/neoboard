@@ -3,27 +3,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrapResponse } from "@/lib/api/api-client";
 
-/** One side of a concept: an entity and its key property on a connection. */
-export interface ConceptSide {
-  connectionId: string;
-  entityKey: string;
-  keyPropertyKey: string;
-  /** What the connection no longer reports; read only. */
-  missing?: "entity" | "keyProperty" | null;
-}
-
-export interface Concept {
-  id: string;
-  name: string;
-  parameter: string;
-  description: string;
-  sides: ConceptSide[];
-}
-
-export type ConceptInput = Pick<
+// The shapes live in lib/, which must not import from hooks/ (#2534).
+export type {
   Concept,
-  "name" | "parameter" | "description"
-> & { sides: Omit<ConceptSide, "missing">[] };
+  ConceptInput,
+  ConceptSide,
+} from "@/lib/ontology/concept-types";
+import type { Concept, ConceptInput } from "@/lib/ontology/concept-types";
 
 const KEY = ["ontology-concepts"];
 const URL = "/api/ontology/concepts";

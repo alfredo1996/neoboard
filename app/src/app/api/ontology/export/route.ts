@@ -7,7 +7,10 @@ import {
 } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { apiSuccess } from "@/lib/api/api-response";
-import { usableConnections, conceptRouteError } from "@/lib/ontology/concepts";
+import {
+  usableConnectionNames,
+  conceptRouteError,
+} from "@/lib/ontology/concepts";
 import {
   ONTOLOGY_FORMAT,
   ONTOLOGY_VERSION,
@@ -25,7 +28,7 @@ export async function GET() {
   try {
     const session = await requireSession();
     const { tenantId } = session;
-    const usable = await usableConnections(session);
+    const usable = await usableConnectionNames(session);
     const ids = usable.map((c) => c.id);
     const [terms, concepts, sides] = await Promise.all([
       ids.length

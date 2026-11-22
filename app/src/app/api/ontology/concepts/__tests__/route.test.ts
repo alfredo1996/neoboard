@@ -444,6 +444,19 @@ describe("/api/ontology/concepts", () => {
       expect(res.status).toBe(201);
     });
 
+    it("reads past the cache only the connection whose side it refused (#2534)", async () => {
+      rows.set(connections, [G, S]);
+      await post(
+        body({
+          sides: [side("graph", "Person", "email"), side("sql", "nope", "x")],
+        }),
+      );
+      const fresh = mockFetchTerms.mock.calls.filter(
+        ([, , scope]) => scope?.refresh,
+      );
+      expect(fresh.map(([type]) => type)).toEqual(["type-sql"]);
+    });
+
     it("never waits on a second read when every side is known (#2514)", async () => {
       rows.set(connections, [S]);
       await post(body({ sides: [side("sql", "customers", "email")] }));

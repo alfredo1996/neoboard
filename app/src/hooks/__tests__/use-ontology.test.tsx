@@ -169,9 +169,21 @@ describe("use-ontology", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("puts the terms and replaces the cache with the answer", async () => {
-    fetchMock.mockResolvedValue(ok([{ key: "saved" }]));
+  const term = (key: string, over: object = {}) => ({
+    kind: "entity",
+    key,
+    parentKey: "",
+    displayName: "",
+    description: "",
+    hidden: false,
+    orphaned: false,
+    ...over,
+  });
+
+  it("puts the terms and shows them in the cache at once", async () => {
+    fetchMock.mockResolvedValue(ok([]));
     const { client, wrapper } = setup();
+    client.setQueryData(["ontology", "c1"], { terms: [term("A")] });
     const { result } = renderHook(() => useSaveTerms("c1"), { wrapper });
     await act(() => result.current.mutateAsync([meaning]));
     const [url, init] = fetchMock.mock.calls[0];
@@ -179,8 +191,58 @@ describe("use-ontology", () => {
     expect(init.method).toBe("PUT");
     expect(JSON.parse(init.body)).toEqual({ terms: [meaning] });
     expect(client.getQueryData(["ontology", "c1"])).toEqual({
-      terms: [{ key: "saved" }],
+      terms: [term("A", { hidden: true })],
     });
+  });
+
+  it("keeps both edits when two saves answer in reverse order (#2534)", async () => {
+    // Each PUT answers with the whole list as the server held it then, so the
+    // older answer, landing last, carries neither of the later edits.
+    const answers: Array<(r: Response) => void> = [];
+    fetchMock.mockImplementation(
+      () => new Promise<Response>((resolve) => answers.push(resolve)),
+    );
+    const { client, wrapper } = setup();
+    client.setQueryData(["ontology", "c1"], {
+      terms: [term("A"), term("B")],
+    });
+    const { result } = renderHook(() => useSaveTerms("c1"), { wrapper });
+    act(() => {
+      result.current.mutate([
+        { ...meaning, hidden: undefined, key: "A", displayName: "one" },
+      ]);
+      result.current.mutate([
+        { ...meaning, hidden: undefined, key: "B", displayName: "two" },
+      ]);
+    });
+    await waitFor(() => expect(answers).toHaveLength(2));
+    await act(async () => {
+      answers[1](
+        ok([
+          term("A", { displayName: "one" }),
+          term("B", { displayName: "two" }),
+        ]),
+      );
+    });
+    await act(async () => {
+      answers[0](ok([term("A", { displayName: "one" }), term("B")]));
+    });
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(client.getQueryData(["ontology", "c1"])).toEqual({
+      terms: [
+        term("A", { displayName: "one" }),
+        term("B", { displayName: "two" }),
+      ],
+    });
+  });
+
+  it("reads the terms again once the last pending save settles (#2534)", async () => {
+    fetchMock.mockResolvedValue(ok([]));
+    const { client, wrapper } = setup();
+    client.setQueryData(["ontology", "c1"], { terms: [term("A")] });
+    const { result } = renderHook(() => useSaveTerms("c1"), { wrapper });
+    await act(() => result.current.mutateAsync([meaning]));
+    expect(client.getQueryState(["ontology", "c1"])?.isInvalidated).toBe(true);
   });
 
   it("tells the user about every failed save, not only the latest", async () => {

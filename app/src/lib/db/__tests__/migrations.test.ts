@@ -690,4 +690,65 @@ describe("Database migrations", () => {
     await check();
     await client.end();
   }, 90_000);
+
+  it("re-runs the ontology migrations as SQL on a migrated database (#2534)", async () => {
+    // migrate() skips what it has recorded, so a second migrate() proves
+    // nothing about a statement that is not safe to repeat: 0008 dropped
+    // connection_tenant_id_unique, which the composite FKs depend on (2BP01).
+    const client = await emptyDatabase("replay_2534");
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    for (const tag of ["0008_ontology_terms", "0009_ontology_concepts"]) {
+      const statements = readFileSync(
+        path.join(MIGRATIONS_FOLDER, `${tag}.sql`),
+        "utf8",
+      ).split("--> statement-breakpoint");
+      await client.begin(async (tx) => {
+        for (const statement of statements) await tx.unsafe(statement);
+      });
+    }
+    // Replayed, not doubled: one unique, and the FKs still stand on it.
+    const [{ n }] = await client`
+      SELECT count(*)::int AS n FROM pg_constraint
+      WHERE conname IN ('connection_tenant_id_unique', 'ontology_term_tenant_connection_fk')`;
+    expect(n).toBe(2);
+    await client.end();
+  }, 90_000);
+
+  it("indexes a side by connection once, and no longer twice by (tenant_id, id) on connection (#2534)", async () => {
+    const client = await emptyDatabase("indexes_2534");
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    const rows =
+      await client`SELECT indexname FROM pg_indexes WHERE schemaname = 'public'`;
+    const names = rows.map((r) => r.indexname);
+    expect(names).toContain("ontology_concept_side_tenant_connection_idx");
+    expect(names).not.toContain("connection_tenant_id_idx");
+    expect(names).toContain("connection_tenant_id_unique");
+    await client.end();
+  }, 60_000);
+
+  it("deletes a concept when its last side goes, whichever way, but not while a save swaps the sides (#2534)", async () => {
+    const client = await emptyDatabase("orphans_2534");
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    await client`INSERT INTO "user" (id, email) VALUES ('u', 'u@x')`;
+    await client`INSERT INTO connection (id, "userId", name, type, "configEncrypted")
+                 VALUES ('c1', 'u', 'a', 'neo4j', 'enc'), ('c2', 'u', 'b', 'neo4j', 'enc')`;
+    await client`INSERT INTO ontology_concept (id, name, parameter)
+                 VALUES ('k1', 'One', 'one'), ('k2', 'Two', 'two'), ('k3', 'Three', 'three')`;
+    await client`INSERT INTO ontology_concept_side (id, concept_id, connection_id, entity_key, key_property_key)
+                 VALUES ('s1', 'k1', 'c1', 'e', 'k'), ('s2', 'k2', 'c1', 'e', 'k'), ('s3', 'k2', 'c2', 'e', 'k'),
+                        ('s4', 'k3', 'c2', 'e', 'k')`;
+    // a save: delete the sides, insert the new ones, in one transaction
+    await client.begin(async (tx) => {
+      await tx`DELETE FROM ontology_concept_side WHERE concept_id = 'k3'`;
+      await tx`INSERT INTO ontology_concept_side (id, concept_id, connection_id, entity_key, key_property_key)
+               VALUES ('s5', 'k3', 'c2', 'e2', 'k')`;
+    });
+    await client`DELETE FROM connection WHERE id = 'c1'`;
+    const left = await client`SELECT id FROM ontology_concept ORDER BY id`;
+    // k1 lost its only side; k2 keeps the one on c2; k3 was swapped, not emptied
+    expect(left.map((r) => r.id)).toEqual(["k2", "k3"]);
+    await client`DELETE FROM "user" WHERE id = 'u'`;
+    expect(await client`SELECT id FROM ontology_concept`).toHaveLength(0);
+    await client.end();
+  }, 60_000);
 });

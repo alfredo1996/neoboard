@@ -1,4 +1,5 @@
-import type { Concept, ConceptSide } from "@/hooks/use-concepts";
+import type { Concept, ConceptSide } from "@/lib/ontology/concept-types";
+import { entityParentKey } from "@/lib/ontology/term-keys";
 
 /** The sides of a concept on one connection that the connection still reports. */
 const liveSides = (c: Concept, connectionId: string): ConceptSide[] =>
@@ -91,7 +92,7 @@ export function parameterCompletions(
       const property = find(
         "property",
         s.keyPropertyKey,
-        `entity:${s.entityKey}`,
+        entityParentKey(s.entityKey),
       );
       if (entity?.hidden || property?.hidden) return [];
       return [

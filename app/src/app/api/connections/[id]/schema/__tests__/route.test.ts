@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { makeParams } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 import { ConnectorError, ConnectorErrorType } from "@neoboard/connection";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -121,6 +123,50 @@ describe("GET /api/connections/[id]/schema", () => {
       );
     },
   );
+
+  it.each([
+    ["creator", "creator", true],
+    ["admin", "admin", true],
+    ["reader", "reader", false],
+  ])(
+    "honours refresh=1 only for a role that manages connections: %s (#2534)",
+    async (_who, role, honoured) => {
+      mockRequireSession.mockResolvedValue({ ...SESSION, role });
+      mockDb.select.mockReturnValue(
+        makeSelectChain([
+          { id: "c1", userId: "user-1", type: "neo4j", configEncrypted: "enc" },
+        ]),
+      );
+      mockDecryptJson.mockReturnValue({});
+      mockFetchConnectionSchema.mockResolvedValue({});
+      await GET(new Request("http://localhost/x?refresh=1"), makeParams("c1"));
+      expect(mockFetchConnectionSchema).toHaveBeenCalledWith(
+        "neo4j",
+        {},
+        expect.objectContaining({ refresh: honoured }),
+      );
+    },
+  );
+
+  it.each([
+    ["an admin, who may use any connection of the tenant", "admin", false],
+    ["a creator, who may use their own and shared ones", "creator", true],
+  ])("looks the connection up for %s (#2534)", async (_n, role, scoped) => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, role });
+    let where: unknown;
+    mockDb.select.mockReturnValue({
+      from: () => ({
+        where: (w: unknown) => {
+          where = w;
+          return { limit: () => Promise.resolve([]) };
+        },
+      }),
+    });
+    await GET(new Request("http://localhost/x"), makeParams("c1"));
+    const { sql: text, params } = new PgDialect().sqlToQuery(where as SQL);
+    expect(params).toContain("t1");
+    expect(text.includes('"visibility"')).toBe(scoped);
+  });
 
   it("returns schema on success", async () => {
     mockRequireSession.mockResolvedValue(SESSION);

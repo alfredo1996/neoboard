@@ -378,29 +378,7 @@
           "default": "now()"
         }
       },
-      "indexes": {
-        "connection_tenant_id_idx": {
-          "name": "connection_tenant_id_idx",
-          "columns": [
-            {
-              "expression": "tenant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "connection_tenant_user_fk": {
           "name": "connection_tenant_user_fk",
@@ -675,7 +653,29 @@
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "ontology_concept_side_tenant_connection_idx": {
+          "name": "ontology_concept_side_tenant_connection_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "connection_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "ontology_concept_side_tenant_concept_fk": {
           "name": "ontology_concept_side_tenant_concept_fk",

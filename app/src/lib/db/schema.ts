@@ -170,7 +170,6 @@ export const connections = pgTable(
       foreignColumns: [users.tenantId, users.id],
       name: "connection_tenant_user_fk",
     }).onDelete("cascade"),
-    index("connection_tenant_id_idx").on(table.tenantId, table.id),
     // The target of the composite FKs that tie a row to its connection and
     // tenant together (#2415, as dashboard_tenant_id_unique is, #1646).
     unique("connection_tenant_id_unique").on(table.tenantId, table.id),
@@ -578,6 +577,11 @@ export const ontologyConceptSides = pgTable(
       foreignColumns: [connections.tenantId, connections.id],
       name: "ontology_concept_side_tenant_connection_fk",
     }).onDelete("cascade"),
+    // A connection delete cascades by (tenant_id, connection_id) (#2534).
+    index("ontology_concept_side_tenant_connection_idx").on(
+      table.tenantId,
+      table.connectionId,
+    ),
     unique("ontology_concept_side_unique").on(
       table.tenantId,
       table.conceptId,

@@ -75,6 +75,7 @@ export const conceptFields = {
 };
 
 const UNIQUE_VIOLATION = "23505";
+const FOREIGN_KEY_VIOLATION = "23503";
 const codeOf = (e: unknown) => (e as { code?: unknown } | null)?.code;
 
 /**
@@ -93,6 +94,16 @@ export function conceptRouteError(error: unknown, fallback: string) {
       "Another concept already uses this name or parameter, or this concept changed meanwhile. Reload and try again.",
     );
   }
+  // A connection or concept deleted while this wrote: its side no longer fits.
+  if (
+    codeOf(error) === FOREIGN_KEY_VIOLATION ||
+    codeOf(cause) === FOREIGN_KEY_VIOLATION
+  ) {
+    return apiError(
+      "CONFLICT",
+      "A connection or concept used here was deleted meanwhile. Reload and try again.",
+    );
+  }
   return handleRouteError(error, fallback, { safeMessage: true });
 }
 
@@ -104,6 +115,13 @@ type UsableConnection = {
   type: string;
   configEncrypted: string;
 };
+
+const usableWhere = (session: Session, ids?: string[]) =>
+  and(
+    eq(connections.tenantId, session.tenantId),
+    usableConnection(session.userId, session.role),
+    ids && inArray(connections.id, ids),
+  );
 
 /** The caller's usable connections in their tenant, optionally only `ids`. */
 export function usableConnections(
@@ -119,13 +137,20 @@ export function usableConnections(
       configEncrypted: connections.configEncrypted,
     })
     .from(connections)
-    .where(
-      and(
-        eq(connections.tenantId, session.tenantId),
-        usableConnection(session.userId, session.role),
-        ids && inArray(connections.id, ids),
-      ),
-    );
+    .where(usableWhere(session, ids));
+}
+
+/**
+ * The same, as ids and names only: for a caller that decrypts nothing, so the
+ * stored configs are not loaded for it (#2534).
+ */
+export function usableConnectionNames(
+  session: Session,
+): Promise<Array<{ id: string; name: string }>> {
+  return db
+    .select({ id: connections.id, name: connections.name })
+    .from(connections)
+    .where(usableWhere(session));
 }
 
 // async, so a decrypt that throws rejects (and settles) instead of escaping.
@@ -195,14 +220,23 @@ export async function checkSidesAgainstTerms(
   sides: SideInput[],
   usable: UsableConnection[],
 ) {
-  const read = async (refresh: boolean) =>
+  const read = async (from: UsableConnection[], refresh: boolean) =>
     new Map(
       await Promise.all(
-        usable.map(async (c) => [c.id, await termsOf(c, refresh)] as const),
+        from.map(async (c) => [c.id, await termsOf(c, refresh)] as const),
       ),
     );
-  const bad =
-    badSide(sides, await read(false)) && badSide(sides, await read(true));
+  const cached = await read(usable, false);
+  // Only a connection with a refused side is read again (#2534).
+  const refused = new Set(
+    sides.filter((s) => badSide([s], cached)).map((s) => s.connectionId),
+  );
+  if (refused.size === 0) return undefined;
+  const fresh = await read(
+    usable.filter((c) => refused.has(c.id)),
+    true,
+  );
+  const bad = badSide(sides, new Map([...cached, ...fresh]));
   return bad ? badRequest(bad) : undefined;
 }
 

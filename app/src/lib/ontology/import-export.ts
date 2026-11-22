@@ -430,7 +430,7 @@ export async function writePlan(
   // first failure rejects and the transaction rolls back, as in #2512.
   await Promise.all([
     ...chunks.map((rows) => upsertTerms(tx, tenantId, rows)),
-    ...plan.conceptWrites.map((c) => writeConcept(tx, tenantId, c)),
+    writeConcepts(tx, tenantId, plan.conceptWrites),
   ]);
 }
 
@@ -455,25 +455,56 @@ function upsertTerms(tx: Handle, tenantId: string, rows: TermRow[]) {
     });
 }
 
-/** One concept: its row first, then its sides, which reference it. */
-async function writeConcept(tx: Handle, tenantId: string, c: ConceptWrite) {
-  const { existingId, sides, ...fields } = c;
-  const id = existingId ?? randomId();
-  await (existingId
-    ? tx
-        .update(ontologyConcepts)
-        .set(fields)
-        .where(
-          and(
-            eq(ontologyConcepts.tenantId, tenantId),
-            eq(ontologyConcepts.id, existingId),
+const chunked = <T>(items: T[]): T[][] =>
+  Array.from({ length: Math.ceil(items.length / CHUNK) }, (_, i) =>
+    items.slice(i * CHUNK, (i + 1) * CHUNK),
+  );
+
+/**
+ * The concepts: new ones in one insert, an existing one updated by its id,
+ * then every side in one more, since they reference the concepts (#2534).
+ */
+async function writeConcepts(
+  tx: Handle,
+  tenantId: string,
+  writes: ConceptWrite[],
+) {
+  const all = writes.map(({ existingId, sides, ...fields }) => ({
+    id: existingId ?? randomId(),
+    isNew: !existingId,
+    sides,
+    fields,
+  }));
+  const created = all
+    .filter((c) => c.isNew)
+    .map((c) => ({ id: c.id, ...c.fields }));
+  for (const rows of chunked(created)) {
+    await tx
+      .insert(ontologyConcepts)
+      .values(rows.map((c) => ({ ...c, tenantId })));
+  }
+  await Promise.all(
+    all
+      .filter((c) => !c.isNew)
+      .map((c) =>
+        tx
+          .update(ontologyConcepts)
+          .set(c.fields)
+          .where(
+            and(
+              eq(ontologyConcepts.tenantId, tenantId),
+              eq(ontologyConcepts.id, c.id),
+            ),
           ),
-        )
-    : tx.insert(ontologyConcepts).values({ id, tenantId, ...fields }));
-  if (sides.length) {
+      ),
+  );
+  const sides = all.flatMap((c) =>
+    c.sides.map((s) => ({ conceptId: c.id, ...s })),
+  );
+  for (const rows of chunked(sides)) {
     await tx
       .insert(ontologyConceptSides)
-      .values(sides.map((s) => ({ tenantId, conceptId: id, ...s })))
+      .values(rows.map((s) => ({ ...s, tenantId })))
       .onConflictDoNothing();
   }
 }

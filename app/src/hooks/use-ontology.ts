@@ -75,16 +75,59 @@ export function useEditorTerms(connectionId: string) {
   );
 }
 
+/** `edit` laid over `term`, as the server would store it. */
+function applyMeaning(term: OntologyTerm, edit: TermMeaning): OntologyTerm {
+  if (edit.remove) {
+    return { ...term, displayName: "", description: "", hidden: false };
+  }
+  return {
+    ...term,
+    ...(edit.displayName !== undefined && { displayName: edit.displayName }),
+    ...(edit.description !== undefined && { description: edit.description }),
+    ...(edit.hidden !== undefined && { hidden: edit.hidden }),
+  };
+}
+
 /**
- * Saves the meaning of one or more terms, only the fields given; the answer
- * replaces the cache. A failure is told here, in the mutation's options: a
- * callback passed to `mutate` fires for the latest call only, so a second quick
- * save would swallow the first one's error.
+ * Saves the meaning of one or more terms, only the fields given. The edit shows
+ * in the cache at once and the answer is not written back: each PUT answers
+ * with the whole list as it stood then, so two saves that land out of order
+ * would let the older answer put back what the newer one changed (#2534). The
+ * terms are read again when the last pending save settles. A failure is told
+ * here, in the mutation's options: a callback passed to `mutate` fires for the
+ * latest call only, so a second quick save would swallow the first one's error.
  */
 export function useSaveTerms(connectionId: string) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const queryKey = ontologyKey(connectionId);
+  const mutationKey = ["ontology-save", connectionId];
   return useMutation({
+    mutationKey,
+    onMutate: async (edits: TermMeaning[]) => {
+      await queryClient.cancelQueries({ queryKey });
+      queryClient.setQueryData<OntologyResponse>(
+        queryKey,
+        (old) =>
+          old && {
+            terms: old.terms.map((t) => {
+              const edit = edits.find(
+                (e) =>
+                  e.kind === t.kind &&
+                  e.key === t.key &&
+                  e.parentKey === t.parentKey,
+              );
+              return edit ? applyMeaning(t, edit) : t;
+            }),
+          },
+      );
+    },
+    onSettled: () => {
+      // This save still counts as mutating, so 1 means it was the last.
+      if (queryClient.isMutating({ mutationKey }) === 1) {
+        return queryClient.invalidateQueries({ queryKey });
+      }
+    },
     mutationFn: async (terms: TermMeaning[]) =>
       unwrapResponse<OntologyResponse>(
         await fetch(`/api/connections/${connectionId}/ontology`, {
@@ -93,8 +136,6 @@ export function useSaveTerms(connectionId: string) {
           body: JSON.stringify({ terms }),
         }),
       ),
-    onSuccess: (data) =>
-      queryClient.setQueryData(ontologyKey(connectionId), data),
     onError: (e) =>
       toast({
         title: "Could not save",

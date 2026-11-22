@@ -446,6 +446,26 @@ describe("ontology export and import (#2510)", () => {
       }
     });
 
+    it("writes new concepts and all their sides in two inserts, not two per concept (#2534)", async () => {
+      const { writePlan } = await import("@/lib/ontology/import-export");
+      const conceptWrites = Array.from({ length: 50 }, (_, i) => ({
+        name: `C${i}`,
+        parameter: `c${i}`,
+        description: "",
+        sides: [
+          { connectionId: "graph", entityKey: `E${i}`, keyPropertyKey: "id" },
+          { connectionId: "sql", entityKey: `T${i}`, keyPropertyKey: "id" },
+        ],
+      }));
+      await writePlan(mockDb as never, "t1", { termRows: [], conceptWrites });
+      const concepts = writesTo(ontologyConcepts);
+      const sides = writesTo(ontologyConceptSides);
+      expect(concepts).toHaveLength(1);
+      expect(concepts[0].values).toHaveLength(50);
+      expect(sides).toHaveLength(1);
+      expect(sides[0].values).toHaveLength(100);
+    });
+
     it("writes in one transaction", async () => {
       await post(importBody({ apply: true }));
       expect(mockDb.transaction).toHaveBeenCalledTimes(1);
@@ -682,6 +702,17 @@ describe("ontology export and import (#2510)", () => {
         data.preview.items.map((i: { label: string }) => i.label),
       ).toContain("Graph: property Person.name");
       expect(order.indexOf("terms")).toBeLessThan(order.indexOf("tx"));
+    });
+
+    it("answers 409, not 500, when a connection was deleted while it wrote (#2534)", async () => {
+      mockDb.transaction.mockRejectedValueOnce(
+        Object.assign(new Error("insert into ontology_concept_side"), {
+          cause: { code: "23503" },
+        }),
+      );
+      const res = await post(importBody({ apply: true }));
+      expect(res.status).toBe(409);
+      expect(JSON.stringify(await res.json())).not.toContain("insert into");
     });
 
     it("never echoes a SQL statement from a failed write", async () => {

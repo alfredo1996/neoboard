@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections, ontologyTerms } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { assertCanManageConnections } from "@/lib/auth/permissions";
+import { canManageConnections } from "@/lib/auth/can-write";
 import { decryptJson } from "@/lib/crypto/crypto";
 import { fetchConnectionTerms } from "@/lib/connector/schema-prefetch";
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
@@ -122,8 +123,11 @@ export async function GET(
     const { id } = await params;
     const connection = await findUsable(id, session);
     if (!connection) return notFound("Connection not found");
-    // The Model page's Refresh reads the database again (#2514).
-    const refresh = new URL(request.url).searchParams.get("refresh") === "1";
+    // The Model page's Refresh reads the database again (#2514), for a role
+    // that manages connections; for any other it is ignored (#2534).
+    const refresh =
+      canManageConnections(session.role) &&
+      new URL(request.url).searchParams.get("refresh") === "1";
     return apiSuccess(
       await readOntology(
         connection,
@@ -187,35 +191,66 @@ export async function PUT(
 
     const { tenantId } = session;
     await db.transaction(async (tx) => {
-      // One term's writes run in order; terms touch different rows, so they
-      // are issued together on the transaction (no await in a loop).
-      const writes = validation.data.terms.map(async (t) => {
-        const term = and(
-          eq(ontologyTerms.tenantId, tenantId),
-          eq(ontologyTerms.connectionId, connection.id),
+      const scope = and(
+        eq(ontologyTerms.tenantId, tenantId),
+        eq(ontologyTerms.connectionId, connection.id),
+      );
+      const termKey = (t: { kind: string; key: string; parentKey: string }) =>
+        and(
           eq(ontologyTerms.kind, t.kind),
           eq(ontologyTerms.key, t.key),
           eq(ontologyTerms.parentKey, t.parentKey),
         );
+      // A term sent twice is written once, the later one winning: one INSERT
+      // cannot touch a row twice. Terms sent the same fields share a statement,
+      // so each still changes only what it was sent (#2534).
+      const removals = new Map<
+        string,
+        (typeof validation.data.terms)[number]
+      >();
+      const groups = new Map<string, Map<string, Record<string, unknown>>>();
+      for (const t of validation.data.terms) {
+        const id = JSON.stringify([t.kind, t.key, t.parentKey]);
         if (t.remove) {
-          await tx.delete(ontologyTerms).where(term);
-          return;
+          removals.set(id, t);
+          continue;
         }
         const meaning = {
           ...(t.displayName !== undefined && { displayName: t.displayName }),
           ...(t.description !== undefined && { description: t.description }),
           ...(t.hidden !== undefined && { hidden: t.hidden }),
         };
+        const shape = Object.keys(meaning).sort().join(",");
+        const rows = groups.get(shape) ?? new Map();
+        rows.set(id, {
+          connectionId: connection.id,
+          kind: t.kind,
+          key: t.key,
+          parentKey: t.parentKey,
+          ...meaning,
+        });
+        groups.set(shape, rows);
+      }
+      if (removals.size > 0) {
+        await tx
+          .delete(ontologyTerms)
+          .where(and(scope, or(...[...removals.values()].map(termKey))));
+      }
+      for (const [shape, rows] of groups) {
+        const fields = shape === "" ? [] : shape.split(",");
+        const columns = {
+          displayName: ontologyTerms.displayName,
+          description: ontologyTerms.description,
+          hidden: ontologyTerms.hidden,
+        } as const;
         await tx
           .insert(ontologyTerms)
-          .values({
-            tenantId,
-            connectionId: connection.id,
-            kind: t.kind,
-            key: t.key,
-            parentKey: t.parentKey,
-            ...meaning,
-          })
+          .values(
+            [...rows.values()].map((r) => ({
+              ...r,
+              tenantId,
+            })) as (typeof ontologyTerms.$inferInsert)[],
+          )
           .onConflictDoUpdate({
             target: [
               ontologyTerms.tenantId,
@@ -224,21 +259,30 @@ export async function PUT(
               ontologyTerms.key,
               ontologyTerms.parentKey,
             ],
-            set: { ...meaning, updatedAt: new Date() },
+            set: {
+              ...Object.fromEntries(
+                fields.map((f) => [
+                  f,
+                  sql`excluded.${sql.identifier(columns[f as keyof typeof columns].name)}`,
+                ]),
+              ),
+              updatedAt: new Date(),
+            },
           });
-        // A row exists only for a term someone described or hid.
+      }
+      // A row exists only for a term someone described or hid.
+      if (groups.size > 0) {
         await tx
           .delete(ontologyTerms)
           .where(
             and(
-              term,
+              scope,
               eq(ontologyTerms.displayName, ""),
               eq(ontologyTerms.description, ""),
               eq(ontologyTerms.hidden, false),
             ),
           );
-      });
-      await Promise.all(writes);
+      }
     });
     return apiSuccess(await readOntology(connection, tenantId, live));
   } catch (error) {
