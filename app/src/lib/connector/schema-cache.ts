@@ -13,13 +13,21 @@ export const SCHEMA_CACHE_MAX_ENTRIES = 100;
 
 interface Entry {
   expires: number;
-  promise: Promise<unknown>;
+  value: unknown;
 }
 
 // On globalThis: module state is per bundle in a Next production build, and
 // the routes would each get their own cache (#1888).
-const holder = globalThis as { __neoboardSchemaCache?: Map<string, Entry> };
+const holder = globalThis as {
+  __neoboardSchemaCache?: Map<string, Entry>;
+  __neoboardSchemaInflight?: Map<string, Promise<unknown>>;
+};
 const cache = (holder.__neoboardSchemaCache ??= new Map<string, Entry>());
+/** The read running per key: a miss or a refresh joins it instead of starting another (#2534). */
+const inflight = (holder.__neoboardSchemaInflight ??= new Map<
+  string,
+  Promise<unknown>
+>());
 
 export interface IntrospectionScope {
   tenantId: string;
@@ -34,12 +42,14 @@ const prefix = (tenantId: string, connectionId: string) =>
 
 /**
  * Reads `load` once per tenant, connection and stored config for five
- * minutes; concurrent misses share one read, a failure is not kept, and
- * `refresh` reads again and replaces the entry. The key hashes the ciphertext,
- * so no decrypted material feeds it (a key rotation misses once).
+ * minutes; a miss or a `refresh` that finds a read already running joins it
+ * rather than starting another (#2534), and a failure is not kept. A refresh
+ * replaces the entry only when it succeeds, so a failed one leaves the last
+ * good read. The key hashes the ciphertext, so no decrypted material feeds it
+ * (a key rotation misses once).
  *
  * ponytail: a partially failed read (a per-type sample that resolved to `[]`)
- * is cached like a full one; Refresh recovers.
+ * is cached like a full one; the connector reports no failed part to act on.
  */
 export function cachedIntrospection<T>(
   scope: IntrospectionScope,
@@ -54,18 +64,26 @@ export function cachedIntrospection<T>(
     // Re-inserted, so the first key in the map is the least recently used.
     cache.delete(key);
     cache.set(key, hit);
-    return hit.promise as Promise<T>;
+    return Promise.resolve(hit.value as T);
   }
-  const promise = load();
-  const entry: Entry = { expires: Date.now() + SCHEMA_CACHE_TTL_MS, promise };
-  cache.delete(key);
-  cache.set(key, entry);
-  while (cache.size > SCHEMA_CACHE_MAX_ENTRIES) {
-    cache.delete(cache.keys().next().value as string);
-  }
-  promise.catch(() => {
-    if (cache.get(key) === entry) cache.delete(key);
+  const running = inflight.get(key);
+  if (running) return running as Promise<T>;
+  const promise: Promise<T> = load().then((value) => {
+    // A connection forgotten meanwhile dropped this read: do not store it.
+    if (inflight.get(key) === promise) {
+      cache.delete(key);
+      cache.set(key, { expires: Date.now() + SCHEMA_CACHE_TTL_MS, value });
+      while (cache.size > SCHEMA_CACHE_MAX_ENTRIES) {
+        cache.delete(cache.keys().next().value as string);
+      }
+    }
+    return value;
   });
+  inflight.set(key, promise);
+  const done = () => {
+    if (inflight.get(key) === promise) inflight.delete(key);
+  };
+  void promise.then(done, done);
   return promise;
 }
 
@@ -79,8 +97,12 @@ export function forgetIntrospections(
   for (const key of cache.keys()) {
     if (key.startsWith(p)) cache.delete(key);
   }
+  for (const key of inflight.keys()) {
+    if (key.startsWith(p)) inflight.delete(key);
+  }
 }
 
 export function resetSchemaCacheForTests(): void {
   cache.clear();
+  inflight.clear();
 }

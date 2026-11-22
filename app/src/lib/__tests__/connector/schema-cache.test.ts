@@ -45,6 +45,44 @@ describe("cachedIntrospection", () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 
+  it("joins a refresh to a read already in flight (#2534)", async () => {
+    let release!: (v: string) => void;
+    const load = vi.fn(
+      () => new Promise<string>((resolve) => (release = resolve)),
+    );
+    const first = cachedIntrospection(scope, load, { refresh: true });
+    const second = cachedIntrospection(scope, load, { refresh: true });
+    release("x");
+    expect(await Promise.all([first, second])).toEqual(["x", "x"]);
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the last good read when a refresh fails (#2534)", async () => {
+    const load = vi
+      .fn()
+      .mockResolvedValueOnce("good")
+      .mockRejectedValueOnce(new Error("down"));
+    await cachedIntrospection(scope, load);
+    await expect(
+      cachedIntrospection(scope, load, { refresh: true }),
+    ).rejects.toThrow("down");
+    expect(await cachedIntrospection(scope, load)).toBe("good");
+    expect(load).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not store a read that finishes after its connection was forgotten (#2534)", async () => {
+    let release!: (v: string) => void;
+    const slow = vi.fn(
+      () => new Promise<string>((resolve) => (release = resolve)),
+    );
+    const pending = cachedIntrospection(scope, slow);
+    forgetIntrospections("t1", "c1");
+    release("stale");
+    await pending;
+    const fresh = vi.fn().mockResolvedValue("fresh");
+    expect(await cachedIntrospection(scope, fresh)).toBe("fresh");
+  });
+
   it("forgets a connection's entries on update or delete, and only its own", async () => {
     const load = vi.fn().mockResolvedValue("v");
     await cachedIntrospection(scope, load);

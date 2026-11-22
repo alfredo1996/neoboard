@@ -690,4 +690,163 @@ describe("Database migrations", () => {
     await check();
     await client.end();
   }, 90_000);
+
+  it("re-runs the ontology migrations as SQL on a migrated database (#2534)", async () => {
+    // migrate() skips what it has recorded, so a second migrate() proves
+    // nothing about a statement that is not safe to repeat: 0008 dropped
+    // connection_tenant_id_unique, which the composite FKs depend on (2BP01).
+    const client = await emptyDatabase("replay_2534");
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    for (const tag of [
+      "0008_ontology_terms",
+      "0009_ontology_concepts",
+      "0010_ontology_orphans",
+    ]) {
+      const statements = readFileSync(
+        path.join(MIGRATIONS_FOLDER, `${tag}.sql`),
+        "utf8",
+      ).split("--> statement-breakpoint");
+      await client.begin(async (tx) => {
+        for (const statement of statements) await tx.unsafe(statement);
+      });
+    }
+    // Replayed, not doubled: one unique, and the FKs still stand on it.
+    const [{ n }] = await client`
+      SELECT count(*)::int AS n FROM pg_constraint
+      WHERE conname IN ('connection_tenant_id_unique', 'ontology_term_tenant_connection_fk')`;
+    expect(n).toBe(2);
+    await client.end();
+  }, 90_000);
+
+  it("gives a database already at 0009 the index and the trigger when it runs to head (#2534)", async () => {
+    const client = await emptyDatabase("upgrade_2534");
+    const at0009 = journal.entries.findIndex(
+      (e) => e.tag === "0009_ontology_concepts",
+    );
+    await migrate(drizzle(client), {
+      migrationsFolder: migrationsThrough(at0009 + 1),
+    });
+    const before = await client`SELECT count(*)::int AS n FROM pg_trigger
+      WHERE tgname = 'ontology_concept_side_orphan'`;
+    expect(before[0].n).toBe(0);
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    const names = (
+      await client`SELECT indexname FROM pg_indexes WHERE schemaname = 'public'`
+    ).map((r) => r.indexname);
+    expect(names).toContain("ontology_concept_side_tenant_connection_idx");
+    expect(names).not.toContain("connection_tenant_id_idx");
+    const after = await client`SELECT count(*)::int AS n FROM pg_trigger
+      WHERE tgname = 'ontology_concept_side_orphan'`;
+    expect(after[0].n).toBe(1);
+    await client.end();
+  }, 90_000);
+
+  it("indexes a side by connection once, and no longer twice by (tenant_id, id) on connection (#2534)", async () => {
+    const client = await emptyDatabase("indexes_2534");
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    const rows =
+      await client`SELECT indexname FROM pg_indexes WHERE schemaname = 'public'`;
+    const names = rows.map((r) => r.indexname);
+    expect(names).toContain("ontology_concept_side_tenant_connection_idx");
+    expect(names).not.toContain("connection_tenant_id_idx");
+    expect(names).toContain("connection_tenant_id_unique");
+    await client.end();
+  }, 60_000);
+
+  it("deletes a concept when its last side goes, whichever way, but not while a save swaps the sides, and never touches another tenant's (#2534)", async () => {
+    const client = await emptyDatabase("orphans_2534");
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    await client`INSERT INTO "user" (id, email, tenant_id) VALUES ('u', 'u@x', 't1'), ('u2', 'u2@x', 't2')`;
+    await client`INSERT INTO connection (id, "userId", tenant_id, name, type, "configEncrypted")
+                 VALUES ('c1', 'u', 't1', 'a', 'neo4j', 'enc'), ('c2', 'u', 't1', 'b', 'neo4j', 'enc'),
+                        ('ct', 'u2', 't2', 'a', 'neo4j', 'enc')`;
+    await client`INSERT INTO ontology_concept (id, tenant_id, name, parameter)
+                 VALUES ('k1', 't1', 'One', 'one'), ('k2', 't1', 'Two', 'two'), ('k3', 't1', 'Three', 'three'),
+                        ('kt', 't2', 'One', 'one')`;
+    await client`INSERT INTO ontology_concept_side (id, tenant_id, concept_id, connection_id, entity_key, key_property_key)
+                 VALUES ('s1', 't1', 'k1', 'c1', 'e', 'k'), ('s2', 't1', 'k2', 'c1', 'e', 'k'),
+                        ('s3', 't1', 'k2', 'c2', 'e', 'k'), ('s4', 't1', 'k3', 'c2', 'e', 'k'),
+                        ('st', 't2', 'kt', 'ct', 'e', 'k')`;
+    // a save: delete the sides, insert the new ones, in one transaction
+    await client.begin(async (tx) => {
+      await tx`DELETE FROM ontology_concept_side WHERE tenant_id = 't1' AND concept_id = 'k3'`;
+      await tx`INSERT INTO ontology_concept_side (id, tenant_id, concept_id, connection_id, entity_key, key_property_key)
+               VALUES ('s5', 't1', 'k3', 'c2', 'e2', 'k')`;
+    });
+    await client`DELETE FROM connection WHERE tenant_id = 't1' AND id = 'c1'`;
+    const left =
+      await client`SELECT id FROM ontology_concept WHERE tenant_id = 't1' ORDER BY id`;
+    // k1 lost its only side; k2 keeps the one on c2; k3 was swapped, not emptied
+    expect(left.map((r) => r.id)).toEqual(["k2", "k3"]);
+    // the other tenant's concept stays, and so does it when 0010's one-off
+    // cleanup of sideless concepts runs again over the whole table
+    const cleanup = readFileSync(
+      path.join(MIGRATIONS_FOLDER, "0010_ontology_orphans.sql"),
+      "utf8",
+    )
+      .split("--> statement-breakpoint")
+      .at(-1) as string;
+    await client.unsafe(cleanup);
+    const other =
+      await client`SELECT id FROM ontology_concept WHERE tenant_id = 't2'`;
+    expect(other.map((r) => r.id)).toEqual(["kt"]);
+    await client`DELETE FROM "user" WHERE tenant_id = 't1' AND id = 'u'`;
+    expect(
+      await client`SELECT id FROM ontology_concept WHERE tenant_id = 't1'`,
+    ).toHaveLength(0);
+    expect(
+      await client`SELECT id FROM ontology_concept WHERE tenant_id = 't2'`,
+    ).toHaveLength(1);
+    await client.end();
+  }, 60_000);
+
+  it("keeps a concept that a concurrent writer gave a side while its last side's connection was being deleted (#2534)", async () => {
+    const t1 = await emptyDatabase("race_2534");
+    const t2 = postgres(urlOf("race_2534"), { max: 1 });
+    await migrate(drizzle(t1), { migrationsFolder: MIGRATIONS_FOLDER });
+    await t1`INSERT INTO "user" (id, email, tenant_id) VALUES ('u', 'u@x', 't1'), ('u2', 'u2@x', 't2')`;
+    await t1`INSERT INTO connection (id, "userId", tenant_id, name, type, "configEncrypted")
+             VALUES ('x', 'u', 't1', 'a', 'neo4j', 'enc'), ('y', 'u', 't1', 'b', 'neo4j', 'enc'),
+                    ('z', 'u2', 't2', 'a', 'neo4j', 'enc')`;
+    await t1`INSERT INTO ontology_concept (id, tenant_id, name, parameter)
+             VALUES ('c', 't1', 'C', 'c'), ('cz', 't2', 'C', 'c')`;
+    await t1`INSERT INTO ontology_concept_side (id, tenant_id, concept_id, connection_id, entity_key, key_property_key)
+             VALUES ('sy', 't1', 'c', 'y', 'e', 'k'), ('sz', 't2', 'cz', 'z', 'e', 'k')`;
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let locked!: () => void;
+    const lockTaken = new Promise<void>((r) => (locked = r));
+    // T2: what an import does to an existing concept: update it, add a side on x.
+    const writer = t2.begin(async (tx) => {
+      await tx`UPDATE ontology_concept SET description = 'd' WHERE tenant_id = 't1' AND id = 'c'`;
+      await tx`INSERT INTO ontology_concept_side (id, tenant_id, concept_id, connection_id, entity_key, key_property_key)
+               VALUES ('sx', 't1', 'c', 'x', 'e', 'k')`;
+      locked();
+      await held;
+    });
+    await lockTaken;
+    // T1: delete the connection holding the old side; it waits on T2's row lock.
+    const deleter =
+      t1`DELETE FROM connection WHERE tenant_id = 't1' AND id = 'y'`.execute();
+    await new Promise((r) => setTimeout(r, 500));
+    release();
+    await writer;
+    await deleter;
+    const sides =
+      await t1`SELECT id FROM ontology_concept_side WHERE tenant_id = 't1' AND concept_id = 'c'`;
+    expect(sides.map((r) => r.id)).toEqual(["sx"]);
+    expect(
+      await t1`SELECT id FROM ontology_concept WHERE tenant_id = 't1'`,
+    ).toHaveLength(1);
+    await t1`DELETE FROM connection WHERE tenant_id = 't1' AND id = 'x'`;
+    expect(
+      await t1`SELECT id FROM ontology_concept WHERE tenant_id = 't1'`,
+    ).toHaveLength(0);
+    // the other tenant's concept, with its own side, is untouched
+    expect(
+      await t1`SELECT id FROM ontology_concept WHERE tenant_id = 't2'`,
+    ).toHaveLength(1);
+    await t2.end();
+    await t1.end();
+  }, 60_000);
 });

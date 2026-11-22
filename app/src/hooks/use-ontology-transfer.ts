@@ -9,11 +9,6 @@ export interface OntologyImportResult {
   preview: ImportPreview;
 }
 
-/** The whole Model as one file, as the export route writes it (#2510). */
-export async function fetchOntologyFile(): Promise<unknown> {
-  return unwrapResponse<unknown>(await fetch("/api/ontology/export"));
-}
-
 /** Previews an ontology import, or with `apply` writes it. */
 export function useImportOntology() {
   const queryClient = useQueryClient();

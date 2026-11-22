@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { connections, ontologyTerms } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { assertCanManageConnections } from "@/lib/auth/permissions";
+import { canManageConnections } from "@/lib/auth/can-write";
 import { decryptJson } from "@/lib/crypto/crypto";
 import { fetchConnectionTerms } from "@/lib/connector/schema-prefetch";
 import type { ConnectionCredentials } from "@/lib/query/query-executor";
@@ -17,6 +18,7 @@ import {
   handleRouteError,
 } from "@/lib/api/api-utils";
 import { mergeTerms } from "@/lib/ontology/merge";
+import { planTermWrites } from "@/lib/ontology/term-writes";
 
 const MAX_NAME = 200;
 const MAX_DESCRIPTION = 2000;
@@ -122,8 +124,11 @@ export async function GET(
     const { id } = await params;
     const connection = await findUsable(id, session);
     if (!connection) return notFound("Connection not found");
-    // The Model page's Refresh reads the database again (#2514).
-    const refresh = new URL(request.url).searchParams.get("refresh") === "1";
+    // The Model page's Refresh reads the database again (#2514), for a role
+    // that manages connections; for any other it is ignored (#2534).
+    const refresh =
+      canManageConnections(session.role) &&
+      new URL(request.url).searchParams.get("refresh") === "1";
     return apiSuccess(
       await readOntology(
         connection,
@@ -187,58 +192,73 @@ export async function PUT(
 
     const { tenantId } = session;
     await db.transaction(async (tx) => {
-      // One term's writes run in order; terms touch different rows, so they
-      // are issued together on the transaction (no await in a loop).
-      const writes = validation.data.terms.map(async (t) => {
-        const term = and(
-          eq(ontologyTerms.tenantId, tenantId),
-          eq(ontologyTerms.connectionId, connection.id),
+      const scope = and(
+        eq(ontologyTerms.tenantId, tenantId),
+        eq(ontologyTerms.connectionId, connection.id),
+      );
+      const termKey = (t: { kind: string; key: string; parentKey: string }) =>
+        and(
           eq(ontologyTerms.kind, t.kind),
           eq(ontologyTerms.key, t.key),
           eq(ontologyTerms.parentKey, t.parentKey),
         );
-        if (t.remove) {
-          await tx.delete(ontologyTerms).where(term);
-          return;
-        }
-        const meaning = {
-          ...(t.displayName !== undefined && { displayName: t.displayName }),
-          ...(t.description !== undefined && { description: t.description }),
-          ...(t.hidden !== undefined && { hidden: t.hidden }),
-        };
+      // One final entry per term, the later one winning (planTermWrites).
+      const { removals, groups } = planTermWrites(validation.data.terms);
+      if (removals.length > 0) {
         await tx
-          .insert(ontologyTerms)
-          .values({
-            tenantId,
-            connectionId: connection.id,
-            kind: t.kind,
-            key: t.key,
-            parentKey: t.parentKey,
-            ...meaning,
-          })
-          .onConflictDoUpdate({
-            target: [
-              ontologyTerms.tenantId,
-              ontologyTerms.connectionId,
-              ontologyTerms.kind,
-              ontologyTerms.key,
-              ontologyTerms.parentKey,
-            ],
-            set: { ...meaning, updatedAt: new Date() },
-          });
-        // A row exists only for a term someone described or hid.
+          .delete(ontologyTerms)
+          .where(and(scope, or(...removals.map(termKey))));
+      }
+      const columns = {
+        displayName: ontologyTerms.displayName,
+        description: ontologyTerms.description,
+        hidden: ontologyTerms.hidden,
+      } as const;
+      // Each term sits in exactly one group, so the upserts are independent.
+      await Promise.all(
+        groups.map(({ fields, rows }) =>
+          tx
+            .insert(ontologyTerms)
+            .values(
+              rows.map((r) => ({
+                ...r,
+                connectionId: connection.id,
+                tenantId,
+              })),
+            )
+            .onConflictDoUpdate({
+              target: [
+                ontologyTerms.tenantId,
+                ontologyTerms.connectionId,
+                ontologyTerms.kind,
+                ontologyTerms.key,
+                ontologyTerms.parentKey,
+              ],
+              set: {
+                ...Object.fromEntries(
+                  fields.map((f) => [
+                    f,
+                    sql`excluded.${sql.identifier(columns[f].name)}`,
+                  ]),
+                ),
+                updatedAt: new Date(),
+              },
+            }),
+        ),
+      );
+      // A row exists only for a term someone described or hid.
+      if (groups.length > 0) {
         await tx
           .delete(ontologyTerms)
           .where(
             and(
-              term,
+              scope,
               eq(ontologyTerms.displayName, ""),
               eq(ontologyTerms.description, ""),
               eq(ontologyTerms.hidden, false),
             ),
           );
-      });
-      await Promise.all(writes);
+      }
     });
     return apiSuccess(await readOntology(connection, tenantId, live));
   } catch (error) {

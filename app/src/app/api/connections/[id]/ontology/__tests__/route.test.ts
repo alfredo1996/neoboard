@@ -35,7 +35,7 @@ const mockDb = {
   insert: vi.fn(() => ({
     values: (v: unknown) => ({
       onConflictDoUpdate: (c: { set: unknown }) => {
-        upserts.push(v);
+        upserts.push(...(Array.isArray(v) ? v : [v]));
         sets.push(c.set);
         return Promise.resolve();
       },
@@ -197,6 +197,17 @@ describe("/api/connections/[id]/ontology", () => {
       },
     );
 
+    it("ignores refresh=1 from a reader and serves the cached read (#2534)", async () => {
+      mockRequireSession.mockResolvedValue({ ...CREATOR, role: "reader" });
+      selects.push([CONN], []);
+      await GET(new Request("http://localhost/x?refresh=1"), makeParams("c1"));
+      expect(mockFetchTerms).toHaveBeenCalledWith(
+        "x",
+        expect.anything(),
+        expect.objectContaining({ refresh: false }),
+      );
+    });
+
     it("is the same for a reader, who may read", async () => {
       mockRequireSession.mockResolvedValue(READER);
       selects.push([CONN], []);
@@ -340,6 +351,92 @@ describe("/api/connections/[id]/ontology", () => {
         "description",
         "updatedAt",
       ]);
+    });
+
+    describe("a large save (#2534)", () => {
+      const many = (n: number) =>
+        Array.from({ length: n }, (_, i) => ({
+          kind: "entity",
+          key: `E${i}`,
+          parentKey: "",
+        }));
+
+      it("is one insert and one cleanup delete for 1,000 terms", async () => {
+        mockRequireSession.mockResolvedValue(CREATOR);
+        selects.push([CONN], []);
+        mockFetchTerms.mockResolvedValue(many(1000) as SchemaTerm[]);
+        const res = await put(
+          many(1000).map((t) => ({ ...t, displayName: `n-${t.key}` })),
+        );
+        expect(res.status).toBe(200);
+        expect(mockDb.insert).toHaveBeenCalledTimes(1);
+        expect(mockDb.delete).toHaveBeenCalledTimes(1);
+        expect(upserts).toHaveLength(1000);
+      });
+
+      it("is one delete for 500 removals", async () => {
+        mockRequireSession.mockResolvedValue(CREATOR);
+        selects.push([CONN], []);
+        await put(many(500).map((t) => ({ ...t, remove: true })));
+        expect(mockDb.insert).not.toHaveBeenCalled();
+        expect(mockDb.delete).toHaveBeenCalledTimes(1);
+      });
+
+      it("keeps each term's own fields: one insert per set of fields sent", async () => {
+        mockRequireSession.mockResolvedValue(CREATOR);
+        selects.push([CONN], []);
+        await put([
+          { kind: "entity", key: "Person", parentKey: "", displayName: "P" },
+          {
+            kind: "property",
+            key: "name",
+            parentKey: "entity:Person",
+            hidden: true,
+          },
+        ]);
+        expect(mockDb.insert).toHaveBeenCalledTimes(2);
+        expect(sets.map((s) => Object.keys(s as object).sort())).toEqual([
+          ["displayName", "updatedAt"],
+          ["hidden", "updatedAt"],
+        ]);
+      });
+
+      it("writes an explicit empty name, and each upsert sets only its own term's fields", async () => {
+        mockRequireSession.mockResolvedValue(CREATOR);
+        selects.push([CONN], []);
+        await put([
+          { kind: "entity", key: "Person", parentKey: "", displayName: "" },
+          {
+            kind: "property",
+            key: "name",
+            parentKey: "entity:Person",
+            hidden: true,
+          },
+        ]);
+        // two shapes, so two upserts: the ON CONFLICT SET of one never names
+        // a column the other term was sent, and so cannot overwrite it
+        expect(upserts).toEqual([
+          expect.objectContaining({ key: "Person", displayName: "" }),
+          expect.objectContaining({ key: "name", hidden: true }),
+        ]);
+        expect(upserts[0]).not.toHaveProperty("hidden");
+        expect(upserts[1]).not.toHaveProperty("displayName");
+        expect(sets.map((x) => Object.keys(x as object).sort())).toEqual([
+          ["displayName", "updatedAt"],
+          ["hidden", "updatedAt"],
+        ]);
+      });
+
+      it("writes a term sent twice once, the later one winning", async () => {
+        mockRequireSession.mockResolvedValue(CREATOR);
+        selects.push([CONN], []);
+        await put([
+          edit({ displayName: "first" }),
+          edit({ displayName: "second" }),
+        ]);
+        expect(upserts).toHaveLength(1);
+        expect(upserts[0]).toMatchObject({ displayName: "second" });
+      });
     });
 
     it("then drops the row if nothing is said about the term any more", async () => {

@@ -444,6 +444,19 @@ describe("/api/ontology/concepts", () => {
       expect(res.status).toBe(201);
     });
 
+    it("reads past the cache only the connection whose side it refused (#2534)", async () => {
+      rows.set(connections, [G, S]);
+      await post(
+        body({
+          sides: [side("graph", "Person", "email"), side("sql", "nope", "x")],
+        }),
+      );
+      const fresh = mockFetchTerms.mock.calls.filter(
+        ([, , scope]) => scope?.refresh,
+      );
+      expect(fresh.map(([type]) => type)).toEqual(["type-sql"]);
+    });
+
     it("never waits on a second read when every side is known (#2514)", async () => {
       rows.set(connections, [S]);
       await post(body({ sides: [side("sql", "customers", "email")] }));
@@ -492,6 +505,24 @@ describe("/api/ontology/concepts", () => {
         const res = await run();
         expect(res.status).toBe(409);
         expect(JSON.stringify(await res.json())).not.toContain("Failed query");
+      },
+    );
+
+    it.each([
+      ["POST", () => post()],
+      ["PATCH", () => patch(body())],
+    ])(
+      "answers 409 when a %s deadlocks with a connection delete (#2534)",
+      async (_m, run) => {
+        if (_m === "PATCH") rows.set(ontologyConcepts, [CUSTOMER]);
+        mockDb.transaction.mockRejectedValueOnce(
+          Object.assign(new Error("deadlock detected"), {
+            cause: { code: "40P01" },
+          }),
+        );
+        const res = await run();
+        expect(res.status).toBe(409);
+        expect(JSON.stringify(await res.json())).toContain("try again");
       },
     );
 

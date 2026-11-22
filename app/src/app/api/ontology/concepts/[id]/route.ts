@@ -10,7 +10,7 @@ import {
   checkSidesAgainstTerms,
   conceptFields,
   conceptRouteError,
-  usableConnections,
+  usableConnectionNames,
   findClash,
   usableOrForbidden,
 } from "@/lib/ontology/concepts";
@@ -43,7 +43,7 @@ async function findVisible(
     return concept ? { mine: undefined } : { response: gone() };
   }
   if (!concept) return { response: gone() };
-  const usable = (await usableConnections(session)).map((c) => c.id);
+  const usable = (await usableConnectionNames(session)).map((c) => c.id);
   return { mine: usable };
 }
 

@@ -22,10 +22,14 @@ CREATE TABLE IF NOT EXISTS "ontology_concept_side" (
 	CONSTRAINT "ontology_concept_side_unique" UNIQUE("tenant_id","concept_id","connection_id","entity_key","key_property_key")
 );
 --> statement-breakpoint
-ALTER TABLE "ontology_concept_side" DROP CONSTRAINT IF EXISTS "ontology_concept_side_tenant_concept_fk";
+DO $$ BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ontology_concept_side_tenant_concept_fk') THEN
+		ALTER TABLE "ontology_concept_side" ADD CONSTRAINT "ontology_concept_side_tenant_concept_fk" FOREIGN KEY ("tenant_id","concept_id") REFERENCES "public"."ontology_concept"("tenant_id","id") ON DELETE cascade ON UPDATE no action;
+	END IF;
+END $$;
 --> statement-breakpoint
-ALTER TABLE "ontology_concept_side" ADD CONSTRAINT "ontology_concept_side_tenant_concept_fk" FOREIGN KEY ("tenant_id","concept_id") REFERENCES "public"."ontology_concept"("tenant_id","id") ON DELETE cascade ON UPDATE no action;
---> statement-breakpoint
-ALTER TABLE "ontology_concept_side" DROP CONSTRAINT IF EXISTS "ontology_concept_side_tenant_connection_fk";
---> statement-breakpoint
-ALTER TABLE "ontology_concept_side" ADD CONSTRAINT "ontology_concept_side_tenant_connection_fk" FOREIGN KEY ("tenant_id","connection_id") REFERENCES "public"."connection"("tenant_id","id") ON DELETE cascade ON UPDATE no action;
+DO $$ BEGIN
+	IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ontology_concept_side_tenant_connection_fk') THEN
+		ALTER TABLE "ontology_concept_side" ADD CONSTRAINT "ontology_concept_side_tenant_connection_fk" FOREIGN KEY ("tenant_id","connection_id") REFERENCES "public"."connection"("tenant_id","id") ON DELETE cascade ON UPDATE no action;
+	END IF;
+END $$;

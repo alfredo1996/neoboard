@@ -7,7 +7,7 @@ import { badRequest, readJsonBody } from "@/lib/api/api-utils";
 import {
   conceptRouteError,
   liveTermsById,
-  usableConnections,
+  usableConnectionNames,
   usableOrForbidden,
 } from "@/lib/ontology/concepts";
 import {
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     const visibleTo =
       session.role === "admin"
         ? undefined
-        : new Set((await usableConnections(session)).map((c) => c.id));
+        : new Set((await usableConnectionNames(session)).map((c) => c.id));
     const run = async (h: Parameters<typeof planImport>[0]) =>
       planImport(h, tenantId, file, connectionMapping, live, visibleTo);
     if (!apply) {
