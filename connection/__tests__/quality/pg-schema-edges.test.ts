@@ -83,9 +83,10 @@ beforeAll(async () => {
       FOR VALUES FROM (0) TO (100);
     -- exact types, a dropped column, a column-level grant (#2532)
     CREATE TYPE public.mood AS ENUM ('ok', 'bad');
+    CREATE DOMAIN public.nn_int AS INT NOT NULL;
     CREATE TABLE public.typed (
       id INT PRIMARY KEY, price NUMERIC(12,2) NOT NULL, tags TEXT[],
-      feel public.mood, name VARCHAR(255), gone INT
+      feel public.mood, name VARCHAR(255), gone INT, dom public.nn_int
     );
     ALTER TABLE public.typed DROP COLUMN gone;
     CREATE TABLE public.partial_grant (a INT, b INT, c INT);
@@ -224,6 +225,7 @@ describe("PostgreSQL schema introspection edges (#742 items 15/16)", () => {
         ["tags", "text[]", true],
         ["feel", "mood", true],
         ["name", "character varying(255)", true],
+        ["dom", "nn_int", false],
       ]);
     });
 

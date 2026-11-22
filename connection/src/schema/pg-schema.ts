@@ -14,14 +14,16 @@ import type { SchemaManager } from "./schema-manager";
 // (#2532). The privilege test is per column, as the view's is: a role granted
 // some columns of a table sees only those. A partition is not a table of its
 // own here (relispartition); its parent lists the columns. format_type gives
-// the exact type (numeric(12,2), text[], the enum's name).
+// the exact type (numeric(12,2), text[], the enum's name); a NOT NULL domain
+// makes its columns not null, as the view says.
 const SCHEMA_QUERY = `
 SELECT c.relname AS table_name, a.attname AS column_name,
        format_type(a.atttypid, a.atttypmod) AS data_type,
-       CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable
+       CASE WHEN a.attnotnull OR (t.typtype = 'd' AND t.typnotnull) THEN 'NO' ELSE 'YES' END AS is_nullable
 FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
 JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+JOIN pg_type t ON t.oid = a.atttypid
 WHERE c.relkind IN ('r', 'p') AND NOT c.relispartition
   AND (pg_has_role(c.relowner, 'USAGE')
        OR has_column_privilege(c.oid, a.attnum, 'SELECT, INSERT, UPDATE, REFERENCES'))
