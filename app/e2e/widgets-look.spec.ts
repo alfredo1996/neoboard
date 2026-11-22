@@ -235,7 +235,7 @@ test.describe("Widgets that are not charts (#2232)", () => {
         card("w-city").getByRole("combobox", { name: "City" }),
       ).toHaveText("Select Region first…");
       await expect(
-        card("w-city").getByText("(depends on Region)"),
+        card("w-city").getByText("Filtered by Region", { exact: true }),
       ).toBeVisible();
       await expect(card("w-city").getByText(/Gallery region/)).toHaveCount(0);
       await shootAll("light", "empty");
