@@ -32,7 +32,7 @@ describe("PostgresSchemaManager", () => {
     jest.clearAllMocks();
   });
 
-  it("returns tables with columns from information_schema query", async () => {
+  it("returns tables with columns from the catalog query", async () => {
     mockClient.query.mockResolvedValue({
       rows: [
         {
@@ -155,31 +155,43 @@ describe("PostgresSchemaManager", () => {
 
   // #1302: the only pool.connect() in the package with no error guard — and on
   // the one path whose rejection is swallowed (fire-and-forget prefetch).
-  it("absorbs an 'error' emitted on the checked-out client mid-query", async () => {
-    mockClient.query.mockImplementation(async () => {
-      expect(mockClient.listenerCount("error")).toBe(1);
-      mockClient.emit(
-        "error",
-        Object.assign(new Error("terminating connection"), { code: "57P01" }),
-      );
-      return { rows: [] };
-    });
-
-    // Removed BEFORE release, so listeners don't pile up on pooled clients:
-    // checked inside release() itself, not after the whole call returns.
-    let listenersAtRelease: number | undefined;
-    mockClient.release.mockImplementation(() => {
-      listenersAtRelease = mockClient.listenerCount("error");
+  it("absorbs an 'error' emitted on a checked-out client mid-query", async () => {
+    // The two reads run at once, so each checks out a client of its own, as a
+    // real pool hands them out.
+    const clients: Array<typeof mockClient> = [];
+    const listenersAtRelease: number[] = [];
+    mockPool.connect.mockImplementation(async () => {
+      const c = Object.assign(new EventEmitter(), {
+        query: jest.fn(async () => {
+          expect(c.listenerCount("error")).toBe(1);
+          c.emit(
+            "error",
+            Object.assign(new Error("terminating connection"), {
+              code: "57P01",
+            }),
+          );
+          return { rows: [] };
+        }),
+        // Removed BEFORE release, so listeners don't pile up on pooled
+        // clients: checked inside release() itself.
+        release: jest.fn(() => {
+          listenersAtRelease.push(c.listenerCount("error"));
+        }),
+      });
+      clients.push(c);
+      return c;
     });
 
     await expect(
       new PostgresSchemaManager().fetchSchema(authConfig),
     ).resolves.toEqual({ type: "postgresql", tables: [] });
 
-    expect(listenersAtRelease).toBe(0);
+    expect(clients).toHaveLength(2);
+    expect(listenersAtRelease).toEqual([0, 0]);
+    mockPool.connect.mockResolvedValue(mockClient);
   });
 
-  it("bounds the information_schema query with a client-side query_timeout", async () => {
+  it("bounds the catalog query with a client-side query_timeout", async () => {
     mockClient.query.mockResolvedValue({ rows: [] });
 
     await new PostgresSchemaManager().fetchSchema(authConfig);

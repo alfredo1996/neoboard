@@ -9,17 +9,25 @@ import type {
 } from "@neoboard/connector-sdk";
 import type { SchemaManager } from "./schema-manager";
 
+// pg_catalog, not information_schema: those views run a privilege function and
+// a type formatter per row through several joins, ~25x slower on 50k columns
+// (#2532). The privilege test is per column, as the view's is: a role granted
+// some columns of a table sees only those. A partition is not a table of its
+// own here (relispartition); its parent lists the columns. format_type gives
+// the exact type (numeric(12,2), text[], the enum's name); a NOT NULL domain
+// makes its columns not null, as the view says.
 const SCHEMA_QUERY = `
-SELECT
-  t.table_name,
-  c.column_name,
-  c.data_type,
-  c.is_nullable
-FROM information_schema.tables t
-JOIN information_schema.columns c
-  ON t.table_name = c.table_name AND t.table_schema = c.table_schema
-WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
-ORDER BY t.table_name, c.ordinal_position
+SELECT c.relname AS table_name, a.attname AS column_name,
+       format_type(a.atttypid, a.atttypmod) AS data_type,
+       CASE WHEN a.attnotnull OR (t.typtype = 'd' AND t.typnotnull) THEN 'NO' ELSE 'YES' END AS is_nullable
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+JOIN pg_type t ON t.oid = a.atttypid
+WHERE c.relkind IN ('r', 'p') AND NOT c.relispartition
+  AND (pg_has_role(c.relowner, 'USAGE')
+       OR has_column_privilege(c.oid, a.attnum, 'SELECT, INSERT, UPDATE, REFERENCES'))
+ORDER BY c.relname, a.attnum
 `;
 
 // pg_constraint, not information_schema.constraint_column_usage: that view
@@ -76,8 +84,7 @@ interface SchemaRow {
 /**
  * Fetches schema information from a PostgreSQL database.
  *
- * Queries information_schema.tables and information_schema.columns
- * to retrieve all tables and their column definitions in the public schema.
+ * Reads the public schema's tables and columns, and their keys, from pg_catalog.
  */
 export class PostgresSchemaManager implements SchemaManager {
   async fetchSchema(config: ConnectorConfig): Promise<DatabaseSchema> {
@@ -95,19 +102,13 @@ export class PostgresSchemaManager implements SchemaManager {
     // checked-out client and bounds the query — this was the one checkout in
     // the package without the guard (#1302).
     try {
-      const rows = await runBoundedQuery<SchemaRow>(
-        pool,
-        SCHEMA_QUERY,
-        // Same bound as the module's own introspection: the connection's
-        // statementTimeout, so a big catalog can be given more than 30s (#1302).
-        optionalNumber(config.statementTimeout),
-      );
-
-      const keyRows = await runBoundedQuery<KeyRow>(
-        pool,
-        KEYS_QUERY,
-        optionalNumber(config.statementTimeout),
-      );
+      // Two clients of the same per-fetch pool (max 10), each checked out by
+      // runBoundedQuery for one query: the reads overlap instead of queueing.
+      const timeout = optionalNumber(config.statementTimeout);
+      const [rows, keyRows] = await Promise.all([
+        runBoundedQuery<SchemaRow>(pool, SCHEMA_QUERY, timeout),
+        runBoundedQuery<KeyRow>(pool, KEYS_QUERY, timeout),
+      ]);
 
       const tableMap = new Map<string, ColumnDef[]>();
       for (const row of rows) {

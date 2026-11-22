@@ -81,7 +81,19 @@ beforeAll(async () => {
       PARTITION BY RANGE (id);
     CREATE TABLE public.hits_1 PARTITION OF public.hits
       FOR VALUES FROM (0) TO (100);
+    -- exact types, a dropped column, a column-level grant (#2532)
+    CREATE TYPE public.mood AS ENUM ('ok', 'bad');
+    CREATE DOMAIN public.nn_int AS INT NOT NULL;
+    CREATE TABLE public.typed (
+      id INT PRIMARY KEY, price NUMERIC(12,2) NOT NULL, tags TEXT[],
+      feel public.mood, name VARCHAR(255), gone INT, dom public.nn_int
+    );
+    ALTER TABLE public.typed DROP COLUMN gone;
+    CREATE TABLE public.partial_grant (a INT, b INT, c INT);
     CREATE ROLE reader LOGIN PASSWORD 'reader-pw';
+    CREATE ROLE colreader LOGIN PASSWORD 'colreader-pw';
+    GRANT USAGE ON SCHEMA public TO colreader;
+    GRANT SELECT (a) ON public.partial_grant TO colreader;
     GRANT USAGE ON SCHEMA public TO reader;
     GRANT SELECT ON ALL TABLES IN SCHEMA public TO reader;
   `);
@@ -168,8 +180,6 @@ describe("PostgreSQL schema introspection edges (#742 items 15/16)", () => {
     it("reports the key of a partitioned table, and one foreign key to it, not one per partition", async () => {
       const t = await fetchAsReader();
       expect(t("events")?.primaryKey).toEqual(["id", "at"]);
-      // the partition is a table of its own and carries the inherited key
-      expect(t("events_2026")?.primaryKey).toEqual(["id", "at"]);
       expect(t("notes")?.foreignKeys).toEqual([
         {
           columns: ["ev", "ev_at"],
@@ -185,7 +195,43 @@ describe("PostgreSQL schema introspection edges (#742 items 15/16)", () => {
         { columns: ["t"], refTable: "targets_1", refColumns: ["id"] },
       ];
       expect(t("hits")?.foreignKeys).toEqual(key);
-      expect(t("hits_1")?.foreignKeys).toEqual(key);
+    });
+  });
+
+  describe("columns from pg_catalog (#2532)", () => {
+    const fetchTables = async (username = "reader", password = "reader-pw") => {
+      const schema = await new PostgresSchemaManager().fetchSchema({
+        ...authConfig,
+        username,
+        password,
+      });
+      return (n: string) => schema.tables?.find((x) => x.name === n);
+    };
+
+    it("lists a partitioned table once, under its parent, and no partition", async () => {
+      const t = await fetchTables();
+      expect(t("events")?.columns.map((c) => c.name)).toEqual(["id", "at"]);
+      expect(t("events_2026")).toBeUndefined();
+      expect(t("hits_1")).toBeUndefined();
+    });
+
+    it("reports exact types and omits a dropped column", async () => {
+      const t = await fetchTables();
+      expect(
+        t("typed")?.columns.map((c) => [c.name, c.type, c.nullable]),
+      ).toEqual([
+        ["id", "integer", false],
+        ["price", "numeric(12,2)", false],
+        ["tags", "text[]", true],
+        ["feel", "mood", true],
+        ["name", "character varying(255)", true],
+        ["dom", "nn_int", false],
+      ]);
+    });
+
+    it("shows a role only the columns it was granted, not the whole table", async () => {
+      const t = await fetchTables("colreader", "colreader-pw");
+      expect(t("partial_grant")?.columns.map((c) => c.name)).toEqual(["a"]);
     });
   });
 });

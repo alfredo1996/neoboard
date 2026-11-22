@@ -326,14 +326,184 @@ describe("Neo4jSchemaManager", () => {
   // #1302: each procedure ran as a bare session.run(query) with no transaction
   // timeout, so db.schema.nodeTypeProperties() on a big store could run for
   // as long as the server let it.
-  it("passes a transaction timeout to every introspection query", async () => {
+  it("bounds each introspection query: 30 s for the catalog reads, the budget for the two procedures", async () => {
     mockFourCalls([], [], [], []);
 
-    await new Neo4jSchemaManager().fetchSchema(authConfig);
+    await new Neo4jSchemaManager({ procedureTimeoutMs: 1234 }).fetchSchema(
+      authConfig,
+    );
 
-    expect(_mockRun).toHaveBeenCalledTimes(4);
-    for (const call of _mockRun.mock.calls) {
-      expect(call[2]).toEqual({ timeout: 30_000 });
+    const timeoutOf = (needle: string) =>
+      _mockRun.mock.calls.find((c) => String(c[0]).includes(needle))?.[2];
+    expect(timeoutOf("db.labels")).toEqual({ timeout: 30_000 });
+    expect(timeoutOf("db.relationshipTypes")).toEqual({ timeout: 30_000 });
+    expect(timeoutOf("nodeTypeProperties")).toEqual({ timeout: 1234 });
+    expect(timeoutOf("relTypeProperties")).toEqual({ timeout: 1234 });
+  });
+
+  it("samples a side whose procedure timed out, and fails on any other error", async () => {
+    const timedOut = Object.assign(new Error("t"), {
+      code: "Neo.ClientError.Transaction.TransactionTimedOut",
+    });
+    _mockRun = jest.fn(async (q: string) => {
+      if (q.includes("db.labels")) return { records: [labelRecord("A")] };
+      if (q.includes("nodeTypeProperties")) throw timedOut;
+      if (q.includes("MATCH (n:`A`) WITH n LIMIT 1000")) {
+        return {
+          records: [
+            {
+              keys: ["propertyName", "propertyTypes"],
+              get: (k: string) =>
+                ({
+                  propertyName: "p",
+                  propertyTypes: ["LIST<STRING NOT NULL>"],
+                })[k],
+            },
+          ],
+        };
+      }
+      return { records: [] };
+    });
+    const schema = await new Neo4jSchemaManager().fetchSchema(authConfig);
+    expect(schema.nodeProperties).toEqual({
+      A: [{ name: "p", type: "StringArray" }],
+    });
+
+    _mockRun = jest.fn(async (q: string) => {
+      if (q.includes("nodeTypeProperties")) throw new Error("boom");
+      return { records: [] };
+    });
+    await expect(
+      new Neo4jSchemaManager().fetchSchema(authConfig),
+    ).rejects.toThrow("boom");
+  });
+
+  describe("sampling path (#2532)", () => {
+    const timedOut = Object.assign(new Error("t"), {
+      code: "Neo.ClientError.Transaction.TransactionTimedOut",
+    });
+    const rec = (propertyName: string, propertyTypes: unknown[]) => ({
+      keys: ["propertyName", "propertyTypes"],
+      get: (k: string) => ({ propertyName, propertyTypes })[k],
+    });
+    /** Procedures time out; `sample` answers the node sample query. */
+    function sampling(
+      label: string,
+      sample: (q: string) => object[] | Promise<object[]>,
+    ) {
+      _mockRun = jest.fn(async (q: string) => {
+        if (q.includes("db.labels")) return { records: [labelRecord(label)] };
+        if (q.includes("nodeTypeProperties")) throw timedOut;
+        if (q.includes("LIMIT 1000 UNWIND"))
+          return { records: await sample(q) };
+        return { records: [] };
+      });
     }
+    const nodeProps = async () =>
+      (await new Neo4jSchemaManager().fetchSchema(authConfig)).nodeProperties;
+
+    it.each(["a$`b", "a$&b", "a$$b", "a$'b"])(
+      "quotes the label %s into the query verbatim, with no $-pattern expansion",
+      async (label) => {
+        sampling(label, () => []);
+        await nodeProps();
+        const q = _mockRun.mock.calls
+          .map((c) => String(c[0]))
+          .find((t) => t.includes("LIMIT 1000 UNWIND"));
+        expect(q).toBe(
+          `MATCH (n:\`${label.replaceAll("`", "``")}\`) WITH n LIMIT 1000 UNWIND keys(n) AS k ` +
+            "RETURN k AS propertyName, collect(DISTINCT valueType(n[k])) AS propertyTypes",
+        );
+      },
+    );
+
+    it("takes the sample path when a procedure outlives the client deadline", async () => {
+      _mockRun = jest.fn((q: string) => {
+        if (q.includes("db.labels"))
+          return Promise.resolve({ records: [labelRecord("A")] });
+        if (q.includes("nodeTypeProperties"))
+          return new Promise((resolve) =>
+            setTimeout(
+              () =>
+                resolve({
+                  records: [nodePropRecord(":`A`", "late", ["Long"])],
+                }),
+              150,
+            ),
+          );
+        if (q.includes("LIMIT 1000 UNWIND"))
+          return Promise.resolve({ records: [rec("p", ["STRING NOT NULL"])] });
+        return Promise.resolve({ records: [] });
+      });
+      const schema = await new Neo4jSchemaManager({
+        procedureTimeoutMs: 20,
+      }).fetchSchema(authConfig);
+      expect(schema.nodeProperties).toEqual({
+        A: [{ name: "p", type: "String" }],
+      });
+      await new Promise((r) => setTimeout(r, 200));
+    });
+
+    it("maps the Cypher 25 names of the exact path to the Cypher 5 ones", async () => {
+      _mockRun = jest.fn(async (q: string) => {
+        if (q.includes("db.labels")) return { records: [labelRecord("A")] };
+        if (q.includes("nodeTypeProperties"))
+          return {
+            records: [
+              nodePropRecord(":`A`", "i", ["INTEGER NOT NULL"]),
+              nodePropRecord(":`A`", "l", ["LIST<STRING NOT NULL> NOT NULL"]),
+              nodePropRecord(":`A`", "d", ["DATE NOT NULL"]),
+              nodePropRecord(":`A`", "pt", ["POINT NOT NULL"]),
+              nodePropRecord(":`A`", "old", ["Long"]),
+              nodePropRecord(":`A`", "oldl", ["StringArray"]),
+            ],
+          };
+        return { records: [] };
+      });
+      expect(await nodeProps()).toEqual({
+        A: [
+          { name: "i", type: "Long" },
+          { name: "l", type: "StringArray" },
+          { name: "d", type: "Date" },
+          { name: "pt", type: "Point" },
+          { name: "old", type: "Long" },
+          { name: "oldl", type: "StringArray" },
+        ],
+      });
+    });
+
+    it("types an empty list as the exact path does, and picks one type of several deterministically", async () => {
+      sampling("A", () => [
+        rec("e", ["LIST<NOTHING> NOT NULL"]),
+        rec("m", ["STRING NOT NULL", "INTEGER NOT NULL"]),
+        rec("m2", ["INTEGER NOT NULL", "STRING NOT NULL"]),
+      ]);
+      expect(await nodeProps()).toEqual({
+        A: [
+          { name: "e", type: "StringArray" },
+          { name: "m", type: "Long" },
+          { name: "m2", type: "Long" },
+        ],
+      });
+    });
+
+    it("keeps the names, with no type, on a server without valueType()", async () => {
+      sampling("A", (q) => {
+        if (q.includes("valueType"))
+          throw Object.assign(new Error("Unknown function 'valueType'"), {
+            code: "Neo.ClientError.Statement.SyntaxError",
+          });
+        return [rec("p", [])];
+      });
+      expect(await nodeProps()).toEqual({ A: [{ name: "p", type: "" }] });
+    });
+
+    it("does not read another error of the typed query as a missing valueType()", async () => {
+      sampling("A", (q) => {
+        if (q.includes("valueType")) throw new Error("connection reset");
+        return [rec("p", [])];
+      });
+      expect(await nodeProps()).toEqual({});
+    });
   });
 });
