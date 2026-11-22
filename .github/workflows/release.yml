@@ -11,6 +11,8 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
+    # Measured 9-15 s (rc.5 to v1.7.0). 10 min is the floor, #2530.
+    timeout-minutes: 10
     permissions:
       contents: write # softprops/action-gh-release creates the release
     outputs:
@@ -80,8 +82,10 @@ jobs:
   docker:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    # A healthy run takes 24-30 min. Without this a stalled arm64 build ran
-    # to GitHub's 6 h limit (#2530, rc.7).
+    # Measured 23-41 min across rc.1 to rc.7 (25, 40, 41, 30, 24, 23, 24).
+    # Without this a stalled arm64 build ran to GitHub's 6 h limit (#2530,
+    # rc.7). This cap is what would have caught rc.7: the npm setting in the
+    # Dockerfile did not fire there.
     timeout-minutes: 90
     needs: release
     permissions:
@@ -246,6 +250,8 @@ jobs:
   publish-cli:
     name: Publish @neoboard/cli to npm
     runs-on: ubuntu-latest
+    # Measured 6-8 s (rc.5 to v1.7.0). 10 min is the floor, #2530.
+    timeout-minutes: 10
     needs: release
     permissions:
       contents: read

@@ -221,17 +221,28 @@ describe("release workflow: multi-arch build", () => {
 });
 
 describe("release workflow: a hung build is bounded (#2530)", () => {
-  it("caps the docker job well under GitHub's 6-hour default", () => {
-    const m = DOCKER.match(/^ {4}timeout-minutes:\s*(\d+)\s*$/m);
-    expect(m, "docker job sets timeout-minutes").not.toBeNull();
-    expect(Number(m[1])).toBeLessThanOrEqual(90);
+  // [job, lowest cap that still clears a healthy run, highest cap that is
+  // still "bounded"]. Healthy: docker 23-41 min, release 9-15 s, publish-cli 6-8 s.
+  it.each([
+    ["docker", 60, 90],
+    ["release", 10, 30],
+    ["publish-cli", 10, 30],
+  ])("caps the %s job between %i and %i minutes", (job, lo, hi) => {
+    const m = jobBlock(job).match(/^ {4}timeout-minutes:\s*(\d+)\s*$/m);
+    expect(m, `${job} sets timeout-minutes`).not.toBeNull();
+    expect(Number(m[1])).toBeGreaterThanOrEqual(lo);
+    expect(Number(m[1])).toBeLessThanOrEqual(hi);
   });
 
-  it("gives the deps stage's npm ci a short fetch timeout and retries", () => {
+  it("runs the deps stage's npm ci with a fetch timeout under npm's 300 s default and 2+ retries", () => {
     const file = readFileSync(join(ROOT, "Dockerfile"), "utf8");
     const deps = file.split(/^FROM /m).find((s) => s.includes(" AS deps"));
-    expect(deps).toMatch(/npm_config_fetch_timeout=\d{1,6}\b/);
-    expect(deps).toMatch(/npm_config_fetch_retries=\d+/);
+    const m = deps.match(
+      /^RUN npm_config_fetch_timeout=(\d+) npm_config_fetch_retries=(\d+) npm ci$/m,
+    );
+    expect(m, "deps stage runs npm ci with both settings").not.toBeNull();
+    expect(Number(m[1])).toBeLessThan(300000);
+    expect(Number(m[2])).toBeGreaterThanOrEqual(2);
   });
 });
 
