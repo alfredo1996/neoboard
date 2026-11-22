@@ -478,11 +478,11 @@ async function writeConcepts(
   const created = all
     .filter((c) => c.isNew)
     .map((c) => ({ id: c.id, ...c.fields }));
-  for (const rows of chunked(created)) {
-    await tx
-      .insert(ontologyConcepts)
-      .values(rows.map((c) => ({ ...c, tenantId })));
-  }
+  await Promise.all(
+    chunked(created).map((rows) =>
+      tx.insert(ontologyConcepts).values(rows.map((c) => ({ ...c, tenantId }))),
+    ),
+  );
   await Promise.all(
     all
       .filter((c) => !c.isNew)
@@ -501,10 +501,13 @@ async function writeConcepts(
   const sides = all.flatMap((c) =>
     c.sides.map((s) => ({ conceptId: c.id, ...s })),
   );
-  for (const rows of chunked(sides)) {
-    await tx
-      .insert(ontologyConceptSides)
-      .values(rows.map((s) => ({ ...s, tenantId })))
-      .onConflictDoNothing();
-  }
+  // After the concepts: every side references one.
+  await Promise.all(
+    chunked(sides).map((rows) =>
+      tx
+        .insert(ontologyConceptSides)
+        .values(rows.map((s) => ({ ...s, tenantId })))
+        .onConflictDoNothing(),
+    ),
+  );
 }

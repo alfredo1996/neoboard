@@ -209,40 +209,43 @@ export async function PUT(
           .delete(ontologyTerms)
           .where(and(scope, or(...removals.map(termKey))));
       }
-      for (const { fields, rows } of groups) {
-        const columns = {
-          displayName: ontologyTerms.displayName,
-          description: ontologyTerms.description,
-          hidden: ontologyTerms.hidden,
-        } as const;
-        await tx
-          .insert(ontologyTerms)
-          .values(
-            rows.map((r) => ({
-              ...r,
-              connectionId: connection.id,
-              tenantId,
-            })),
-          )
-          .onConflictDoUpdate({
-            target: [
-              ontologyTerms.tenantId,
-              ontologyTerms.connectionId,
-              ontologyTerms.kind,
-              ontologyTerms.key,
-              ontologyTerms.parentKey,
-            ],
-            set: {
-              ...Object.fromEntries(
-                fields.map((f) => [
-                  f,
-                  sql`excluded.${sql.identifier(columns[f].name)}`,
-                ]),
-              ),
-              updatedAt: new Date(),
-            },
-          });
-      }
+      const columns = {
+        displayName: ontologyTerms.displayName,
+        description: ontologyTerms.description,
+        hidden: ontologyTerms.hidden,
+      } as const;
+      // Each term sits in exactly one group, so the upserts are independent.
+      await Promise.all(
+        groups.map(({ fields, rows }) =>
+          tx
+            .insert(ontologyTerms)
+            .values(
+              rows.map((r) => ({
+                ...r,
+                connectionId: connection.id,
+                tenantId,
+              })),
+            )
+            .onConflictDoUpdate({
+              target: [
+                ontologyTerms.tenantId,
+                ontologyTerms.connectionId,
+                ontologyTerms.kind,
+                ontologyTerms.key,
+                ontologyTerms.parentKey,
+              ],
+              set: {
+                ...Object.fromEntries(
+                  fields.map((f) => [
+                    f,
+                    sql`excluded.${sql.identifier(columns[f].name)}`,
+                  ]),
+                ),
+                updatedAt: new Date(),
+              },
+            }),
+        ),
+      );
       // A row exists only for a term someone described or hid.
       if (groups.length > 0) {
         await tx

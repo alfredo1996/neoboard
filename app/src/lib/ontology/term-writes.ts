@@ -57,7 +57,9 @@ export function planTermWrites(terms: TermEdit[]): TermWritePlan {
   for (const { term, removed, edited, fields } of folded.values()) {
     if (removed) removals.push(term);
     if (!edited) continue; // removed and not revived: nothing left to write
-    const names = Object.keys(fields).sort() as Array<keyof Fields>;
+    const names = Object.keys(fields).sort((a, b) =>
+      a.localeCompare(b),
+    ) as Array<keyof Fields>;
     const shape = names.join(",");
     const group = groups.get(shape) ?? { fields: names, rows: [] };
     group.rows.push({ ...term, ...fields });
