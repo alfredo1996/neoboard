@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "../dialog";
@@ -78,5 +78,39 @@ describe("DialogContent focus (#2223)", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Open" })).toHaveFocus(),
     );
+  });
+});
+
+describe("DialogContent Escape for a panel that keeps it (#2515)", () => {
+  function open(onEscapeKeyDown?: () => void) {
+    render(
+      <Dialog defaultOpen>
+        <DialogContent onEscapeKeyDown={onEscapeKeyDown}>
+          <DialogTitle>Editor</DialogTitle>
+          <div data-keeps-escape="">
+            <button>in the panel</button>
+          </div>
+          <button>elsewhere</button>
+        </DialogContent>
+      </Dialog>,
+    );
+  }
+
+  it("an Escape from inside the marked panel leaves the dialog open", async () => {
+    const user = userEvent.setup();
+    const caller = vi.fn();
+    open(caller);
+    screen.getByRole("button", { name: "in the panel" }).focus();
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(caller).toHaveBeenCalledTimes(1);
+  });
+
+  it("an Escape from anywhere else still closes it", async () => {
+    const user = userEvent.setup();
+    open();
+    screen.getByRole("button", { name: "elsewhere" }).focus();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });

@@ -22,7 +22,13 @@ vi.mock("next/dynamic", () => ({
     },
 }));
 vi.mock("@/components/chart-renderer", () => ({
-  ChartRenderer: () => <div data-testid="chart-renderer" />,
+  // `data-keeps-escape` is how a panel in the chart (the graph inspector) says
+  // that an Esc inside it is its own.
+  ChartRenderer: () => (
+    <div data-testid="chart-renderer" data-keeps-escape="">
+      <button>inside the panel</button>
+    </div>
+  ),
 }));
 
 const page = {
@@ -73,5 +79,38 @@ describe("expanding a rendered widget (#1509)", () => {
     ).not.toBeNull();
     expect(dialog.querySelector(".animate-spin")).toBeNull();
     expect(dialog.querySelector("[data-testid='skeleton']")).toBeNull();
+  });
+});
+
+describe("Esc in the expanded view (#2515)", () => {
+  async function openExpanded() {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <DashboardContainer page={page} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getAllByTestId("chart-renderer")).toHaveLength(1),
+    );
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Fullscreen"));
+    });
+    return screen.findByRole("dialog");
+  }
+
+  it("an Esc from inside a panel that keeps it leaves the dialog open", async () => {
+    const dialog = await openExpanded();
+    const panelButton = Array.from(dialog.querySelectorAll("button")).find(
+      (b) => b.textContent === "inside the panel",
+    )!;
+    panelButton.focus();
+    fireEvent.keyDown(panelButton, { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("an Esc from anywhere else closes it", async () => {
+    const dialog = await openExpanded();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });

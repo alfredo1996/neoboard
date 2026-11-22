@@ -75,7 +75,7 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> &
     VariantProps<typeof dialogContentVariants>
->(({ className, children, size, ...props }, ref) => (
+>(({ className, children, size, onEscapeKeyDown, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -87,6 +87,17 @@ const DialogContent = React.forwardRef<
       // out at the call site instead.
       className={cn(dialogContentVariants({ size }), className)}
       {...props}
+      // Radix hears Escape on the document before anything inside, so a panel
+      // that keeps its own Escape (the graph inspector, #2515) marks itself;
+      // its Escape closes the panel, a second one the dialog.
+      onEscapeKeyDown={(e) => {
+        if (
+          e.target instanceof Element &&
+          e.target.closest("[data-keeps-escape]")
+        )
+          e.preventDefault();
+        onEscapeKeyDown?.(e);
+      }}
     >
       {children}
       <DialogPrimitive.Close className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-md text-muted-foreground ring-offset-background transition-[color,background-color] [transition-duration:var(--duration-fast)] [transition-timing-function:var(--ease-standard)] hover:bg-active hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none">

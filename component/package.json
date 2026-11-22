@@ -18,6 +18,7 @@
     "./kit": "./src/components/kit/index.ts",
     "./charts": "./src/charts/index.ts",
     "./charts/palettes": "./src/charts/palettes.ts",
+    "./charts/graph-labels": "./src/charts/graph-labels.ts",
     "./charts/choropleth-ramp": "./src/charts/choropleth-ramp.ts",
     "./hooks": "./src/hooks/index.ts",
     "./row-shapes": "./src/lib/row-shapes.ts",
