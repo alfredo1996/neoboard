@@ -17,6 +17,7 @@ import {
   type ConnectorError,
   type ConnectorPlugin,
   type ConnectorRegistry,
+  type DatabaseSchema,
   type SchemaManager,
   type SchemaTerm,
   toTerms,
@@ -107,11 +108,13 @@ export function getSchemaManager(type: string): SchemaManager | undefined {
 export async function describeConnectionTerms(
   type: string,
   config: ConnectorConfig,
+  // The caller's own read of the schema, so a cache can serve it (#2514).
+  readSchema?: () => Promise<DatabaseSchema>,
 ): Promise<SchemaTerm[]> {
   const manager = getSchemaManager(type);
   if (!manager) return [];
   if (manager.describeTerms) return manager.describeTerms(config);
-  return toTerms(await manager.fetchSchema(config));
+  return toTerms(await (readSchema ?? (() => manager.fetchSchema(config)))());
 }
 
 /**

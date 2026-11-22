@@ -77,7 +77,7 @@ describe("GET /api/connections/[id]/schema", () => {
 
   it("returns 401 when unauthenticated", async () => {
     mockRequireSession.mockRejectedValue(new UnauthorizedError());
-    const res = await GET({} as Request, makeParams("c1"));
+    const res = await GET(new Request("http://localhost/x"), makeParams("c1"));
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.error.code).toBe("UNAUTHORIZED");
@@ -86,11 +86,41 @@ describe("GET /api/connections/[id]/schema", () => {
   it("returns 404 when connection not found or not owned", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([]));
-    const res = await GET({} as Request, makeParams("c1"));
+    const res = await GET(new Request("http://localhost/x"), makeParams("c1"));
     expect(res.status).toBe(404);
     const body = await res.json();
     expect(body.error.code).toBe("NOT_FOUND");
   });
+
+  it.each([
+    ["", false],
+    ["?refresh=1", true],
+  ])(
+    "reads for the caller's tenant, with url %s refresh=%s (#2514)",
+    async (query, refresh) => {
+      mockRequireSession.mockResolvedValue(SESSION);
+      mockDb.select.mockReturnValue(
+        makeSelectChain([
+          { id: "c1", userId: "user-1", type: "neo4j", configEncrypted: "enc" },
+        ]),
+      );
+      mockDecryptJson.mockReturnValue({ uri: "bolt://localhost" });
+      mockFetchConnectionSchema.mockResolvedValue({});
+
+      await GET(new Request(`http://localhost/x${query}`), makeParams("c1"));
+
+      expect(mockFetchConnectionSchema).toHaveBeenCalledWith(
+        "neo4j",
+        { uri: "bolt://localhost" },
+        {
+          tenantId: "t1",
+          connectionId: "c1",
+          configEncrypted: "enc",
+          refresh,
+        },
+      );
+    },
+  );
 
   it("returns schema on success", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
@@ -112,7 +142,7 @@ describe("GET /api/connections/[id]/schema", () => {
     };
     mockFetchConnectionSchema.mockResolvedValue(schema);
 
-    const res = await GET({} as Request, makeParams("c1"));
+    const res = await GET(new Request("http://localhost/x"), makeParams("c1"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data).toEqual(schema);
@@ -137,7 +167,7 @@ describe("GET /api/connections/[id]/schema", () => {
       new Error("Schema fetch failed"),
     );
 
-    const res = await GET({} as Request, makeParams("c1"));
+    const res = await GET(new Request("http://localhost/x"), makeParams("c1"));
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error.code).toBe("INTERNAL_ERROR");
@@ -160,7 +190,7 @@ describe("GET /api/connections/[id]/schema", () => {
       }),
     );
 
-    const res = await GET({} as Request, makeParams("c1"));
+    const res = await GET(new Request("http://localhost/x"), makeParams("c1"));
     expect(res.status).toBe(500);
     expect((await res.json()).error.code).toBe("INTERNAL_ERROR");
   });

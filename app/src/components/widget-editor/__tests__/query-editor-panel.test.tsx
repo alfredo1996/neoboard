@@ -31,13 +31,16 @@ vi.mock("@/hooks/use-schema", () => ({
   useConnectionSchema: () => ({ isFetching: false, refreshSchema: vi.fn() }),
 }));
 let mockConcepts: unknown[] | undefined;
+let mockTerms: unknown[] | undefined;
+// Both reset after every test: under shuffle, one test's terms (a display
+// name) otherwise reached the next test's hint.
 afterEach(() => {
   mockConcepts = undefined;
+  mockTerms = undefined;
 });
 vi.mock("@/hooks/use-concepts", () => ({
   useConcepts: () => ({ data: mockConcepts }),
 }));
-let mockTerms: unknown[] | undefined;
 vi.mock("@/hooks/use-ontology", () => ({
   useEditorTerms: () => mockTerms,
 }));
