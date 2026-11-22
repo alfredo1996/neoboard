@@ -143,14 +143,6 @@ function ParamMultiSelector({
           {!labelledBy && (
             <ParamLabel parameterName={parameterName} id={labelId} />
           )}
-          {parentParameterName && (
-            <span
-              id={hintId}
-              className="ml-1 text-[10px] normal-case font-normal text-muted-foreground"
-            >
-              (depends on {parentName})
-            </span>
-          )}
         </div>
         {values.length > 0 && (
           <Button
@@ -221,6 +213,11 @@ function ParamMultiSelector({
           </Command>
         </PopoverContent>
       </Popover>
+      {parentParameterName && (
+        <p id={hintId} className="text-xs text-muted-foreground">
+          Filtered by {parentName}
+        </p>
+      )}
     </div>
   );
 }

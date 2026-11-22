@@ -110,7 +110,7 @@ describe("ParamSelector — parent gating", () => {
     expect(screen.queryByText("Select Country first…")).toBeNull();
   });
 
-  it("annotates the label with the parent it depends on", () => {
+  it("shows a Filtered-by hint below the field naming the parent", () => {
     render(
       <ParamSelector
         parameterName="city"
@@ -122,7 +122,7 @@ describe("ParamSelector — parent gating", () => {
       />,
     );
 
-    expect(screen.getByText("(depends on Country)")).toBeInTheDocument();
+    expect(screen.getByText("Filtered by Country")).toBeInTheDocument();
   });
 
   it("leaves an explicit placeholder in charge even while waiting for the parent", () => {
@@ -159,7 +159,7 @@ describe("ParamSelector — parent gating", () => {
 
     expect(screen.getByRole("combobox", { name: /city/i })).toBeEnabled();
     expect(screen.queryByText(/first…/)).toBeNull();
-    expect(screen.queryByText(/depends on/)).toBeNull();
+    expect(screen.queryByText(/Filtered by/)).toBeNull();
     expect(screen.getByText("Select a value…")).toBeInTheDocument();
   });
 

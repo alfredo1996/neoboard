@@ -45,7 +45,7 @@ describe("ParamLabelScope (#2232)", () => {
     expect(screen.getByRole("combobox")).toHaveTextContent(
       "Select Director first…",
     );
-    expect(screen.getByText("(depends on Director)")).toBeInTheDocument();
+    expect(screen.getByText("Filtered by Director")).toBeInTheDocument();
     rerender(
       <ParamLabelScope label="Movie" parentLabel="Director">
         <ParamSelector
@@ -75,7 +75,7 @@ describe("ParamLabelScope (#2232)", () => {
         />
       </ParamLabelScope>,
     );
-    expect(screen.getByText("(depends on Director)")).toBeInTheDocument();
+    expect(screen.getByText("Filtered by Director")).toBeInTheDocument();
   });
 
   it("without a scope, still draws the humanised key as a visible label", () => {

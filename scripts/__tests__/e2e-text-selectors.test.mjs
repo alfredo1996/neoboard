@@ -103,7 +103,7 @@ const BASELINE = {
   "auto-refresh.spec.ts": { role: 4 },
   "bar-stack-mode.spec.ts": { role: 5, text: 1 },
   "chart-export.spec.ts": { role: 5 },
-  "charts.spec.ts": { role: 97, text: 36 },
+  "charts.spec.ts": { role: 95, text: 35 },
   "code-completion.spec.ts": { role: 19 },
   "connection-advanced.spec.ts": { role: 18, text: 11 },
   "connection-sharing.spec.ts": { role: 6 },
@@ -140,7 +140,7 @@ const BASELINE = {
   "param-defaults.spec.ts": { role: 7, text: 1 },
   "parameter-types.spec.ts": { role: 5, text: 3 },
   "parameter-url-sync.spec.ts": { role: 3 },
-  "parameters.spec.ts": { role: 128, text: 35 },
+  "parameters.spec.ts": { role: 128, text: 34 },
   "query-safety.spec.ts": { role: 2, text: 2 },
   "responsive.spec.ts": { role: 10, text: 1 },
   "settings-profile.spec.ts": { role: 11, text: 5 },
@@ -161,7 +161,7 @@ const BASELINE = {
   "widget-library.spec.ts": { role: 59, text: 4 },
   "widget-saved-database.spec.ts": { role: 12, text: 2 },
   "widget-states.spec.ts": { role: 34, text: 20 },
-  "widgets-look.spec.ts": { role: 6, text: 6 },
+  "widgets-look.spec.ts": { role: 6, text: 5 },
   "widgets.spec.ts": { role: 66, text: 4 },
 };
 

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
+import { ParamMultiSelector } from "@/components/composed/parameter-widgets/param-multi-selector";
 import { ParamSelector } from "@/components/composed/parameter-widgets/param-selector";
 import { ParamLabelScope } from "@/components/composed/parameter-widgets/param-label";
 
@@ -193,4 +194,59 @@ export const FillAndBorderPresets: Story = {
 export const FillAndBorderPresetsDark: Story = {
   ...FillAndBorderPresets,
   globals: { theme: "dark" },
+};
+
+/**
+ * An independent and a dependent selector side by side, single and multi, in
+ * titled cards (#2523): the fields start at the same height and the dependency
+ * reads "Filtered by Year" below the field.
+ */
+export const DependentBesideIndependent: Story = {
+  parameters: { layout: "padded" },
+  args: {
+    parameterName: "year",
+    options: cities,
+    value: "",
+    onChange: () => {},
+  },
+  render: () => (
+    <div className="grid w-[640px] grid-cols-2 items-start gap-4">
+      <ParamLabelScope label="Year">
+        <ParamSelector
+          parameterName="year"
+          options={cities}
+          value=""
+          onChange={() => {}}
+        />
+      </ParamLabelScope>
+      <ParamLabelScope label="Movie" parentLabel="Year">
+        <ParamSelector
+          parameterName="movie"
+          options={cities}
+          value=""
+          onChange={() => {}}
+          parentParameterName="year"
+          parentValue="2020"
+        />
+      </ParamLabelScope>
+      <ParamLabelScope label="Years">
+        <ParamMultiSelector
+          parameterName="years"
+          options={cities}
+          values={[]}
+          onChange={() => {}}
+        />
+      </ParamLabelScope>
+      <ParamLabelScope label="Movies" parentLabel="Year">
+        <ParamMultiSelector
+          parameterName="movies"
+          options={cities}
+          values={[]}
+          onChange={() => {}}
+          parentParameterName="year"
+          parentValue="2020"
+        />
+      </ParamLabelScope>
+    </div>
+  ),
 };

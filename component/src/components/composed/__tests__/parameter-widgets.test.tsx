@@ -1306,7 +1306,7 @@ describe("ParamSelector — cascading props (migrated from CascadingSelector)", 
         parentParameterName="category"
       />,
     );
-    expect(screen.getByText(/depends on category/i)).toBeInTheDocument();
+    expect(screen.getByText(/filtered by category/i)).toBeInTheDocument();
   });
 
   it("disables the select when parentParameterName is set but parentValue is empty", () => {
@@ -1395,7 +1395,7 @@ describe("ParamSelector — cascading props (migrated from CascadingSelector)", 
         onChange={vi.fn()}
       />,
     );
-    expect(screen.queryByText(/depends on/i)).toBeNull();
+    expect(screen.queryByText(/Filtered by/)).toBeNull();
   });
 
   it("shows 'Select parent first' placeholder when parent is absent", () => {
@@ -1491,7 +1491,7 @@ describe("ParamMultiSelector — cascading props", () => {
         parentParameterName="country"
       />,
     );
-    expect(screen.getByText(/depends on country/i)).toBeInTheDocument();
+    expect(screen.getByText(/filtered by country/i)).toBeInTheDocument();
   });
 
   it("describes the trigger with the hint rather than naming it", () => {
@@ -1507,7 +1507,7 @@ describe("ParamMultiSelector — cascading props", () => {
     // The hint must not leak into the accessible name, or "cities" and a
     // sibling "country" control stop being distinguishable by name.
     const trigger = screen.getByRole("combobox", { name: "Cities" });
-    expect(trigger).toHaveAccessibleDescription(/depends on country/i);
+    expect(trigger).toHaveAccessibleDescription(/filtered by country/i);
   });
 
   it("disables the trigger and prompts for the parent when parentValue is absent", () => {
@@ -1552,7 +1552,7 @@ describe("ParamMultiSelector — cascading props", () => {
     );
     expect(screen.getByRole("combobox")).not.toBeDisabled();
     expect(screen.queryByText(/first…/)).toBeNull();
-    expect(screen.queryByText(/depends on/)).toBeNull();
+    expect(screen.queryByText(/Filtered by/)).toBeNull();
   });
 
   it("lets an explicit placeholder win over the parent prompt", () => {
@@ -1580,7 +1580,7 @@ describe("ParamMultiSelector — cascading props", () => {
       />,
     );
     expect(screen.getByRole("combobox")).not.toBeDisabled();
-    expect(screen.queryByText(/depends on/)).toBeNull();
+    expect(screen.queryByText(/Filtered by/)).toBeNull();
   });
 });
 
@@ -2351,5 +2351,66 @@ describe("a long value stays inside its field (#2367)", () => {
       "has-[[role=combobox]:focus-visible]:ring-offset-1",
     );
     expect(container.innerHTML).not.toContain("ring-offset-2");
+  });
+});
+
+// #2523: the dependency hint is help text BELOW the field, so dependent and
+// independent fields start at the same height.
+describe.each([
+  [
+    "ParamSelector",
+    (parent?: string) => (
+      <ParamSelector
+        parameterName="movie"
+        options={[]}
+        value=""
+        onChange={vi.fn()}
+        parentParameterName={parent}
+      />
+    ),
+  ],
+  [
+    "ParamSelector (searchable)",
+    (parent?: string) => (
+      <ParamSelector
+        parameterName="movie"
+        options={[]}
+        value=""
+        onChange={vi.fn()}
+        parentParameterName={parent}
+        searchable
+      />
+    ),
+  ],
+  [
+    "ParamMultiSelector",
+    (parent?: string) => (
+      <ParamMultiSelector
+        parameterName="movie"
+        options={[]}
+        values={[]}
+        onChange={vi.fn()}
+        parentParameterName={parent}
+      />
+    ),
+  ],
+])("%s dependency hint (#2523)", (_name, renderIt) => {
+  it("sits after the field, reads 'Filtered by Year' and describes it", () => {
+    render(renderIt("year"));
+    const hint = screen.getByText("Filtered by Year");
+    const field = screen.getByRole("combobox");
+    expect(
+      field.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(field).toHaveAttribute(
+      "aria-describedby",
+      expect.stringContaining(hint.id),
+    );
+    expect(hint).toHaveClass("text-xs", "text-muted-foreground");
+  });
+
+  it("renders no hint for an independent selector", () => {
+    render(renderIt());
+    expect(screen.queryByText(/Filtered by/)).toBeNull();
   });
 });
