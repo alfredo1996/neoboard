@@ -327,6 +327,9 @@ export class Neo4jSchemaManager implements SchemaManager {
     name: string,
     pattern: (ident: string) => string,
   ): Promise<PropertyRow[]> {
+    // Not a parameter: a dynamic label, (n:$($l)), is Neo4j 5.26+ only and was
+    // measured on 5.26 as AllNodesScan plus a filter, losing the label scan.
+    // The name is the catalog's own, quoted as in _typePatterns.
     const ident = quoteIdent(name);
     if (ident === null) return [];
     const head =
