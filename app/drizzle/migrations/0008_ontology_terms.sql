@@ -28,6 +28,3 @@ DO $$ BEGIN
 		ALTER TABLE "ontology_term" ADD CONSTRAINT "ontology_term_tenant_connection_fk" FOREIGN KEY ("tenant_id","connection_id") REFERENCES "public"."connection"("tenant_id","id") ON DELETE cascade ON UPDATE no action;
 	END IF;
 END $$;
---> statement-breakpoint
--- The unique above carries the same (tenant_id, id) index (#2534).
-DROP INDEX IF EXISTS "connection_tenant_id_idx";

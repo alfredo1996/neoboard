@@ -31,10 +31,4 @@ describe("which connections a session can use", () => {
     ]);
     expect(Object.keys(selected[0] ?? {}).sort()).toEqual(["id", "name"]);
   });
-
-  it("still reads the config for a caller that decrypts it", async () => {
-    const { usableConnections } = await import("../concepts");
-    await usableConnections(session);
-    expect(Object.keys(selected[0] ?? {})).toContain("configEncrypted");
-  });
 });

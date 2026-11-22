@@ -83,7 +83,7 @@ export function cachedIntrospection<T>(
   const done = () => {
     if (inflight.get(key) === promise) inflight.delete(key);
   };
-  promise.then(done, done);
+  void promise.then(done, done);
   return promise;
 }
 

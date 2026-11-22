@@ -697,7 +697,11 @@ describe("Database migrations", () => {
     // connection_tenant_id_unique, which the composite FKs depend on (2BP01).
     const client = await emptyDatabase("replay_2534");
     await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
-    for (const tag of ["0008_ontology_terms", "0009_ontology_concepts"]) {
+    for (const tag of [
+      "0008_ontology_terms",
+      "0009_ontology_concepts",
+      "0010_ontology_orphans",
+    ]) {
       const statements = readFileSync(
         path.join(MIGRATIONS_FOLDER, `${tag}.sql`),
         "utf8",
@@ -711,6 +715,29 @@ describe("Database migrations", () => {
       SELECT count(*)::int AS n FROM pg_constraint
       WHERE conname IN ('connection_tenant_id_unique', 'ontology_term_tenant_connection_fk')`;
     expect(n).toBe(2);
+    await client.end();
+  }, 90_000);
+
+  it("gives a database already at 0009 the index and the trigger when it runs to head (#2534)", async () => {
+    const client = await emptyDatabase("upgrade_2534");
+    const at0009 = journal.entries.findIndex(
+      (e) => e.tag === "0009_ontology_concepts",
+    );
+    await migrate(drizzle(client), {
+      migrationsFolder: migrationsThrough(at0009 + 1),
+    });
+    const before = await client`SELECT count(*)::int AS n FROM pg_trigger
+      WHERE tgname = 'ontology_concept_side_orphan'`;
+    expect(before[0].n).toBe(0);
+    await migrate(drizzle(client), { migrationsFolder: MIGRATIONS_FOLDER });
+    const names = (
+      await client`SELECT indexname FROM pg_indexes WHERE schemaname = 'public'`
+    ).map((r) => r.indexname);
+    expect(names).toContain("ontology_concept_side_tenant_connection_idx");
+    expect(names).not.toContain("connection_tenant_id_idx");
+    const after = await client`SELECT count(*)::int AS n FROM pg_trigger
+      WHERE tgname = 'ontology_concept_side_orphan'`;
+    expect(after[0].n).toBe(1);
     await client.end();
   }, 90_000);
 
@@ -750,5 +777,44 @@ describe("Database migrations", () => {
     await client`DELETE FROM "user" WHERE id = 'u'`;
     expect(await client`SELECT id FROM ontology_concept`).toHaveLength(0);
     await client.end();
+  }, 60_000);
+
+  it("keeps a concept that a concurrent writer gave a side while its last side's connection was being deleted (#2534)", async () => {
+    const t1 = await emptyDatabase("race_2534");
+    const t2 = postgres(urlOf("race_2534"), { max: 1 });
+    await migrate(drizzle(t1), { migrationsFolder: MIGRATIONS_FOLDER });
+    await t1`INSERT INTO "user" (id, email) VALUES ('u', 'u@x')`;
+    await t1`INSERT INTO connection (id, "userId", name, type, "configEncrypted")
+             VALUES ('x', 'u', 'a', 'neo4j', 'enc'), ('y', 'u', 'b', 'neo4j', 'enc')`;
+    await t1`INSERT INTO ontology_concept (id, name, parameter) VALUES ('c', 'C', 'c')`;
+    await t1`INSERT INTO ontology_concept_side (id, concept_id, connection_id, entity_key, key_property_key)
+             VALUES ('sy', 'c', 'y', 'e', 'k')`;
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let locked!: () => void;
+    const lockTaken = new Promise<void>((r) => (locked = r));
+    // T2: what an import does to an existing concept: update it, add a side on x.
+    const writer = t2.begin(async (tx) => {
+      await tx`UPDATE ontology_concept SET description = 'd' WHERE id = 'c'`;
+      await tx`INSERT INTO ontology_concept_side (id, concept_id, connection_id, entity_key, key_property_key)
+               VALUES ('sx', 'c', 'x', 'e', 'k')`;
+      locked();
+      await held;
+    });
+    await lockTaken;
+    // T1: delete the connection holding the old side; it waits on T2's row lock.
+    const deleter = t1`DELETE FROM connection WHERE id = 'y'`.execute();
+    await new Promise((r) => setTimeout(r, 500));
+    release();
+    await writer;
+    await deleter;
+    const sides =
+      await t1`SELECT id FROM ontology_concept_side WHERE concept_id = 'c'`;
+    expect(sides.map((r) => r.id)).toEqual(["sx"]);
+    expect(await t1`SELECT id FROM ontology_concept`).toHaveLength(1);
+    await t1`DELETE FROM connection WHERE id = 'x'`;
+    expect(await t1`SELECT id FROM ontology_concept`).toHaveLength(0);
+    await t2.end();
+    await t1.end();
   }, 60_000);
 });

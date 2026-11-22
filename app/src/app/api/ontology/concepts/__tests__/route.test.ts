@@ -509,6 +509,24 @@ describe("/api/ontology/concepts", () => {
     );
 
     it.each([
+      ["POST", () => post()],
+      ["PATCH", () => patch(body())],
+    ])(
+      "answers 409 when a %s deadlocks with a connection delete (#2534)",
+      async (_m, run) => {
+        if (_m === "PATCH") rows.set(ontologyConcepts, [CUSTOMER]);
+        mockDb.transaction.mockRejectedValueOnce(
+          Object.assign(new Error("deadlock detected"), {
+            cause: { code: "40P01" },
+          }),
+        );
+        const res = await run();
+        expect(res.status).toBe(409);
+        expect(JSON.stringify(await res.json())).toContain("try again");
+      },
+    );
+
+    it.each([
       ["POST", () => post(), () => mockDb.transaction],
       ["PATCH", () => patch(body()), () => mockDb.transaction],
       [

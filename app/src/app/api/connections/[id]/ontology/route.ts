@@ -18,6 +18,7 @@ import {
   handleRouteError,
 } from "@/lib/api/api-utils";
 import { mergeTerms } from "@/lib/ontology/merge";
+import { planTermWrites } from "@/lib/ontology/term-writes";
 
 const MAX_NAME = 200;
 const MAX_DESCRIPTION = 2000;
@@ -201,43 +202,14 @@ export async function PUT(
           eq(ontologyTerms.key, t.key),
           eq(ontologyTerms.parentKey, t.parentKey),
         );
-      // A term sent twice is written once, the later one winning: one INSERT
-      // cannot touch a row twice. Terms sent the same fields share a statement,
-      // so each still changes only what it was sent (#2534).
-      const removals = new Map<
-        string,
-        (typeof validation.data.terms)[number]
-      >();
-      const groups = new Map<string, Map<string, Record<string, unknown>>>();
-      for (const t of validation.data.terms) {
-        const id = JSON.stringify([t.kind, t.key, t.parentKey]);
-        if (t.remove) {
-          removals.set(id, t);
-          continue;
-        }
-        const meaning = {
-          ...(t.displayName !== undefined && { displayName: t.displayName }),
-          ...(t.description !== undefined && { description: t.description }),
-          ...(t.hidden !== undefined && { hidden: t.hidden }),
-        };
-        const shape = Object.keys(meaning).sort().join(",");
-        const rows = groups.get(shape) ?? new Map();
-        rows.set(id, {
-          connectionId: connection.id,
-          kind: t.kind,
-          key: t.key,
-          parentKey: t.parentKey,
-          ...meaning,
-        });
-        groups.set(shape, rows);
-      }
-      if (removals.size > 0) {
+      // One final entry per term, the later one winning (planTermWrites).
+      const { removals, groups } = planTermWrites(validation.data.terms);
+      if (removals.length > 0) {
         await tx
           .delete(ontologyTerms)
-          .where(and(scope, or(...[...removals.values()].map(termKey))));
+          .where(and(scope, or(...removals.map(termKey))));
       }
-      for (const [shape, rows] of groups) {
-        const fields = shape === "" ? [] : shape.split(",");
+      for (const { fields, rows } of groups) {
         const columns = {
           displayName: ontologyTerms.displayName,
           description: ontologyTerms.description,
@@ -246,10 +218,11 @@ export async function PUT(
         await tx
           .insert(ontologyTerms)
           .values(
-            [...rows.values()].map((r) => ({
+            rows.map((r) => ({
               ...r,
+              connectionId: connection.id,
               tenantId,
-            })) as (typeof ontologyTerms.$inferInsert)[],
+            })),
           )
           .onConflictDoUpdate({
             target: [
@@ -263,7 +236,7 @@ export async function PUT(
               ...Object.fromEntries(
                 fields.map((f) => [
                   f,
-                  sql`excluded.${sql.identifier(columns[f as keyof typeof columns].name)}`,
+                  sql`excluded.${sql.identifier(columns[f].name)}`,
                 ]),
               ),
               updatedAt: new Date(),
@@ -271,7 +244,7 @@ export async function PUT(
           });
       }
       // A row exists only for a term someone described or hid.
-      if (groups.size > 0) {
+      if (groups.length > 0) {
         await tx
           .delete(ontologyTerms)
           .where(

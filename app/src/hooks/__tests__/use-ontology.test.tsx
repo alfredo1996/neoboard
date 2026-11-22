@@ -245,6 +245,30 @@ describe("use-ontology", () => {
     expect(client.getQueryState(["ontology", "c1"])?.isInvalidated).toBe(true);
   });
 
+  it("reads the terms again only after the last of two pending saves settles (#2534)", async () => {
+    const answers: Array<(r: Response) => void> = [];
+    fetchMock.mockImplementation(
+      () => new Promise<Response>((resolve) => answers.push(resolve)),
+    );
+    const { client, wrapper } = setup();
+    client.setQueryData(["ontology", "c1"], { terms: [term("A")] });
+    const { result } = renderHook(() => useSaveTerms("c1"), { wrapper });
+    act(() => {
+      result.current.mutate([meaning]);
+      result.current.mutate([meaning]);
+    });
+    await waitFor(() => expect(answers).toHaveLength(2));
+    await act(async () => answers[0](ok([])));
+    await waitFor(() => expect(client.isMutating()).toBe(1));
+    expect(client.getQueryState(["ontology", "c1"])?.isInvalidated).toBe(false);
+    await act(async () => answers[1](ok([])));
+    await waitFor(() =>
+      expect(client.getQueryState(["ontology", "c1"])?.isInvalidated).toBe(
+        true,
+      ),
+    );
+  });
+
   it("tells the user about every failed save, not only the latest", async () => {
     fetchMock.mockResolvedValue(fails("The connection has no entity"));
     const { wrapper } = setup();

@@ -76,6 +76,7 @@ export const conceptFields = {
 
 const UNIQUE_VIOLATION = "23505";
 const FOREIGN_KEY_VIOLATION = "23503";
+const DEADLOCK = "40P01";
 const codeOf = (e: unknown) => (e as { code?: unknown } | null)?.code;
 
 /**
@@ -102,6 +103,14 @@ export function conceptRouteError(error: unknown, fallback: string) {
     return apiError(
       "CONFLICT",
       "A connection or concept used here was deleted meanwhile. Reload and try again.",
+    );
+  }
+  // A save locks the concept, then its sides; a connection delete cascades the
+  // other way round. The database aborts one of them; the caller can simply retry.
+  if (codeOf(error) === DEADLOCK || codeOf(cause) === DEADLOCK) {
+    return apiError(
+      "CONFLICT",
+      "This was saved while a connection was being deleted; please try again.",
     );
   }
   return handleRouteError(error, fallback, { safeMessage: true });
