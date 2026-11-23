@@ -26,10 +26,15 @@ vi.mock("@/hooks/use-ontology", () => ({
   useOntology: () => ({ data: undefined }),
 }));
 const useConceptsMock = vi.hoisted(() => vi.fn());
+// What each read returns, set per test: `live` is the structure read (#2556).
+const conceptData = vi.hoisted(() => ({
+  live: undefined as unknown,
+  cached: undefined as unknown,
+}));
 vi.mock("@/hooks/use-concepts", () => ({
-  useConcepts: (o: unknown) => {
+  useConcepts: (o: { live?: boolean; enabled?: boolean }) => {
     useConceptsMock(o);
-    return { data: undefined };
+    return { data: o?.live === false ? conceptData.cached : conceptData.live };
   },
 }));
 vi.mock("@/hooks/use-query-execution", () => ({
@@ -286,13 +291,65 @@ describe("WidgetEditorModal — option placement through the real panel (#2388)"
 describe("WidgetEditorModal — the concept start reads live structure (#2556)", () => {
   const liveReads = () =>
     useConceptsMock.mock.calls.filter(([o]) => o?.live === true && o.enabled);
-  beforeEach(() => useConceptsMock.mockClear());
+  beforeEach(() => {
+    useConceptsMock.mockClear();
+    conceptData.live = undefined;
+    conceptData.cached = undefined;
+  });
+  const concept = (name: string, sides: object[]) => ({
+    id: name,
+    name,
+    parameter: name.toLowerCase(),
+    sides,
+  });
+  const gone = { connectionId: "c1", missing: "entity" };
+  const here = { connectionId: "c1" };
+  const startButtons = () =>
+    screen.queryAllByRole("button", { name: /New selector for/ });
+  const newSelector = () => {
+    renderEditor({ chartType: "table" }, { mode: "add" });
+    act(() => useWidgetEditorStore.getState().setChartType("parameter-select"));
+  };
 
   it("a new selector reads concepts live, for the start that filters on it", () => {
     renderEditor({ chartType: "table" }, { mode: "add" });
     expect(liveReads()).toHaveLength(0);
     act(() => useWidgetEditorStore.getState().setChartType("parameter-select"));
     expect(liveReads()).not.toHaveLength(0);
+  });
+
+  it("never offers a concept with no connection left, or no side at all", () => {
+    conceptData.live = [
+      concept("Gone", [gone]),
+      concept("Empty", []),
+      concept("Alive", [here]),
+    ];
+    newSelector();
+    expect(startButtons().map((b) => b.textContent)).toEqual([
+      "New selector for Alive",
+    ]);
+  });
+
+  it.each([
+    ["is loading", undefined],
+    ["failed", undefined],
+  ])(
+    "a live read that %s still shows the start from the cached list",
+    (_, live) => {
+      conceptData.live = live;
+      conceptData.cached = [concept("Alive", [here]), concept("Empty", [])];
+      newSelector();
+      expect(startButtons().map((b) => b.textContent)).toEqual([
+        "New selector for Alive",
+      ]);
+    },
+  );
+
+  it("once the live read resolves, it replaces the cached list", () => {
+    conceptData.cached = [concept("Gone", [here])];
+    conceptData.live = [concept("Gone", [gone])];
+    newSelector();
+    expect(startButtons()).toHaveLength(0);
   });
 
   it.each([

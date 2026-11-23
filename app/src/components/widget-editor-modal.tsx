@@ -624,8 +624,13 @@ export function WidgetEditorModal({
     live: true,
     enabled: isNewEditor && chartType === "parameter-select",
   });
+  // ponytail: until the live read resolves (or if it fails) the start shows the
+  // cached list, so a click in that window can still pick a gone connection.
+  const startList = (startConcepts ?? concepts ?? []).filter(
+    (c) => conceptConnectionIds(c).length > 0,
+  );
   const pickedConcept = isNewEditor
-    ? startConcepts?.find((c) => c.parameter === paramWidgetName)
+    ? startList.find((c) => c.parameter === paramWidgetName)
     : undefined;
   const pickConcept = (c: Concept) => {
     const ids = conceptConnectionIds(c);
@@ -780,7 +785,7 @@ export function WidgetEditorModal({
               <>
                 {isNewEditor && (
                   <ConceptSelectorStart
-                    concepts={startConcepts ?? []}
+                    concepts={startList}
                     onPick={pickConcept}
                   />
                 )}
