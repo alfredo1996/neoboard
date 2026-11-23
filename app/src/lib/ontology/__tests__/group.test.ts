@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupTerms } from "../group";
+import { buildGroups, filterGroups, groupTerms } from "../group";
 import type { OntologyTerm } from "../merge";
 
 const term = (over: Partial<OntologyTerm>): OntologyTerm => ({
@@ -73,5 +73,103 @@ describe("groupTerms", () => {
       }),
     ];
     expect(heads(groupTerms(orphans, "", true))).toEqual(["property:age/0"]);
+  });
+});
+
+// The O(heads x properties) grouping #2533 replaced, kept as the reference.
+function legacy(terms: OntologyTerm[], search: string, showHidden: boolean) {
+  const q = search.trim().toLowerCase();
+  const visible = terms.filter((t) => showHidden || !t.hidden);
+  const headIds = new Set(
+    visible
+      .filter((t) => t.kind !== "property")
+      .map((t) => `${t.kind}:${t.key}`),
+  );
+  const all = new Set(terms.map((t) => `${t.kind}:${t.key}`));
+  const isChild = (t: OntologyTerm) =>
+    t.kind === "property" && headIds.has(t.parentKey);
+  const m = (t: OntologyTerm) =>
+    [t.key, t.displayName, t.description].some((x) =>
+      x.toLowerCase().includes(q),
+    );
+  return visible
+    .filter(
+      (t) => !isChild(t) && !(t.kind === "property" && all.has(t.parentKey)),
+    )
+    .map((head) => ({
+      head,
+      properties: visible.filter(
+        (p) => isChild(p) && p.parentKey === `${head.kind}:${head.key}`,
+      ),
+    }))
+    .filter((g) => !q || [g.head, ...g.properties].some(m))
+    .sort(
+      (a, b) =>
+        Number(a.head.kind !== "entity") - Number(b.head.kind !== "entity") ||
+        0,
+    );
+}
+
+describe("buildGroups and filterGroups (#2533)", () => {
+  const mixed = [
+    ...TERMS,
+    term({ key: "Secret", hidden: true }),
+    term({ kind: "property", key: "pin", parentKey: "entity:Secret" }),
+    term({
+      kind: "property",
+      key: "age",
+      parentKey: "entity:Person",
+      hidden: true,
+    }),
+    term({
+      kind: "property",
+      key: "stray",
+      parentKey: "entity:Gone",
+      orphaned: true,
+    }),
+    term({
+      kind: "property",
+      key: "hiddenstray",
+      parentKey: "entity:Gone",
+      hidden: true,
+    }),
+  ];
+
+  it.each([
+    ["", false],
+    ["", true],
+    ["email", false],
+    ["PIN", true],
+    ["pin", false],
+    ["film", true],
+    ["stray", false],
+    ["nothing", true],
+  ])(
+    "lists the same groups as before for search %j, showHidden %s",
+    (q, show) => {
+      expect(filterGroups(buildGroups(mixed), q, show)).toEqual(
+        legacy(mixed, q, show),
+      );
+      expect(groupTerms(mixed, q, show)).toEqual(legacy(mixed, q, show));
+    },
+  );
+
+  it("groups 2,000 entities of 25 properties in one pass", () => {
+    const big: OntologyTerm[] = [];
+    for (let i = 0; i < 2000; i++) {
+      big.push(term({ key: `t${i}` }));
+      for (let j = 0; j < 25; j++) {
+        big.push(
+          term({ kind: "property", key: `c${j}`, parentKey: `entity:t${i}` }),
+        );
+      }
+    }
+    const before = process.cpuUsage();
+    const groups = buildGroups(big);
+    const { user, system } = process.cpuUsage(before);
+    expect(groups).toHaveLength(2000);
+    expect(groups[1999].properties).toHaveLength(25);
+    // 100 million comparisons took seconds; one pass takes a few ms.
+    expect((user + system) / 1000).toBeLessThan(200);
   });
 });
