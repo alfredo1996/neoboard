@@ -521,6 +521,17 @@ describe("ontology export and import (#2510)", () => {
       },
     );
 
+    it("skips, and never updates, a concept whose parameter the file changes when a side is on a connection the creator cannot use (#2553)", async () => {
+      rows.set(ontologyConcepts, [{ ...CUSTOMER, parameter: "old_param" }]);
+      rows.set(ontologyConceptSides, [
+        storedSide("s1", side("graph", "Person", "email")),
+        storedSide("s9", side("secret", "Person", "email")),
+      ]);
+      const { data } = await (await post(importBody({ apply: true }))).json();
+      expect(data.preview.concepts).toMatchObject({ skipped: 1, changed: 0 });
+      expect(updates.filter((u) => u.table === ontologyConcepts)).toEqual([]);
+    });
+
     it("lets an admin match a concept whose sides are on connections they cannot use", async () => {
       mockRequireSession.mockResolvedValue(ADMIN);
       rows.set(connections, [conn("sql")]);

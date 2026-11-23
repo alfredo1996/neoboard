@@ -2,6 +2,7 @@ import {
   test,
   expect,
   ALICE,
+  BOB,
   CAROL,
   TEST_NEO4J_BOLT_URL,
   TEST_PG_PORT,
@@ -169,5 +170,139 @@ test.describe.serial("Model page concepts (#2484)", () => {
     await expect(
       page.getByRole("button", { name: `Edit ${conceptName}`, exact: true }),
     ).toHaveCount(0);
+  });
+});
+
+/**
+ * #2553: a creator cannot change the parameter of a concept that is also on a
+ * connection they cannot open. Alice (admin) builds a concept on a shared graph
+ * connection and a private SQL one; Bob (creator) can use only the first.
+ */
+test.describe.serial("Concept parameter change (#2553)", () => {
+  const suffix = uid();
+  const conceptName = `Guarded ${suffix}`;
+  const parameter = `guarded_${suffix}`;
+  const connIds: string[] = [];
+  let conceptId = "";
+
+  async function asAlice(browser: Browser, fn: (page: Page) => Promise<void>) {
+    const context = await browser.newContext();
+    try {
+      const page = await context.newPage();
+      await new AuthPage(page).login(ALICE.email, ALICE.password);
+      await fn(page);
+    } finally {
+      await context.close();
+    }
+  }
+
+  test.beforeAll(async ({ browser }) => {
+    await asAlice(browser, async (page) => {
+      const make = async (
+        name: string,
+        type: string,
+        config: Record<string, string>,
+        visibility: string,
+      ) => {
+        const res = await page.request.post("/api/connections", {
+          data: { name, type, config },
+        });
+        expect(res.status()).toBe(201);
+        const id = (await res.json()).data.id as string;
+        connIds.push(id);
+        const set = await page.request.patch(`/api/connections/${id}`, {
+          data: { visibility },
+        });
+        expect(set.ok()).toBeTruthy();
+        return id;
+      };
+      const graphId = await make(
+        `guard-graph-${suffix}`,
+        "neo4j",
+        {
+          uri: TEST_NEO4J_BOLT_URL,
+          username: "neo4j",
+          password: "neoboard123",
+        },
+        "shared",
+      );
+      const sqlId = await make(
+        `guard-sql-${suffix}`,
+        "postgresql",
+        {
+          uri: `postgresql://localhost:${TEST_PG_PORT}`,
+          username: "neoboard",
+          password: "neoboard",
+          database: "movies",
+        },
+        "private",
+      );
+      const res = await page.request.post("/api/ontology/concepts", {
+        data: {
+          name: conceptName,
+          parameter,
+          description: "",
+          sides: [
+            {
+              connectionId: graphId,
+              entityKey: "Movie",
+              keyPropertyKey: "title",
+            },
+            {
+              connectionId: sqlId,
+              entityKey: "movies",
+              keyPropertyKey: "title",
+            },
+          ],
+        },
+      });
+      expect(res.status()).toBe(201);
+      conceptId = (await res.json()).data.id;
+    });
+  });
+
+  test.afterAll(async ({ browser }) => {
+    await asAlice(browser, async (page) => {
+      if (conceptId) {
+        await page.request.delete(`/api/ontology/concepts/${conceptId}`);
+      }
+      for (const id of connIds) {
+        await page.request.delete(`/api/connections/${id}?force=true`);
+      }
+    });
+  });
+
+  test("a creator who cannot open one connection is refused, and the parameter stays", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(BOB.email, BOB.password);
+    await page.goto("/model");
+    const edit = page.getByRole("button", {
+      name: `Edit ${conceptName}`,
+      exact: true,
+    });
+    await edit.click({ timeout: 30_000 });
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel(/^Parameter/).fill(`${parameter}_new`);
+    await expect(
+      dialog.getByText(
+        `Widgets that use $param_${parameter} keep the old name. Update them to keep filtering together.`,
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(
+      dialog.getByText(
+        "This concept is used on connections you can't open; ask an admin to change its parameter.",
+        { exact: true },
+      ),
+    ).toBeVisible({ timeout: 30_000 });
+
+    await page.reload();
+    await edit.click({ timeout: 30_000 });
+    await expect(page.getByRole("dialog").getByLabel(/^Parameter/)).toHaveValue(
+      parameter,
+    );
   });
 });

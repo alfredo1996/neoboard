@@ -281,6 +281,14 @@ function ConceptForm({
             />
           </Field>
         </div>
+        {concept && parameter !== concept.parameter && (
+          <Alert variant="warning">
+            <AlertDescription>
+              Widgets that use $param_{concept.parameter} keep the old name.
+              Update them to keep filtering together.
+            </AlertDescription>
+          </Alert>
+        )}
         <Field label="Description" id="concept-description" optional>
           <Input
             value={description}

@@ -326,6 +326,13 @@ function planConcepts(
     !x ||
     !visibleTo ||
     sides.some((s) => s.conceptId === x.id && visibleTo.has(s.connectionId));
+  // A creator may not change the parameter of a concept with a side on a
+  // connection they cannot use, as in the concept route (#2553).
+  const renamesHidden = (x: StoredConcept | undefined, parameter: string) =>
+    !!x &&
+    !!visibleTo &&
+    x.parameter !== parameter &&
+    sides.some((s) => s.conceptId === x.id && !visibleTo.has(s.connectionId));
   const taken = new Set<string>();
   for (const c of file.concepts) {
     const { mapped, dropped } = mapSides(c, file, target);
@@ -337,7 +344,8 @@ function planConcepts(
     const blocked =
       (byName && byParam && byName.id !== byParam.id) ||
       !visible(byName) ||
-      !visible(byParam);
+      !visible(byParam) ||
+      renamesHidden(old, c.parameter);
     if (!mapped.size || blocked || (old && taken.has(old.id))) {
       preview.concepts.skipped++;
       preview.skipped.push({ kind: "concept", label: c.name });
