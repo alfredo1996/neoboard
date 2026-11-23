@@ -1,3 +1,4 @@
+import { graphNodeClickPayload } from "../graph/click-payload";
 import { describe, it, expect } from "vitest";
 import { buildClickPayload } from "../utils";
 import type { EChartsClickEvent } from "@neoboard/components";
@@ -210,6 +211,22 @@ const resolvedValue = (
     ? resolveClickActions(widgetWithSourceField(sourceField), payload)
         ?.setParameter?.value
     : undefined;
+
+/** #2526 — a graph node click resolves a property chosen as "Value from". */
+describe("graphNodeClickPayload resolves a node property (#2526)", () => {
+  const payload = graphNodeClickPayload({
+    id: "4:db:1",
+    labels: ["Person"],
+    properties: { email: "a@b.c", age: 42 },
+  });
+  it.each([
+    ["email", "a@b.c"],
+    ["age", 42],
+    ["nodeId", "4:db:1"],
+  ])("sourceField %s sets %j", (field, value) => {
+    expect(resolvedValue(payload, field)).toBe(value);
+  });
+});
 
 /**
  * #1597 — the editor offers raw query columns by name, so a payload key that

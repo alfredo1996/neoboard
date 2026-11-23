@@ -92,7 +92,10 @@ const CONNECTION = {
 
 function renderEditor(
   widget: Partial<DashboardWidget> & { chartType: string },
-  props: { mode?: "edit" | "lab-create" | "add" } = {},
+  props: {
+    mode?: "edit" | "lab-create" | "add";
+    initialPreviewData?: { data: unknown; resultId: string };
+  } = {},
 ) {
   const onSave = vi.fn();
   render(
@@ -104,6 +107,7 @@ function renderEditor(
       connections={[CONNECTION] as never}
       canWrite
       onSave={onSave}
+      initialPreviewData={props.initialPreviewData}
     />,
   );
   return onSave;
@@ -127,6 +131,28 @@ beforeEach(() => {
 });
 
 describe("WidgetEditorModal — option placement through the real panel (#2388)", () => {
+  it("a graph widget offers node property keys, not result columns, as Value from (#2526)", () => {
+    renderEditor(
+      { chartType: "graph", query: "MATCH (p) RETURN p" },
+      {
+        initialPreviewData: {
+          resultId: "r1",
+          data: [
+            {
+              p: {
+                $type: "node",
+                elementId: "1",
+                labels: ["Person"],
+                properties: { email: "a@b.c", tags: ["x"] },
+              },
+            },
+          ],
+        },
+      },
+    );
+    expect(useWidgetEditorStore.getState().availableFields).toEqual(["email"]);
+  });
+
   it("a saved markdown widget opens with its text in Content and saves every chartOptions key back", async () => {
     const chartOptions = { content: "# Saved\n\ntext", futureKey: 7 };
     const onSave = renderEditor({

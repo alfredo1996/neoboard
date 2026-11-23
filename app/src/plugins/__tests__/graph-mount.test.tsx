@@ -6,7 +6,18 @@ vi.mock("@/components/graph-exploration-wrapper", () => ({
   GraphExplorationWrapper: () => <div data-testid="graph-exploration" />,
 }));
 vi.mock("@/components/lazy-graph-chart", () => ({
-  GraphChart: () => <div data-testid="plain-graph" />,
+  GraphChart: (p: { onNodeSelect?: (ids: string[]) => void }) => (
+    <>
+      <button
+        data-testid="plain-graph"
+        onClick={() => p.onNodeSelect?.(["n1"])}
+      />
+      <button
+        data-testid="plain-graph-unknown"
+        onClick={() => p.onNodeSelect?.(["gone"])}
+      />
+    </>
+  ),
 }));
 
 const Graph = graphPlugin.component;
@@ -47,5 +58,48 @@ describe("graph plugin mount", () => {
   it("a tile still waits for the viewport behind its skeleton", () => {
     render(<Graph {...props} />);
     expect(screen.getByTestId("graph-skeleton")).toBeDefined();
+  });
+
+  it("a plain graph's node click carries its labels and properties (#2526)", () => {
+    const onChartClick = vi.fn();
+    render(
+      <Graph
+        data={{
+          nodes: [
+            { id: "n1", labels: ["Person"], properties: { email: "a@b.c" } },
+          ],
+          edges: [],
+        }}
+        widgetId="w1"
+        autoFit
+        onChartClick={onChartClick}
+      />,
+    );
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+    screen.getByTestId("plain-graph").click();
+    expect(onChartClick).toHaveBeenCalledWith({
+      email: "a@b.c",
+      nodeId: "n1",
+      labels: ["Person"],
+    });
+  });
+
+  it("a click on an id the data no longer holds still carries the id (#2526)", () => {
+    const onChartClick = vi.fn();
+    render(
+      <Graph
+        data={{ nodes: [], edges: [] }}
+        widgetId="w1"
+        autoFit
+        onChartClick={onChartClick}
+      />,
+    );
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+    screen.getByTestId("plain-graph-unknown").click();
+    expect(onChartClick).toHaveBeenCalledWith({ nodeId: "gone" });
   });
 });
