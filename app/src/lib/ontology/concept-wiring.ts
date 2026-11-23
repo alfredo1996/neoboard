@@ -52,9 +52,13 @@ const entityLabel = (terms: readonly WiringTerm[], entityKey: string) =>
   terms.find((t) => t.kind === "entity" && t.key === entityKey)?.displayName ||
   entityKey;
 
-/** The connections the concept maps a side on. */
+/**
+ * The connections the concept maps a side on, less those whose every side the
+ * server flagged `missing` (#2556). Only a live read flags one; without it
+ * every connection is offered.
+ */
 export const conceptConnectionIds = (c: Concept): string[] => [
-  ...new Set(c.sides.map((s) => s.connectionId)),
+  ...new Set(c.sides.filter((s) => !s.missing).map((s) => s.connectionId)),
 ];
 
 /**

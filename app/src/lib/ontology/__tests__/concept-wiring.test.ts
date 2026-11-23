@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  conceptConnectionIds,
   conceptsForField,
   parameterCompletions,
   type WiringTerm,
@@ -168,5 +169,37 @@ describe("parameterCompletions (#2485)", () => {
   it("suggests nothing on a connection no concept maps", () => {
     expect(parameterCompletions(ALL, "other")).toEqual([]);
     expect(parameterCompletions(ALL, "")).toEqual([]);
+  });
+});
+
+describe("conceptConnectionIds (#2556)", () => {
+  const withSides = (...sides: Concept["sides"]): Concept => ({
+    ...PRODUCT,
+    sides,
+  });
+  it.each([
+    [
+      "leaves out a connection whose only side is gone",
+      [
+        side("pg", "p", "sku"),
+        { ...side("neo", "P", "sku"), missing: "entity" },
+      ],
+      ["pg"],
+    ],
+    [
+      "keeps a connection with one side gone and one present",
+      [
+        { ...side("pg", "p", "sku"), missing: "keyProperty" },
+        side("pg", "q", "sku"),
+      ],
+      ["pg"],
+    ],
+    [
+      "offers every connection when no side is reported gone",
+      [side("pg", "p", "sku"), side("neo", "P", "sku")],
+      ["pg", "neo"],
+    ],
+  ] as [string, Concept["sides"], string[]][])("%s", (_, sides, expected) => {
+    expect(conceptConnectionIds(withSides(...sides))).toEqual(expected);
   });
 });

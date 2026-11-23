@@ -15,7 +15,10 @@ const KEY = ["ontology-concepts"];
 const URL = "/api/ontology/concepts";
 
 /** The concepts the caller can see, each with the sides on their connections. */
-export function useConcepts({ live = true }: { live?: boolean } = {}) {
+export function useConcepts({
+  live = true,
+  enabled = true,
+}: { live?: boolean; enabled?: boolean } = {}) {
   return useQuery<Concept[]>({
     queryKey: live ? KEY : [...KEY, "sides"],
     queryFn: async ({ signal }) =>
@@ -25,6 +28,7 @@ export function useConcepts({ live = true }: { live?: boolean } = {}) {
         )
       ).concepts,
     retry: 1,
+    enabled,
   });
 }
 

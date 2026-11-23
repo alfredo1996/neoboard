@@ -25,8 +25,12 @@ vi.mock("@/hooks/use-ontology", () => ({
   useEditorTerms: () => undefined,
   useOntology: () => ({ data: undefined }),
 }));
+const useConceptsMock = vi.hoisted(() => vi.fn());
 vi.mock("@/hooks/use-concepts", () => ({
-  useConcepts: () => ({ data: undefined }),
+  useConcepts: (o: unknown) => {
+    useConceptsMock(o);
+    return { data: undefined };
+  },
 }));
 vi.mock("@/hooks/use-query-execution", () => ({
   useQueryExecution: () => ({
@@ -276,6 +280,27 @@ describe("WidgetEditorModal — option placement through the real panel (#2388)"
     );
     expect(groupNames()).toEqual([]);
     expect(screen.getByText(/The rest is in Behavior/)).toBeInTheDocument();
+  });
+});
+
+describe("WidgetEditorModal — the concept start reads live structure (#2556)", () => {
+  const liveReads = () =>
+    useConceptsMock.mock.calls.filter(([o]) => o?.live === true && o.enabled);
+  beforeEach(() => useConceptsMock.mockClear());
+
+  it("a new selector reads concepts live, for the start that filters on it", () => {
+    renderEditor({ chartType: "table" }, { mode: "add" });
+    expect(liveReads()).toHaveLength(0);
+    act(() => useWidgetEditorStore.getState().setChartType("parameter-select"));
+    expect(liveReads()).not.toHaveLength(0);
+  });
+
+  it.each([
+    ["a new table", { chartType: "table" }, "add"],
+    ["a saved selector", { chartType: "parameter-select" }, "edit"],
+  ] as const)("%s never reads them live", (_, widget, mode) => {
+    renderEditor(widget, { mode });
+    expect(liveReads()).toHaveLength(0);
   });
 });
 

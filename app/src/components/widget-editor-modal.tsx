@@ -617,10 +617,15 @@ export function WidgetEditorModal({
   const { data: concepts } = useConcepts({ live: false });
   const { data: ontology } = useOntology(connectionId);
   // A new selector named for a concept lists only the connections that concept
-  // is mapped on; no options query is written from it (#2485).
+  // is mapped on; no options query is written from it (#2485). Only that start
+  // reads each connection's structure, to drop one whose side is gone (#2556).
   const isNewEditor = mode === "add" || mode === "lab-create";
+  const { data: startConcepts } = useConcepts({
+    live: true,
+    enabled: isNewEditor && chartType === "parameter-select",
+  });
   const pickedConcept = isNewEditor
-    ? concepts?.find((c) => c.parameter === paramWidgetName)
+    ? startConcepts?.find((c) => c.parameter === paramWidgetName)
     : undefined;
   const pickConcept = (c: Concept) => {
     const ids = conceptConnectionIds(c);
@@ -775,7 +780,7 @@ export function WidgetEditorModal({
               <>
                 {isNewEditor && (
                   <ConceptSelectorStart
-                    concepts={concepts ?? []}
+                    concepts={startConcepts ?? []}
                     onPick={pickConcept}
                   />
                 )}
