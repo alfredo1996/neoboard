@@ -595,3 +595,31 @@ describe("ConnectionTerms collapsing (#2533)", () => {
     });
   });
 });
+
+describe("ConnectionTerms Refresh (#2551)", () => {
+  beforeEach(() => {
+    // Its own reset: the mocks are module-wide and tests run shuffled.
+    mockConcepts = [];
+    enabledCalls.length = 0;
+    vi.clearAllMocks();
+    mockState = { data: { terms: [term({ key: "Person" })] } };
+  });
+
+  const refresh = () =>
+    screen.queryByRole("button", {
+      name: "Refresh the structure of Demo graph",
+    });
+
+  it("hides Refresh from a reader, who keeps Show hidden", () => {
+    show({ canEdit: false });
+    expect(refresh()).toBeNull();
+    expect(
+      screen.getByRole("switch", { name: "Show hidden terms of Demo graph" }),
+    ).toBeTruthy();
+  });
+
+  it("shows Refresh to a role that manages connections", () => {
+    show({ canEdit: true });
+    expect(refresh()).toBeTruthy();
+  });
+});
