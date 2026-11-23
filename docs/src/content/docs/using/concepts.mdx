@@ -41,7 +41,7 @@ To change a concept, click **Edit** on its row. To remove it, click **Delete** i
 
 Everyone sees the concepts that have a side on a connection they can use, and only those sides. Admins see every concept.
 
-A creator's edit changes the concept's name, parameter and description for everyone, but only the sides on connections they can use. Changing the parameter does not update widgets or queries that already use the old name. A creator who deletes a concept only removes the sides on connections they can use; the other sides stay, and so does the concept. An admin changes every side.
+A creator's edit changes the concept's name and description for everyone, but only the sides on connections they can use. A creator can change the parameter only when every side is on a connection they can use; otherwise NeoBoard refuses, and an admin has to make the change. Changing the parameter does not update widgets or queries that already use the old name, and the dialog says so before you save. A creator who deletes a concept only removes the sides on connections they can use; the other sides stay, and so does the concept. An admin changes every side.
 
 On the Model page, a property that is the key of a concept carries a tag with the concept's name.
 
@@ -70,4 +70,4 @@ Each time the Model page loads, NeoBoard checks every side against NeoBoard's co
 - **`<entity>` is no longer in the database**: the entity was renamed or dropped.
 - **`<key>` is no longer on `<entity>`**: the entity is still there, but the key property is gone.
 
-The warning shows only on the Model page. Edit the concept, point the side at the right entity and key, and save. If NeoBoard cannot read a connection's structure at all, it shows no warning for that connection, because it cannot tell.
+The warning shows only on the Model page. In the widget editor, a side with a warning is left out: the click-action button and the query editor's suggestions don't offer it. Edit the concept, point the side at the right entity and key, and save. If NeoBoard cannot read a connection's structure at all, it shows no warning for that connection and the editor offers every side, because it cannot tell.
