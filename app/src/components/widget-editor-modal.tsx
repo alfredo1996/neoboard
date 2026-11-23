@@ -1,5 +1,6 @@
 "use client";
 
+import { graphClickFields } from "@/plugins/graph/click-payload";
 import React, {
   useState,
   useCallback,
@@ -584,6 +585,8 @@ export function WidgetEditorModal({
   const availableFields = useMemo(() => {
     const src = settledPreview?.data ?? initialPreviewData?.data;
     if (!src) return [];
+    // A graph click carries node properties, not result columns (#2526).
+    if (chartType === "graph") return graphClickFields(src);
     if (
       Array.isArray(src) &&
       src.length > 0 &&
@@ -593,7 +596,7 @@ export function WidgetEditorModal({
       return Object.keys(src[0] as Record<string, unknown>);
     }
     return [];
-  }, [settledPreview, initialPreviewData]);
+  }, [settledPreview, initialPreviewData, chartType]);
 
   // Push derived data to the store so sub-editors can access it via selectors.
   // These are computed in the modal but not directly settable by sub-editors.

@@ -15,6 +15,7 @@ import { GraphChart } from "@/components/lazy-graph-chart";
 import { LazyVisible } from "@/components/lazy-visible";
 import { defineChartPlugin } from "../registry";
 import { transformToGraphData, validateGraphData } from "./transform";
+import { graphNodeClickPayload } from "./click-payload";
 import { type PluginProps } from "../utils";
 import { graphSettingsSchema } from "./settings";
 import { safeParseSettings } from "@/lib/plugin/safe-parse-settings";
@@ -74,7 +75,9 @@ function GraphPluginComponent({
       onNodeSelect={
         onChartClick
           ? (ids: string[]) => {
-              if (ids.length) onChartClick({ nodeId: ids[0] });
+              const node = (graphData.nodes ?? []).find((n) => n.id === ids[0]);
+              if (node) onChartClick(graphNodeClickPayload(node));
+              else if (ids.length) onChartClick({ nodeId: ids[0] });
             }
           : undefined
       }

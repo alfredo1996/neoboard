@@ -154,7 +154,7 @@ beforeEach(() => {
   connectors = { fixturedb: { graphExpansion: EXPANSION } };
 });
 
-function renderWrapper() {
+function renderWrapper(onChartClick?: (p: Record<string, unknown>) => void) {
   render(
     <GraphExplorationWrapper
       widgetId="w1"
@@ -164,6 +164,7 @@ function renderWrapper() {
       connectorType={connectorType}
       settings={{}}
       resultId="r1"
+      onChartClick={onChartClick}
     />,
   );
   return chartProps.onNodeSelect as (ids: string[]) => void;
@@ -186,6 +187,19 @@ describe("GraphExplorationWrapper — graph inspector (#1191, #2515)", () => {
     act(() =>
       (chartProps.onRelationshipClick as (e: unknown) => void)({ edge }),
     );
+
+  it("a node click carries the node's id, labels and properties (#2526)", () => {
+    const onChartClick = vi.fn();
+    const onNodeSelect = renderWrapper(onChartClick);
+    act(() => onNodeSelect(["A"]));
+    expect(onChartClick).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nodeId: "A",
+        labels: ["Person", "Founder"],
+        name: "Alice",
+      }),
+    );
+  });
 
   it("opens the inspector for the clicked node on a single-id selection", () => {
     const onNodeSelect = renderWrapper();
