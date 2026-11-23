@@ -201,6 +201,13 @@ describe("GraphExplorationWrapper — graph inspector (#1191, #2515)", () => {
     );
   });
 
+  it("a click on an id the exploration does not hold carries just the id (#2526)", () => {
+    const onChartClick = vi.fn();
+    const onNodeSelect = renderWrapper(onChartClick);
+    act(() => onNodeSelect(["nope"]));
+    expect(onChartClick).toHaveBeenCalledWith({ nodeId: "nope" });
+  });
+
   it("opens the inspector for the clicked node on a single-id selection", () => {
     const onNodeSelect = renderWrapper();
     expect(screen.queryByTestId("graph-inspector")).not.toBeInTheDocument();

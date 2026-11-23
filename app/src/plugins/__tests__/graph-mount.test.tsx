@@ -7,10 +7,16 @@ vi.mock("@/components/graph-exploration-wrapper", () => ({
 }));
 vi.mock("@/components/lazy-graph-chart", () => ({
   GraphChart: (p: { onNodeSelect?: (ids: string[]) => void }) => (
-    <button
-      data-testid="plain-graph"
-      onClick={() => p.onNodeSelect?.(["n1"])}
-    />
+    <>
+      <button
+        data-testid="plain-graph"
+        onClick={() => p.onNodeSelect?.(["n1"])}
+      />
+      <button
+        data-testid="plain-graph-unknown"
+        onClick={() => p.onNodeSelect?.(["gone"])}
+      />
+    </>
   ),
 }));
 
@@ -78,5 +84,22 @@ describe("graph plugin mount", () => {
       nodeId: "n1",
       labels: ["Person"],
     });
+  });
+
+  it("a click on an id the data no longer holds still carries the id (#2526)", () => {
+    const onChartClick = vi.fn();
+    render(
+      <Graph
+        data={{ nodes: [], edges: [] }}
+        widgetId="w1"
+        autoFit
+        onChartClick={onChartClick}
+      />,
+    );
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+    screen.getByTestId("plain-graph-unknown").click();
+    expect(onChartClick).toHaveBeenCalledWith({ nodeId: "gone" });
   });
 });
