@@ -10,7 +10,16 @@ NeoBoard versioning resets at **1.0.0**.
 > 1.0.0 to 1.6.0 were never tagged or published: each was a release branch consolidated into `dev`, and the date
 > beside it, where there is one, is the date of that consolidation.
 
-## [1.7.0] — Unreleased — Redesign
+## [1.7.1] — 2026-11-23 — Graph click actions
+
+A patch on 1.7.0: a click action on a graph node now sets its parameter, and a dependent filter lines up with the filters beside it.
+
+### Fixed
+
+- **Charts.** A click action on a graph node sets its parameter from the node's properties; it used to set nothing. On a graph widget, "Value from" lists the node properties a click can set (#2526).
+- **Parameters.** A dependent selector's field lines up with the independent one beside it, and the note on what filters it sits below the field (#2523).
+
+## [1.7.0] — 2026-11-22 — Redesign
 
 Gives NeoBoard one calm look from the sign-in page to the last chart: IBM Plex type, a quieter palette, cards, 36px controls and the same page layout everywhere. The charts, the widget editor and every list page were redone on the same system (#2215, #2216, #2217, #2218, #2219, #2220, #2221, #2222, #2223, #2224, #2225, #2226, #2227, #2228, #2229, #2230, #2231, #2232). This release also lets a slow query be stopped, adds metrics, log shipping and a Helm chart for operators, and carries the fixes found while it was tested, and security fixes.
 
