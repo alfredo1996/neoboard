@@ -115,6 +115,19 @@ function legacy(terms: OntologyTerm[], search: string, showHidden: boolean) {
 }
 
 describe("buildGroups and filterGroups (#2533)", () => {
+  it("keeps a property listed before its entity under that entity", () => {
+    const groups = groupTerms(
+      [
+        term({ kind: "property", key: "email", parentKey: "entity:Person" }),
+        term({ key: "Person" }),
+      ],
+      "email",
+      false,
+    );
+    expect(heads(groups)).toEqual(["entity:Person/1"]);
+    expect(groups[0].properties[0].key).toBe("email");
+  });
+
   const mixed = [
     term({
       kind: "property",
