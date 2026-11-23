@@ -18,7 +18,7 @@ Gives every connection's tables, labels and columns a name people can read, and 
 
 - **A Model page.** Each connection's terms (tables, labels, columns, relationship types) get a display name, a description and a hidden flag. They are kept when a connection's schema is refreshed (#2415). The graph connector reports which labels each relationship joins, and the SQL connector reports primary and foreign keys (#2508).
 - **Concepts.** A concept links an entity and its key across connections, and is shown and edited on the Model page (#2484). Click actions, parameter selectors and the query editor offer concepts, so one connection's widget drives another's (#2485).
-- **Model import and export.** The whole model exports as one file and imports on another install, which maps its connections (#2510).
+- **Model import and export.** The model of every connection you can use exports as one file. A creator or admin can import it on another install, mapping its connections (#2510).
 - **User docs** for the Model page, concepts, and model import and export (#2550).
 
 ### Changed
@@ -28,14 +28,14 @@ Gives every connection's tables, labels and columns a name people can read, and 
 
 ### Fixed
 
-- **Ontology safety.** The migration can run again without error, one structure read is in flight at a time and only managers can force one, and quick edits no longer revert (#2534).
+- **Ontology safety.** The migration can run again without error, one structure read per connection and only managers can force one, and quick edits no longer revert. A concept is removed when its last side goes, including when the only connection it was on is deleted, and a concept save that deadlocks with a connection delete gets a 409 "try again" instead of a 500 (#2534).
 - **Refresh** on the Model page shows only for roles that manage connections; readers saw a button the server ignored (#2551).
 - **The widget editor** offers only the concept sides whose entity and key the connection still reports (#2552), and "New selector for a concept" offers only connections where a side still exists (#2556).
-- **A creator** can change a concept's parameter only when every side is on a connection they can use, so a rename no longer breaks the filters of widgets they cannot open (#2553).
+- **A creator** can change a concept's parameter only when every side is on a connection they can use, so a rename no longer breaks the filters of widgets they cannot open. An import skips such a concept (#2553).
 
 ### Upgrading
 
-- Migrations 0008, 0009 and 0010 add the ontology tables. An upgrade from 1.7.x runs them on boot, unless `MIGRATE_ON_START` is set to `0`.
+- Migrations 0008 and 0009 add the ontology tables; 0010 adds an index and a trigger that removes a concept whose last side goes. They run on boot when `MIGRATE_ON_START` is `1` or `true`, which the image, the production compose files and the Helm chart set by default. Running from source does not set it: use `npm run db:migrate`.
 
 ## [1.7.1] — 2026-11-23 — Graph click actions
 
