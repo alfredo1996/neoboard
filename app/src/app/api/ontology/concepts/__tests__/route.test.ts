@@ -611,6 +611,11 @@ describe("/api/ontology/concepts", () => {
       expect(added).toHaveLength(2);
     });
 
+    it("lets a creator change the parameter when every side is on a connection they can use (#2553)", async () => {
+      expect((await patch(body({ parameter: "cust" }))).status).toBe(200);
+      expect(updates[0]).toMatchObject({ parameter: "cust" });
+    });
+
     it("lets a concept keep its own name and parameter", async () => {
       expect((await patch(body())).status).toBe(200);
     });
@@ -715,6 +720,49 @@ describe("/api/ontology/concepts", () => {
         });
         expect((await patch(only)).status).toBe(404);
         expect(inserts).toEqual([]);
+      });
+
+      describe("changing the parameter (#2553)", () => {
+        it("refuses a creator, writes nothing, and says to ask an admin", async () => {
+          const res = await patch({
+            ...only,
+            name: "Buyer",
+            parameter: "cust",
+          });
+          expect(res.status).toBe(403);
+          expect(JSON.stringify(await res.json())).toContain(
+            "ask an admin to change its parameter",
+          );
+          expect(updates).toEqual([]);
+          expect(deletes).toEqual([]);
+          expect(inserts).toEqual([]);
+        });
+
+        it("still lets the creator change the name and description", async () => {
+          const res = await patch({
+            ...only,
+            name: "Buyer",
+            description: "Someone",
+          });
+          expect(res.status).toBe(200);
+          expect(updates[0]).toMatchObject({
+            name: "Buyer",
+            parameter: "customer",
+          });
+        });
+
+        it("does not count the param_-prefixed form of the saved parameter as a change", async () => {
+          const res = await patch({ ...only, parameter: "param_customer" });
+          expect(res.status).toBe(200);
+          expect(updates[0]).toMatchObject({ parameter: "customer" });
+        });
+
+        it("lets an admin change it", async () => {
+          mockRequireSession.mockResolvedValue(ADMIN);
+          rows.set(connections, [G, S]);
+          expect((await patch(body({ parameter: "cust" }))).status).toBe(200);
+          expect(updates[0]).toMatchObject({ parameter: "cust" });
+        });
       });
 
       it("lets an admin change every side and delete the whole concept", async () => {

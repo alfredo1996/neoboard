@@ -5,7 +5,12 @@ import { ontologyConcepts, ontologyConceptSides } from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { assertCanManageConnections } from "@/lib/auth/permissions";
 import { apiError, apiSuccess } from "@/lib/api/api-response";
-import { notFound, validateBody, readJsonBody } from "@/lib/api/api-utils";
+import {
+  forbidden,
+  notFound,
+  validateBody,
+  readJsonBody,
+} from "@/lib/api/api-utils";
 import {
   checkSidesAgainstTerms,
   conceptFields,
@@ -75,7 +80,7 @@ async function lockedSides(
     .from(ontologyConceptSides)
     .where(sidesIn(tenantId, id));
   const own = mine ? sides.filter((s) => mine.includes(s.connectionId)) : sides;
-  return mine && own.length === 0 ? undefined : { sides, own };
+  return mine && own.length === 0 ? undefined : { concept, sides, own };
 }
 
 /** The sides of concept `id` the caller's scope covers. */
@@ -116,7 +121,17 @@ export async function PATCH(request: Request, { params }: Ctx) {
     if (clash) return apiError("CONFLICT", clash);
 
     const saved = await db.transaction(async (tx) => {
-      if (!(await lockedSides(tx, tenantId, id, found.mine))) return false;
+      const locked = await lockedSides(tx, tenantId, id, found.mine);
+      if (!locked) return false;
+      // Widgets name a parameter, so changing it breaks other people's
+      // dashboards: a creator may do it only when every side is theirs (#2553).
+      if (
+        found.mine &&
+        locked.concept.parameter !== fields.parameter &&
+        locked.own.length < locked.sides.length
+      ) {
+        return "keep-parameter" as const;
+      }
       await tx
         .update(ontologyConcepts)
         .set(fields)
@@ -135,6 +150,11 @@ export async function PATCH(request: Request, { params }: Ctx) {
       return true;
     });
     if (!saved) return gone();
+    if (saved === "keep-parameter") {
+      return forbidden(
+        "This concept is used on connections you can't open; ask an admin to change its parameter.",
+      );
+    }
     return apiSuccess({ id, ...fields, sides });
   } catch (error) {
     return conceptRouteError(error, "Failed to save the concept");

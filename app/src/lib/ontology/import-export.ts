@@ -326,6 +326,13 @@ function planConcepts(
     !x ||
     !visibleTo ||
     sides.some((s) => s.conceptId === x.id && visibleTo.has(s.connectionId));
+  // A creator may not change the parameter of a concept with a side on a
+  // connection they cannot use, as in the concept route (#2553).
+  const renamesHidden = (x: StoredConcept | undefined, parameter: string) =>
+    !!x &&
+    !!visibleTo &&
+    x.parameter !== parameter &&
+    sides.some((s) => s.conceptId === x.id && !visibleTo.has(s.connectionId));
   const taken = new Set<string>();
   for (const c of file.concepts) {
     const { mapped, dropped } = mapSides(c, file, target);
@@ -337,7 +344,8 @@ function planConcepts(
     const blocked =
       (byName && byParam && byName.id !== byParam.id) ||
       !visible(byName) ||
-      !visible(byParam);
+      !visible(byParam) ||
+      renamesHidden(old, c.parameter);
     if (!mapped.size || blocked || (old && taken.has(old.id))) {
       preview.concepts.skipped++;
       preview.skipped.push({ kind: "concept", label: c.name });
@@ -355,6 +363,7 @@ function planConcepts(
  * connection id; absent or empty means skipped) and the `live` terms of the
  * mapped connections. `visibleTo` is the caller's every usable connection, or
  * undefined for an admin: a concept with no side there is not theirs to match.
+ * `lock` takes `FOR UPDATE` on the concepts (apply path, inside a transaction).
  * Reads only the database; the caller writes `termRows` and `conceptWrites`.
  */
 export async function planImport(
@@ -364,6 +373,7 @@ export async function planImport(
   mapping: Record<string, string>,
   live: Live,
   visibleTo?: ReadonlySet<string>,
+  lock = false,
 ): Promise<Plan> {
   const target: Target = (id) =>
     Object.hasOwn(mapping, id) ? mapping[id] || undefined : undefined;
@@ -385,7 +395,11 @@ export async function planImport(
       skipped: [],
     },
   };
-  const [storedTerms, concepts, sides] = await Promise.all([
+  const conceptQuery = h
+    .select()
+    .from(ontologyConcepts)
+    .where(eq(ontologyConcepts.tenantId, tenantId));
+  const [storedTerms, concepts] = await Promise.all([
     targets.length
       ? h
           .select()
@@ -397,15 +411,14 @@ export async function planImport(
             ),
           )
       : Promise.resolve([]),
-    h
-      .select()
-      .from(ontologyConcepts)
-      .where(eq(ontologyConcepts.tenantId, tenantId)),
-    h
-      .select()
-      .from(ontologyConceptSides)
-      .where(eq(ontologyConceptSides.tenantId, tenantId)),
+    // On apply the rows are locked, and the sides read after the lock, so a
+    // side another admin adds meanwhile is seen by the parameter-change check.
+    lock ? conceptQuery.for("update") : conceptQuery,
   ]);
+  const sides = await h
+    .select()
+    .from(ontologyConceptSides)
+    .where(eq(ontologyConceptSides.tenantId, tenantId));
   planTerms(file, target, storedTerms, live, tenantId, plan);
   planConcepts(file, target, concepts, sides, live, visibleTo, plan);
   return plan;

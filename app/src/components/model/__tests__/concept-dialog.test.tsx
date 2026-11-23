@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { ConceptDialog } from "../concept-dialog";
 
 vi.mock("@/hooks/use-ontology", () => ({
@@ -62,5 +62,49 @@ describe("ConceptDialog parameter wording (#2485)", () => {
     renderDialog("graph");
     expect(screen.getAllByText(/\$param_customer/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/\$customer\b/)).toBeNull();
+  });
+});
+
+describe("ConceptDialog parameter change warning (#2553)", () => {
+  const warning = /Widgets that use \$param_customer keep the old name/;
+  const setParameter = (value: string) =>
+    fireEvent.change(screen.getByLabelText("Parameter"), {
+      target: { value },
+    });
+
+  it("warns when the parameter differs from the saved one, and not before", () => {
+    renderDialog("graph");
+    expect(screen.queryByText(warning)).toBeNull();
+    setParameter("cust");
+    expect(
+      screen.getByText(
+        "Widgets that use $param_customer keep the old name. Update them to keep filtering together.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does not warn for the prefixed form of the saved parameter, which the server treats as unchanged", () => {
+    renderDialog("graph");
+    setParameter("param_customer");
+    expect(screen.queryByText(warning)).toBeNull();
+  });
+
+  it("goes away when the parameter is set back", () => {
+    renderDialog("graph");
+    setParameter("cust");
+    setParameter("customer");
+    expect(screen.queryByText(warning)).toBeNull();
+  });
+
+  it("never warns on a new concept", () => {
+    render(
+      <ConceptDialog
+        open
+        onOpenChange={vi.fn()}
+        connections={[{ id: "graph", name: "Graph DB" }]}
+      />,
+    );
+    setParameter("cust");
+    expect(screen.queryByText(/keep the old name/)).toBeNull();
   });
 });

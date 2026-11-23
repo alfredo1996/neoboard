@@ -18,6 +18,8 @@ const wheres: { table: unknown; where: unknown }[] = [];
 const inserts: { table: unknown; values: unknown }[] = [];
 const updates: { table: unknown; set: unknown }[] = [];
 const deletes: unknown[] = [];
+// Reads in order, so a test can see a row lock taken before the sides are read.
+const reads: string[] = [];
 
 const mockDb = {
   select: vi.fn(() => ({
@@ -25,8 +27,13 @@ const mockDb = {
       where: (where: unknown) => {
         wheres.push({ table, where });
         const r = rows.get(table) ?? [];
+        reads.push(table === ontologyConceptSides ? "sides" : "other");
         return Object.assign(Promise.resolve(r), {
           orderBy: () => Promise.resolve(r),
+          for: (mode: string) => {
+            reads[reads.length - 1] = `lock:${mode}`;
+            return Promise.resolve(r);
+          },
         });
       },
     }),
@@ -180,7 +187,7 @@ describe("ontology export and import (#2510)", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     rows.clear();
-    for (const l of [wheres, inserts, updates, deletes]) l.length = 0;
+    for (const l of [wheres, inserts, updates, deletes, reads]) l.length = 0;
     mockFetchTerms.mockImplementation(async (type) => TERMS[type] ?? []);
     mockRequireSession.mockResolvedValue(CREATOR);
     rows.set(connections, [conn("graph"), conn("sql")]);
@@ -518,6 +525,58 @@ describe("ontology export and import (#2510)", () => {
         expect(updates.filter((u) => u.table === ontologyConcepts)).toEqual([]);
         expect(writesTo(ontologyConceptSides)).toHaveLength(0);
         expect(writesTo(ontologyConcepts)).toHaveLength(0);
+      },
+    );
+
+    it("skips, and never updates, a concept whose parameter the file changes when a side is on a connection the creator cannot use (#2553)", async () => {
+      rows.set(ontologyConcepts, [{ ...CUSTOMER, parameter: "old_param" }]);
+      rows.set(ontologyConceptSides, [
+        storedSide("s1", side("graph", "Person", "email")),
+        storedSide("s9", side("secret", "Person", "email")),
+      ]);
+      const { data } = await (await post(importBody({ apply: true }))).json();
+      expect(data.preview.concepts).toMatchObject({ skipped: 1, changed: 0 });
+      expect(updates.filter((u) => u.table === ontologyConcepts)).toEqual([]);
+    });
+
+    it.each([
+      {
+        who: "a creator whose sides are all visible",
+        session: CREATOR,
+        stored: [storedSide("s1", side("graph", "Person", "email"))],
+      },
+      {
+        who: "an admin, though a side is hidden from creators",
+        session: ADMIN,
+        stored: [
+          storedSide("s1", side("graph", "Person", "email")),
+          storedSide("s9", side("secret", "Person", "email")),
+        ],
+      },
+    ])(
+      "renames a matched concept's parameter for $who (#2553)",
+      async ({ session, stored }) => {
+        mockRequireSession.mockResolvedValue(session);
+        rows.set(ontologyConcepts, [{ ...CUSTOMER, parameter: "old_param" }]);
+        rows.set(ontologyConceptSides, stored);
+        const { data } = await (await post(importBody({ apply: true }))).json();
+        expect(data.preview.concepts).toMatchObject({ changed: 1, skipped: 0 });
+        expect(
+          updates.filter((u) => u.table === ontologyConcepts),
+        ).toMatchObject([{ set: { parameter: "customer" } }]);
+      },
+    );
+
+    it.each([
+      { apply: true, expected: ["lock:update", "sides"] },
+      { apply: false, expected: ["sides"] },
+    ])(
+      "locks the concept rows before reading the sides only when applying (apply=$apply, #2553)",
+      async ({ apply, expected }) => {
+        rows.set(ontologyConcepts, [CUSTOMER]);
+        await post(importBody({ apply }));
+        const tail = reads.filter((r) => r !== "other");
+        expect(tail).toEqual(expected);
       },
     );
 
