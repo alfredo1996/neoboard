@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ChevronRight, RefreshCw } from "lucide-react";
 import {
   Button,
@@ -51,11 +59,9 @@ interface TermRowProps {
   readonly canEdit: boolean;
   readonly nested: boolean;
   /** An entity or relationship with properties: the chevron that opens them. */
-  readonly toggle?: {
-    readonly open: boolean;
-    readonly count: number;
-    readonly onToggle: () => void;
-  };
+  readonly open?: boolean;
+  readonly count?: number;
+  readonly onToggle?: (id: string, open: boolean) => void;
   /** The concepts this property is the key of, on this connection. */
   readonly conceptKeys?: readonly string[];
   readonly onSave: (term: OntologyTerm, changes: Partial<OntologyTerm>) => void;
@@ -73,15 +79,23 @@ function nameOf(term: OntologyTerm) {
 const side = (table: string, columns?: string[]) =>
   columns ? `${table}(${columns.join(", ")})` : table;
 
-function TermRow({
+// Memoised: a keystroke in the search box re-lists the same rows, and with
+// 2,000 of them only the rows that changed should render again (#2533).
+const TermRow = memo(function TermRow({
   term,
   canEdit,
   nested,
-  toggle,
+  open,
+  count,
+  onToggle,
   conceptKeys,
   onSave,
   onRemove,
 }: TermRowProps) {
+  const toggle =
+    open === undefined
+      ? undefined
+      : { open, count, onToggle: () => onToggle?.(idOf(term), open) };
   const name = nameOf(term);
   // Orphaned terms are no longer in the connection: the server takes no edit
   // for them, only their removal.
@@ -198,7 +212,7 @@ function TermRow({
       </TableCell>
     </TableRow>
   );
-}
+});
 
 export interface ConnectionTermsProps {
   readonly connectionId: string;
@@ -292,34 +306,55 @@ export function ConnectionTerms({
       setClosed(SECTION, false);
     }
   }
-  function toggleEntity(id: string, isOpen: boolean) {
-    const ids = new Set(openIds);
-    if (isOpen) ids.delete(id);
-    else ids.add(id);
-    setOpenIds(ids);
-    setClosed(id, isOpen);
-  }
+  // These three are stable across renders so a memoised row is not redrawn by
+  // a keystroke in the search box.
+  const searchRef = useRef(search);
+  useEffect(() => {
+    searchRef.current = search;
+  });
+  const toggleEntity = useCallback((id: string, isOpen: boolean) => {
+    setOpenIds((prev) => {
+      const ids = new Set(prev);
+      if (isOpen) ids.delete(id);
+      else ids.add(id);
+      return ids;
+    });
+    setClosedBy((prev) => {
+      const s = searchRef.current;
+      const ids = new Set(prev.search === s ? prev.ids : NONE);
+      if (isOpen) ids.add(id);
+      else ids.delete(id);
+      return { search: s, ids };
+    });
+  }, []);
 
   // Only the changed field is sent: props may be stale when a second save
   // follows a first, and a whole term would put the old value back.
-  function onSave(term: OntologyTerm, changes: Partial<OntologyTerm>) {
-    const { kind, key, parentKey } = term;
-    const { displayName, description, hidden } = changes;
-    save.mutate([
-      {
-        kind,
-        key,
-        parentKey,
-        ...(displayName !== undefined && { displayName }),
-        ...(description !== undefined && { description }),
-        ...(hidden !== undefined && { hidden }),
-      },
-    ]);
-  }
+  const { mutate } = save;
+  const onSave = useCallback(
+    (term: OntologyTerm, changes: Partial<OntologyTerm>) => {
+      const { kind, key, parentKey } = term;
+      const { displayName, description, hidden } = changes;
+      mutate([
+        {
+          kind,
+          key,
+          parentKey,
+          ...(displayName !== undefined && { displayName }),
+          ...(description !== undefined && { description }),
+          ...(hidden !== undefined && { hidden }),
+        },
+      ]);
+    },
+    [mutate],
+  );
 
-  function onRemove({ kind, key, parentKey }: OntologyTerm) {
-    save.mutate([{ kind, key, parentKey, remove: true }]);
-  }
+  const onRemove = useCallback(
+    ({ kind, key, parentKey }: OntologyTerm) => {
+      mutate([{ kind, key, parentKey, remove: true }]);
+    },
+    [mutate],
+  );
 
   let body = null;
   if (shown) {
@@ -379,15 +414,9 @@ export function ConnectionTerms({
                     term={g.head}
                     canEdit={canEdit}
                     nested={false}
-                    toggle={
-                      count > 0
-                        ? {
-                            open: entityOpen,
-                            count,
-                            onToggle: () => toggleEntity(id, entityOpen),
-                          }
-                        : undefined
-                    }
+                    open={count > 0 ? entityOpen : undefined}
+                    count={count}
+                    onToggle={toggleEntity}
                     onSave={onSave}
                     onRemove={onRemove}
                   />,
