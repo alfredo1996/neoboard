@@ -354,7 +354,10 @@ describe("ConnectionTerms collapsing (#2533)", () => {
   const section = () => screen.getByRole("button", { name: "Demo graph" });
 
   beforeEach(() => {
+    // Its own reset: the mocks are module-wide and tests run shuffled.
+    mockConcepts = [];
     enabledCalls.length = 0;
+    vi.clearAllMocks();
     mockState = {
       data: {
         terms: [
