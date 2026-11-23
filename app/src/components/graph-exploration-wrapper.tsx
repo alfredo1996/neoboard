@@ -30,6 +30,7 @@ import { getChartConfig } from "@/lib/plugin/chart-helpers";
 import { useGraphWidgetStore } from "@/stores/graph-widget-store";
 import { useConnector } from "@/hooks/use-connectors";
 import { useCanExpandGraph } from "@/components/graph-expansion-access-context";
+import { graphNodeClickPayload } from "@/plugins/graph/click-payload";
 
 interface GraphExplorationWrapperProps {
   widgetId: string;
@@ -453,12 +454,12 @@ export function GraphExplorationWrapper({
   const handleNodeSelect = useCallback(
     (ids: string[]) => {
       explorationRef.current.onNodeSelect(ids);
+      const node = explorationRef.current.nodes.find((n) => n.id === ids[0]);
       if (onChartClick && ids.length) {
-        onChartClick({ nodeId: ids[0] });
+        onChartClick(node ? graphNodeClickPayload(node) : { nodeId: ids[0] });
       }
       // Open property panel on single-click
       if (ids.length === 1) {
-        const node = explorationRef.current.nodes.find((n) => n.id === ids[0]);
         if (node) inspect({ type: "node", id: node.id });
       } else {
         inspect(null);

@@ -50,7 +50,7 @@ export interface PluginProps {
 const CLICK_CONTROL_KEYS = new Set(["_clickedValue", "_clickedColumn"]);
 
 /** The raw query columns a transform stashed under `properties` (#1589). */
-function rawColumnsOf(
+export function rawColumnsOf(
   row: Record<string, unknown> | undefined,
 ): Record<string, unknown> {
   const properties = row?.properties;
