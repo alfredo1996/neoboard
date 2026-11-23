@@ -14,10 +14,6 @@ NeoBoard versioning resets at **1.0.0**.
 
 A patch on 1.7.0: a click action on a graph node now sets its parameter, and a dependent filter lines up with the filters beside it.
 
-### Changed
-
-- **Deployment.** Building the image from source fails when a dependency download goes silent for two minutes, where it used to wait five (#2530).
-
 ### Fixed
 
 - **Charts.** A click action on a graph node sets its parameter from the node's properties; it used to set nothing. On a graph widget, "Value from" lists the node properties a click can set (#2526).
