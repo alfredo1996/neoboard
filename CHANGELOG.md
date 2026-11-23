@@ -28,7 +28,7 @@ Gives every connection's tables, labels and columns a name people can read, and 
 
 ### Fixed
 
-- **Ontology safety.** The migration can run again without error, one structure read per connection and only managers can force one, and quick edits no longer revert. A concept is removed when its last side goes, including when the only connection it was on is deleted, and a concept save that deadlocks with a connection delete gets a 409 "try again" instead of a 500 (#2534).
+- **Ontology safety.** The migration can run again without error, only one structure read per connection runs at a time, only managers can force one, and quick edits no longer revert. A concept is removed when its last side goes, including when the only connection it was on is deleted, and a concept save that deadlocks with a connection delete gets a 409 "try again" instead of a 500 (#2534).
 - **Refresh** on the Model page shows only for roles that manage connections; readers saw a button the server ignored (#2551).
 - **The widget editor** offers only the concept sides whose entity and key the connection still reports (#2552), and "New selector for a concept" offers only connections where a side still exists (#2556).
 - **A creator** can change a concept's parameter only when every side is on a connection they can use, so a rename no longer breaks the filters of widgets they cannot open. An import skips such a concept (#2553).
