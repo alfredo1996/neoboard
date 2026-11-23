@@ -52,9 +52,9 @@ const entityLabel = (terms: readonly WiringTerm[], entityKey: string) =>
   terms.find((t) => t.kind === "entity" && t.key === entityKey)?.displayName ||
   entityKey;
 
-/** The connections where the concept has a side the connection still reports. */
+/** The connections the concept maps a side on. */
 export const conceptConnectionIds = (c: Concept): string[] => [
-  ...new Set(c.sides.filter((s) => !s.missing).map((s) => s.connectionId)),
+  ...new Set(c.sides.map((s) => s.connectionId)),
 ];
 
 /**

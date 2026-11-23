@@ -108,21 +108,21 @@ describe("conceptsForField (#2485)", () => {
       sides: [side("pg", entityKey, key)],
     });
     it.each([
-      ["entity and key are there", "customers", "email", TERMS, true],
-      ["the entity is gone", "gone", "email", TERMS, false],
-      ["the key is gone from its entity", "customers", "mail", TERMS, false],
+      ["entity and key are there", true, "customers", "email", TERMS],
+      ["the entity is gone", false, "gone", "email", TERMS],
+      ["the key is gone from its entity", false, "customers", "mail", TERMS],
       [
         "the entity is only an orphaned term",
+        false,
         "customers",
         "email",
         [
           ...TERMS.map((x) => ({ ...x, orphaned: true })),
           t("entity", "other", ""),
         ],
-        false,
       ],
-      ["the terms are not loaded", "gone", "mail", [], true],
-    ])("%s: offered is %s", (_, entity, key, terms, offered) => {
+      ["the terms are not loaded", true, "gone", "mail", []],
+    ])("%s: offered is %s", (_, offered, entity, key, terms) => {
       const c = one(entity, key);
       expect(conceptsForField([c], "pg", key, terms)).toHaveLength(
         offered ? 1 : 0,

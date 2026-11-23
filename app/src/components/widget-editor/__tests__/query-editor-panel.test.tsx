@@ -42,7 +42,11 @@ vi.mock("@/hooks/use-concepts", () => ({
   useConcepts: () => ({ data: mockConcepts }),
 }));
 vi.mock("@/hooks/use-ontology", () => ({
-  useEditorTerms: () => mockTerms,
+  // Filters as the real hook does (use-ontology.ts): meaningful terms only.
+  useEditorTerms: () =>
+    (mockTerms as Record<string, unknown>[] | undefined)?.filter(
+      (t) => !t.orphaned && (t.hidden || t.displayName || t.description),
+    ),
   useOntology: () => ({ data: mockTerms && { terms: mockTerms } }),
 }));
 vi.mock("@/stores/schema-store", () => ({
