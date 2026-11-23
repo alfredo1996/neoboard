@@ -1,3 +1,4 @@
+import type { Locator } from "@playwright/test";
 import {
   test,
   expect,
@@ -267,6 +268,143 @@ test.describe("Concept wiring (#2485)", () => {
       }
       for (const id of connectionIds) {
         await page.request.delete(`/api/connections/${id}?force=true`);
+      }
+    }
+  });
+
+  test("the editor stops offering a side once the connection no longer has its entity (#2552)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const name = `wiring-gone-${suffix}`;
+    const pgConfig = (database: string) => ({
+      uri: `postgresql://localhost:${TEST_PG_PORT}`,
+      username: "neoboard",
+      password: "neoboard",
+      database,
+    });
+    let connectionId = "";
+    let conceptId = "";
+    let cleanup: (() => Promise<void>) | undefined;
+    try {
+      const made = await page.request.post("/api/connections", {
+        data: { name, type: "postgresql", config: pgConfig("movies") },
+      });
+      expect(made.status()).toBe(201);
+      connectionId = (await made.json()).data.id as string;
+      const concept = await page.request.post("/api/ontology/concepts", {
+        data: {
+          name: `Gone ${suffix}`,
+          parameter: `gone_${suffix}`,
+          description: "",
+          sides: [
+            { connectionId, entityKey: "movies", keyPropertyKey: "title" },
+          ],
+        },
+      });
+      expect(concept.status()).toBe(201);
+      conceptId = (await concept.json()).data.id as string;
+      const dash = await createTestDashboard(page.request, `Gone ${suffix}`);
+      cleanup = dash.cleanup;
+
+      // Opens a table over the connection and picks its `title` column in a
+      // new click rule, once the connection's terms have been read.
+      const openRule = async () => {
+        await page.goto(`/${dash.id}/edit`);
+        await expect(editingCrumb(page)).toBeVisible({ timeout: 15_000 });
+        const terms = page.waitForResponse(
+          (r) => r.url().includes(`/connections/${connectionId}/ontology`),
+          { timeout: 30_000 },
+        );
+        await page
+          .getByRole("button", { name: "Add Widget", exact: true })
+          .first()
+          .click();
+        const dialog = page.getByRole("dialog", {
+          name: "Add Widget",
+          exact: true,
+        });
+        await dialog
+          .getByRole("combobox", { name: "Chart Type", exact: true })
+          .click();
+        await page
+          .getByRole("option", { name: "Data Table", exact: true })
+          .click();
+        await dialog
+          .getByRole("combobox", { name: "Connection", exact: true })
+          .click();
+        await page
+          .getByRole("option", { name: `${name} PostgreSQL`, exact: true })
+          .click();
+        await typeInEditor(dialog, page, "SELECT 'x' AS title");
+        await dialog.getByTitle("Run query (Ctrl+Enter / ⌘+Enter)").click();
+        await expect(getPreview(dialog)).toBeVisible({ timeout: 15_000 });
+        await terms;
+        await dialog
+          .getByRole("tab", { name: "Behavior", exact: true })
+          .click();
+        await dialog.getByLabel("Click action").click();
+        await dialog
+          .getByRole("button", { name: "Add rule", exact: true })
+          .click();
+        const rule = dialog.getByRole("group", { name: "Rule 1", exact: true });
+        await rule
+          .getByRole("combobox", { name: "Column", exact: true })
+          .click();
+        await page.getByRole("option", { name: "title", exact: true }).click();
+        return rule;
+      };
+      const setButton = (rule: Locator) =>
+        rule.getByRole("button", {
+          name: `Set Gone ${suffix} ($param_gone_${suffix}) to this title`,
+          exact: true,
+        });
+
+      // The side is there: offered.
+      await expect(setButton(await openRule())).toBeVisible({
+        timeout: 15_000,
+      });
+
+      // The table is gone from the connection: the Model page's read flags the
+      // side, and the editor stops offering it. The parameter field being
+      // there is the positive end state the empty offer is read against.
+      const moved = await page.request.patch(
+        `/api/connections/${connectionId}`,
+        {
+          data: { config: pgConfig("neoboard") },
+        },
+      );
+      expect(moved.ok()).toBe(true);
+      // The connection's structure is cached for minutes: an admin's refresh
+      // re-reads it from the new database (the app's own, which has tables but no `movies`).
+      const refreshed = await page.request.get(
+        `/api/connections/${connectionId}/ontology?refresh=1`,
+      );
+      expect(refreshed.ok()).toBe(true);
+      const read = await page.request.get("/api/ontology/concepts");
+      const concepts = (await read.json()).data.concepts as {
+        id: string;
+        sides: { missing: string | null }[];
+      }[];
+      expect(concepts.find((c) => c.id === conceptId)?.sides[0].missing).toBe(
+        "entity",
+      );
+
+      const rule = await openRule();
+      await expect(
+        rule.getByRole("combobox", { name: "Parameter", exact: true }),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(setButton(rule)).toHaveCount(0);
+    } finally {
+      await cleanup?.();
+      if (conceptId) {
+        await page.request.delete(`/api/ontology/concepts/${conceptId}`);
+      }
+      if (connectionId) {
+        await page.request.delete(
+          `/api/connections/${connectionId}?force=true`,
+        );
       }
     }
   });

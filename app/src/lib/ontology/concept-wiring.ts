@@ -1,9 +1,31 @@
 import type { Concept, ConceptSide } from "@/lib/ontology/concept-types";
 import { entityParentKey } from "@/lib/ontology/term-keys";
 
-/** The sides of a concept on one connection that the connection still reports. */
-const liveSides = (c: Concept, connectionId: string): ConceptSide[] =>
-  c.sides.filter((s) => s.connectionId === connectionId && !s.missing);
+/**
+ * The sides of a concept on one connection that the connection still reports.
+ * The editor reads concepts without structure, so "still reports" is decided
+ * here from the connection's terms (#2552). No live terms (still loading,
+ * failed, or a connector that describes none) says nothing, so every side is
+ * offered, as the Model page's own check does.
+ */
+const liveSides = (
+  c: Concept,
+  connectionId: string,
+  terms: readonly WiringTerm[],
+): ConceptSide[] => {
+  const live = terms.filter((t) => !t.orphaned);
+  const has = (kind: string, key: string, parentKey: string) =>
+    live.some(
+      (t) => t.kind === kind && t.key === key && t.parentKey === parentKey,
+    );
+  return c.sides.filter(
+    (s) =>
+      s.connectionId === connectionId &&
+      (live.length === 0 ||
+        (has("entity", s.entityKey, "") &&
+          has("property", s.keyPropertyKey, entityParentKey(s.entityKey)))),
+  );
+};
 
 /** What wiring reads of a connection's term: the structure and the creator's words. */
 export interface WiringTerm {
@@ -57,7 +79,7 @@ export function conceptsForField(
       .map((t) => t.parentKey),
   );
   return concepts.flatMap((concept) => {
-    const side = liveSides(concept, connectionId).find(
+    const side = liveSides(concept, connectionId, terms).find(
       (s) => s.keyPropertyKey === name,
     );
     if (!side) return [];
@@ -85,7 +107,7 @@ export function parameterCompletions(
       (t) => t.kind === kind && t.key === key && t.parentKey === parentKey,
     );
   return concepts.flatMap((c) => {
-    const sides = liveSides(c, connectionId);
+    const sides = liveSides(c, connectionId, terms);
     if (sides.length === 0) return [];
     const keys = sides.flatMap((s) => {
       const entity = find("entity", s.entityKey, "");

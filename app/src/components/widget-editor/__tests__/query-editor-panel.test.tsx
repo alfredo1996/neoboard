@@ -43,6 +43,7 @@ vi.mock("@/hooks/use-concepts", () => ({
 }));
 vi.mock("@/hooks/use-ontology", () => ({
   useEditorTerms: () => mockTerms,
+  useOntology: () => ({ data: mockTerms && { terms: mockTerms } }),
 }));
 vi.mock("@/stores/schema-store", () => ({
   useSchemaStore: () => null,
@@ -185,6 +186,13 @@ describe("QueryEditorPanel", () => {
         displayName: "Clients",
         hidden: false,
       },
+      {
+        kind: "property",
+        key: "email",
+        parentKey: "entity:customers",
+        displayName: "",
+        hidden: false,
+      },
     ];
     useWidgetEditorStore.getState().setConnectionId("pg");
     render(<QueryEditorPanel editorLanguage="sql" />);
@@ -192,6 +200,37 @@ describe("QueryEditorPanel", () => {
     expect(JSON.parse(got ?? "null")[0].detail).toBe(
       "Customer: filters by Clients.email",
     );
+  });
+
+  it("leaves a concept whose key the connection no longer has out of the hint (#2552)", () => {
+    mockConcepts = [
+      {
+        id: "c1",
+        name: "Customer",
+        parameter: "customer",
+        description: "",
+        sides: [
+          {
+            connectionId: "pg",
+            entityKey: "customers",
+            keyPropertyKey: "email",
+          },
+        ],
+      },
+    ];
+    mockTerms = [
+      {
+        kind: "entity",
+        key: "customers",
+        parentKey: "",
+        displayName: "",
+        hidden: false,
+      },
+    ];
+    useWidgetEditorStore.getState().setConnectionId("pg");
+    render(<QueryEditorPanel editorLanguage="sql" />);
+    const got = screen.getByTestId("query-editor").dataset.parameters;
+    expect(JSON.parse(got ?? "null")).toEqual([]);
   });
 
   it("does NOT show warning on fresh modal open (no query, no connection)", () => {
