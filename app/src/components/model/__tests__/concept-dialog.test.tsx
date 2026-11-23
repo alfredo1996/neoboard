@@ -83,6 +83,12 @@ describe("ConceptDialog parameter change warning (#2553)", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not warn for the prefixed form of the saved parameter, which the server treats as unchanged", () => {
+    renderDialog("graph");
+    setParameter("param_customer");
+    expect(screen.queryByText(warning)).toBeNull();
+  });
+
   it("goes away when the parameter is set back", () => {
     renderDialog("graph");
     setParameter("cust");

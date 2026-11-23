@@ -486,6 +486,7 @@ const SPEC = {
           "Replaces the name, parameter, description and the sides on connections the caller can use, under the rules of creating " +
           "one; sides on other connections stay as they are (a side in the body on one the caller cannot use is refused, 403). " +
           "An admin changes every side. A concept with no side the caller can use answers 404, as a missing one does. " +
+          "A creator changing the parameter of a concept that has a side on a connection they cannot use is refused, 403. " +
           "Two identical sides answer 400.",
         requestBody: jsonBody("#/components/schemas/ConceptRequest"),
         responses: {

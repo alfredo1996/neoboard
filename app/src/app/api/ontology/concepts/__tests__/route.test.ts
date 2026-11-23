@@ -751,6 +751,12 @@ describe("/api/ontology/concepts", () => {
           });
         });
 
+        it("does not count the param_-prefixed form of the saved parameter as a change", async () => {
+          const res = await patch({ ...only, parameter: "param_customer" });
+          expect(res.status).toBe(200);
+          expect(updates[0]).toMatchObject({ parameter: "customer" });
+        });
+
         it("lets an admin change it", async () => {
           mockRequireSession.mockResolvedValue(ADMIN);
           rows.set(connections, [G, S]);

@@ -16,6 +16,7 @@ import {
   fieldBaseClasses,
 } from "@neoboard/components";
 import { randomId } from "@/lib/random-id";
+import { normalizeParamName } from "@/lib/parameter/normalize-param-name";
 import { useOntology } from "@/hooks/use-ontology";
 import {
   useDeleteConcept,
@@ -281,7 +282,7 @@ function ConceptForm({
             />
           </Field>
         </div>
-        {concept && parameter !== concept.parameter && (
+        {concept && normalizeParamName(parameter) !== concept.parameter && (
           <Alert variant="warning">
             <AlertDescription>
               Widgets that use $param_{concept.parameter} keep the old name.

@@ -71,13 +71,13 @@ export async function POST(request: Request) {
       session.role === "admin"
         ? undefined
         : new Set((await usableConnectionNames(session)).map((c) => c.id));
-    const run = async (h: Parameters<typeof planImport>[0]) =>
-      planImport(h, tenantId, file, connectionMapping, live, visibleTo);
+    const run = async (h: Parameters<typeof planImport>[0], lock = false) =>
+      planImport(h, tenantId, file, connectionMapping, live, visibleTo, lock);
     if (!apply) {
       return apiSuccess({ applied: false, preview: (await run(db)).preview });
     }
     const preview = await db.transaction(async (tx) => {
-      const plan = await run(tx);
+      const plan = await run(tx, true);
       await writePlan(tx, tenantId, plan);
       return plan.preview;
     });
