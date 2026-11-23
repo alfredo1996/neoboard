@@ -10,6 +10,33 @@ NeoBoard versioning resets at **1.0.0**.
 > 1.0.0 to 1.6.0 were never tagged or published: each was a release branch consolidated into `dev`, and the date
 > beside it, where there is one, is the date of that consolidation.
 
+## [1.9.0] — Unreleased — Ontology
+
+Gives every connection's tables, labels and columns a name people can read, and lets one concept link an entity across connections, so a filter or click on one connection's widget can drive another's (#2415, #2484, #2485, #2510). It ships ahead of 1.8 (Security); the version gap is intended. It also carries 1.7.1.
+
+### Added
+
+- **A Model page.** Each connection's terms (tables, labels, columns, relationship types) get a display name, a description and a hidden flag. They are kept when a connection's schema is refreshed (#2415). The graph connector reports which labels each relationship joins, and the SQL connector reports primary and foreign keys (#2508).
+- **Concepts.** A concept links an entity and its key across connections, and is shown and edited on the Model page (#2484). Click actions, parameter selectors and the query editor offer concepts, so one connection's widget drives another's (#2485).
+- **Model import and export.** The whole model exports as one file and imports on another install, which maps its connections (#2510).
+- **User docs** for the Model page, concepts, and model import and export (#2550).
+
+### Changed
+
+- **A connection's structure is read once.** One cached read serves the editor, the Model page and every save, so refreshing a large database's schema is fast (#2514). Reading a large database's structure is faster, and a graph too big to scan still loads (#2532).
+- **The Model page opens fast on a large model.** Connections and entities start closed, a connection is read when opened, and search groups once (#2533).
+
+### Fixed
+
+- **Ontology safety.** The migration can run again without error, one structure read is in flight at a time and only managers can force one, and quick edits no longer revert (#2534).
+- **Refresh** on the Model page shows only for roles that manage connections; readers saw a button the server ignored (#2551).
+- **The widget editor** offers only the concept sides whose entity and key the connection still reports (#2552), and "New selector for a concept" offers only connections where a side still exists (#2556).
+- **A creator** can change a concept's parameter only when every side is on a connection they can use, so a rename no longer breaks the filters of widgets they cannot open (#2553).
+
+### Upgrading
+
+- Migrations 0008, 0009 and 0010 add the ontology tables. An upgrade from 1.7.x runs them on boot, unless `MIGRATE_ON_START` is set to `0`.
+
 ## [1.7.1] — 2026-11-23 — Graph click actions
 
 A patch on 1.7.0: a click action on a graph node now sets its parameter, and a dependent filter lines up with the filters beside it.
