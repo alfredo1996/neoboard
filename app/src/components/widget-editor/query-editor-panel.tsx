@@ -29,7 +29,7 @@ import {
 import { FileCode } from "lucide-react";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
 import { useConnectionSchema } from "@/hooks/use-schema";
-import { useEditorTerms } from "@/hooks/use-ontology";
+import { useEditorTerms, useOntology } from "@/hooks/use-ontology";
 import { useConcepts } from "@/hooks/use-concepts";
 import { parameterCompletions } from "@/lib/ontology/concept-wiring";
 import { useSchemaStore } from "@/stores/schema-store";
@@ -193,9 +193,12 @@ export function QueryEditorPanel({
   const schema = useSchemaStore((s) => s.getSchema(connectionId));
   const terms = useEditorTerms(connectionId);
   const { data: concepts } = useConcepts({ live: false });
+  // Every term, not the meaningful ones: a side is offered only while its
+  // entity and key are among them (#2552).
+  const { data: ontology } = useOntology(connectionId);
   const parameters = useMemo(
-    () => parameterCompletions(concepts ?? [], connectionId, terms),
-    [concepts, connectionId, terms],
+    () => parameterCompletions(concepts ?? [], connectionId, ontology?.terms),
+    [concepts, connectionId, ontology],
   );
   const content = contentFor(editorLanguage);
   const templates = content?.templates ?? [];

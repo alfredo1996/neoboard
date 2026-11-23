@@ -74,8 +74,14 @@ describe("conceptsForField (#2485)", () => {
       ...CUSTOMER,
       sides: [side("pg", "customers", "id")],
     };
-    const alone = [property("customers", "id")];
-    const shared = [property("customers", "id"), property("orders", "id")];
+    const entity: WiringTerm = {
+      ...property("customers", "id"),
+      kind: "entity",
+      key: "customers",
+      parentKey: "",
+    };
+    const alone = [entity, property("customers", "id")];
+    const shared = [...alone, property("orders", "id")];
     expect(
       conceptsForField([ids], "pg", "id", alone)[0].entity,
     ).toBeUndefined();
@@ -84,12 +90,47 @@ describe("conceptsForField (#2485)", () => {
     );
   });
 
-  it("ignores a side the connection no longer reports", () => {
-    const gone: Concept = {
+  describe("a side the connection no longer reports (#2552)", () => {
+    const t = (kind: string, key: string, parentKey: string): WiringTerm => ({
+      kind,
+      key,
+      parentKey,
+      displayName: "",
+      hidden: false,
+      orphaned: false,
+    });
+    const TERMS: WiringTerm[] = [
+      t("entity", "customers", ""),
+      t("property", "email", "entity:customers"),
+    ];
+    const one = (entityKey: string, key: string): Concept => ({
       ...CUSTOMER,
-      sides: [{ ...side("pg", "customers", "email"), missing: "keyProperty" }],
-    };
-    expect(conceptsForField([gone], "pg", "email")).toEqual([]);
+      sides: [side("pg", entityKey, key)],
+    });
+    it.each([
+      ["entity and key are there", true, "customers", "email", TERMS],
+      ["the entity is gone", false, "gone", "email", TERMS],
+      ["the key is gone from its entity", false, "customers", "mail", TERMS],
+      [
+        "the entity is only an orphaned term",
+        false,
+        "customers",
+        "email",
+        [
+          ...TERMS.map((x) => ({ ...x, orphaned: true })),
+          t("entity", "other", ""),
+        ],
+      ],
+      ["the terms are not loaded", true, "gone", "mail", []],
+    ])("%s: offered is %s", (_, offered, entity, key, terms) => {
+      const c = one(entity, key);
+      expect(conceptsForField([c], "pg", key, terms)).toHaveLength(
+        offered ? 1 : 0,
+      );
+      expect(parameterCompletions([c], "pg", terms)).toHaveLength(
+        offered ? 1 : 0,
+      );
+    });
   });
 });
 

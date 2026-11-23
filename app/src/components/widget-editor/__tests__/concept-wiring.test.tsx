@@ -85,12 +85,41 @@ describe("Click action offers concepts (#2485)", () => {
       displayName: "",
       hidden: false,
     });
-    open("email", "pg", [property("customers"), property("staff")]);
+    open("email", "pg", [
+      {
+        ...property("customers"),
+        kind: "entity",
+        key: "customers",
+        parentKey: "",
+      },
+      property("customers"),
+      property("staff"),
+    ]);
     expect(
       screen.getByRole("button", {
         name: "Set Customer ($param_customer) to this email (customers.email)",
       }),
     ).toBeTruthy();
+  });
+
+  it("offers no button for a side whose key the connection no longer has (#2552)", () => {
+    open("email", "pg", [
+      {
+        kind: "entity",
+        key: "customers",
+        parentKey: "",
+        displayName: "",
+        hidden: false,
+      },
+      {
+        kind: "property",
+        key: "name",
+        parentKey: "entity:customers",
+        displayName: "",
+        hidden: false,
+      },
+    ]);
+    expect(screen.queryByRole("button", { name: /^Set Customer/ })).toBeNull();
   });
 
   it.each([
