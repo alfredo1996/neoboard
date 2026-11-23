@@ -135,6 +135,28 @@ vi.mock("../form-write-permission-note", () => ({
   ),
 }));
 
+vi.mock("../lazy-query-editor", () => ({
+  QueryEditor: ({
+    value,
+    onChange,
+    language,
+    placeholder,
+  }: {
+    value?: string;
+    onChange?: (v: string) => void;
+    language?: string;
+    placeholder?: string;
+  }) => (
+    <textarea
+      data-testid="query-editor"
+      data-language={language}
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange?.(e.target.value)}
+    />
+  ),
+}));
+
 const mockSetFormFields = vi.fn();
 let mockFormFields: FormFieldDef[] = [];
 
@@ -363,4 +385,28 @@ describe("FormFieldsEditor", () => {
     render(<FormFieldsEditor />);
     expect(screen.getByText("$param_title")).toBeInTheDocument();
   });
+
+  // #2513: the options query is the widget query's editor, in its language.
+  it.each(["cypher", "sql"])(
+    "edits the Options Query as %s with the query editor",
+    (language) => {
+      mockFormFields = [
+        {
+          id: "f1",
+          label: "Pick",
+          parameterName: "pick",
+          parameterType: "select",
+          required: false,
+          seedQuery: "RETURN 1",
+        },
+      ];
+      render(<FormFieldsEditor editorLanguage={language} />);
+      const editor = screen.getByTestId("query-editor");
+      expect(editor).toHaveAttribute("data-language", language);
+      fireEvent.change(editor, { target: { value: "RETURN 2" } });
+      expect(mockSetFormFields).toHaveBeenCalledWith([
+        expect.objectContaining({ id: "f1", seedQuery: "RETURN 2" }),
+      ]);
+    },
+  );
 });

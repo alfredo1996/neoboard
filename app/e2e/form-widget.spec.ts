@@ -523,7 +523,7 @@ test.describe("Form widget", () => {
     await page.getByRole("option").first().click();
 
     await dialog
-      .locator("#seed-query")
+      .getByRole("textbox", { name: "Seed Query", exact: true })
       .fill("MATCH (m:Movie) RETURN DISTINCT m.title ORDER BY m.title LIMIT 5");
     await dialog.getByLabel("Parameter Name").fill("movie_title");
 

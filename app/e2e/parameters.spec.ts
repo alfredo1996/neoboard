@@ -63,10 +63,10 @@ test.describe("Parameter selectors", () => {
       .click();
     await page.getByRole("option").first().click();
 
-    // Configure the query for distinct values via the seed-query textarea
-    // (CodeMirror is hidden for parameter-select widgets; SeedQueryInput uses a textarea)
+    // Configure the query for distinct values via the Seed Query editor
+    // (SeedQueryInput is a CodeMirror QueryEditor, #2513)
     await dialog
-      .locator("#seed-query")
+      .getByRole("textbox", { name: "Seed Query", exact: true })
       .fill(
         "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10",
       );
@@ -95,7 +95,7 @@ test.describe("Parameter selectors", () => {
       .click();
     await page.getByRole("option").first().click();
     await dialog
-      .locator("#seed-query")
+      .getByRole("textbox", { name: "Seed Query", exact: true })
       .fill("RETURN 'Heat' AS label, 7 AS value");
 
     await dialog.getByRole("button", { name: "Test Seed Query" }).click();
@@ -104,6 +104,60 @@ test.describe("Parameter selectors", () => {
     );
     await getPreview(dialog).getByRole("combobox").click();
     await expect(page.getByRole("option", { name: "Heat" })).toBeVisible();
+  });
+
+  // #2513: the Seed Query is the widget query's editor, so MATCH is highlighted
+  // with the very class the widget query gives it, and Test Seed Query runs the text.
+  test("Seed Query highlights Cypher like the widget query and runs what was typed (#2513)", async ({
+    page,
+  }) => {
+    await page
+      .getByRole("button", { name: "Add Widget", exact: true })
+      .first()
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: "Add Widget",
+      exact: true,
+    });
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
+    await page.getByRole("option").first().click();
+    const matchClass = (root: import("@playwright/test").Locator) =>
+      root
+        .locator("span", { hasText: /^MATCH$/ })
+        .first()
+        .getAttribute("class");
+
+    // The widget query editor (a table, the default type) names the class.
+    await typeInEditor(dialog, page, "MATCH (n) RETURN n");
+    const widgetEditor = dialog.locator(".cm-content");
+    await expect
+      .poll(() => matchClass(widgetEditor), { timeout: 10_000 })
+      .toBeTruthy();
+    const widgetClass = await matchClass(widgetEditor);
+
+    await dialog
+      .getByRole("combobox", { name: "Chart Type", exact: true })
+      .click();
+    await page
+      .getByRole("option", { name: "Parameter Selector", exact: true })
+      .click();
+    const seed = dialog.getByRole("textbox", {
+      name: "Seed Query",
+      exact: true,
+    });
+    await seed.fill("MATCH (n) RETURN 1 AS value, 'x' AS label LIMIT 1");
+    await expect
+      .poll(() => matchClass(seed), { timeout: 10_000 })
+      .toBe(widgetClass);
+
+    await dialog
+      .getByRole("button", { name: "Test Seed Query", exact: true })
+      .click();
+    await expect(
+      dialog.getByText("1 option loaded — see preview", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("should create a widget with click action and verify action rules UI", async ({
@@ -233,10 +287,10 @@ test.describe("Parameter-to-refresh cycle", () => {
       .click();
     await page.getByRole("option").first().click();
 
-    // Configure query for distinct years via the seed-query textarea
-    // (CodeMirror is hidden for parameter-select widgets; SeedQueryInput uses a textarea)
+    // Configure query for distinct years via the Seed Query editor
+    // (SeedQueryInput is a CodeMirror QueryEditor, #2513)
     await dialog
-      .locator("#seed-query")
+      .getByRole("textbox", { name: "Seed Query", exact: true })
       .fill(
         "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10",
       );
@@ -2814,7 +2868,7 @@ test.describe("Param-select searchable default", () => {
 
     // Fill seed query
     await dialog
-      .locator("#seed-query")
+      .getByRole("textbox", { name: "Seed Query", exact: true })
       .fill(
         "MATCH (m:Movie) RETURN DISTINCT m.released ORDER BY m.released LIMIT 10",
       );
@@ -2874,7 +2928,9 @@ test.describe("Parameter collision warning", () => {
       .getByRole("combobox", { name: "Connection", exact: true })
       .click();
     await page.getByRole("option").first().click();
-    await dialog1.locator("#seed-query").fill("RETURN 1 AS x");
+    await dialog1
+      .getByRole("textbox", { name: "Seed Query", exact: true })
+      .fill("RETURN 1 AS x");
     const paramInput1 = dialog1.getByLabel("Parameter Name");
     await expect(paramInput1).toBeVisible({ timeout: 5_000 });
     await paramInput1.fill("season");
@@ -2892,7 +2948,9 @@ test.describe("Parameter collision warning", () => {
       .getByRole("combobox", { name: "Connection", exact: true })
       .click();
     await page.getByRole("option").first().click();
-    await dialog2.locator("#seed-query").fill("RETURN 1 AS x");
+    await dialog2
+      .getByRole("textbox", { name: "Seed Query", exact: true })
+      .fill("RETURN 1 AS x");
     const paramInput2 = dialog2.getByLabel("Parameter Name");
     await expect(paramInput2).toBeVisible({ timeout: 5_000 });
     await paramInput2.fill("season");

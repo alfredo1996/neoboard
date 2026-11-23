@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
-  Textarea,
   Field,
 } from "@neoboard/components";
 import {
@@ -45,9 +44,12 @@ import type { ParameterType } from "@/stores/parameter-store";
 import { useAccordionCrud } from "./use-accordion-crud";
 import { FormWritePermissionNote } from "./form-write-permission-note";
 import { randomId } from "@/lib/random-id";
+import { QueryEditor } from "./lazy-query-editor";
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- props kept empty; FormFieldsEditor reads from widget-editor store
-interface FormFieldsEditorProps {}
+interface FormFieldsEditorProps {
+  /** The connection's query language ("" = plain text) for the Options Query. */
+  editorLanguage?: string;
+}
 
 function needsSeedQuery(type: ParameterType): boolean {
   return (
@@ -94,6 +96,7 @@ interface SortableFieldItemProps {
   onUpdate: (id: string, patch: Partial<FormFieldDef>) => void;
   /** Whether another field already uses the same parameterName */
   hasDuplicateName?: boolean;
+  editorLanguage: string;
 }
 
 function SortableFieldItem({
@@ -102,6 +105,7 @@ function SortableFieldItem({
   onRemove,
   onUpdate,
   hasDuplicateName,
+  editorLanguage,
 }: SortableFieldItemProps) {
   const {
     attributes,
@@ -239,14 +243,12 @@ function SortableFieldItem({
                 : undefined
             }
           >
-            <Textarea
+            <QueryEditor
               value={field.seedQuery ?? ""}
-              onChange={(e) =>
-                onUpdate(field.id, { seedQuery: e.target.value })
-              }
+              onChange={(v) => onUpdate(field.id, { seedQuery: v })}
+              language={editorLanguage}
               placeholder="A query returning value and label columns"
-              rows={3}
-              className="text-xs font-mono"
+              className="[&_.cm-editor]:min-h-[80px] [&_.cm-editor]:max-h-[240px]"
             />
           </Field>
         )}
@@ -345,7 +347,9 @@ function SortableFieldItem({
   );
 }
 
-export function FormFieldsEditor(_props: FormFieldsEditorProps) {
+export function FormFieldsEditor({
+  editorLanguage = "",
+}: FormFieldsEditorProps) {
   const fields = useWidgetEditorStore((s) => s.formFields);
   const onChange = useWidgetEditorStore((s) => s.setFormFields);
   const { openItems, setOpenItems, addItem, removeItem, updateItem } =
@@ -427,6 +431,7 @@ export function FormFieldsEditor(_props: FormFieldsEditorProps) {
                     onRemove={removeItem}
                     onUpdate={updateItem}
                     hasDuplicateName={isDuplicate}
+                    editorLanguage={editorLanguage}
                   />
                 );
               })}
