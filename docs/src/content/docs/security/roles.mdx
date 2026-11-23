@@ -49,6 +49,10 @@ Write permission covers dashboards, widget templates, API keys and a Creator's o
 
 Admins always have write permission regardless of this setting. Outside forms, a write query only runs on a connection the user created; shared connections and connections owned by other users take none, even from admins. Forms work differently: anyone who can open a dashboard can submit its forms, whatever their role or write permission, and each submit runs only the query saved with the form, on the connection and database it is saved with. Adding a form, or changing a form's query, connection or database, needs access to that connection: its owner, anyone in the tenant once it is shared, or an admin. A form can therefore write through a tenant-shared connection its author does not own, and an admin's form through any connection. Removing write access does not let a Creator build dashboards while blocking data changes; no setting does that today.
 
+## The Model page
+
+Anyone who can use a connection can read its terms on the [Model page](/using/model), see its [concepts](/using/concepts) and export the model. Creators and admins can describe terms, manage concepts and import a model file. Readers cannot.
+
 ## Role Assignment
 
 Admins assign a role when creating a user in **Users** management.

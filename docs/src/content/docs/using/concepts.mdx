@@ -1,0 +1,73 @@
+---
+title: Link connections with concepts
+description: Use a concept to filter widgets on several connections with one parameter.
+sidebar:
+  order: 9
+---
+
+Sometimes the same thing lives in two databases. A customer is a node in your graph database and a row in your SQL database. A **concept** tells NeoBoard these are the same thing, so one click or one filter can drive widgets on both.
+
+You manage concepts at the top of the **Model** page. See [Describe your data](/using/model) for the rest of that page.
+
+## What a concept is
+
+A concept has:
+
+- a **name** for people, such as `Customer` (up to 200 characters);
+- a **parameter**, such as `customer`. Queries read it as `$param_customer`, like any other [parameter](/using/parameters);
+- a **description**, optional (up to 2,000 characters);
+- one or more **sides**. Each side names a **connection**, an **entity** on it, and a **key property** of that entity: the one that identifies it, such as `email` or `customer_id`.
+
+A parameter may hold letters, digits and underscores, up to 100 characters. A leading `param_` is dropped, as it is for every parameter. Two concepts cannot share a name or a parameter.
+
+## Values must match exactly on every side
+
+NeoBoard passes the value through as it is. It does not convert it or look anything up. The key on each side has to hold the same values: if one side stores `ana@example.com` and another stores `ANA@EXAMPLE.COM`, they will not match.
+
+Pick keys that really are the same thing, such as an email address or a shared customer number.
+
+## Create a concept
+
+1. Open **Model** and click **New concept**. Only creators and admins see this button.
+2. Enter a name. The parameter is filled in from it, and you can change it.
+3. Under **Mapping**, pick a **connection**, then an **entity**, then a **key property**. Click **Add side** for each further side. You can have several sides on one connection.
+4. Click **Save**.
+
+You can only map connections you can use. Only entities and properties that exist now and are not hidden are offered. Two identical sides are refused.
+
+To change a concept, click **Edit** on its row. To remove it, click **Delete** in the dialog, then confirm with **Remove this concept**.
+
+## Who sees and changes a concept
+
+Everyone sees the concepts that have a side on a connection they can use, and only those sides. Admins see every concept.
+
+A creator's edit changes the concept's name and description for everyone, but only the sides on connections they can use. A creator can change the parameter only when every side is on a connection they can use; otherwise NeoBoard refuses, and an admin has to make the change. Changing the parameter does not update widgets or queries that already use the old name, and the dialog says so before you save. A creator who deletes a concept only removes the sides on connections they can use; the other sides stay, and so does the concept. An admin changes every side.
+
+On the Model page, a property that is the key of a concept carries a tag with the concept's name.
+
+## Use a concept in a dashboard
+
+A concept's parameter is an ordinary dashboard parameter. Anything that sets `$param_customer` reaches every widget whose query reads it, on any connection.
+
+- **A click.** In a widget's **Behavior** section, add a click action that sets a parameter. When the field is named like the concept's key, such as `email` or `c.email`, on a connection the concept maps, a button appears: **Set Customer ($param_customer) to this email**. If the name is ambiguous, the button gains an `(<Entity>.<key>)` suffix. Click it to fill in the parameter name.
+- **A filter.** A parameter widget that uses the same parameter name sets it too. A new Parameter Selector shows a **New selector for** `<Concept>` button.
+- **A query.** On a connection the concept maps, type `$` in the query editor and the concept's parameter is suggested, with the keys it filters (`<Concept>: filters by <Entity>.<key>`). Nothing is suggested until a connection is picked. Use it as you would any parameter:
+
+```cypher
+MATCH (c:Customer) WHERE c.email = $param_customer RETURN c
+```
+
+```sql
+SELECT * FROM orders WHERE customer_email = $param_customer;
+```
+
+Each widget reads the key from its own database. The concept gives the shared name and a reminder of which key it is; the query is still yours to write.
+
+## Warnings on a side
+
+Each time the Model page loads, NeoBoard checks every side against NeoBoard's copy of the connection's structure (kept for up to five minutes). If something is gone from the database, the side keeps its place and gets a warning tag:
+
+- **`<entity>` is no longer in the database**: the entity was renamed or dropped.
+- **`<key>` is no longer on `<entity>`**: the entity is still there, but the key property is gone.
+
+The warning shows only on the Model page. In the widget editor, a side with a warning is left out: the click-action button and the query editor's suggestions don't offer it. Edit the concept, point the side at the right entity and key, and save. If NeoBoard cannot read a connection's structure at all, it shows no warning for that connection and the editor offers every side, because it cannot tell.
