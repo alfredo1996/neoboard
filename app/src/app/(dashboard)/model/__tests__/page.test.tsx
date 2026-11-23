@@ -170,12 +170,14 @@ describe("ModelPage", () => {
       ],
     };
     window.location.hash = "#connection-c2";
-    render(<ModelPage />);
-    expect(screen.getAllByTestId("terms").map((t) => t.dataset.force)).toEqual([
-      "false",
-      "true",
-    ]);
-    window.location.hash = "";
+    try {
+      render(<ModelPage />);
+      expect(
+        screen.getAllByTestId("terms").map((t) => t.dataset.force),
+      ).toEqual(["false", "true"]);
+    } finally {
+      window.location.hash = "";
+    }
   });
 
   it("Export downloads the model file", () => {

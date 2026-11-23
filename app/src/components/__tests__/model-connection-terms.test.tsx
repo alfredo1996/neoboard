@@ -331,6 +331,18 @@ describe("ConnectionTerms", () => {
     expect(mockRefetch).not.toHaveBeenCalled();
   });
 });
+// jsdom has no scrollIntoView, so there is nothing to spy on: add it, then put back.
+function stubScroll(fn: () => void) {
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    value: fn,
+    configurable: true,
+    writable: true,
+  });
+  return () => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  };
+}
+
 describe("ConnectionTerms collapsing (#2533)", () => {
   const prop = (parent: string, key: string) =>
     term({ kind: "property", key, parentKey: `entity:${parent}` });
@@ -474,9 +486,109 @@ describe("ConnectionTerms collapsing (#2533)", () => {
 
   it("opens and scrolls to its section when the link points at it", () => {
     const scroll = vi.fn();
-    Element.prototype.scrollIntoView = scroll;
-    show({ open: false, forceOpen: true });
-    expect(section().getAttribute("aria-expanded")).toBe("true");
-    expect(scroll).toHaveBeenCalled();
+    const restore = stubScroll(scroll);
+    try {
+      show({ open: false, forceOpen: true });
+      expect(section().getAttribute("aria-expanded")).toBe("true");
+      expect(scroll).toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  describe("what a search closed", () => {
+    const ui = (search: string, forceOpen = false) => (
+      <ConnectionTerms
+        connectionId="c1"
+        name="Demo graph"
+        canEdit
+        search={search}
+        forceOpen={forceOpen}
+      />
+    );
+    const hideMovie = () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Hide the properties of Movie" }),
+      );
+    const title = () => screen.queryByLabelText("Display name of Movie.title");
+
+    it("stays closed under that search and comes back on a new one", () => {
+      const { rerender } = render(ui("title"));
+      expect(title()).toBeTruthy();
+      hideMovie();
+      expect(title()).toBeNull();
+      rerender(ui("titl"));
+      expect(title()).toBeTruthy();
+    });
+
+    it("comes back when the search returns to an earlier string", () => {
+      const { rerender } = render(ui("pe"));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Hide the properties of Person" }),
+      );
+      expect(screen.queryByLabelText("Display name of Person.age")).toBeNull();
+      rerender(ui("per"));
+      rerender(ui("pe"));
+      expect(screen.getByLabelText("Display name of Person.age")).toBeTruthy();
+    });
+
+    it("keeps a section the user closed closed, and reopens it on a new search", () => {
+      const { rerender } = render(ui("title"));
+      fireEvent.click(section());
+      expect(section().getAttribute("aria-expanded")).toBe("false");
+      rerender(ui("titl"));
+      expect(section().getAttribute("aria-expanded")).toBe("true");
+    });
+
+    it("opens a closed section when forceOpen turns on", () => {
+      const restore = stubScroll(() => {});
+      try {
+        const { rerender } = render(ui(""));
+        expect(section().getAttribute("aria-expanded")).toBe("false");
+        rerender(ui("", true));
+        expect(section().getAttribute("aria-expanded")).toBe("true");
+      } finally {
+        restore();
+      }
+    });
+
+    it("counts only relationships when only relationships match", () => {
+      render(ui("knows"));
+      expect(screen.getByText("1 of 2 relationships match")).toBeTruthy();
+    });
+  });
+
+  describe("orphans in a search", () => {
+    it("says how many orphans are listed, not 'No match'", () => {
+      mockState = {
+        data: {
+          terms: [
+            term({ key: "Person" }),
+            term({
+              kind: "property",
+              key: "stray",
+              parentKey: "entity:Gone",
+              orphaned: true,
+            }),
+          ],
+        },
+      };
+      show({ open: false, search: "stray", expand: false });
+      expect(screen.getByText("1 orphaned")).toBeTruthy();
+      expect(screen.queryByText("No match")).toBeNull();
+    });
+
+    it("counts matches out of the live entities and adds the orphans", () => {
+      mockState = {
+        data: {
+          terms: [
+            term({ key: "Person" }),
+            term({ key: "Gone", orphaned: true }),
+          ],
+        },
+      };
+      show({ open: false, search: "o", expand: false });
+      expect(screen.getByText("1 of 1 entity match · 1 orphaned")).toBeTruthy();
+    });
   });
 });
