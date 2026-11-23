@@ -408,4 +408,96 @@ test.describe("Concept wiring (#2485)", () => {
       }
     }
   });
+
+  test("a new selector's start does not offer a connection whose only side is gone (#2556)", async ({
+    authPage,
+    page,
+  }) => {
+    await authPage.login(ALICE.email, ALICE.password);
+    const nameA = `wiring-keep-${suffix}`;
+    const nameB = `wiring-drop-${suffix}`;
+    const pgConfig = (database: string) => ({
+      uri: `postgresql://localhost:${TEST_PG_PORT}`,
+      username: "neoboard",
+      password: "neoboard",
+      database,
+    });
+    const connectionIds: string[] = [];
+    let conceptId = "";
+    let cleanup: (() => Promise<void>) | undefined;
+    try {
+      for (const name of [nameA, nameB]) {
+        const made = await page.request.post("/api/connections", {
+          data: { name, type: "postgresql", config: pgConfig("movies") },
+        });
+        expect(made.status()).toBe(201);
+        connectionIds.push((await made.json()).data.id as string);
+      }
+      const [a, b] = connectionIds;
+      const concept = await page.request.post("/api/ontology/concepts", {
+        data: {
+          name: `Dropped ${suffix}`,
+          parameter: `dropped_${suffix}`,
+          description: "",
+          sides: [
+            { connectionId: a, entityKey: "movies", keyPropertyKey: "title" },
+            { connectionId: b, entityKey: "movies", keyPropertyKey: "title" },
+          ],
+        },
+      });
+      expect(concept.status()).toBe(201);
+      conceptId = (await concept.json()).data.id as string;
+      const dash = await createTestDashboard(page.request, `Dropped ${suffix}`);
+      cleanup = dash.cleanup;
+
+      // B now points at a database without `movies`; its structure is re-read.
+      const moved = await page.request.patch(`/api/connections/${b}`, {
+        data: { config: pgConfig("neoboard") },
+      });
+      expect(moved.ok()).toBe(true);
+      const refreshed = await page.request.get(
+        `/api/connections/${b}/ontology?refresh=1`,
+      );
+      expect(refreshed.ok()).toBe(true);
+
+      await page.goto(`/${dash.id}/edit`);
+      await expect(editingCrumb(page)).toBeVisible({ timeout: 15_000 });
+      await page
+        .getByRole("button", { name: "Add Widget", exact: true })
+        .first()
+        .click();
+      const dialog = page.getByRole("dialog", {
+        name: "Add Widget",
+        exact: true,
+      });
+      await dialog
+        .getByRole("combobox", { name: "Chart Type", exact: true })
+        .click();
+      await page
+        .getByRole("option", { name: "Parameter Selector", exact: true })
+        .click();
+      await dialog
+        .getByRole("button", {
+          name: `New selector for Dropped ${suffix}`,
+          exact: true,
+        })
+        .click({ timeout: 15_000 });
+      await dialog
+        .getByRole("combobox", { name: "Connection", exact: true })
+        .click();
+      // A is offered (the positive end state); B, whose side is gone, is not.
+      await expect(
+        page.getByRole("option", { name: `${nameA} PostgreSQL`, exact: true }),
+      ).toBeVisible();
+      await expect(page.getByRole("option")).toHaveCount(1);
+    } finally {
+      await cleanup?.();
+      if (conceptId) {
+        await page.request.delete(`/api/ontology/concepts/${conceptId}`);
+      }
+      for (const id of connectionIds) {
+        await page.request.delete(`/api/connections/${id}?force=true`);
+      }
+    }
+  });
 });

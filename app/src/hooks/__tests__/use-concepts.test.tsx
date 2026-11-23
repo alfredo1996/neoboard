@@ -46,6 +46,13 @@ describe("use-concepts", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("/api/ontology/concepts");
   });
 
+  it("reads nothing while disabled (#2556)", async () => {
+    const { wrapper } = setup();
+    renderHook(() => useConcepts({ enabled: false }), { wrapper });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["creates", undefined, "POST", "/api/ontology/concepts"],
     ["replaces", "k1", "PATCH", "/api/ontology/concepts/k1"],
