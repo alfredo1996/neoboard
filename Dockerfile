@@ -13,8 +13,12 @@ COPY connector-sdk/package.json ./connector-sdk/
 COPY connection/package.json ./connection/
 COPY cli/package.json ./cli/
 
-# Single install resolves all workspaces — hoists shared deps to root
-RUN npm ci
+# Single install resolves all workspaces — hoists shared deps to root.
+# #2530: a download idle for 120 s fails npm ci (EIDLETIMEOUT, which pacote does
+# not retry); connection and header failures retry 3 times. npm's default is
+# 300 s, so this only tightens a bound. It did not fire on rc.7, where npm ci
+# sat silent for hours; the release job's timeout-minutes is the real guard.
+RUN npm_config_fetch_timeout=120000 npm_config_fetch_retries=3 npm ci
 
 # ---- build: compile Next.js standalone output ----
 FROM node:22-alpine AS build
