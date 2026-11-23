@@ -24,10 +24,15 @@ const ontologyKey = (connectionId: string) => ["ontology", connectionId];
  * A connection's terms (#2415): the structure its connector reports with the
  * saved meaning laid over it. Every read introspects the connection, so it is
  * cached for five minutes; `useRefreshOntology` is the Model page's refresh.
+ * `enabled: false` reads nothing (a closed Model section, #2533) but still
+ * serves what the cache holds.
  */
-export function useOntology(connectionId: string) {
+export function useOntology(
+  connectionId: string,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   return useQuery<OntologyResponse>({
-    enabled: connectionId !== "",
+    enabled: enabled && connectionId !== "",
     queryKey: ontologyKey(connectionId),
     queryFn: async ({ signal }) => {
       const flag = `ontology:${connectionId}`;

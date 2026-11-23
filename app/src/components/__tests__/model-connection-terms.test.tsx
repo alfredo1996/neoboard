@@ -17,8 +17,16 @@ let mockConcepts: unknown[] = [];
 vi.mock("@/hooks/use-concepts", () => ({
   useConcepts: () => ({ data: mockConcepts }),
 }));
+// The `enabled` each render asked for: a closed section reads nothing (#2533).
+const enabledCalls: boolean[] = [];
 vi.mock("@/hooks/use-ontology", () => ({
-  useOntology: () => ({ ...mockState, refetch: mockRefetch }),
+  useOntology: (_id: string, opts?: { enabled?: boolean }) => {
+    const enabled = opts?.enabled ?? true;
+    enabledCalls.push(enabled);
+    return enabled
+      ? { ...mockState, refetch: mockRefetch }
+      : { refetch: mockRefetch };
+  },
   useRefreshOntology: () => mockRefresh,
   useSaveTerms: () => ({ mutate: mockSave }),
 }));
@@ -52,20 +60,41 @@ const TERMS: OntologyTerm[] = [
   }),
 ];
 
-function show(props: { canEdit?: boolean; search?: string } = {}) {
-  return render(
+interface ShowProps {
+  canEdit?: boolean;
+  search?: string;
+  /** Start with the section open; the default, as most checks look inside it. */
+  open?: boolean;
+  /** Open every entity, so its properties are on the page. */
+  expand?: boolean;
+  forceOpen?: boolean;
+}
+
+function show(props: ShowProps = {}) {
+  const view = render(
     <ConnectionTerms
       connectionId="c1"
       name="Demo graph"
       canEdit={props.canEdit ?? true}
       search={props.search ?? ""}
+      defaultOpen={props.open ?? true}
+      forceOpen={props.forceOpen}
     />,
   );
+  if (props.expand ?? true) {
+    for (const b of screen.queryAllByRole("button", {
+      name: /^Show the properties of /,
+    })) {
+      fireEvent.click(b);
+    }
+  }
+  return view;
 }
 
 describe("ConnectionTerms", () => {
   beforeEach(() => {
     mockConcepts = [];
+    enabledCalls.length = 0;
     vi.clearAllMocks();
     mockState = { data: { terms: TERMS } };
   });
@@ -253,7 +282,17 @@ describe("ConnectionTerms", () => {
     expect(screen.queryByText("Person")).toBeNull();
   });
 
-  it("says when nothing matches the search", () => {
+  it("says when nothing matches the search, in the header of a section left closed", () => {
+    show({ search: "zzz", open: false });
+    expect(screen.getByText("No match")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("button", { name: "Demo graph" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+  });
+
+  it("says so in the body of a section the user opened", () => {
     show({ search: "zzz" });
     expect(screen.getByText("No terms match.")).toBeTruthy();
   });
@@ -290,5 +329,269 @@ describe("ConnectionTerms", () => {
     // The Refresh reads past the server's cache; Try again does not (#2514).
     expect(mockRefresh).toHaveBeenCalledTimes(1);
     expect(mockRefetch).not.toHaveBeenCalled();
+  });
+});
+// jsdom has no scrollIntoView, so there is nothing to spy on: add it, then put back.
+function stubScroll(fn: () => void) {
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    value: fn,
+    configurable: true,
+    writable: true,
+  });
+  return () => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  };
+}
+
+describe("ConnectionTerms collapsing (#2533)", () => {
+  const prop = (parent: string, key: string) =>
+    term({ kind: "property", key, parentKey: `entity:${parent}` });
+  const many = (n: number) =>
+    Array.from({ length: n }, (_, i) => [
+      term({ key: `Match${i}` }),
+      prop(`Match${i}`, "email"),
+    ]).flat();
+  const section = () => screen.getByRole("button", { name: "Demo graph" });
+
+  beforeEach(() => {
+    // Its own reset: the mocks are module-wide and tests run shuffled.
+    mockConcepts = [];
+    enabledCalls.length = 0;
+    vi.clearAllMocks();
+    mockState = {
+      data: {
+        terms: [
+          term({ key: "Person", displayName: "Human" }),
+          prop("Person", "email"),
+          prop("Person", "age"),
+          term({ key: "Movie" }),
+          prop("Movie", "title"),
+          term({ kind: "relationship", key: "KNOWS" }),
+          term({ kind: "relationship", key: "ACTED_IN" }),
+          {
+            ...prop("x", "since"),
+            parentKey: "relationship:ACTED_IN",
+          },
+        ],
+      },
+    };
+  });
+
+  it("starts closed and reads nothing; a click opens it and reads", () => {
+    show({ open: false });
+    expect(section().getAttribute("aria-expanded")).toBe("false");
+    expect(enabledCalls.every((enabled) => !enabled)).toBe(true);
+    expect(screen.queryByText("Person")).toBeNull();
+    fireEvent.click(section());
+    expect(enabledCalls.at(-1)).toBe(true);
+    expect(screen.getByText("Person")).toBeTruthy();
+  });
+
+  it("mounts an entity's properties only once it is opened, and shows their count", () => {
+    show({ expand: false });
+    const toggle = screen.getByRole("button", {
+      name: "Show the properties of Person",
+    });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByText("2")).toBeTruthy();
+    expect(screen.queryByLabelText("Display name of Person.email")).toBeNull();
+    fireEvent.click(toggle);
+    expect(screen.getByLabelText("Display name of Person.email")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Hide the properties of Person" }),
+    );
+    expect(screen.queryByLabelText("Display name of Person.email")).toBeNull();
+  });
+
+  it("gives a relationship with no properties no toggle", () => {
+    show({ expand: false });
+    expect(
+      screen.queryByRole("button", { name: /properties of KNOWS/ }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Show the properties of ACTED_IN" }),
+    ).toBeTruthy();
+  });
+
+  it("opens a match with the counts, and closes it again when the search clears", () => {
+    const { rerender } = show({ open: false, search: "title", expand: false });
+    expect(section().getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByLabelText("Display name of Movie.title")).toBeTruthy();
+    expect(screen.getByText("1 of 2 entities match")).toBeTruthy();
+    rerender(
+      <ConnectionTerms connectionId="c1" name="Demo graph" canEdit search="" />,
+    );
+    expect(section().getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("keeps what the user opened when the search clears", () => {
+    const ui = (search: string) => (
+      <ConnectionTerms
+        connectionId="c1"
+        name="Demo graph"
+        canEdit
+        search={search}
+        defaultOpen
+      />
+    );
+    const { rerender } = render(ui(""));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show the properties of Person" }),
+    );
+    rerender(ui("title"));
+    rerender(ui(""));
+    expect(screen.getByLabelText("Display name of Person.email")).toBeTruthy();
+    expect(screen.queryByLabelText("Display name of Movie.title")).toBeNull();
+  });
+
+  it("lists more than 20 matches closed, with a note", () => {
+    mockState = { data: { terms: many(21) } };
+    show({ open: false, search: "email", expand: false });
+    expect(
+      screen.getByText("21 match. Open one to see its properties."),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText("Display name of Match0.email")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show the properties of Match0" }),
+    );
+    expect(screen.getByLabelText("Display name of Match0.email")).toBeTruthy();
+  });
+
+  it("opens exactly 20 matches", () => {
+    mockState = { data: { terms: many(20) } };
+    show({ open: false, search: "email", expand: false });
+    expect(screen.getByLabelText("Display name of Match19.email")).toBeTruthy();
+    expect(screen.queryByText(/Open one to see/)).toBeNull();
+  });
+
+  it("says Reading while a search reads, then a failure with Try again, section left closed", () => {
+    mockState = { isLoading: true };
+    const { unmount } = show({ open: false, search: "x" });
+    expect(screen.getByText("Reading…")).toBeTruthy();
+    unmount();
+    mockState = { isError: true };
+    show({ open: false, search: "x" });
+    expect(screen.getByText("Couldn't read this connection.")).toBeTruthy();
+    expect(section().getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows Show hidden and Refresh only when open", () => {
+    const { unmount } = show({ open: false });
+    expect(screen.queryByText("Show hidden")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Refresh/ })).toBeNull();
+    unmount();
+    show();
+    expect(screen.getByText("Show hidden")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Refresh/ })).toBeTruthy();
+  });
+
+  it("opens and scrolls to its section when the link points at it", () => {
+    const scroll = vi.fn();
+    const restore = stubScroll(scroll);
+    try {
+      show({ open: false, forceOpen: true });
+      expect(section().getAttribute("aria-expanded")).toBe("true");
+      expect(scroll).toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  describe("what a search closed", () => {
+    const ui = (search: string, forceOpen = false) => (
+      <ConnectionTerms
+        connectionId="c1"
+        name="Demo graph"
+        canEdit
+        search={search}
+        forceOpen={forceOpen}
+      />
+    );
+    const hideMovie = () =>
+      fireEvent.click(
+        screen.getByRole("button", { name: "Hide the properties of Movie" }),
+      );
+    const title = () => screen.queryByLabelText("Display name of Movie.title");
+
+    it("stays closed under that search and comes back on a new one", () => {
+      const { rerender } = render(ui("title"));
+      expect(title()).toBeTruthy();
+      hideMovie();
+      expect(title()).toBeNull();
+      rerender(ui("titl"));
+      expect(title()).toBeTruthy();
+    });
+
+    it("comes back when the search returns to an earlier string", () => {
+      const { rerender } = render(ui("pe"));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Hide the properties of Person" }),
+      );
+      expect(screen.queryByLabelText("Display name of Person.age")).toBeNull();
+      rerender(ui("per"));
+      rerender(ui("pe"));
+      expect(screen.getByLabelText("Display name of Person.age")).toBeTruthy();
+    });
+
+    it("keeps a section the user closed closed, and reopens it on a new search", () => {
+      const { rerender } = render(ui("title"));
+      fireEvent.click(section());
+      expect(section().getAttribute("aria-expanded")).toBe("false");
+      rerender(ui("titl"));
+      expect(section().getAttribute("aria-expanded")).toBe("true");
+    });
+
+    it("opens a closed section when forceOpen turns on", () => {
+      const restore = stubScroll(() => {});
+      try {
+        const { rerender } = render(ui(""));
+        expect(section().getAttribute("aria-expanded")).toBe("false");
+        rerender(ui("", true));
+        expect(section().getAttribute("aria-expanded")).toBe("true");
+      } finally {
+        restore();
+      }
+    });
+
+    it("counts only relationships when only relationships match", () => {
+      render(ui("knows"));
+      expect(screen.getByText("1 of 2 relationships match")).toBeTruthy();
+    });
+  });
+
+  describe("orphans in a search", () => {
+    it("says how many orphans are listed, not 'No match'", () => {
+      mockState = {
+        data: {
+          terms: [
+            term({ key: "Person" }),
+            term({
+              kind: "property",
+              key: "stray",
+              parentKey: "entity:Gone",
+              orphaned: true,
+            }),
+          ],
+        },
+      };
+      show({ open: false, search: "stray", expand: false });
+      expect(screen.getByText("1 orphaned")).toBeTruthy();
+      expect(screen.queryByText("No match")).toBeNull();
+    });
+
+    it("counts matches out of the live entities and adds the orphans", () => {
+      mockState = {
+        data: {
+          terms: [
+            term({ key: "Person" }),
+            term({ key: "Gone", orphaned: true }),
+          ],
+        },
+      };
+      show({ open: false, search: "o", expand: false });
+      expect(screen.getByText("1 of 1 entity match · 1 orphaned")).toBeTruthy();
+    });
   });
 });
