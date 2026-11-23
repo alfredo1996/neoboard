@@ -452,7 +452,9 @@ function SectionTools({
   onShowHidden,
   isFetching,
   onRefresh,
+  canRefresh,
 }: {
+  readonly canRefresh: boolean;
   readonly name: string;
   readonly showHidden: boolean;
   readonly onShowHidden: (on: boolean) => void;
@@ -469,19 +471,21 @@ function SectionTools({
         />
         Show hidden
       </label>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="gap-2"
-        disabled={isFetching}
-        aria-label={`Refresh the structure of ${name}`}
-        onClick={onRefresh}
-      >
-        <RefreshCw
-          className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`}
-        />
-        Refresh
-      </Button>
+      {canRefresh && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="gap-2"
+          disabled={isFetching}
+          aria-label={`Refresh the structure of ${name}`}
+          onClick={onRefresh}
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`}
+          />
+          Refresh
+        </Button>
+      )}
     </div>
   );
 }
@@ -632,6 +636,7 @@ export function ConnectionTerms({
             onShowHidden={setShowHidden}
             isFetching={isFetching}
             onRefresh={() => refresh()}
+            canRefresh={canEdit}
           />
         )}
       </div>
