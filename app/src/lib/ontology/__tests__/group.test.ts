@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildGroups, filterGroups, groupTerms } from "../group";
+import { buildGroups, filterGroups } from "../group";
 import type { OntologyTerm } from "../merge";
 
 const term = (over: Partial<OntologyTerm>): OntologyTerm => ({
@@ -20,6 +20,9 @@ const TERMS: OntologyTerm[] = [
   term({ kind: "property", key: "email", parentKey: "relationship:KNOWS" }),
   term({ key: "Movie", description: "A film" }),
 ];
+
+const groupTerms = (t: OntologyTerm[], q: string, show: boolean) =>
+  filterGroups(buildGroups(t), q, show);
 
 const heads = (g: ReturnType<typeof groupTerms>) =>
   g.map((x) => `${x.head.kind}:${x.head.key}/${x.properties.length}`);
@@ -77,6 +80,11 @@ describe("groupTerms", () => {
 });
 
 // The O(heads x properties) grouping #2533 replaced, kept as the reference.
+const KIND_ORDER = ["entity", "relationship"];
+const rank = (g: { head: OntologyTerm }) => {
+  const i = KIND_ORDER.indexOf(g.head.kind);
+  return i === -1 ? KIND_ORDER.length : i;
+};
 function legacy(terms: OntologyTerm[], search: string, showHidden: boolean) {
   const q = search.trim().toLowerCase();
   const visible = terms.filter((t) => showHidden || !t.hidden);
@@ -103,15 +111,17 @@ function legacy(terms: OntologyTerm[], search: string, showHidden: boolean) {
       ),
     }))
     .filter((g) => !q || [g.head, ...g.properties].some(m))
-    .sort(
-      (a, b) =>
-        Number(a.head.kind !== "entity") - Number(b.head.kind !== "entity") ||
-        0,
-    );
+    .sort((a, b) => rank(a) - rank(b));
 }
 
 describe("buildGroups and filterGroups (#2533)", () => {
   const mixed = [
+    term({
+      kind: "property",
+      key: "early",
+      parentKey: "entity:Lost",
+      orphaned: true,
+    }),
     ...TERMS,
     term({ key: "Secret", hidden: true }),
     term({ kind: "property", key: "pin", parentKey: "entity:Secret" }),
@@ -150,7 +160,6 @@ describe("buildGroups and filterGroups (#2533)", () => {
       expect(filterGroups(buildGroups(mixed), q, show)).toEqual(
         legacy(mixed, q, show),
       );
-      expect(groupTerms(mixed, q, show)).toEqual(legacy(mixed, q, show));
     },
   );
 

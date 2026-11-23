@@ -73,9 +73,3 @@ export function filterGroups(
   }
   return out;
 }
-
-export const groupTerms = (
-  terms: OntologyTerm[],
-  search: string,
-  showHidden: boolean,
-): TermGroup[] => filterGroups(buildGroups(terms), search, showHidden);
