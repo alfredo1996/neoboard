@@ -35,13 +35,13 @@ Pick keys that really are the same thing, such as an email address or a shared c
 
 You can only map connections you can use. Only entities and properties that exist now and are not hidden are offered. Two identical sides are refused.
 
-To change a concept, click **Edit** on its row. To remove it, click **Delete** in the dialog, then confirm.
+To change a concept, click **Edit** on its row. To remove it, click **Delete** in the dialog, then confirm with **Remove this concept**.
 
 ## Who sees and changes a concept
 
 Everyone sees the concepts that have a side on a connection they can use, and only those sides. Admins see every concept.
 
-A creator who edits or deletes a concept only changes the sides on connections they can use. The other sides stay, and so does the concept. An admin changes every side.
+A creator's edit changes the concept's name, parameter and description for everyone, but only the sides on connections they can use. Changing the parameter does not update widgets or queries that already use the old name. A creator who deletes a concept only removes the sides on connections they can use; the other sides stay, and so does the concept. An admin changes every side.
 
 On the Model page, a property that is the key of a concept carries a tag with the concept's name.
 
@@ -49,9 +49,9 @@ On the Model page, a property that is the key of a concept carries a tag with th
 
 A concept's parameter is an ordinary dashboard parameter. Anything that sets `$param_customer` reaches every widget whose query reads it, on any connection.
 
-- **A click.** In a widget's **Behavior** section, add a click action that sets a parameter. When the field you pick is the key of a concept on the widget's connection, a button appears: **Set Customer ($param_customer) to this email**. Click it to fill in the parameter name.
-- **A filter.** A parameter widget that uses the same parameter name sets it too.
-- **A query.** In the query editor, the concept's parameter shows up in autocomplete, with the keys it filters. Use it as you would any parameter:
+- **A click.** In a widget's **Behavior** section, add a click action that sets a parameter. When the field is named like the concept's key, such as `email` or `c.email`, on a connection the concept maps, a button appears: **Set Customer ($param_customer) to this email**. If the name is ambiguous, the button gains an `(<Entity>.<key>)` suffix. Click it to fill in the parameter name.
+- **A filter.** A parameter widget that uses the same parameter name sets it too. A new Parameter Selector shows a **New selector for** `<Concept>` button.
+- **A query.** On a connection the concept maps, type `$` in the query editor and the concept's parameter is suggested, with the keys it filters (`<Concept>: filters by <Entity>.<key>`). Nothing is suggested until a connection is picked. Use it as you would any parameter:
 
 ```cypher
 MATCH (c:Customer) WHERE c.email = $param_customer RETURN c
@@ -65,9 +65,9 @@ Each widget reads the key from its own database. The concept gives the shared na
 
 ## Warnings on a side
 
-Each time the page loads, NeoBoard checks every side against its connection. If something is gone from the database, the side keeps its place and gets a warning tag:
+Each time the Model page loads, NeoBoard checks every side against NeoBoard's copy of the connection's structure (kept for up to five minutes). If something is gone from the database, the side keeps its place and gets a warning tag:
 
 - **`<entity>` is no longer in the database**: the entity was renamed or dropped.
 - **`<key>` is no longer on `<entity>`**: the entity is still there, but the key property is gone.
 
-A side with a warning is no longer offered for clicks or autocomplete. Edit the concept, point the side at the right entity and key, and save. If NeoBoard cannot read a connection's structure at all, it shows no warning for that connection, because it cannot tell.
+The warning shows only on the Model page. Edit the concept, point the side at the right entity and key, and save. If NeoBoard cannot read a connection's structure at all, it shows no warning for that connection, because it cannot tell.

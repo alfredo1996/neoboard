@@ -40,7 +40,7 @@ Clear a field to take your words away. A term with no name, no description and n
 
 Switch **Hidden** on for a term nobody needs, such as an internal column. The Model page stops listing it. Turn on **Show hidden** in the connection's section to see hidden terms again; they show greyed out with a **Hidden** tag.
 
-Hiding an entity hides its properties from the list too. Hiding only changes how the model is described. It does not stop anyone from querying the term.
+Hiding an entity hides its properties from the list too. A hidden term is also left out of the query editor's autocomplete, the concept pickers and the concept hint. Hiding does not stop anyone from querying the term.
 
 ## Terms the database no longer has
 
@@ -48,10 +48,10 @@ If you described a term and the connection later stops reporting it, it stays in
 
 ## Refresh the structure
 
-NeoBoard keeps a copy of each connection's structure so the page stays quick. When the database changes, click **Refresh** in the connection's section.
+NeoBoard keeps a copy of each connection's structure for up to five minutes, so the page stays quick. A change in the database can take that long to show. To see it sooner, click **Refresh** in the connection's section.
 
 - For **creators and admins**, Refresh reads the database again.
-- For **readers**, the button reloads the copy NeoBoard already holds and does not read the database again. If a new table or label is missing, ask a creator or admin to refresh.
+- For **readers**, the button reloads the copy NeoBoard already holds and does not read the database again. If a new table or label is missing, ask a creator or admin to refresh, or wait for the copy to expire.
 
 ## Find your way around a long model
 
@@ -74,14 +74,14 @@ It holds:
 - the display names, descriptions and Hidden flags you set, for every connection you can use;
 - your concepts, with only their sides on connections you can use.
 
-It never holds a connection's structure or settings, a credential, or a tenant identifier.
+It never holds a connection's structure or settings, a credential, or any internal account ids.
 
 ### Import
 
 **Import** is for creators and admins. It works in steps:
 
 1. Pick a `.json` file. It must be a NeoBoard model file, no larger than 10 MB. A file from a newer NeoBoard than yours is refused.
-2. **Pair each connection** in the file with one of yours. NeoBoard prefills a pair when the names match. Tick **Skip** to leave a connection out. You can only pair connections you can use.
+2. **Pair each connection** in the file with one of yours. A connection whose name matches one of yours is paired with it. Any other starts with **Skip** ticked; untick it to choose a connection. You can only pair connections you can use.
 3. Click **Preview**. Nothing is saved yet. You see how many items are new, changed, no longer in the database, or skipped, and a name for each.
 4. Click **Confirm** to save, or **Back** to change the pairing.
 
@@ -91,4 +91,4 @@ What an import changes:
 - A term in the file with no name, no description and no Hidden flag changes nothing.
 - A term the database no longer has is still saved, and listed as no longer in the database (orphaned).
 - Concepts are matched to yours by name or parameter, and their sides are added. Sides you already have are kept.
-- A concept is skipped, and listed under **Skipped**, when none of its sides is on a connection you paired, when its name and its parameter match two different concepts of yours, or when the match is a concept with no side on a connection you can use.
+- A concept is skipped, and listed under **Skipped**, when none of its sides is on a connection you paired, when its name and its parameter match two different concepts of yours, when the match is a concept with no side on a connection you can use, or when a second concept in the file matches the same concept of yours.
