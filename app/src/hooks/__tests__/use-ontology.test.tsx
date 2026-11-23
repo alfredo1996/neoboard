@@ -54,6 +54,20 @@ describe("use-ontology", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("/api/connections/c1/ontology");
   });
 
+  it("reads nothing while disabled, and reads once it is enabled (#2533)", async () => {
+    fetchMock.mockResolvedValue(ok([{ key: "A" }]));
+    const { wrapper } = setup();
+    const { result, rerender } = renderHook(
+      ({ enabled }) => useOntology("c1", { enabled }),
+      { wrapper, initialProps: { enabled: false } },
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(fetchMock).not.toHaveBeenCalled();
+    rerender({ enabled: true });
+    await waitFor(() => expect(result.current.data?.terms).toHaveLength(1));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("the Model page's refresh asks the server to read the database again, every time; a plain refetch does not", async () => {
     fetchMock.mockImplementation(async () => ok([{ key: "A" }]));
     const { wrapper } = setup();

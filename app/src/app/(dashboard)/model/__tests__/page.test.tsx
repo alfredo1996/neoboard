@@ -25,8 +25,18 @@ vi.mock("@/hooks/use-connections", () => ({
   useConnections: () => mockState,
 }));
 vi.mock("@/components/model/connection-terms", () => ({
-  ConnectionTerms: (p: { name: string; canEdit: boolean; search: string }) => (
-    <p data-testid="terms">{`${p.name}|${p.canEdit}|${p.search}`}</p>
+  ConnectionTerms: (p: {
+    name: string;
+    canEdit: boolean;
+    search: string;
+    defaultOpen?: boolean;
+    forceOpen?: boolean;
+  }) => (
+    <p
+      data-testid="terms"
+      data-open={String(!!p.defaultOpen)}
+      data-force={String(!!p.forceOpen)}
+    >{`${p.name}|${p.canEdit}|${p.search}`}</p>
   ),
 }));
 
@@ -133,6 +143,39 @@ describe("ModelPage", () => {
     render(<ModelPage />);
     expect(screen.getByRole("button", { name: "Export" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Import" })).toBeNull();
+  });
+
+  it("opens a single connection by itself, and leaves several closed (#2533)", () => {
+    const { unmount } = render(<ModelPage />);
+    expect(screen.getByTestId("terms").dataset.open).toBe("true");
+    unmount();
+    mockState = {
+      data: [
+        { id: "c1", name: "Demo" },
+        { id: "c2", name: "Other" },
+      ],
+    };
+    render(<ModelPage />);
+    expect(screen.getAllByTestId("terms").map((t) => t.dataset.open)).toEqual([
+      "false",
+      "false",
+    ]);
+  });
+
+  it("opens the section a #connection-<id> link points at (#2533)", () => {
+    mockState = {
+      data: [
+        { id: "c1", name: "Demo" },
+        { id: "c2", name: "Other" },
+      ],
+    };
+    window.location.hash = "#connection-c2";
+    render(<ModelPage />);
+    expect(screen.getAllByTestId("terms").map((t) => t.dataset.force)).toEqual([
+      "false",
+      "true",
+    ]);
+    window.location.hash = "";
   });
 
   it("Export downloads the model file", () => {

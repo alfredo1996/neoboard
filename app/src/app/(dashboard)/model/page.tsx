@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
   Button,
@@ -29,6 +29,16 @@ export default function ModelPage() {
   const canEdit = canManageConnections(session?.user?.role ?? "creator");
   const { data: connections, isLoading, isError } = useConnections();
   const [search, setSearch] = useState("");
+  // The lists follow the search a beat behind the box, so typing stays quick.
+  const deferredSearch = useDeferredValue(search);
+  // `#connection-<id>`: the Connections page links to a connection's section.
+  const [hash, setHash] = useState("");
+  useEffect(() => {
+    const read = () => setHash(window.location.hash);
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, []);
   const [newOpen, setNewOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const { toast } = useToast();
@@ -55,7 +65,7 @@ export default function ModelPage() {
         <ConceptsSection
           connections={connections}
           canEdit={canEdit}
-          search={search}
+          search={deferredSearch}
           newOpen={newOpen}
           onNewClose={() => setNewOpen(false)}
         />
@@ -65,7 +75,9 @@ export default function ModelPage() {
             connectionId={c.id}
             name={c.name}
             canEdit={canEdit}
-            search={search}
+            search={deferredSearch}
+            defaultOpen={connections.length === 1}
+            forceOpen={hash === `#connection-${c.id}`}
           />
         ))}
       </>
