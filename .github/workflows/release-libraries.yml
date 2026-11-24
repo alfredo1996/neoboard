@@ -58,21 +58,32 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "22.14" # >= 22.14 for trusted publishing; the major follows .nvmrc
+          node-version: "22" # the major follows .nvmrc; the 22.14 floor is checked below
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
 
+      # Trusted publishing needs Node 22.14 or later. Checked here, not
+      # pinned, so the job keeps getting Node patches.
+      - name: Require Node 22.14 or later
+        run: |
+          node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>22||(a===22&&b>=14)?0:1)'
+
       # Node 22 bundles npm 10; trusted publishing needs npm 11.5.1 or later.
+      # An exact version: this job holds the id-token, so nothing floats.
       - name: Upgrade npm
-        run: npm install -g npm@11
+        run: npm install -g npm@11.21.3
 
       - name: Require npm 11.5.1 or later
         run: |
           npm --version
           node -e 'const [a,b,c]=process.argv[1].split(".").map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)' "$(npm --version)"
 
+      # No lifecycle scripts: this job holds id-token: write, and a dependency's
+      # postinstall could read the OIDC request variables. Both builds are
+      # plain tsc, run explicitly below; publish still runs the package's own
+      # prepack / prepublishOnly.
       - name: Install workspace dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Build
         run: npm run build --workspace=${{ needs.verify.outputs.name }}

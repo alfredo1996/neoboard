@@ -40,7 +40,15 @@ The first push leaves the ghcr package public, so a tag publishes the image to a
 
 ## 4b. Library releases (`@neoboard/cli`, `@neoboard/connector-sdk`)
 
-Each versions and releases on its own tag, `release-libraries.yml`, never `v*`. A normal PR bumps `<pkg>/package.json` and adds a `## [X.Y.Z]` section to `<pkg>/CHANGELOG.md`. The tag follows the same branch and commit rules as a product tag: it goes on the `release/X.Y` into `dev` consolidation commit, with the owner's go. Push `@neoboard/cli@X.Y.Z` or `@neoboard/connector-sdk@X.Y.Z`; the run checks the version and changelog, pauses for the owner's approval on the `npm-publish` environment, publishes by npm trusted publishing, then creates a GitHub Release that is not marked Latest. A tag whose version or changelog section is wrong fails before the approval.
+Each versions and releases on its own tag, `release-libraries.yml`, never `v*`. A normal PR bumps `<pkg>/package.json` and adds a `## [X.Y.Z]` section to `<pkg>/CHANGELOG.md`. The tag follows the same branch and commit rules as a product tag: it goes on the `release/X.Y` into `dev` consolidation commit, with the owner's go. Push `@neoboard/cli@X.Y.Z` or `@neoboard/connector-sdk@X.Y.Z`; the run checks the version and changelog, pauses for the owner's approval on the `npm-publish` environment, publishes by npm trusted publishing (once set up, below), then creates a GitHub Release that is not marked Latest. A tag whose version or changelog section is wrong fails before the approval.
+
+**One-time setup, in this order, before the first library tag** (neither package is on npm yet, and trusted publishing needs the package to exist):
+
+1. Create the `npm-publish` environment with the owner as required reviewer. GitHub auto-creates a missing environment with no protection, so a tag pushed first would publish unapproved.
+2. Create the tag ruleset for `@neoboard/*@*`.
+3. Publish each package once by hand from the owner's machine.
+4. On npmjs.com, add the trusted publisher for each package: this repo, workflow `release-libraries.yml`, environment `npm-publish`.
+5. Only then push library tags.
 
 ## 5. Owner-only, after the first public tag
 
