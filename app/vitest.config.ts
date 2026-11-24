@@ -1,8 +1,12 @@
 import { defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
+import { workspaceSourceAliases } from "../vitest.workspace-source";
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
+  resolve: {
+    alias: workspaceSourceAliases,
+  },
   test: {
     // Cap worker forks at half the machine (#1240). Vitest's default is
     // ~availableParallelism, and each fork here loads jsdom + React + the

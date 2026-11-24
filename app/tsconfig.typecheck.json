@@ -1,0 +1,25 @@
+{
+  // `npm run typecheck` reads this, not tsconfig.json (#1878): the workspace
+  // packages export only dist/, which a fresh `npm ci` has not built. The build
+  // (next, vite-tsconfig-paths) never reads this file, so what
+  // transpilePackages compiles in the image is unchanged. `paths` replaces the
+  // base list, so the "@/*" entry is repeated.
+  "extends": "./tsconfig.json",
+  // pg-cursor ships no types; connection declares what it uses, and an ambient
+  // declaration only counts when it is in the program.
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "../connection/src/types/pg-cursor.d.ts"
+  ],
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*", "../component/src/*"],
+      "@neoboard/connection": ["../connection/src/index.ts"],
+      "@neoboard/connector-sdk": ["../connector-sdk/src/index.ts"]
+    }
+  }
+}

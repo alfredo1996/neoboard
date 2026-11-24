@@ -11,6 +11,8 @@
     "module": "esnext",
     "moduleResolution": "node",
     "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": { "@neoboard/connector-sdk": ["../connector-sdk/src/index.ts"] },
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
