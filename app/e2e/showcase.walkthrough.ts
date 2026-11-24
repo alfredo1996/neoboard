@@ -555,7 +555,7 @@ test.describe("docs: Tour NeoBoard with demo data (#1682)", () => {
     await page.getByRole("option", { name: "Neo4j Movies" }).click();
     await adder.locator("#widget-title").fill("Release year");
     await adder
-      .locator("#seed-query")
+      .getByRole("textbox", { name: "Seed Query", exact: true })
       .fill(
         "MATCH (m:Movie) RETURN DISTINCT m.released AS value ORDER BY value",
       );

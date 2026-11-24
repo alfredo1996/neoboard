@@ -12,7 +12,9 @@ import type { DashboardWidget } from "@/lib/db/schema";
 
 vi.mock("next/dynamic", () => ({
   default: () => {
-    const Stub = () => <div data-testid="query-editor" />;
+    const Stub = ({ language }: { language?: string }) => (
+      <div data-testid="query-editor" data-language={language} />
+    );
     Stub.displayName = "QueryEditorStub";
     return Stub;
   },
@@ -53,7 +55,9 @@ vi.mock("@/hooks/use-widget-templates", () => ({
   useUpdateWidgetTemplate: () => ({ mutateAsync: vi.fn() }),
 }));
 vi.mock("@/hooks/use-connectors", () => ({
-  useConnectors: () => ({ data: [] }),
+  useConnectors: () => ({
+    data: [{ type: "postgresql", queryLanguage: "sql" }],
+  }),
 }));
 const autoPreview = vi.hoisted(() => vi.fn());
 vi.mock("../widget-editor/use-auto-preview", () => ({
@@ -264,6 +268,26 @@ describe("WidgetEditorModal — option placement through the real panel (#2388)"
       order.indexOf("Seed Query"),
     );
     expect(groupNames()).not.toContain("Connection");
+  });
+
+  it("a form's Options Query gets the connection's query language (#2513)", async () => {
+    renderEditor({
+      chartType: "form",
+      settings: {
+        chartOptions: {},
+        formFields: [
+          {
+            id: "f1",
+            label: "Region",
+            parameterName: "region",
+            parameterType: "select",
+            required: false,
+          },
+        ],
+      },
+    });
+    const editor = within(group("Fields")).getByTestId("query-editor");
+    expect(editor).toHaveAttribute("data-language", "sql");
   });
 
   it("the Widget Library puts the Template fields first in Data", () => {

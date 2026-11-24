@@ -179,7 +179,9 @@ test.describe("Parameter defaults are applied on load (#1421)", () => {
         .getByRole("combobox", { name: "Connection", exact: true })
         .click();
       await page.getByRole("option").first().click();
-      await dialog.locator("#seed-query").fill("RETURN 1999 AS value");
+      await dialog
+        .getByRole("textbox", { name: "Seed Query", exact: true })
+        .fill("RETURN 1999 AS value");
       await dialog.getByLabel("Parameter Name").fill("year");
       await dialog.getByRole("button", { name: "Test Seed Query" }).click();
       await expect(

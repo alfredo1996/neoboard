@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 
 vi.mock("@neoboard/components", async () => ({
   Field: (await import("@/__tests__/helpers/field-stub")).FieldStub,
@@ -75,20 +75,6 @@ vi.mock("@neoboard/components", async () => ({
       data-testid={id}
     />
   ),
-  Textarea: ({
-    id,
-    value,
-    onChange,
-    ...props
-  }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-    <textarea
-      id={id}
-      value={value}
-      onChange={onChange}
-      data-testid={id}
-      {...props}
-    />
-  ),
 }));
 
 vi.mock("lucide-react", () => {
@@ -101,6 +87,34 @@ vi.mock("lucide-react", () => {
     GitBranch: Icon,
   };
 });
+
+vi.mock("../lazy-query-editor", () => ({
+  QueryEditor: ({
+    value,
+    onChange,
+    language,
+    placeholder,
+    showRun,
+    "aria-labelledby": labelledby,
+  }: {
+    value?: string;
+    onChange?: (v: string) => void;
+    language?: string;
+    placeholder?: string;
+    showRun?: boolean;
+    "aria-labelledby"?: string;
+  }) => (
+    <textarea
+      data-testid="query-editor"
+      data-show-run={String(showRun)}
+      aria-labelledby={labelledby}
+      data-language={language}
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange?.(e.target.value)}
+    />
+  ),
+}));
 
 const mockSetParamUIType = vi.fn();
 const mockSetDateSub = vi.fn();
@@ -440,7 +454,7 @@ describe("ParameterConfigSection", () => {
       />,
     );
     const placeholder = screen
-      .getByTestId("seed-query")
+      .getByTestId("query-editor")
       .getAttribute("placeholder");
     expect(placeholder).toMatch(/value and label/);
     expect(placeholder).not.toMatch(/\b(SELECT|FROM|MATCH|RETURN)\b/);
@@ -707,5 +721,71 @@ describe("ParameterConfigSection", () => {
       />,
     );
     expect(screen.queryByText("Seed Query")).not.toBeInTheDocument();
+  });
+});
+
+// #2513: the seed query is the widget query's editor, in the connection's language.
+describe("ParameterConfigSection — Seed Query editor (#2513)", () => {
+  function renderSeedEditor(editorLanguage: string) {
+    const setChartOptions = vi.fn();
+    mockStoreState = {
+      paramUIType: "select",
+      setParamUIType: vi.fn(),
+      paramWidgetName: "c",
+      setParamWidgetName: vi.fn(),
+      multiSelect: false,
+      setMultiSelect: vi.fn(),
+      dateSub: "single",
+      setDateSub: vi.fn(),
+      chartOptions: { seedQuery: "MATCH (n) RETURN n" },
+      setChartOptions,
+      connectionId: "conn-1",
+      database: "",
+    };
+    render(
+      <ParameterConfigSection
+        seedQueryExecution={baseSeedExecution}
+        seedPreviewOptions={null}
+        editorLanguage={editorLanguage}
+      />,
+    );
+    return setChartOptions;
+  }
+
+  it.each(["cypher", "sql", ""])("uses the %j query language", (language) => {
+    renderSeedEditor(language);
+    expect(screen.getByTestId("query-editor")).toHaveAttribute(
+      "data-language",
+      language,
+    );
+  });
+
+  it("the seed query shows no Run button: nothing here runs it", () => {
+    renderSeedEditor("cypher");
+    expect(screen.getByTestId("query-editor")).toHaveAttribute(
+      "data-show-run",
+      "false",
+    );
+  });
+
+  it("writes the typed text to chartOptions once, after the debounce", () => {
+    vi.useFakeTimers();
+    try {
+      const setChartOptions = renderSeedEditor("cypher");
+      fireEvent.change(screen.getByTestId("query-editor"), {
+        target: { value: "MATCH (c:Company) RETURN c" },
+      });
+      expect(setChartOptions).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(setChartOptions).toHaveBeenCalledTimes(1);
+      const update = setChartOptions.mock.calls[0][0] as (
+        p: Record<string, unknown>,
+      ) => Record<string, unknown>;
+      expect(update({}).seedQuery).toBe("MATCH (c:Company) RETURN c");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

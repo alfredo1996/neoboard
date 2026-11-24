@@ -25,9 +25,9 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
-  Textarea,
   Field,
 } from "@neoboard/components";
+import { QueryEditor } from "./lazy-query-editor";
 
 // ── Parameter type mapping helpers ──────────────────────────────────
 //
@@ -101,10 +101,12 @@ function SeedQueryInput({
   value,
   onChange,
   placeholder,
+  language,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
+  language: string;
 }) {
   const [draft, setDraft] = useState(value);
   // Track the prop value so we can detect external updates (e.g. a parent
@@ -129,13 +131,14 @@ function SeedQueryInput({
   }, [draft, value]);
 
   return (
-    <Textarea
-      id="seed-query"
+    <QueryEditor
+      aria-labelledby="seed-query-label"
       value={draft}
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={setDraft}
+      language={language}
       placeholder={placeholder}
-      className="font-mono min-h-[80px]"
-      rows={3}
+      showRun={false}
+      className="[&_.cm-editor]:min-h-[80px] [&_.cm-editor]:max-h-[320px]"
     />
   );
 }
@@ -159,6 +162,8 @@ export interface ParameterConfigSectionProps {
   isLabMode?: boolean;
   /** The Connection rows of a select filter: they sit before the Seed Query that needs them (#2388). */
   connectionSlot?: React.ReactNode;
+  /** The connection's query language ("" = plain text), as the widget query gets it. */
+  editorLanguage?: string;
 }
 
 /**
@@ -186,6 +191,7 @@ export function ParameterConfigSection({
   seedPreviewOptions,
   isLabMode = false,
   connectionSlot,
+  editorLanguage = "",
 }: ParameterConfigSectionProps) {
   const paramUIType = useWidgetEditorStore((s) => s.paramUIType);
   const onParamUITypeChange = useWidgetEditorStore((s) => s.setParamUIType);
@@ -394,7 +400,7 @@ export function ParameterConfigSection({
       {/* Seed Query (select only — the sole option-backed type) */}
       {paramUIType === "select" && (
         <div className="space-y-1.5">
-          <Label htmlFor="seed-query">Seed Query</Label>
+          <Label id="seed-query-label">Seed Query</Label>
           <p className="text-xs text-muted-foreground">
             Use columns named{" "}
             <code className="bg-muted px-1 rounded">value</code> and{" "}
@@ -407,6 +413,7 @@ export function ParameterConfigSection({
               onChartOptionsChange((prev) => ({ ...prev, seedQuery: v }))
             }
             placeholder="A query returning value and label columns"
+            language={editorLanguage}
           />
           <Button
             type="button"
