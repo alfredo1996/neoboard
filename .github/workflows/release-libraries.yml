@@ -1,0 +1,138 @@
+name: Release libraries
+
+# @neoboard/cli and @neoboard/connector-sdk release on their own tags, apart
+# from the product's `v*` tags (#1876). Neither glob below can match `v*`, so a
+# library tag never builds the image; release.yml publishes nothing to npm.
+#
+# Flow: a PR bumps <pkg>/package.json and adds a `## [X.Y.Z]` section to
+# <pkg>/CHANGELOG.md; after the release/X.Y -> dev consolidation merge, the
+# owner pushes the tag. verify -> publish (paused on the npm-publish
+# environment's reviewer) -> github-release.
+
+on:
+  push:
+    tags:
+      - "@neoboard/cli@*"
+      - "@neoboard/connector-sdk@*"
+  pull_request:
+    paths:
+      - "cli/**"
+      - "connector-sdk/**"
+      - ".github/workflows/release-libraries.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify tag, version and changelog
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      name: ${{ steps.check.outputs.name }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Check the tag against package.json and CHANGELOG.md
+        id: check
+        run: bash scripts/release-library.sh "$GITHUB_REF_NAME"
+
+  publish:
+    name: Publish to npm
+    if: github.event_name == 'push'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Protected environment: the owner approves each publish.
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC) and provenance
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.14" # >= 22.14 for trusted publishing; the major follows .nvmrc
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+
+      # Node 22 bundles npm 10; trusted publishing needs npm 11.5.1 or later.
+      - name: Upgrade npm
+        run: npm install -g npm@11
+
+      - name: Require npm 11.5.1 or later
+        run: |
+          npm --version
+          node -e 'const [a,b,c]=process.argv[1].split(".").map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)' "$(npm --version)"
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build --workspace=${{ needs.verify.outputs.name }}
+
+      - name: Publish to npm
+        run: npm publish --workspace=${{ needs.verify.outputs.name }} --provenance --access public
+
+  github-release:
+    name: Create GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Extract changelog for this version
+        run: bash scripts/release-library.sh "$GITHUB_REF_NAME"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          body_path: /tmp/release-body.md
+          generate_release_notes: false
+          # A library release must never take the product's Latest badge.
+          make_latest: false
+
+  dry-run:
+    name: Pack dry-run
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      # Each package the PR touches; the workflow file itself touches both.
+      - name: Dry-run npm publish
+        env:
+          BASE: origin/${{ github.base_ref }}
+        run: |
+          CHANGED=$(git diff --name-only "$BASE"...HEAD)
+          for entry in cli:@neoboard/cli connector-sdk:@neoboard/connector-sdk; do
+            dir="${entry%%:*}"
+            name="${entry#*:}"
+            if echo "$CHANGED" | grep -qE "^($dir/|\.github/workflows/release-libraries\.yml$)"; then
+              npm run build --workspace="$name"
+              npm publish --dry-run --workspace="$name"
+            fi
+          done

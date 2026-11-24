@@ -22,7 +22,7 @@ Every step that publishes something (a merge into `dev`, a tag) needs the owner'
 
 ## 2. The release PR, on the release branch
 
-- **Versions:** set root, `app`, `component`, `connection` and `docs` `package.json` to X.Y.Z, then sync `package-lock.json` and `docs/package-lock.json`. `cli/package.json` keeps its own version, so the CLI publish job skips. `scripts/__tests__/release-workflow.test.mjs` pins all of this.
+- **Versions:** set root, `app`, `component`, `connection` and `docs` `package.json` to X.Y.Z, then sync `package-lock.json` and `docs/package-lock.json`. `cli/package.json` and `connector-sdk/package.json` keep their own versions: a `v*` tag publishes nothing to npm. `scripts/__tests__/release-workflow.test.mjs` pins all of this.
 - **Heading:** `## [X.Y.Z] — YYYY-MM-DD — <title>`. `release.yml` publishes everything under it, up to the next `## [`, as the GitHub Release text.
 - **Merge:** follow `pr`, at the full bar.
 
@@ -37,6 +37,10 @@ Fast-forward `release/X.Y` into `dev`. `dev` → `main` is the owner's.
 3. **`vX.Y.Z`** on the consolidation commit.
 
 The first push leaves the ghcr package public, so a tag publishes the image to anyone.
+
+## 4b. Library releases (`@neoboard/cli`, `@neoboard/connector-sdk`)
+
+Each versions and releases on its own tag, `release-libraries.yml`, never `v*`. A normal PR bumps `<pkg>/package.json` and adds a `## [X.Y.Z]` section to `<pkg>/CHANGELOG.md`. The tag follows the same branch and commit rules as a product tag: it goes on the `release/X.Y` into `dev` consolidation commit, with the owner's go. Push `@neoboard/cli@X.Y.Z` or `@neoboard/connector-sdk@X.Y.Z`; the run checks the version and changelog, pauses for the owner's approval on the `npm-publish` environment, publishes by npm trusted publishing, then creates a GitHub Release that is not marked Latest. A tag whose version or changelog section is wrong fails before the approval.
 
 ## 5. Owner-only, after the first public tag
 
