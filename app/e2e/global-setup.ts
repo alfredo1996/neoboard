@@ -2,12 +2,16 @@ import { GenericContainer, Wait } from "testcontainers";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
-import * as net from "node:net";
-import * as http from "node:http";
 import { spawn, execSync } from "node:child_process";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
+import {
+  CDP_OFFSET,
+  assertServerPortsFree,
+  resolveServerPort,
+  waitForServer,
+} from "./server-port";
 import { initCoverage, loadNextcovConfig } from "nextcov/playwright";
 
 const STATE_FILE = path.join(__dirname, ".containers-state.json");
@@ -33,19 +37,6 @@ function encryptJson(data: unknown): string {
   encrypted = Buffer.concat([encrypted, cipher.final()]);
   const authTag = cipher.getAuthTag();
   return `${iv.toString("base64")}:${authTag.toString("base64")}:${encrypted.toString("base64")}`;
-}
-
-/** Bind to port 0 to let the OS assign an available port, then release it. */
-function getFreePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.listen(0, () => {
-      const addr = srv.address();
-      const port = typeof addr === "object" && addr ? addr.port : 0;
-      srv.close(() => resolve(port));
-    });
-    srv.on("error", reject);
-  });
 }
 
 const MIGRATIONS_FOLDER = path.resolve(
@@ -132,6 +123,13 @@ export default async function globalSetup() {
   const dockerRoot = path.resolve(__dirname, "..", "..", "docker");
   const pgInitSql = path.join(dockerRoot, "postgres", "init.sql");
   const neo4jInitCypher = path.join(dockerRoot, "neo4j", "init.cypher");
+
+  // ── Resolve the server port ──────────────────────────────────────────────
+  // playwright.config.ts already picked it (an explicit TEST_SERVER_PORT, else
+  // a free one) and exported it. Refuse to start when anything, another run's
+  // server included, already listens on it or on its CDP port (#1880).
+  const serverPort = resolveServerPort();
+  assertServerPortsFree(serverPort);
 
   console.log("\n⏳ Starting test containers...\n");
 
@@ -232,15 +230,6 @@ export default async function globalSetup() {
   console.log("⏳ Updating seeded connection configs with encrypted values...");
   await updateConnectionConfigs(pgHost, pgPort, neo4jBoltPort);
 
-  // ── Resolve the server port ──────────────────────────────────────────────
-  // Use TEST_SERVER_PORT when set; otherwise default to 3100 to stay in sync
-  // with playwright.config.ts which uses the same env var and the same default.
-  // Using getFreePort() here would desync the server port from the baseURL that
-  // Playwright evaluates before globalSetup runs.
-  const serverPort =
-    parseInt(process.env.TEST_SERVER_PORT || "3100", 10) ||
-    (await getFreePort());
-
   // ── Write .env.test for the Next.js dev server ──────────────────────────
   const envContent = [
     `DATABASE_URL=${databaseUrl}`,
@@ -288,9 +277,8 @@ export default async function globalSetup() {
   // while CLAUDE.md advertised server coverage (#1606).
   //
   // Derived from the server port rather than hard-coded so two concurrent runs
-  // (or a shard with TEST_SERVER_PORT set) cannot collide. The default 3100
-  // gives 9230, nextcov's own default.
-  const cdpPort = serverPort + 6130;
+  // (or a shard with TEST_SERVER_PORT set) cannot collide.
+  const cdpPort = serverPort + CDP_OFFSET;
   const v8CoverageDir = path.join(appDir, ".v8-coverage");
   fs.rmSync(v8CoverageDir, { recursive: true, force: true });
 
@@ -376,6 +364,8 @@ export default async function globalSetup() {
     "--keepAliveTimeout",
     String(24 * 60 * 60 * 1000),
   ];
+  // Re-check right before the spawn: the containers and the build took minutes.
+  assertServerPortsFree(serverPort);
   const server = spawn(process.execPath, args, {
     cwd: appDir,
     stdio: "pipe",
@@ -383,6 +373,12 @@ export default async function globalSetup() {
     detached: true,
   });
   server.unref();
+
+  // Kept for the failure message when the server dies during startup.
+  let stderrTail = "";
+  server.stderr?.on("data", (d: Buffer) => {
+    stderrTail = (stderrTail + d).slice(-2000);
+  });
 
   // Forward server output to the console for debugging.
   server.stdout?.on("data", (d: Buffer) =>
@@ -395,8 +391,9 @@ export default async function globalSetup() {
   // Save PID so globalTeardown can kill it.
   fs.writeFileSync(SERVER_PID_FILE, String(server.pid));
 
-  // Wait for the server to accept connections (up to 60 s).
-  await waitForPort(serverPort, 60_000);
+  // Wait for OUR server to accept connections (up to 60 s); fails at once if
+  // it exits first instead of polling someone else's server on the port.
+  await waitForServer(serverPort, server, () => stderrTail, 60_000);
   console.log(`✅ Next.js server ready on port ${serverPort}`);
 
   // ── Initialize E2E coverage collection (nextcov) ────────────────────────
@@ -410,25 +407,4 @@ export default async function globalSetup() {
   }
 
   console.log("\n✅ All containers ready. Starting tests...\n");
-}
-
-/** Poll until `port` accepts a TCP connection, or throw after `timeoutMs`. */
-function waitForPort(port: number, timeoutMs: number): Promise<void> {
-  const start = Date.now();
-  return new Promise((resolve, reject) => {
-    function check() {
-      const req = http.get(`http://localhost:${port}/`, (res) => {
-        res.resume(); // Consume the response to free memory.
-        resolve();
-      });
-      req.on("error", () => {
-        if (Date.now() - start > timeoutMs) {
-          reject(new Error(`Port ${port} not available after ${timeoutMs}ms`));
-        } else {
-          setTimeout(check, 500);
-        }
-      });
-    }
-    check();
-  });
 }
