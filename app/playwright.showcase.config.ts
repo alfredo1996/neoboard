@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const serverPort = process.env.TEST_SERVER_PORT || "3100";
+import { resolveServerPort } from "./e2e/server-port";
+
+const serverPort = resolveServerPort();
 
 /**
  * Records a single continuous walkthrough video of the chart fixes.

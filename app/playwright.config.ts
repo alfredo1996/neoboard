@@ -1,7 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
+import { CDP_OFFSET, resolveServerPort } from "./e2e/server-port";
 
-// global-setup writes TEST_SERVER_PORT to process.env before tests run.
-const serverPort = process.env.TEST_SERVER_PORT || "3100";
+// One source for the run's port (#1880): an explicit TEST_SERVER_PORT, else a
+// free one picked here and written to the env. Playwright evaluates this file
+// in the runner before globalSetup and again in each worker (which inherits
+// the env), so baseURL, the CDP port, global setup and teardown all agree.
+const serverPort = resolveServerPort();
 
 /** Nextcov coverage config — read by loadNextcovConfig() in global-setup/teardown. */
 export const nextcov: import("nextcov").NextcovConfig = {
@@ -14,7 +18,7 @@ export const nextcov: import("nextcov").NextcovConfig = {
   collectServer: true,
   // Matches the port global-setup gives the server (serverPort + 6130), so two
   // concurrent runs cannot collide on a fixed 9230.
-  cdpPort: Number(process.env.TEST_SERVER_PORT ?? 3100) + 6130,
+  cdpPort: serverPort + CDP_OFFSET,
   // On: a failed CDP connect used to be reported through a disabled logger,
   // which is how server coverage came to be declared, documented and never
   // collected (#1606).

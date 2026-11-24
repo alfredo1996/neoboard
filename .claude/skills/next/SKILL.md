@@ -39,7 +39,6 @@ Spawn the `implementer` agent with `isolation: "worktree"`. Give it:
 
 - the issue number;
 - the base: `npm run -s base -- <N>`, from the issue's milestone;
-- a free E2E port (`TEST_SERVER_PORT=3400` or above, one per concurrent agent);
 - what you already know: the root cause, owner decisions, and constraints such as "don't touch CHANGELOG.md".
 
 It branches inside its own worktree. The main checkout stays on the active release branch, because the hooks and CLAUDE.md run from it. It commits; it does not push.
