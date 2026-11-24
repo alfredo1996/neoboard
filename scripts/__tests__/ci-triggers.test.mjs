@@ -71,6 +71,14 @@ describe("CI path filters (#1627)", () => {
     }
   });
 
+  it.each(["vitest.workspace-source.ts", "vitest.config.ts"])(
+    "triggers CI for the root test config %s (#1878)",
+    (file) => {
+      // app and scripts tests resolve the workspace packages through these.
+      for (const filters of blocks) expect(filters).toContain(file);
+    },
+  );
+
   it("triggers CI for the E2E fixture substrate", () => {
     // global-setup.ts mounts docker/postgres/init.sql into the container
     // every E2E spec runs against.

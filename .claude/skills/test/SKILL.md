@@ -23,16 +23,16 @@ git diff --name-only "origin/$BASE...HEAD"
 
 ## 2. Before the first run in a fresh worktree
 
-Run `npm ci`, then `npm -w connector-sdk run build && npm -w connection run build`. Without those builds, about 67 app tests fail on module resolution. Never symlink `node_modules` into a worktree.
+Run `npm ci`. Nothing else: app tests and `npm run typecheck` resolve connector-sdk and connection from `src/` (#1878), so no build is needed. Never symlink `node_modules` into a worktree.
 
 ## 3. Run, per package
 
 | Changed                                                                      | Run                                                                                                                                                                                      |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app/`                                                                       | `npm -w app run test`, and `npm -w app exec tsc -- --noEmit`                                                                                                                             |
+| `app/`                                                                       | `npm -w app run test`, and `npm -w app exec tsc -- --noEmit -p tsconfig.typecheck.json`                                                                                                  |
 | `component/`                                                                 | `npm -w component run test`                                                                                                                                                              |
-| `connector-sdk/`                                                             | `npm -w connector-sdk run test` (Jest), then rebuild it and run the `connection` row. `npm run verify` runs neither suite.                                                               |
-| `connection/`                                                                | `npm -w connector-sdk run build && npm -w connection run build`, then `npm -w connection run test`. It needs Docker, and `npm run verify` does NOT run it.                               |
+| `connector-sdk/`                                                             | `npm -w connector-sdk run test` (Jest), then the `connection` row. `npm run verify` runs neither suite.                                                                                  |
+| `connection/`                                                                | `npm -w connection run test`. It needs Docker, and `npm run verify` does NOT run it.                                                                                                     |
 | `cli/`                                                                       | `npm -w cli run test`                                                                                                                                                                    |
 | `scripts/` or `.claude/`                                                     | `npm run test:scripts`. To run one file: `npx vitest run scripts/__tests__/<file> --exclude '**/.claude/**'`, because a path filter also matches the copies inside `.claude/worktrees/`. |
 | UI (`app/src/app`, `app/src/components`, `app/src/plugins`, `component/src`) | the affected E2E spec, below                                                                                                                                                             |
@@ -40,10 +40,10 @@ Run `npm ci`, then `npm -w connector-sdk run build && npm -w connection run buil
 **E2E:** run only the affected spec, with exactly one `cd` per command, or the commit hook's E2E gate can't see the run.
 
 ```bash
-cd app && TEST_SERVER_PORT=<port> npx playwright test e2e/<spec>.spec.ts --workers=2 --retries=0 --reporter=dot
+cd app && npx playwright test e2e/<spec>.spec.ts --workers=2 --retries=0 --reporter=dot
 ```
 
-- Use a free port (3400 or above) when another worktree may be running E2E.
+- Leave `TEST_SERVER_PORT` unset: the run picks a free port (and a free CDP port, +6130) itself, so concurrent worktrees do not collide (#1880). Set it only to pin a port; a busy one fails setup at once, naming it.
 - After a Playwright version bump, run `npx playwright install chromium` once.
 - CI's five shards run everything.
 
