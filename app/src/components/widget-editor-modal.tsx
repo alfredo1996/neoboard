@@ -794,6 +794,7 @@ export function WidgetEditorModal({
                   seedPreviewOptions={seedPreviewOptions}
                   isLabMode={isLabMode}
                   connectionSlot={connectionRows}
+                  editorLanguage={editorLanguage}
                 />
                 {paramSelectCollisions.length > 0 && (
                   <Alert
@@ -858,7 +859,12 @@ export function WidgetEditorModal({
         ]
       : []),
     ...(isForm
-      ? [{ name: "Fields" as const, render: () => <FormFieldsEditor /> }]
+      ? [
+          {
+            name: "Fields" as const,
+            render: () => <FormFieldsEditor editorLanguage={editorLanguage} />,
+          },
+        ]
       : []),
     // Not a chart option: the fill and the info text are on the widget's
     // settings, beside the title (#2394).

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import dynamic from "next/dynamic";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 import {
   AlertCircle,
@@ -33,13 +32,7 @@ import { useEditorTerms, useOntology } from "@/hooks/use-ontology";
 import { useConcepts } from "@/hooks/use-concepts";
 import { parameterCompletions } from "@/lib/ontology/concept-wiring";
 import { useSchemaStore } from "@/stores/schema-store";
-
-// CodeMirror accesses real DOM APIs — load it only client-side.
-const QueryEditor = dynamic(
-  () =>
-    import("@neoboard/components").then((m) => ({ default: m.QueryEditor })),
-  { ssr: false },
-);
+import { QueryEditor } from "./lazy-query-editor";
 
 function formatTimeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
