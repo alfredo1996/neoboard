@@ -353,7 +353,7 @@ function SortableFieldItem({
 
 export function FormFieldsEditor({
   editorLanguage = "",
-}: FormFieldsEditorProps) {
+}: Readonly<FormFieldsEditorProps>) {
   const fields = useWidgetEditorStore((s) => s.formFields);
   const onChange = useWidgetEditorStore((s) => s.setFormFields);
   const { openItems, setOpenItems, addItem, removeItem, updateItem } =
