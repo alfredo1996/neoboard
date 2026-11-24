@@ -208,4 +208,95 @@ export default defineConfig([
       ...nextPlugin.configs["core-web-vitals"].rules,
     },
   },
+  {
+    // Package boundaries (#1879, CLAUDE.md "Three Packages"). Type-only imports
+    // are forbidden too: `allowTypeImports` stays unset on purpose. The hook
+    // .claude/hooks/check-boundaries.sh is the early warning; this is the gate.
+    files: ["component/src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@neoboard/connection",
+                "@neoboard/connection/*",
+                "../**/connection/**",
+                "@/connection/*",
+              ],
+              message:
+                "component/ must not import from connection/ (.claude/CLAUDE.md, Architecture).",
+            },
+            {
+              group: ["../**/app/**", "@/app/*"],
+              message:
+                "component/ must not import from app/ (.claude/CLAUDE.md, Architecture).",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["connection/src/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["react", "react/*", "react-dom", "react-dom/*"],
+              message:
+                "connection/ must not import React (.claude/CLAUDE.md, Architecture).",
+            },
+            {
+              group: [
+                "@neoboard/components",
+                "@neoboard/components/*",
+                "../**/component/**",
+              ],
+              message:
+                "connection/ must not import from component/ (.claude/CLAUDE.md, Architecture).",
+            },
+            {
+              group: ["../**/app/**"],
+              message:
+                "connection/ must not import from app/ (.claude/CLAUDE.md, Architecture).",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["connector-sdk/src/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["react", "react/*", "react-dom", "react-dom/*"],
+              message:
+                "connector-sdk/ must not import React (.claude/CLAUDE.md, Architecture).",
+            },
+            {
+              group: [
+                "@neoboard/connection",
+                "@neoboard/connection/*",
+                "@neoboard/components",
+                "@neoboard/components/*",
+                "../**/app/**",
+                "../**/component/**",
+                "../**/connection/**",
+              ],
+              message:
+                "connector-sdk/ is the public contract and imports no sibling package (.claude/CLAUDE.md, Architecture).",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
