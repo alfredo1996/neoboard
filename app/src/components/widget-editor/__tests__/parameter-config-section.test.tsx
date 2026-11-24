@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@neoboard/components", () => ({}));
+// The lazy editor's dynamic import resolves against the empty mock above and
+// rejects unhandled; these helper tests never render it.
+vi.mock("../lazy-query-editor", () => ({ QueryEditor: () => null }));
 vi.mock("lucide-react", () => {
   const Icon = () => null;
   return {
