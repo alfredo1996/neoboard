@@ -235,6 +235,8 @@ function SortableFieldItem({
         {/* Seed query (for select/multi-select/cascading-select) */}
         {needsSeedQuery(field.parameterType) && (
           <Field
+            id={`options-query-${field.id}`}
+            labelsControl={false}
             label="Options Query"
             optional
             help={
@@ -244,6 +246,8 @@ function SortableFieldItem({
             }
           >
             <QueryEditor
+              aria-labelledby={`options-query-${field.id}-label options-query-${field.id}-optional`}
+              showRun={false}
               value={field.seedQuery ?? ""}
               onChange={(v) => onUpdate(field.id, { seedQuery: v })}
               language={editorLanguage}

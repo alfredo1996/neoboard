@@ -75,20 +75,6 @@ vi.mock("@neoboard/components", async () => ({
       data-testid={id}
     />
   ),
-  Textarea: ({
-    id,
-    value,
-    onChange,
-    ...props
-  }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-    <textarea
-      id={id}
-      value={value}
-      onChange={onChange}
-      data-testid={id}
-      {...props}
-    />
-  ),
 }));
 
 vi.mock("lucide-react", () => {
@@ -108,14 +94,20 @@ vi.mock("../lazy-query-editor", () => ({
     onChange,
     language,
     placeholder,
+    showRun,
+    "aria-labelledby": labelledby,
   }: {
     value?: string;
     onChange?: (v: string) => void;
     language?: string;
     placeholder?: string;
+    showRun?: boolean;
+    "aria-labelledby"?: string;
   }) => (
     <textarea
       data-testid="query-editor"
+      data-show-run={String(showRun)}
+      aria-labelledby={labelledby}
       data-language={language}
       placeholder={placeholder}
       value={value}
@@ -765,6 +757,14 @@ describe("ParameterConfigSection — Seed Query editor (#2513)", () => {
     expect(screen.getByTestId("query-editor")).toHaveAttribute(
       "data-language",
       language,
+    );
+  });
+
+  it("the seed query shows no Run button: nothing here runs it", () => {
+    renderSeedEditor("cypher");
+    expect(screen.getByTestId("query-editor")).toHaveAttribute(
+      "data-show-run",
+      "false",
     );
   });
 

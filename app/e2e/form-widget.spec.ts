@@ -106,6 +106,26 @@ test.describe("Form widget", () => {
     await labelInputs.nth(1).fill("Message");
     await paramInputs.nth(1).fill("email");
 
+    // A dropdown field offers an Options Query editor named by its label (#2513)
+    await dialog
+      .getByRole("combobox", { name: "Input Type", exact: true })
+      .nth(1)
+      .click();
+    await page
+      .getByRole("option", { name: "Dropdown (Select)", exact: true })
+      .click();
+    await expect(
+      dialog.getByRole("textbox", {
+        name: "Options Query (optional)",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await dialog
+      .getByRole("combobox", { name: "Input Type", exact: true })
+      .nth(1)
+      .click();
+    await page.getByRole("option", { name: "Text", exact: true }).click();
+
     // Preview should show two labeled placeholders + Submit button
     await expect(dialog.getByText("Author", { exact: true })).toBeVisible({
       timeout: 5_000,

@@ -137,6 +137,7 @@ function SeedQueryInput({
       onChange={setDraft}
       language={language}
       placeholder={placeholder}
+      showRun={false}
       className="[&_.cm-editor]:min-h-[80px] [&_.cm-editor]:max-h-[320px]"
     />
   );

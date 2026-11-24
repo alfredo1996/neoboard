@@ -113,13 +113,6 @@ vi.mock("@neoboard/components", async () => ({
   ),
   SelectTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
   SelectValue: () => null,
-  Textarea: ({
-    value,
-    onChange,
-    ...props
-  }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-    <textarea value={value} onChange={onChange} {...props} />
-  ),
 }));
 
 vi.mock("lucide-react", () => {
@@ -141,14 +134,20 @@ vi.mock("../lazy-query-editor", () => ({
     onChange,
     language,
     placeholder,
+    showRun,
+    "aria-labelledby": labelledby,
   }: {
     value?: string;
     onChange?: (v: string) => void;
     language?: string;
     placeholder?: string;
+    showRun?: boolean;
+    "aria-labelledby"?: string;
   }) => (
     <textarea
       data-testid="query-editor"
+      data-show-run={String(showRun)}
+      aria-labelledby={labelledby}
       data-language={language}
       placeholder={placeholder}
       value={value}
@@ -351,6 +350,26 @@ describe("FormFieldsEditor", () => {
       ?.getAttribute("placeholder");
     expect(placeholder).toMatch(/value and label/);
     expect(placeholder).not.toMatch(/\b(SELECT|FROM|MATCH|RETURN)\b/);
+  });
+
+  it("the options query shows no Run button and is named by its label (#2513)", () => {
+    mockFormFields = [
+      {
+        id: "f1",
+        label: "Category",
+        parameterName: "category",
+        parameterType: "select",
+        required: false,
+      },
+    ];
+    render(<FormFieldsEditor />);
+    const editor = screen.getByTestId("query-editor");
+    expect(editor).toHaveAttribute("data-show-run", "false");
+    const names = editor
+      .getAttribute("aria-labelledby")!
+      .split(" ")
+      .map((id) => document.getElementById(id)?.textContent);
+    expect(names.join("").trim()).toBe("Options Query(optional)");
   });
 
   // The renderer falls back to the parameter name, so only that is required.
