@@ -151,7 +151,7 @@ Test version-skip paths. Boot migrations are controlled by `MIGRATE_ON_START` (`
 
 ## Automated Guardrails (Hooks)
 
-PreToolUse hooks block cross-package imports, an edit that adds a connector name under `app/src` or `component/src`, query interpolation, credential logging, barrel ECharts imports, chart components without `ssr: false`, edits on `main`, unapproved dependency installs, and `git commit` while UI files are waiting on Playwright. PostToolUse hooks run Prettier and `eslint --fix` on every TypeScript edit and report what they cannot fix. What each hook actually does is pinned by `scripts/__tests__/claude-hooks.node-test.mjs`.
+Package import boundaries are enforced by ESLint `no-restricted-imports` in `eslint.config.js` (#1879), so the CI `ESLint` job fails on one; the hook below is the early warning for agents. PreToolUse hooks block cross-package imports, an edit that adds a connector name under `app/src` or `component/src`, query interpolation, credential logging, barrel ECharts imports, chart components without `ssr: false`, edits on `main`, unapproved dependency installs, and `git commit` while UI files are waiting on Playwright. PostToolUse hooks run Prettier and `eslint --fix` on every TypeScript edit and report what they cannot fix. What each hook actually does is pinned by `scripts/__tests__/claude-hooks.node-test.mjs`.
 
 ## Compact instructions
 
