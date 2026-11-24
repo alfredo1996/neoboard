@@ -25,6 +25,8 @@ on:
       # code — and scripts/ holds the predev/prebuild import generators (#1263).
       - 'scripts/**'
       - 'eslint.config.js'
+      - 'vitest.config.ts'
+      - 'vitest.workspace-source.ts'
       - 'sonar-project.properties'
       - 'Dockerfile'
       - '.github/workflows/ci.yml'
@@ -54,6 +56,8 @@ on:
       # code — and scripts/ holds the predev/prebuild import generators (#1263).
       - 'scripts/**'
       - 'eslint.config.js'
+      - 'vitest.config.ts'
+      - 'vitest.workspace-source.ts'
       - 'sonar-project.properties'
       - 'Dockerfile'
       - '.github/workflows/ci.yml'

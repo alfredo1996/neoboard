@@ -16,6 +16,10 @@ const packages = ["connection", "connector-sdk"].map((dir) => {
   return { dir, name: pkg.name, exports: pkg.exports };
 });
 
+// Leaf strings of an `exports` map: subpath keys are not targets.
+const leaves = (v) =>
+  typeof v === "string" ? [v] : Object.values(v).flatMap(leaves);
+
 const specifiers = packages.flatMap(({ name, exports }) =>
   Object.keys(exports).map((key) => name + key.slice(1)),
 );
@@ -36,9 +40,29 @@ describe("workspace packages resolve from source in app tests", () => {
 
   it("connector-sdk still publishes only dist/", () => {
     const sdk = packages.find((p) => p.dir === "connector-sdk");
-    const targets = JSON.stringify(sdk.exports).match(/"\.\/[^"]+"/g);
+    const targets = leaves(sdk.exports);
     expect(targets.length).toBeGreaterThan(0);
-    for (const t of targets) expect(t.startsWith('"./dist/')).toBe(true);
+    for (const t of targets) expect(t.startsWith("./dist/")).toBe(true);
+  });
+
+  it("leaves ignores subpath keys and recurses into conditions", () => {
+    expect(
+      leaves({ "./x": { types: "./dist/x.d.ts", import: "./dist/x.js" } }),
+    ).toEqual(["./dist/x.d.ts", "./dist/x.js"]);
+  });
+
+  it.each(specifiers)("%s has a typecheck path under src/", (spec) => {
+    // the file carries // comments, which JSON.parse rejects
+    const typecheck = JSON.parse(
+      readFileSync(join(root, "app/tsconfig.typecheck.json"), "utf8").replace(
+        /^\s*\/\/.*$/gm,
+        "",
+      ),
+    );
+    const target = typecheck.compilerOptions.paths[spec];
+    expect(target, ).toBeDefined();
+    expect(target[0]).toContain("/src/");
+    expect(existsSync(join(root, "app", target[0]))).toBe(true);
   });
 
   it("app tsconfig paths do not map the workspace packages", () => {
