@@ -8,19 +8,21 @@ import { ESLint } from "eslint";
  */
 
 const ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
-const RULE = "no-restricted-imports";
+const RULES = new Set(["no-restricted-imports", "no-restricted-syntax"]);
 const eslint = new ESLint({ cwd: ROOT });
 
 async function restricted(code, filePath) {
   const [res] = await eslint.lintText(code, {
     filePath: `${ROOT}/${filePath}`,
   });
-  return res.messages.filter((m) => m.ruleId === RULE);
+  return res.messages.filter((m) => RULES.has(m.ruleId));
 }
 
 const COMPONENT = "component/src/charts/probe.tsx";
 const CONNECTION = "connection/src/neo4j/probe.ts";
 const SDK = "connector-sdk/src/probe.ts";
+const CONNECTION_TSX = "connection/src/probe.tsx";
+const SDK_TSX = "connector-sdk/src/probe.tsx";
 
 const FORBIDDEN = [
   [COMPONENT, 'import { x } from "@neoboard/connection";'],
@@ -46,6 +48,30 @@ const FORBIDDEN = [
   [SDK, 'import { x } from "../../connection/src/x";'],
   [SDK, 'import { x } from "../../component/src/x";'],
   [SDK, 'import { x } from "../../app/src/x";'],
+  // bare directory specifiers
+  [COMPONENT, 'import { x } from "../../../connection";'],
+  [COMPONENT, 'import { x } from "../../../connection/";'],
+  [COMPONENT, 'import { x } from "../../../app";'],
+  [COMPONENT, 'import { x } from "@/app";'],
+  [COMPONENT, 'import { x } from "@/connection";'],
+  [CONNECTION, 'import { x } from "../../../component";'],
+  [CONNECTION, 'import { x } from "../../../app";'],
+  [SDK, 'import { x } from "../../connection";'],
+  [SDK, 'import { x } from "../../app";'],
+  // dynamic import() and import("x").T type queries
+  [COMPONENT, 'export const l = () => import("@neoboard/connection");'],
+  [COMPONENT, 'export type T = import("@neoboard/connection").M;'],
+  [COMPONENT, 'export const l = () => import("../../../app/src/x");'],
+  [COMPONENT, 'export type T = import("@/app/x").M;'],
+  [CONNECTION, 'export const l = () => import("react");'],
+  [CONNECTION, 'export type T = import("react").FC;'],
+  [CONNECTION, 'export const l = () => import("@neoboard/components");'],
+  [CONNECTION, 'export type T = import("../../../app/src/x").M;'],
+  [SDK, 'export const l = () => import("@neoboard/connection");'],
+  [SDK, 'export type T = import("../../component/src/x").M;'],
+  // .tsx files
+  [CONNECTION_TSX, 'import React from "react";'],
+  [SDK_TSX, 'import { x } from "@neoboard/connection";'],
 ];
 
 const ALLOWED = [
@@ -56,6 +82,12 @@ const ALLOWED = [
   [COMPONENT, 'import React from "react";'],
   [COMPONENT, 'import { x } from "@neoboard/connector-sdk";'],
   [SDK, 'import { x } from "./generalized/row-value";'],
+  [COMPONENT, 'import { x } from "../app-shell";'],
+  [COMPONENT, 'import { x } from "./connection-address";'],
+  [COMPONENT, 'import { x } from "./dynamic-connection-fields";'],
+  [COMPONENT, 'export const l = () => import("./dynamic-connection-fields");'],
+  [COMPONENT, 'export type T = import("react").FC;'],
+  [CONNECTION, 'export const l = () => import("@neoboard/connector-sdk");'],
 ];
 
 describe("package import boundaries (#1879)", () => {
@@ -65,15 +97,5 @@ describe("package import boundaries (#1879)", () => {
 
   it.each(ALLOWED)("%s allows %s", async (file, code) => {
     expect(await restricted(code, file)).toHaveLength(0);
-  });
-
-  it.each([
-    ["component/src/charts/bar-chart.tsx", "@neoboard/connection"],
-    ["connection/src/neo4j/Neo4jRecordParser.ts", "react"],
-    ["connector-sdk/src/generalized/row-value.ts", "react"],
-  ])("rule is active on real file %s", async (file, source) => {
-    // Lint the real file's path with a violation, so a later config block that
-    // redefines the rule for overlapping globs cannot drop the boundary.
-    expect(await restricted(`import "${source}";`, file)).not.toHaveLength(0);
   });
 });

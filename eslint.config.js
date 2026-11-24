@@ -7,6 +7,126 @@ import vitestPlugin from "@vitest/eslint-plugin";
 import jestPlugin from "eslint-plugin-jest";
 import { defineConfig, globalIgnores } from "eslint/config";
 
+// Package boundaries (#1879, CLAUDE.md "Three Packages"). Type-only imports are
+// forbidden too (`allowTypeImports` unset). The hook .claude/hooks/check-boundaries.sh
+// is the early warning; this is the gate. `no-restricted-imports` only sees static
+// imports/exports, so `no-restricted-syntax` selectors cover `import("x")` and
+// `import("x").T` type queries. No other block sets `no-restricted-syntax`; a
+// later one for these globs would replace this one wholesale, so merge into it.
+// Selector regexes avoid a literal "/" (esquery cannot parse one): \x2f.
+function rel(name) {
+  return `^\\.\\.\\x2f(.*\\x2f)?${name}(\\x2f|$)`;
+}
+function pkg(name) {
+  return `^${name}(\\x2f|$)`;
+}
+function boundary({ files, groups }) {
+  return {
+    files,
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: groups.map(({ patterns, message }) => ({
+            group: patterns,
+            message,
+          })),
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        ...groups.flatMap(({ regex, message }) => {
+          return [
+            {
+              selector: `ImportExpression > Literal.source[value=/${regex}/]`,
+              message,
+            },
+            {
+              selector: `TSImportType > Literal.source[value=/${regex}/]`,
+              message,
+            },
+          ];
+        }),
+      ],
+    },
+  };
+}
+const BOUNDARY_ERR = (from, to) =>
+  `${from}/ must not import from ${to}/ (#1879).`;
+const REACT = {
+  patterns: ["react", "react/*", "react-dom", "react-dom/*"],
+  regex: "^react(-dom)?(\\x2f|$)",
+};
+function boundaryBlocks() {
+  return [
+    boundary({
+      files: ["component/src/**/*.{ts,tsx}"],
+      groups: [
+        {
+          patterns: [
+            "@neoboard/connection",
+            "@neoboard/connection/*",
+            "../**/connection",
+            "@/connection",
+            "@/connection/*",
+          ],
+          regex: `${pkg("@neoboard\\x2fconnection")}|${rel("connection")}|^@\\x2fconnection(\\x2f|$)`,
+          message: BOUNDARY_ERR("component", "connection"),
+        },
+        {
+          patterns: ["../**/app", "@/app", "@/app/*"],
+          regex: `${rel("app")}|^@\\x2fapp(\\x2f|$)`,
+          message: BOUNDARY_ERR("component", "app"),
+        },
+      ],
+    }),
+    boundary({
+      files: ["connection/src/**/*.{ts,tsx}"],
+      groups: [
+        {
+          ...REACT,
+          message:
+            "connection/ must not import React (.claude/CLAUDE.md, Architecture).",
+        },
+        {
+          patterns: [
+            "@neoboard/components",
+            "@neoboard/components/*",
+            "../**/component",
+          ],
+          regex: `${pkg("@neoboard\\x2fcomponents")}|${rel("component")}`,
+          message: BOUNDARY_ERR("connection", "component"),
+        },
+        {
+          patterns: ["../**/app"],
+          regex: rel("app"),
+          message: BOUNDARY_ERR("connection", "app"),
+        },
+      ],
+    }),
+    boundary({
+      files: ["connector-sdk/src/**/*.{ts,tsx}"],
+      groups: [
+        { ...REACT, message: "connector-sdk/ must not import React (#1879)." },
+        {
+          patterns: [
+            "@neoboard/connection",
+            "@neoboard/connection/*",
+            "@neoboard/components",
+            "@neoboard/components/*",
+            "../**/app",
+            "../**/component",
+            "../**/connection",
+          ],
+          regex: `${pkg("@neoboard\\x2f(connection|components)")}|${rel("(app|component|connection)")}`,
+          message:
+            "connector-sdk/ is the public contract and imports no sibling package (#1879).",
+        },
+      ],
+    }),
+  ];
+}
+
 export default defineConfig([
   globalIgnores([
     "**/dist",
@@ -208,95 +328,5 @@ export default defineConfig([
       ...nextPlugin.configs["core-web-vitals"].rules,
     },
   },
-  {
-    // Package boundaries (#1879, CLAUDE.md "Three Packages"). Type-only imports
-    // are forbidden too: `allowTypeImports` stays unset on purpose. The hook
-    // .claude/hooks/check-boundaries.sh is the early warning; this is the gate.
-    files: ["component/src/**/*.{ts,tsx}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: [
-                "@neoboard/connection",
-                "@neoboard/connection/*",
-                "../**/connection/**",
-                "@/connection/*",
-              ],
-              message:
-                "component/ must not import from connection/ (.claude/CLAUDE.md, Architecture).",
-            },
-            {
-              group: ["../**/app/**", "@/app/*"],
-              message:
-                "component/ must not import from app/ (.claude/CLAUDE.md, Architecture).",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    files: ["connection/src/**/*.ts"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: ["react", "react/*", "react-dom", "react-dom/*"],
-              message:
-                "connection/ must not import React (.claude/CLAUDE.md, Architecture).",
-            },
-            {
-              group: [
-                "@neoboard/components",
-                "@neoboard/components/*",
-                "../**/component/**",
-              ],
-              message:
-                "connection/ must not import from component/ (.claude/CLAUDE.md, Architecture).",
-            },
-            {
-              group: ["../**/app/**"],
-              message:
-                "connection/ must not import from app/ (.claude/CLAUDE.md, Architecture).",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    files: ["connector-sdk/src/**/*.ts"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: ["react", "react/*", "react-dom", "react-dom/*"],
-              message:
-                "connector-sdk/ must not import React (.claude/CLAUDE.md, Architecture).",
-            },
-            {
-              group: [
-                "@neoboard/connection",
-                "@neoboard/connection/*",
-                "@neoboard/components",
-                "@neoboard/components/*",
-                "../**/app/**",
-                "../**/component/**",
-                "../**/connection/**",
-              ],
-              message:
-                "connector-sdk/ is the public contract and imports no sibling package (.claude/CLAUDE.md, Architecture).",
-            },
-          ],
-        },
-      ],
-    },
-  },
+  ...boundaryBlocks(),
 ]);
