@@ -23,7 +23,7 @@ git diff --name-only "origin/$BASE...HEAD"
 
 ## 2. Before the first run in a fresh worktree
 
-Run `npm ci`, then `npm -w connector-sdk run build && npm -w connection run build`. Without those builds, about 67 app tests fail on module resolution. Never symlink `node_modules` into a worktree.
+Run `npm ci`. Nothing else: app tests and `npm run typecheck` resolve connector-sdk and connection from `src/` (#1878), so no build is needed. Never symlink `node_modules` into a worktree.
 
 ## 3. Run, per package
 
@@ -32,7 +32,7 @@ Run `npm ci`, then `npm -w connector-sdk run build && npm -w connection run buil
 | `app/`                                                                       | `npm -w app run test`, and `npm -w app exec tsc -- --noEmit`                                                                                                                             |
 | `component/`                                                                 | `npm -w component run test`                                                                                                                                                              |
 | `connector-sdk/`                                                             | `npm -w connector-sdk run test` (Jest), then rebuild it and run the `connection` row. `npm run verify` runs neither suite.                                                               |
-| `connection/`                                                                | `npm -w connector-sdk run build && npm -w connection run build`, then `npm -w connection run test`. It needs Docker, and `npm run verify` does NOT run it.                               |
+| `connection/`                                                                | `npm -w connection run test`. It needs Docker, and `npm run verify` does NOT run it.                                                                                                     |
 | `cli/`                                                                       | `npm -w cli run test`                                                                                                                                                                    |
 | `scripts/` or `.claude/`                                                     | `npm run test:scripts`. To run one file: `npx vitest run scripts/__tests__/<file> --exclude '**/.claude/**'`, because a path filter also matches the copies inside `.claude/worktrees/`. |
 | UI (`app/src/app`, `app/src/components`, `app/src/plugins`, `component/src`) | the affected E2E spec, below                                                                                                                                                             |

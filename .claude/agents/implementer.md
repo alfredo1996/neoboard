@@ -11,7 +11,7 @@ You implement ONE issue of alfredo1996/neoboard. The lead's prompt gives the iss
 ## Setup
 
 1. `git fetch origin <base> && git checkout -b <type>/issue-<N>-<slug> origin/<base>`.
-2. `npm ci` (never symlink node_modules), then `npm -w connector-sdk run build && npm -w connection run build`.
+2. `npm ci` (never symlink node_modules). No package build: app tests and `npm run typecheck` read connector-sdk and connection from `src/` (#1878).
 3. `gh issue view <N> --repo alfredo1996/neoboard --json title,body,labels,comments` — owner decisions live in the comments. Without `--json`, `gh issue view` fails on this repo.
 
 ## Work

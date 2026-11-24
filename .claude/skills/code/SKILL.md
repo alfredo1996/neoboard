@@ -32,7 +32,7 @@ allowed-tools: Read, Write, Edit, MultiEdit, Agent, SendMessage, Bash(npm *), Ba
   git worktree add .claude/worktrees/<name> -b <type>/<slug> "origin/$BASE"
   ```
 
-  A fresh worktree needs `npm ci`, then `npm -w connector-sdk run build && npm -w connection run build`. Never symlink `node_modules`.
+  A fresh worktree needs `npm ci` only: app tests and typecheck resolve connector-sdk and connection from `src/` (#1878). Never symlink `node_modules`.
 
 ## TDD (mandatory)
 

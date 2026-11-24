@@ -86,9 +86,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build connector-sdk + connection packages
-        run: npm -w connector-sdk run build && npm -w connection run build
-
       # The two library packages' tsconfigs include their __tests__: ts-jest
       # runs with `diagnostics: false`, so this is the only type check their
       # tests get (#1918).
@@ -102,7 +99,7 @@ jobs:
         run: npm -w component exec tsc -- --noEmit
 
       - name: Type-check app
-        run: npm -w app exec tsc -- --noEmit
+        run: npm -w app exec tsc -- --noEmit -p tsconfig.typecheck.json
 
   # ── Job 0b: Lint ────────────────────────────────────────────────────────────
   # Husky/lint-staged is bypassable with --no-verify; gate errors in CI (#975).
@@ -184,9 +181,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Build connector-sdk + connection packages
-        run: npm -w connector-sdk run build && npm -w connection run build
 
       # Bounded fan-out (#1240). Five suites started at once put ~13 workers
       # (plus the Postgres/Neo4j containers and connection's Testcontainers) on
