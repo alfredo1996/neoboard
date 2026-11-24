@@ -116,7 +116,7 @@ describe("assertServerPortsFree", () => {
 });
 
 describe("waitForServer", () => {
-  it("rejects with the exit code when the child dies, though another listener answers", async () => {
+  it("rejects with the exit code when a foreign listener answers and the child exits late", async () => {
     const other = http.createServer((_, res) => res.end("other run"));
     await new Promise<void>((r) => other.listen(0, r));
     const port = (other.address() as net.AddressInfo).port;
@@ -126,21 +126,35 @@ describe("waitForServer", () => {
       child,
       () => "EADDRINUSE",
       5_000,
-      10_000,
-      200,
+      () => false,
+      20,
     );
-    setTimeout(() => child.emit("exit", 1, null), 20);
+    setTimeout(() => child.emit("exit", 1, null), 300);
     await expect(wait).rejects.toThrow(/code 1[\s\S]*EADDRINUSE/);
     other.close();
   });
 
-  it("resolves when the live child's server answers", async () => {
+  it("resolves when the child is bound and the server answers", async () => {
     const srv = http.createServer((_, res) => res.end("ok"));
     await new Promise<void>((r) => srv.listen(0, r));
     const port = (srv.address() as net.AddressInfo).port;
     await expect(
-      waitForServer(port, new EventEmitter(), () => "", 5_000, 500, 0),
+      waitForServer(port, new EventEmitter(), () => "", 5_000, () => true, 20),
     ).resolves.toBeUndefined();
+    srv.close();
+  });
+
+  it("rejects at the deadline when a listener accepts and never answers", async () => {
+    const sockets: net.Socket[] = [];
+    const srv = net.createServer((s) => sockets.push(s));
+    await new Promise<void>((r) => srv.listen(0, r));
+    const port = (srv.address() as net.AddressInfo).port;
+    const t0 = Date.now();
+    await expect(
+      waitForServer(port, new EventEmitter(), () => "", 300, () => true, 20),
+    ).rejects.toThrow(`Port ${port} not available after 300ms`);
+    expect(Date.now() - t0).toBeLessThan(2_000);
+    sockets.forEach((s) => s.destroy());
     srv.close();
   });
 });

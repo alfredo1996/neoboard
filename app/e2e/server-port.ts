@@ -81,27 +81,32 @@ export function assertServerPortsFree(
 }
 
 /**
- * Resolve when the spawned server answers on `port`; reject at once, with its
- * exit code and stderr tail, if the server exits first. A bare HTTP answer is
- * not enough: another run's server on the same port would satisfy it, so the
- * first answer is only trusted after `graceMs`.
+ * Resolve when the spawned server answers on `port` AND `bound()` says the
+ * child itself bound it; reject at once, with its exit code and stderr tail,
+ * if the server exits first, or at `timeoutMs` if it never answers. A bare
+ * HTTP answer is not enough: another run's server on the same port would
+ * satisfy it. `next start` logs "Ready in" only from its own `listening`
+ * handler and exits 1 on EADDRINUSE, so a child that lost the bind never
+ * becomes `bound()` and its exit rejects the wait.
  */
 export function waitForServer(
   port: number,
   child: EventEmitter,
   stderrTail: () => string,
   timeoutMs: number,
+  bound: () => boolean,
   pollMs = 500,
-  graceMs = 2_000,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const start = Date.now();
     let timer: NodeJS.Timeout | undefined;
+    let req: http.ClientRequest | undefined;
     let done = false;
     const finish = (err?: Error) => {
       if (done) return;
       done = true;
       clearTimeout(timer);
+      clearTimeout(deadline);
+      req?.destroy();
       child.off("exit", onExit);
       if (err) reject(err);
       else resolve();
@@ -113,23 +118,24 @@ export function waitForServer(
         ),
       );
     child.once("exit", onExit);
-    // A server that lost the bind race exits within a few hundred ms, while the
-    // foreign listener that beat it answers at once. Give the exit time to land
-    // before trusting a first answer; a real Next.js start takes longer anyway.
+    // Independent of the request: a listener that accepts and never answers
+    // fires neither callback below.
+    const deadline = setTimeout(
+      () =>
+        finish(new Error(`Port ${port} not available after ${timeoutMs}ms`)),
+      timeoutMs,
+    );
+    const retry = () => {
+      if (!done) timer = setTimeout(check, pollMs);
+    };
     const check = () => {
-      const req = http.get(`http://localhost:${port}/`, (res) => {
+      if (!bound()) return retry();
+      req = http.get(`http://localhost:${port}/`, (res) => {
         res.resume();
         finish();
       });
-      req.on("error", () => {
-        if (done) return;
-        if (Date.now() - start > timeoutMs) {
-          finish(new Error(`Port ${port} not available after ${timeoutMs}ms`));
-        } else {
-          timer = setTimeout(check, pollMs);
-        }
-      });
+      req.on("error", retry);
     };
-    timer = setTimeout(check, graceMs);
+    timer = setTimeout(check, 0);
   });
 }

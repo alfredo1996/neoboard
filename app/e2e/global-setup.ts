@@ -380,6 +380,14 @@ export default async function globalSetup() {
     stderrTail = (stderrTail + d).slice(-2000);
   });
 
+  // `next start` prints "Ready in" only once its own listen succeeded.
+  let bound = false;
+  let stdoutTail = "";
+  server.stdout?.on("data", (d: Buffer) => {
+    stdoutTail = (stdoutTail + d).slice(-200);
+    if (stdoutTail.includes("Ready in")) bound = true;
+  });
+
   // Forward server output to the console for debugging.
   server.stdout?.on("data", (d: Buffer) =>
     process.stdout.write(`[NextServer] ${d}`),
@@ -393,7 +401,13 @@ export default async function globalSetup() {
 
   // Wait for OUR server to accept connections (up to 60 s); fails at once if
   // it exits first instead of polling someone else's server on the port.
-  await waitForServer(serverPort, server, () => stderrTail, 60_000);
+  await waitForServer(
+    serverPort,
+    server,
+    () => stderrTail,
+    60_000,
+    () => bound,
+  );
   console.log(`✅ Next.js server ready on port ${serverPort}`);
 
   // ── Initialize E2E coverage collection (nextcov) ────────────────────────
