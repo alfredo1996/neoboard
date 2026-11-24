@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ESLint } from "eslint";
+import { fileURLToPath } from "node:url";
 
 /**
  * #1879 — package boundaries (CLAUDE.md "Three Packages") are enforced by
@@ -7,7 +8,7 @@ import { ESLint } from "eslint";
  * PreToolUse hook only sees agent edits and misses package-name imports.
  */
 
-const ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
+const ROOT = fileURLToPath(new URL("../..", import.meta.url)).replace(/\/$/, "");
 const RULES = new Set(["no-restricted-imports", "no-restricted-syntax"]);
 const eslint = new ESLint({ cwd: ROOT });
 
@@ -69,6 +70,10 @@ const FORBIDDEN = [
   [CONNECTION, 'export type T = import("../../../app/src/x").M;'],
   [SDK, 'export const l = () => import("@neoboard/connection");'],
   [SDK, 'export type T = import("../../component/src/x").M;'],
+  // no-substitution template literal sources
+  [COMPONENT, 'export const l = () => import(`@neoboard/connection`);'],
+  [CONNECTION, 'export const l = () => import(`react`);'],
+  [SDK, 'export const l = () => import(`../../app/src/x`);'],
   // .tsx files
   [CONNECTION_TSX, 'import React from "react";'],
   [SDK_TSX, 'import { x } from "@neoboard/connection";'],
@@ -86,6 +91,7 @@ const ALLOWED = [
   [COMPONENT, 'import { x } from "./connection-address";'],
   [COMPONENT, 'import { x } from "./dynamic-connection-fields";'],
   [COMPONENT, 'export const l = () => import("./dynamic-connection-fields");'],
+  [COMPONENT, 'export const l = () => import(`./dynamic-connection-fields`);'],
   [COMPONENT, 'export type T = import("react").FC;'],
   [CONNECTION, 'export const l = () => import("@neoboard/connector-sdk");'],
 ];

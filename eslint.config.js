@@ -45,6 +45,11 @@ function boundary({ files, groups }) {
               selector: `TSImportType > Literal.source[value=/${regex}/]`,
               message,
             },
+            // import(`x`); a template with substitutions cannot be checked statically.
+            {
+              selector: `ImportExpression > TemplateLiteral.source[expressions.length=0] > TemplateElement[value.cooked=/${regex}/]`,
+              message,
+            },
           ];
         }),
       ],
