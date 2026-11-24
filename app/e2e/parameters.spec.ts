@@ -122,7 +122,9 @@ test.describe("Parameter selectors", () => {
     await dialog
       .getByRole("combobox", { name: "Connection", exact: true })
       .click();
-    await page.getByRole("option").first().click();
+    await page
+      .getByRole("option", { name: "Movies Graph (Neo4j) Neo4j", exact: true })
+      .click();
     const matchClass = (root: import("@playwright/test").Locator) =>
       root
         .locator("span", { hasText: /^MATCH$/ })
