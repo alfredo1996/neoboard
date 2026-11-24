@@ -40,10 +40,10 @@ Run `npm ci`, then `npm -w connector-sdk run build && npm -w connection run buil
 **E2E:** run only the affected spec, with exactly one `cd` per command, or the commit hook's E2E gate can't see the run.
 
 ```bash
-cd app && TEST_SERVER_PORT=<port> npx playwright test e2e/<spec>.spec.ts --workers=2 --retries=0 --reporter=dot
+cd app && npx playwright test e2e/<spec>.spec.ts --workers=2 --retries=0 --reporter=dot
 ```
 
-- Use a free port (3400 or above) when another worktree may be running E2E.
+- Leave `TEST_SERVER_PORT` unset: the run picks a free port (and a free CDP port, +6130) itself, so concurrent worktrees do not collide (#1880). Set it only to pin a port; a busy one fails setup at once, naming it.
 - After a Playwright version bump, run `npx playwright install chromium` once.
 - CI's five shards run everything.
 
