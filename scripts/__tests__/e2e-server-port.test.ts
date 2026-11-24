@@ -4,6 +4,8 @@ import * as net from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   CDP_OFFSET,
+  PICK_MIN,
+  PICK_SPAN,
   assertServerPortsFree,
   isPortFree,
   resolveServerPort,
@@ -15,11 +17,11 @@ afterEach(() => {
   for (const s of open.splice(0)) s.close();
 });
 
-function hold(port = 0): Promise<number> {
+function hold(port = 0, host?: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const s = net.createServer();
     s.on("error", reject);
-    s.listen(port, () => {
+    s.listen(port, host, () => {
       open.push(s);
       resolve((s.address() as net.AddressInfo).port);
     });
@@ -27,25 +29,38 @@ function hold(port = 0): Promise<number> {
 }
 
 describe("resolveServerPort", () => {
-  it("unset: picks a free pair, not the held default, and writes it to env", async () => {
-    await hold(3100).catch(() => undefined);
+  it("unset: writes the picked port and its auto flag to env", () => {
     const env: NodeJS.ProcessEnv = {};
-    const port = resolveServerPort(env);
-    expect(port).not.toBe(3100);
+    const port = resolveServerPort(
+      env,
+      () => 0.5,
+      () => true,
+    );
     expect(env.TEST_SERVER_PORT).toBe(String(port));
-    expect(isPortFree(port)).toBe(true);
-    expect(isPortFree(port + CDP_OFFSET)).toBe(true);
+    expect(env.TEST_SERVER_PORT_AUTO).toBe("1");
+  });
+
+  it("keeps picks, plus the CDP partner, below Linux's ephemeral range", () => {
+    expect(PICK_MIN + PICK_SPAN + CDP_OFFSET).toBeLessThanOrEqual(32_768);
+    expect(PICK_SPAN).toBe(6_000);
+    expect(
+      resolveServerPort(
+        {},
+        () => 0.999999,
+        () => true,
+      ),
+    ).toBe(25_999);
   });
 
   it("unset: skips a candidate whose CDP partner is busy", () => {
-    const busy = new Set([20_000 + CDP_OFFSET]);
+    const busy = new Set([PICK_MIN + CDP_OFFSET]);
     const rolls = [0, 0.5];
     const port = resolveServerPort(
       {},
       () => rolls.shift() ?? 0.5,
       (p) => !busy.has(p),
     );
-    expect(port).toBe(26_000);
+    expect(port).toBe(23_000);
   });
 
   it("set: returns that port untouched", () => {
@@ -53,7 +68,34 @@ describe("resolveServerPort", () => {
   });
 });
 
+describe("isPortFree", () => {
+  it.each([
+    ["127.0.0.1", "127.0.0.1"],
+    ["::1", "::1"],
+    ["::", "::"],
+  ])("is false while another process listens on %s", async (_n, host) => {
+    const port = await hold(0, host);
+    expect(isPortFree(port)).toBe(false);
+  });
+
+  it("is true for a port nobody holds", async () => {
+    const port = await hold(0, "127.0.0.1");
+    open.pop()?.close();
+    expect(isPortFree(port)).toBe(true);
+  });
+});
+
 describe("assertServerPortsFree", () => {
+  it("tells an explicit port's owner to unset it, and an auto-picked one to re-run", () => {
+    const busy = () => false;
+    expect(() => assertServerPortsFree(3500, busy, {})).toThrow(
+      /Unset TEST_SERVER_PORT/,
+    );
+    expect(() =>
+      assertServerPortsFree(3500, busy, { TEST_SERVER_PORT_AUTO: "1" }),
+    ).toThrow(/re-run to pick another port/);
+  });
+
   it("throws naming the busy server port and how to find its owner", async () => {
     const port = await hold();
     expect(() => assertServerPortsFree(port)).toThrow(

@@ -4,10 +4,22 @@ import type { EventEmitter } from "node:events";
 
 /** nextcov's CDP port is the server port plus this (#1606). */
 export const CDP_OFFSET = 6130;
-// Below Linux's ephemeral range (32768+), and low enough that port + CDP_OFFSET
-// stays a valid port.
-const PICK_MIN = 20_000;
-const PICK_SPAN = 12_000;
+// A pick and its CDP partner (pick + CDP_OFFSET) both stay below Linux's
+// ephemeral range (32768+), where Docker publishes Testcontainers host ports.
+export const PICK_MIN = 20_000;
+export const PICK_SPAN = 6_000;
+
+// A wildcard bind alone succeeds on macOS next to a listener on 127.0.0.1, ::1
+// or localhost (and next to another run's --inspect CDP port), so connect to
+// both loopbacks first, then bind.
+const PROBE = `
+const net=require('node:net'),p=+process.argv[1];
+const up=h=>new Promise(r=>{const c=net.connect({port:p,host:h});
+c.on('connect',()=>{c.destroy();r(true)});c.on('error',()=>r(false))});
+(async()=>{
+if(await up('127.0.0.1')||await up('::1'))process.exit(1);
+const s=net.createServer();s.on('error',()=>process.exit(1));s.listen(p,()=>s.close());
+})();`;
 
 /**
  * True when nothing is listening on `port`. Probed in a child process so the
@@ -15,15 +27,9 @@ const PICK_SPAN = 12_000;
  */
 export function isPortFree(port: number): boolean {
   try {
-    execFileSync(
-      process.execPath,
-      [
-        "-e",
-        "const s=require('node:net').createServer();s.on('error',()=>process.exit(1));s.listen(+process.argv[1],()=>s.close());",
-        String(port),
-      ],
-      { stdio: "ignore" },
-    );
+    execFileSync(process.execPath, ["-e", PROBE, String(port)], {
+      stdio: "ignore",
+    });
     return true;
   } catch {
     return false;
@@ -47,6 +53,7 @@ export function resolveServerPort(
     const port = PICK_MIN + Math.floor(random() * PICK_SPAN);
     if (portFree(port) && portFree(port + CDP_OFFSET)) {
       env.TEST_SERVER_PORT = String(port);
+      env.TEST_SERVER_PORT_AUTO = "1";
       return port;
     }
   }
@@ -57,13 +64,17 @@ export function resolveServerPort(
 export function assertServerPortsFree(
   port: number,
   portFree: (port: number) => boolean = isPortFree,
+  env: NodeJS.ProcessEnv = process.env,
 ): void {
+  const advice = env.TEST_SERVER_PORT_AUTO
+    ? "The port was picked automatically and taken since; re-run to pick another port."
+    : "Unset TEST_SERVER_PORT to pick a free port automatically.";
   for (const p of [port, port + CDP_OFFSET]) {
     if (!portFree(p)) {
       throw new Error(
         `Port ${p} is already in use (server port ${port}, CDP port ${port + CDP_OFFSET}). ` +
           `Another E2E run or process owns it; find it with: lsof -nP -iTCP:${p} -sTCP:LISTEN. ` +
-          `Unset TEST_SERVER_PORT to pick a free port automatically.`,
+          advice,
       );
     }
   }
