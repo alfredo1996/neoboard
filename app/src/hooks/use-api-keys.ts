@@ -55,11 +55,13 @@ export function useCreateApiKey() {
       // own row in the list (minus the one-time secret), then refetch.
       await queryClient.cancelQueries({ queryKey: ["api-keys"] });
       queryClient.setQueryData<ApiKeyListItem[]>(["api-keys"], (old = []) => [
+        // Same id already there: a list GET read after the INSERT landed first.
+        // Appended, as the route lists rows in insertion order.
+        ...old.filter((k) => k.id !== row.id),
         { lastUsedAt: null, ...row },
-        ...old,
       ]);
       // Not awaited: the dialog must not wait on the refetch.
-      queryClient.invalidateQueries({ queryKey: ["api-keys"] });
+      void queryClient.invalidateQueries({ queryKey: ["api-keys"] });
     },
   });
 }
