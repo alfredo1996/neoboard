@@ -35,8 +35,14 @@ test.describe("Model pane in the widget editor (#1693)", () => {
     await page.goto(`/${id}/edit`);
     await expect(editingCrumb(page)).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole("button", { name: "Add Widget" }).first().click();
-    const dialog = page.getByRole("dialog", { name: "Add Widget" });
+    await page
+      .getByRole("button", { name: "Add Widget", exact: true })
+      .first()
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: "Add Widget",
+      exact: true,
+    });
     const model = dialog.getByRole("button", { name: "Model", exact: true });
     await expect(model).toBeDisabled();
 
@@ -48,17 +54,17 @@ test.describe("Model pane in the widget editor (#1693)", () => {
 
     await typeInEditor(dialog, page, "MATCH (m:Movie) RETURN m.");
     const cm = dialog.locator("[data-testid='codemirror-container']");
-    // The cursor goes at the end, after "m.".
-    await cm.evaluate((el: HTMLElement) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const view = (el as any).__cmView;
-      view.dispatch({ selection: { anchor: view.state.doc.length } });
-    });
 
     await model.click();
-    const pane = dialog.getByRole("tab", { name: "Model", selected: true });
+    const pane = dialog.getByRole("radio", {
+      name: "Model",
+      exact: true,
+      checked: true,
+    });
     await expect(pane).toBeVisible();
-    await dialog.getByRole("button", { name: "Open Movie" }).click();
+    await dialog
+      .getByRole("button", { name: "Open Movie", exact: true })
+      .click();
     await dialog.getByRole("button", { name: /^title\b/ }).click();
 
     await expect(async () => {
@@ -73,8 +79,57 @@ test.describe("Model pane in the widget editor (#1693)", () => {
 
     await dialog.getByRole("button", { name: "Run", exact: true }).click();
     await expect(
-      dialog.getByRole("tab", { name: "Preview", selected: true }),
+      dialog.getByRole("radio", {
+        name: "Preview",
+        exact: true,
+        checked: true,
+      }),
     ).toBeVisible();
-    await expect(dialog.getByTestId("widget-preview")).toBeVisible();
+    // The query ran: the default bar chart reports the one column (title) it got back.
+    await expect(dialog.getByTestId("widget-preview")).toContainText(
+      "returned only 1 column",
+    );
+  });
+
+  test("a SQL foreign key shows the tables it joins and inserts nothing", async ({
+    page,
+    authPage,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await authPage.login(ALICE.email, ALICE.password);
+    const { id, cleanup } = await createTestDashboard(
+      page.request,
+      `Model Pane FK ${uid()}`,
+    );
+    dashboardCleanup = cleanup;
+    await page.goto(`/${id}/edit`);
+    await expect(editingCrumb(page)).toBeVisible({ timeout: 10_000 });
+
+    await page
+      .getByRole("button", { name: "Add Widget", exact: true })
+      .first()
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: "Add Widget",
+      exact: true,
+    });
+    await dialog
+      .getByRole("combobox", { name: "Connection", exact: true })
+      .click();
+    await page
+      .getByRole("option", { name: /Movies DB \(PostgreSQL\)/ })
+      .click();
+    await dialog.getByRole("button", { name: "Model", exact: true }).click();
+
+    await expect(
+      dialog.getByText("roles → people", { exact: true }),
+    ).toBeVisible();
+    await expect(dialog.getByRole("button", { name: /person_id/ })).toHaveCount(
+      0,
+    );
+    // A table is still a name to insert.
+    await expect(
+      dialog.getByTitle("Insert people", { exact: true }),
+    ).toBeVisible();
   });
 });

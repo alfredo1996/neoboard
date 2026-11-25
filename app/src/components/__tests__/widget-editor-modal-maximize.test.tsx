@@ -21,19 +21,25 @@ import type {
 
 vi.mock("next/dynamic", () => ({
   default: () => {
-    const Stub = (props: Record<string, unknown>) => (
-      <div
-        data-testid="query-editor"
-        data-class-name={String(props.className ?? "")}
-      >
-        {props.toolbar as React.ReactNode}
-        {props.running === true && typeof props.onStop === "function" && (
-          <button type="button" onClick={props.onStop as () => void}>
-            Stop
-          </button>
-        )}
-      </div>
-    );
+    const Stub = (props: Record<string, unknown>) => {
+      // The editor's insert handle, as the modal reaches it (#1693).
+      React.useImperativeHandle(props.ref as React.Ref<unknown>, () => ({
+        insert: editorInsert,
+      }));
+      return (
+        <div
+          data-testid="query-editor"
+          data-class-name={String(props.className ?? "")}
+        >
+          {props.toolbar as React.ReactNode}
+          {props.running === true && typeof props.onStop === "function" && (
+            <button type="button" onClick={props.onStop as () => void}>
+              Stop
+            </button>
+          )}
+        </div>
+      );
+    };
     Stub.displayName = "QueryEditorStub";
     return Stub;
   },
@@ -50,7 +56,9 @@ const {
   seed,
   connectorList,
   preview,
+  editorInsert,
 } = vi.hoisted(() => ({
+  editorInsert: vi.fn(),
   dismiss: {} as Record<string, ((e?: unknown) => void) | undefined>,
   /** The chart-type picker's props, as the user reaches them. */
   selector: {} as Partial<ChartTypeSelectProps & ConnectionSelectProps>,
@@ -214,6 +222,32 @@ vi.mock("@neoboard/components", async () => {
     DropdownMenuContent: passthrough,
     DropdownMenuItem: ({ children }: React.PropsWithChildren) => (
       <div>{children}</div>
+    ),
+    // The pane switch: a radio group, as the real one is.
+    SegmentedControl: ({
+      options,
+      value,
+      onValueChange,
+      "aria-label": label,
+    }: {
+      options: { value: string; label: string }[];
+      value: string;
+      onValueChange: (v: string) => void;
+      "aria-label"?: string;
+    }) => (
+      <div role="radiogroup" aria-label={label}>
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={o.value === value}
+            onClick={() => onValueChange(o.value)}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
     ),
     // Every group is drawn, in one list: this test is about the modal's
     // composition, not the panel's sections.
@@ -568,16 +602,37 @@ describe("WidgetEditorModal — editor maximize (#1374)", () => {
   });
 });
 
-// #1824: a selector lists its options from its saved database, so the editor
-// shows that database, where it can be seen and set back to Default.
 describe("WidgetEditorModal — the model beside the query (#1693)", () => {
   beforeEach(() => {
     useWidgetEditorStore.getState().resetForAdd();
+    editorInsert.mockClear();
+  });
+  afterEach(() => {
+    connectorList.data = [];
   });
 
   /** Opening the editor resets the store, so the connection is chosen after. */
   function renderWithConnection() {
-    renderModal();
+    connectorList.data = [{ type: "acme", queryLanguage: "cypher" }];
+    render(
+      <WidgetEditorModal
+        open
+        onOpenChange={vi.fn()}
+        mode="add"
+        connections={[
+          {
+            id: "c1",
+            name: "Acme",
+            type: "acme",
+            visibility: "private",
+            isOwner: true,
+            createdAt: "",
+            updatedAt: "",
+          } as ConnectionListItem,
+        ]}
+        onSave={vi.fn()}
+      />,
+    );
     act(() => useWidgetEditorStore.getState().setConnectionId("c1"));
   }
 
@@ -601,9 +656,9 @@ describe("WidgetEditorModal — the model beside the query (#1693)", () => {
     const user = userEvent.setup();
     renderWithConnection();
     await user.click(screen.getByRole("button", { name: "Model" }));
-    await user.click(screen.getByRole("tab", { name: "Preview" }));
+    await user.click(screen.getByRole("radio", { name: "Preview" }));
     expect(screen.getByTestId("widget-preview")).toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "Model" }));
+    await user.click(screen.getByRole("radio", { name: "Model" }));
     expect(screen.getByTestId("model-pane")).toBeInTheDocument();
   });
 
@@ -613,8 +668,16 @@ describe("WidgetEditorModal — the model beside the query (#1693)", () => {
     await user.click(screen.getByRole("button", { name: "Model" }));
     expect(screen.getByTestId("model-pane")).toHaveAttribute(
       "data-language",
-      "",
+      "cypher",
     );
+  });
+
+  it("wires a name picked in the model to the query editor's insert", async () => {
+    const user = userEvent.setup();
+    renderWithConnection();
+    await user.click(screen.getByRole("button", { name: "Model" }));
+    await user.click(screen.getByRole("button", { name: "Insert title" }));
+    expect(editorInsert).toHaveBeenCalledExactlyOnceWith("title");
   });
 
   it("leaving Data returns the pane to Preview, and coming back finds it there", async () => {
@@ -623,7 +686,7 @@ describe("WidgetEditorModal — the model beside the query (#1693)", () => {
     await user.click(screen.getByRole("button", { name: "Model" }));
     await user.click(screen.getByRole("tab", { name: "style" }));
     expect(screen.getByTestId("widget-preview")).toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: "Model" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Model" })).toBeNull();
     await user.click(screen.getByRole("tab", { name: "data" }));
     expect(screen.getByTestId("widget-preview")).toBeInTheDocument();
     expect(screen.queryByTestId("model-pane")).not.toBeInTheDocument();
@@ -644,10 +707,12 @@ describe("WidgetEditorModal — the model beside the query (#1693)", () => {
 
   it("offers no Model tab until a connection is chosen", () => {
     renderModal();
-    expect(screen.queryByRole("tab", { name: "Model" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Model" })).toBeNull();
   });
 });
 
+// #1824: a selector lists its options from its saved database, so the editor
+// shows that database, where it can be seen and set back to Default.
 describe("WidgetEditorModal — a parameter selector's database (#1824)", () => {
   function renderSelector(parameterType: string) {
     render(

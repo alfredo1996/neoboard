@@ -120,14 +120,43 @@ describe("QueryEditorPanel", () => {
     useWidgetEditorStore.getState().resetForAdd();
   });
 
-  it("has a Model button that is disabled, with its reason, until a connection is chosen (#1693)", () => {
+  it("keeps the Model button focusable with its reason until a connection is chosen, and a click opens nothing (#1693)", () => {
     const onOpenModel = vi.fn();
     render(
       <QueryEditorPanel editorLanguage="cypher" onOpenModel={onOpenModel} />,
     );
-    expect(screen.getByRole("button", { name: "Model" })).toBeDisabled();
-    expect(screen.getByTestId("query-editor")).toHaveTextContent(
-      "Choose a connection to browse its model",
+    const model = screen.getByRole("button", { name: "Model" });
+    expect(model).not.toBeDisabled();
+    expect(model).toHaveAttribute("aria-disabled", "true");
+    model.focus();
+    expect(model).toHaveFocus();
+    fireEvent.click(model);
+    expect(onOpenModel).not.toHaveBeenCalled();
+  });
+
+  it("marks the Model button pressed while the model is shown (#1693)", () => {
+    useWidgetEditorStore.getState().setConnectionId("pg");
+    const { rerender } = render(
+      <QueryEditorPanel
+        editorLanguage="cypher"
+        onOpenModel={vi.fn()}
+        modelShown={false}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Model" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    rerender(
+      <QueryEditorPanel
+        editorLanguage="cypher"
+        onOpenModel={vi.fn()}
+        modelShown
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Model" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
   });
 

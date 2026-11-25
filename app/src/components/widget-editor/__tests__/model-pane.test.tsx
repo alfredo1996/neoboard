@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { OntologyTerm } from "@/lib/ontology/merge";
-import { ModelPane } from "../model-pane";
+import { ModelPane, PaneTabs } from "../model-pane";
 
 type Result = {
   data?: { terms: OntologyTerm[] };
@@ -68,13 +68,13 @@ const TERMS = [
 
 const onInsert = vi.fn();
 const onRun = vi.fn();
-const setup = (language = "cypher", runDisabled = false) =>
+const setup = (language = "cypher", runDisabled = false, canRun = true) =>
   render(
     <ModelPane
       connectionId="c1"
       language={language}
       onInsert={onInsert}
-      onRun={onRun}
+      onRun={canRun ? onRun : undefined}
       runDisabled={runDisabled}
       tabs={<span>tabs</span>}
     />,
@@ -231,5 +231,96 @@ describe("ModelPane", () => {
     unmount();
     setup("cypher", true);
     expect(screen.getByRole("button", { name: "Run" })).toBeDisabled();
+  });
+
+  it("leaves out Run when there is nothing to run, as in a form", () => {
+    setup("cypher", false, false);
+    expect(screen.queryByRole("button", { name: "Run" })).toBeNull();
+  });
+
+  describe("a foreign key", () => {
+    const FK = "movies(director_id)->people(id)";
+    const fk = (extra: Partial<OntologyTerm> = {}) =>
+      term({
+        kind: "relationship",
+        key: FK,
+        joins: [
+          {
+            from: "movies",
+            to: "people",
+            fromColumns: ["director_id"],
+            toColumns: ["id"],
+          },
+        ],
+        ...extra,
+      });
+
+    it("shows which tables it joins but inserts nothing", async () => {
+      result = {
+        ...result,
+        data: {
+          terms: [
+            term({ kind: "entity", key: "movies" }),
+            term({ kind: "entity", key: "people" }),
+            fk(),
+            ...TERMS.filter((t) => t.key === "ACTED_IN"),
+          ],
+        },
+      };
+      setup();
+      expect(screen.getByText("movies → people")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /director_id/ })).toBeNull();
+      // A graph relationship type is still a name to insert.
+      await userEvent.click(
+        screen.getByRole("button", { name: /^Acted in ACTED_IN/ }),
+      );
+      expect(onInsert).toHaveBeenCalledExactlyOnceWith("ACTED_IN");
+    });
+
+    it("can still be opened when it has properties", async () => {
+      result = {
+        ...result,
+        data: {
+          terms: [
+            term({ kind: "entity", key: "movies" }),
+            fk(),
+            term({
+              kind: "property",
+              key: "note",
+              parentKey: `relationship:${FK}`,
+            }),
+          ],
+        },
+      };
+      setup("sql");
+      await userEvent.click(screen.getByRole("button", { name: `Open ${FK}` }));
+      expect(screen.getByRole("button", { name: /^note/ })).toBeInTheDocument();
+    });
+  });
+
+  describe("focus", () => {
+    it("moves to the crumb when an entity opens and back to its arrow on return", async () => {
+      setup();
+      const open = screen.getByRole("button", { name: "Open Film" });
+      await userEvent.click(open);
+      const crumb = screen.getByRole("button", { name: "All terms" });
+      expect(crumb).toHaveFocus();
+      await userEvent.click(crumb);
+      expect(screen.getByRole("button", { name: "Open Film" })).toHaveFocus();
+    });
+  });
+});
+
+describe("PaneTabs", () => {
+  it("is a radio group of the two views that selects on click and roves with the arrows", async () => {
+    const onSelect = vi.fn();
+    render(<PaneTabs active="preview" onSelect={onSelect} />);
+    const group = screen.getByRole("radiogroup", { name: "Side pane" });
+    expect(within(group).getByRole("radio", { name: "Preview" })).toBeChecked();
+    await userEvent.click(within(group).getByRole("radio", { name: "Model" }));
+    expect(onSelect).toHaveBeenCalledExactlyOnceWith("model");
+    within(group).getByRole("radio", { name: "Preview" }).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(within(group).getByRole("radio", { name: "Model" })).toHaveFocus();
   });
 });

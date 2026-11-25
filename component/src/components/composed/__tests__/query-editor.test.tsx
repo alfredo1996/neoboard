@@ -661,6 +661,20 @@ describe("QueryEditor — controlled value sync", () => {
     expect(mockDispatch).toHaveBeenCalled();
   });
 
+  it("puts the cursor at the end of a query replaced from outside (#1693)", async () => {
+    const { rerender } = render(<QueryEditor language="sql" value="" />);
+    await flushAsync();
+    mockDispatch.mockClear();
+
+    rerender(<QueryEditor language="sql" value="MATCH (n)" />);
+    await flushAsync();
+
+    expect(mockDispatch).toHaveBeenCalledWith({
+      changes: { from: 0, to: 0, insert: "MATCH (n)" },
+      selection: { anchor: 9 },
+    });
+  });
+
   it("does not dispatch when value matches CM doc", async () => {
     const { rerender } = render(<QueryEditor language="sql" value="" />);
     await flushAsync();

@@ -168,6 +168,8 @@ export interface QueryEditorPanelProps {
   onToggleMaximized?: () => void;
   /** #1693 — shows the Model button, which opens the model in the side pane. */
   onOpenModel?: () => void;
+  /** #1693 — the model is showing, so the Model button reads as pressed. */
+  modelShown?: boolean;
   /** #1693 — the editor's insert handle, for the model to put a name at the cursor. */
   editorRef?: React.Ref<QueryEditorHandle>;
 }
@@ -181,6 +183,7 @@ export function QueryEditorPanel({
   maximized = false,
   onToggleMaximized,
   onOpenModel,
+  modelShown = false,
   editorRef,
 }: QueryEditorPanelProps) {
   const chartType = useWidgetEditorStore((s) => s.chartType);
@@ -322,21 +325,20 @@ export function QueryEditorPanel({
       {onOpenModel && (
         <Tooltip>
           <TooltipTrigger asChild>
-            {/* A disabled button takes no pointer or focus, so the span
-                carries the tooltip that says why. */}
-            <span className="inline-flex">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-5 gap-1 px-1.5 text-xs text-muted-foreground"
-                onClick={onOpenModel}
-                disabled={!connectionId}
-              >
-                <Network className="h-3 w-3" aria-hidden />
-                Model
-              </Button>
-            </span>
+            {/* aria-disabled, not disabled: the button stays focusable, so a
+                keyboard user reaches the tooltip that says why. */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-5 gap-1 px-1.5 text-xs text-muted-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+              onClick={connectionId ? onOpenModel : undefined}
+              aria-disabled={!connectionId}
+              aria-pressed={modelShown}
+            >
+              <Network className="h-3 w-3" aria-hidden />
+              Model
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="top" className="text-xs">
             {connectionId

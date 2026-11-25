@@ -1,9 +1,14 @@
 "use client";
 
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronRight, ExternalLink, Play } from "lucide-react";
-import { Button, Input, Skeleton } from "@neoboard/components";
+import {
+  Button,
+  Input,
+  SegmentedControl,
+  Skeleton,
+} from "@neoboard/components";
 import { useOntology } from "@/hooks/use-ontology";
 import { buildGroups, filterGroups } from "@/lib/ontology/group";
 import type { TermGroup } from "@/lib/ontology/group";
@@ -15,38 +20,36 @@ const PAGE = 50;
 /** The right-hand pane's two faces (#1693). */
 export type PaneView = "preview" | "model";
 
+const VIEWS = [
+  { value: "preview", label: "Preview" },
+  { value: "model", label: "Model" },
+];
+
 export function PaneTabs({
   active,
   onSelect,
 }: Readonly<{ active: PaneView; onSelect: (view: PaneView) => void }>) {
   return (
-    <div
-      role="tablist"
+    <SegmentedControl
       aria-label="Side pane"
-      className="inline-flex gap-0.5 rounded-md bg-active p-0.5"
-    >
-      {(["preview", "model"] as const).map((view) => (
-        <button
-          key={view}
-          type="button"
-          role="tab"
-          aria-selected={active === view}
-          onClick={() => onSelect(view)}
-          className={`rounded px-2.5 py-0.5 text-caption font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-            active === view
-              ? "bg-card text-foreground shadow-card"
-              : "text-foreground-2"
-          }`}
-        >
-          {view === "preview" ? "Preview" : "Model"}
-        </button>
-      ))}
-    </div>
+      options={VIEWS}
+      value={active}
+      onValueChange={(v) => onSelect(v as PaneView)}
+    />
   );
 }
 
 const joinsOf = (t: OntologyTerm) =>
   (t.joins ?? []).map((j) => `${j.from} → ${j.to}`).join(", ");
+
+/**
+ * A table join names columns, and its key (`a(x)->b(id)`) is no identifier a
+ * query can use. Decided by the join's shape, never by the connector.
+ */
+const isInsertable = (t: OntologyTerm) =>
+  !t.joins?.some((j) => j.fromColumns?.length);
+
+const idOf = (t: Pick<OntologyTerm, "kind" | "key">) => `${t.kind}:${t.key}`;
 
 /** A name that inserts itself on click, with its display name first. */
 function NameRow({
@@ -63,35 +66,45 @@ function NameRow({
   openCount?: number;
 }>) {
   const shown = term.displayName || term.key;
+  const text = (
+    <>
+      <span className="flex min-w-0 items-baseline gap-2">
+        <span className="truncate text-sm font-medium">{shown}</span>{" "}
+        {term.displayName && (
+          <span className="font-mono text-xs text-muted-foreground">
+            {term.key}
+          </span>
+        )}{" "}
+        {term.kind === "property" && term.type && (
+          <span className="ml-auto pl-2 font-mono text-[11px] text-muted-foreground">
+            {term.type}
+          </span>
+        )}
+      </span>
+      {line && (
+        <span className="truncate text-xs text-muted-foreground">{line}</span>
+      )}
+    </>
+  );
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center rounded-md hover:bg-active">
-      <button
-        type="button"
-        title={`Insert ${term.key}`}
-        onClick={() => onInsert(term.key)}
-        className="grid min-w-0 gap-px rounded-md px-2 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <span className="flex min-w-0 items-baseline gap-2">
-          <span className="truncate text-sm font-medium">{shown}</span>{" "}
-          {term.displayName && (
-            <span className="font-mono text-xs text-muted-foreground">
-              {term.key}
-            </span>
-          )}{" "}
-          {term.kind === "property" && term.type && (
-            <span className="ml-auto pl-2 font-mono text-[11px] text-muted-foreground">
-              {term.type}
-            </span>
-          )}
-        </span>
-        {line && (
-          <span className="truncate text-xs text-muted-foreground">{line}</span>
-        )}
-      </button>
+      {isInsertable(term) ? (
+        <button
+          type="button"
+          title={`Insert ${term.key}`}
+          onClick={() => onInsert(term.key)}
+          className="grid min-w-0 gap-px rounded-md px-2 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {text}
+        </button>
+      ) : (
+        <div className="grid min-w-0 gap-px px-2 py-1.5">{text}</div>
+      )}
       {onOpen && (
         <button
           type="button"
           aria-label={`Open ${shown}`}
+          data-open-id={idOf(term)}
           onClick={onOpen}
           className="mr-1 inline-flex h-6 items-center gap-1 rounded px-1.5 text-xs text-muted-foreground hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
@@ -109,13 +122,113 @@ const Group = ({ children }: Readonly<{ children: ReactNode }>) => (
   </div>
 );
 
+const heads = (list: TermGroup[], kind: string) =>
+  list.filter((g) => g.head.kind === kind);
+
+/** One entity (or relationship) open: its properties and the relationships that join it. */
+function DetailView({
+  group,
+  visible,
+  onInsert,
+  onOpen,
+}: Readonly<{
+  group: TermGroup;
+  visible: TermGroup[];
+  onInsert: (key: string) => void;
+  onOpen: (head: TermGroup["head"]) => void;
+}>) {
+  const { head, properties } = group;
+  const joined = heads(visible, "relationship").filter((g) =>
+    g.head.joins?.some((j) => j.from === head.key || j.to === head.key),
+  );
+  return (
+    <>
+      <NameRow term={head} line={head.description} onInsert={onInsert} />
+      <Group>Properties</Group>
+      {properties.length === 0 && (
+        <p className="px-2 py-1 text-xs text-muted-foreground">
+          No properties.
+        </p>
+      )}
+      {properties.map((p) => (
+        <NameRow
+          key={p.key}
+          term={p}
+          line={p.description}
+          onInsert={onInsert}
+        />
+      ))}
+      {head.kind === "entity" && joined.length > 0 && (
+        <>
+          <Group>Relationships</Group>
+          {joined.map((g) => (
+            <NameRow
+              key={g.head.key}
+              term={g.head}
+              line={joinsOf(g.head)}
+              onInsert={onInsert}
+              onOpen={g.properties.length ? () => onOpen(g.head) : undefined}
+              openCount={g.properties.length}
+            />
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+
+/** A labelled, paged list of entities or relationships. */
+function TermSection({
+  label,
+  kind,
+  list,
+  limit,
+  onMore,
+  onInsert,
+  onOpen,
+}: Readonly<{
+  label: string;
+  kind: "entity" | "relationship";
+  list: TermGroup[];
+  limit: number;
+  onMore: () => void;
+  onInsert: (key: string) => void;
+  onOpen: (head: TermGroup["head"]) => void;
+}>) {
+  return (
+    <>
+      {list.length > 0 && <Group>{label}</Group>}
+      {list.slice(0, limit).map((g) => (
+        <NameRow
+          key={g.head.key}
+          term={g.head}
+          line={kind === "entity" ? g.head.description : joinsOf(g.head)}
+          onInsert={onInsert}
+          onOpen={
+            kind === "entity" || g.properties.length
+              ? () => onOpen(g.head)
+              : undefined
+          }
+          openCount={g.properties.length}
+        />
+      ))}
+      {list.length > limit && (
+        <Button size="sm" variant="secondary" className="m-2" onClick={onMore}>
+          Show 50 more
+        </Button>
+      )}
+    </>
+  );
+}
+
 export interface ModelPaneProps {
   connectionId: string;
   /** The editor's query language: decides how a key is quoted. */
   language: string;
   /** Called with the key as the editor should hold it (quoted when needed). */
   onInsert: (text: string) => void;
-  onRun: () => void;
+  /** Absent when there is nothing to run (a form): the pane then shows no Run. */
+  onRun?: () => void;
   runDisabled: boolean;
   /** The Preview / Model switch, in the header. */
   tabs: ReactNode;
@@ -138,6 +251,10 @@ export function ModelPane({
   const deferred = useDeferredValue(search);
   const [open, setOpen] = useState<TermGroup["head"] | null>(null);
   const [shown, setShown] = useState({ entity: PAGE, relationship: PAGE });
+  const root = useRef<HTMLDivElement>(null);
+  const crumb = useRef<HTMLButtonElement>(null);
+  // The › that opened the detail, so closing it can give focus back.
+  const opener = useRef<string | null>(null);
 
   // Built once per read; a search or a hidden term only narrows it.
   const groups = useMemo(
@@ -152,8 +269,6 @@ export function ModelPane({
     () => filterGroups(groups, deferred, false),
     [groups, deferred],
   );
-  const heads = (list: TermGroup[], kind: string) =>
-    list.filter((g) => g.head.kind === kind);
   const entities = heads(matching, "entity");
   const relationships = heads(matching, "relationship");
   const totalEntities = heads(visible, "entity").length;
@@ -164,6 +279,26 @@ export function ModelPane({
   const openGroup = open
     ? visible.find((g) => g.head.kind === open.kind && g.head.key === open.key)
     : undefined;
+  const openedId = openGroup ? idOf(openGroup.head) : null;
+
+  const openTerm = (head: TermGroup["head"]) => {
+    opener.current ??= idOf(head);
+    setOpen(head);
+  };
+
+  // Opening moves focus to the crumb; closing returns it to the › that opened.
+  useEffect(() => {
+    if (openedId) {
+      crumb.current?.focus();
+      return;
+    }
+    const id = opener.current;
+    opener.current = null;
+    if (!id) return;
+    root.current
+      ?.querySelector<HTMLElement>(`[data-open-id="${CSS.escape(id)}"]`)
+      ?.focus();
+  }, [openedId]);
 
   function body() {
     if (isPending) {
@@ -196,87 +331,40 @@ export function ModelPane({
       );
     }
     if (openGroup) {
-      const { head, properties } = openGroup;
-      const joined = heads(visible, "relationship").filter((g) =>
-        g.head.joins?.some((j) => j.from === head.key || j.to === head.key),
-      );
       return (
-        <>
-          <NameRow term={head} line={head.description} onInsert={insert} />
-          <Group>Properties</Group>
-          {properties.length === 0 && (
-            <p className="px-2 py-1 text-xs text-muted-foreground">
-              No properties.
-            </p>
-          )}
-          {properties.map((p) => (
-            <NameRow
-              key={p.key}
-              term={p}
-              line={p.description}
-              onInsert={insert}
-            />
-          ))}
-          {head.kind === "entity" && joined.length > 0 && (
-            <>
-              <Group>Relationships</Group>
-              {joined.map((g) => (
-                <NameRow
-                  key={g.head.key}
-                  term={g.head}
-                  line={joinsOf(g.head)}
-                  onInsert={insert}
-                  onOpen={
-                    g.properties.length ? () => setOpen(g.head) : undefined
-                  }
-                  openCount={g.properties.length}
-                />
-              ))}
-            </>
-          )}
-        </>
+        <DetailView
+          group={openGroup}
+          visible={visible}
+          onInsert={insert}
+          onOpen={openTerm}
+        />
       );
     }
     if (entities.length === 0 && relationships.length === 0) {
       return <p className="p-4 text-sm text-foreground-2">No match.</p>;
     }
-    const section = (
-      label: string,
-      kind: "entity" | "relationship",
-      list: TermGroup[],
-    ) => (
-      <>
-        {list.length > 0 && <Group>{label}</Group>}
-        {list.slice(0, shown[kind]).map((g) => (
-          <NameRow
-            key={g.head.key}
-            term={g.head}
-            line={kind === "entity" ? g.head.description : joinsOf(g.head)}
-            onInsert={insert}
-            onOpen={
-              kind === "entity" || g.properties.length
-                ? () => setOpen(g.head)
-                : undefined
-            }
-            openCount={g.properties.length}
-          />
-        ))}
-        {list.length > shown[kind] && (
-          <Button
-            size="sm"
-            variant="secondary"
-            className="m-2"
-            onClick={() => setShown((s) => ({ ...s, [kind]: s[kind] + PAGE }))}
-          >
-            Show 50 more
-          </Button>
-        )}
-      </>
-    );
+    const more = (kind: "entity" | "relationship") => () =>
+      setShown((s) => ({ ...s, [kind]: s[kind] + PAGE }));
     return (
       <>
-        {section("Entities", "entity", entities)}
-        {section("Relationships", "relationship", relationships)}
+        <TermSection
+          label="Entities"
+          kind="entity"
+          list={entities}
+          limit={shown.entity}
+          onMore={more("entity")}
+          onInsert={insert}
+          onOpen={openTerm}
+        />
+        <TermSection
+          label="Relationships"
+          kind="relationship"
+          list={relationships}
+          limit={shown.relationship}
+          onMore={more("relationship")}
+          onInsert={insert}
+          onOpen={openTerm}
+        />
       </>
     );
   }
@@ -288,19 +376,24 @@ export function ModelPane({
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-col gap-2.5 border-l border-rule bg-page-ground px-5 py-3.5">
+    <div
+      ref={root}
+      className="flex min-h-0 min-w-0 flex-col gap-2.5 border-l border-rule bg-page-ground px-5 py-3.5"
+    >
       <div className="flex min-h-8 items-center justify-between">
         {tabs}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onRun}
-          disabled={runDisabled}
-          title="Run query (Ctrl+Enter / ⌘+Enter)"
-        >
-          <Play className="mr-1.5 h-3 w-3" aria-hidden />
-          Run
-        </Button>
+        {onRun && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onRun}
+            disabled={runDisabled}
+            title="Run query (Ctrl+Enter / ⌘+Enter)"
+          >
+            <Play className="mr-1.5 h-3 w-3" aria-hidden />
+            Run
+          </Button>
+        )}
       </div>
       <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] rounded-lg border border-card-edge bg-card shadow-card">
         <div className="grid gap-2 border-b border-rule px-3 py-2.5">
@@ -310,6 +403,7 @@ export function ModelPane({
               className="flex items-center gap-1.5 text-sm"
             >
               <button
+                ref={crumb}
                 type="button"
                 onClick={() => setOpen(null)}
                 className="rounded text-ring hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

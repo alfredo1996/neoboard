@@ -50,6 +50,12 @@ describe("quoteTerm", () => {
     ["sql", "Orders", '"Orders"'],
     ["sql", "2fast", '"2fast"'],
     ["sql", 'a"b', '"a""b"'],
+    ["sql", "order", '"order"'],
+    ["sql", "user", '"user"'],
+    ["sql", "group", '"group"'],
+    ["sql", "limit", '"limit"'],
+    ["sql", "desc", '"desc"'],
+    ["sql", "ordering", "ordering"],
     ["", "first name", "first name"],
     ["acmeql", "first name", "first name"],
   ])("%s: %s becomes %s", (language, name, expected) => {

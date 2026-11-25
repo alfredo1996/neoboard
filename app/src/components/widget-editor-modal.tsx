@@ -876,6 +876,7 @@ export function WidgetEditorModal({
                       setEditorMaximizedRequested(false);
                       setModelRequested(true);
                     }}
+                    modelShown={showModel}
                     editorLanguage={editorLanguage}
                     running={previewQuery.isPending}
                     onStop={previewQuery.stop}
@@ -1126,8 +1127,8 @@ export function WidgetEditorModal({
                   connectionId={connectionId}
                   language={editorLanguage}
                   onInsert={(text) => editorRef.current?.insert(text)}
-                  onRun={runPreview}
-                  runDisabled={isForm || !query.trim()}
+                  onRun={isForm ? undefined : runPreview}
+                  runDisabled={!query.trim()}
                   tabs={paneTabs}
                 />
               )}

@@ -708,7 +708,11 @@ function QueryEditor({
     const doc = view.state.doc.toString();
     if (doc !== value) {
       suppressUpdate.current = true;
-      view.dispatch({ changes: { from: 0, to: doc.length, insert: value } });
+      // The cursor follows the new text, so a name inserted next lands at its end.
+      view.dispatch({
+        changes: { from: 0, to: doc.length, insert: value },
+        selection: { anchor: value.length },
+      });
       suppressUpdate.current = false;
     }
   }, [value, isControlled]);
@@ -728,6 +732,7 @@ function QueryEditor({
       suppressUpdate.current = true;
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: query },
+        selection: { anchor: query.length },
       });
       suppressUpdate.current = false;
     }
