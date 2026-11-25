@@ -5,6 +5,7 @@ import {
   applySettingRows,
   onSettingsChange,
   validateChanges,
+  isProcessTenant,
 } from "../core";
 
 const ENV_KEYS = ["QUERY_MAX_CONCURRENT", "SETTINGS_LOCKED", "LOG_LEVEL"];
@@ -144,5 +145,41 @@ describe("validateChanges", () => {
   it("refuses a locked key", () => {
     process.env.SETTINGS_LOCKED = "LOG_LEVEL";
     expect(validateChanges({ LOG_LEVEL: "debug" })).toMatch(/locked/i);
+  });
+});
+
+describe("explicit rows (a save judges the rows it just read, not the cache)", () => {
+  const rows = new Map([
+    [
+      "QUERY_MAX_CONCURRENT",
+      {
+        key: "QUERY_MAX_CONCURRENT",
+        value: 6,
+        updatedBy: null,
+        updatedAt: null,
+      },
+    ],
+  ]);
+  it("describeSetting reads the rows it is given", () => {
+    applySettingRows([]);
+    expect(describeSetting("QUERY_MAX_CONCURRENT", rows).value).toBe(6);
+    expect(describeSetting("QUERY_MAX_CONCURRENT").value).toBe(10);
+  });
+  it("validateChanges checks the per-user cap against the given rows", () => {
+    applySettingRows([]); // the cache would say 10, and allow 8
+    expect(validateChanges({ QUERY_MAX_PER_USER: 8 }, rows)).toMatch(
+      /can't be more than max concurrent/i,
+    );
+  });
+});
+
+describe("isProcessTenant", () => {
+  afterEach(() => {
+    delete process.env.TENANT_ID;
+  });
+  it("is true only for the tenant this process serves", () => {
+    process.env.TENANT_ID = "t-1";
+    expect(isProcessTenant("t-1")).toBe(true);
+    expect(isProcessTenant("t-2")).toBe(false);
   });
 });

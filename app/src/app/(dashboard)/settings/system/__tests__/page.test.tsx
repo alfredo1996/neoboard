@@ -241,4 +241,47 @@ describe("System settings page", () => {
     });
     expect(saveIn("Query scheduler")).toBeDisabled();
   });
+  it("Reset to an env value outside the typed rules is still sendable", async () => {
+    global.fetch = vi.fn().mockResolvedValue(
+      envelope({
+        ...DATA,
+        settings: {
+          ...DATA.settings,
+          QUERY_QUEUE_TIMEOUT_MS: setting(30000, {
+            source: "database",
+            base: { value: 1500, source: "env" },
+          }),
+        },
+      }),
+    ) as never;
+    await loaded();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Use env value (1.5 s)" }),
+    );
+    expect(screen.queryByText("Enter a whole number.")).toBeNull();
+    expect(saveIn("Query scheduler")).toBeEnabled();
+  });
+
+  it("locks the section's inputs, Reset and Cancel while it saves, so a draft typed meanwhile can't be wiped", async () => {
+    await loaded();
+    fireEvent.change(screen.getByLabelText(/Max per user/), {
+      target: { value: "4" },
+    });
+    let finish!: (v: unknown) => void;
+    vi.mocked(global.fetch).mockReturnValueOnce(
+      new Promise((r) => (finish = r)) as never,
+    );
+    fireEvent.click(saveIn("Query scheduler"));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Max per user/)).toBeDisabled(),
+    );
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Use default (15 s)" }),
+    ).toBeDisabled();
+    finish(envelope(DATA));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Max per user/)).toBeEnabled(),
+    );
+  });
 });

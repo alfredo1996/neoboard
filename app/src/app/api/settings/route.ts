@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ForbiddenError } from "@/lib/auth/errors";
 import { requireAdmin } from "@/lib/auth/session";
 import { apiSuccess, apiError } from "@/lib/api/api-response";
 import {
@@ -9,6 +10,8 @@ import {
 import { auditRequest } from "@/lib/audit/audit";
 import {
   SETTING_KEYS,
+  SettingsValidationError,
+  isProcessTenant,
   describeSetting,
   validateChanges,
   type SettingKey,
@@ -33,7 +36,8 @@ const putSchema = z.object({ changes: z.record(z.string(), z.unknown()) });
 export async function GET() {
   try {
     const { tenantId } = await requireAdmin();
-    await refreshSettings(tenantId);
+    if (!isProcessTenant(tenantId)) throw new ForbiddenError();
+    await refreshSettings();
     return apiSuccess(snapshot());
   } catch (e) {
     return handleRouteError(e);
@@ -48,19 +52,29 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const { userId, tenantId } = await requireAdmin();
+    if (!isProcessTenant(tenantId)) throw new ForbiddenError();
     const parsed = validateBody(putSchema, await readJsonBody(request));
     if (!parsed.success) return parsed.response;
 
     const { changes } = parsed.data;
-    await refreshSettings(tenantId);
+    await refreshSettings();
     const problem = validateChanges(changes);
     if (problem) return apiError("VALIDATION_ERROR", problem);
 
-    const changed = await saveSettings(
-      tenantId,
-      userId,
-      changes as Partial<Record<SettingKey, unknown>>,
-    );
+    let changed;
+    try {
+      changed = await saveSettings(
+        tenantId,
+        userId,
+        changes as Partial<Record<SettingKey, unknown>>,
+      );
+    } catch (e) {
+      // The authoritative rows, read under the save's lock, refused it.
+      if (e instanceof SettingsValidationError) {
+        return apiError("VALIDATION_ERROR", e.message);
+      }
+      throw e;
+    }
     for (const c of changed) {
       auditRequest(request, {
         tenantId,

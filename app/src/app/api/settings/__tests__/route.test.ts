@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { makeRequest } from "@/__tests__/helpers/request-helpers";
 import { nextResponseMockFactory } from "@/__tests__/helpers/next-mocks";
 import { ForbiddenError, UnauthorizedError } from "@/lib/auth/errors";
-import { applySettingRows } from "@/lib/settings/core";
+import { applySettingRows, SettingsValidationError } from "@/lib/settings/core";
 
 const mockRequireAdmin =
   vi.fn<() => Promise<{ userId: string; tenantId: string }>>();
@@ -26,11 +26,13 @@ const put = (body: unknown) =>
 beforeEach(() => {
   vi.clearAllMocks();
   applySettingRows([]);
+  process.env.TENANT_ID = "t-1";
   mockRequireAdmin.mockResolvedValue({ userId: "admin-1", tenantId: "t-1" });
   mockSave.mockResolvedValue([]);
 });
 afterEach(() => {
   delete process.env.SETTINGS_LOCKED;
+  delete process.env.TENANT_ID;
   delete process.env.SESSION_MAX_AGE;
 });
 
@@ -63,9 +65,24 @@ describe("GET /api/settings", () => {
     });
     expect(Object.keys(data.settings)).toHaveLength(7);
     expect(data.sessionMaxAge).toEqual({ seconds: 3600, source: "env" });
-    // The tenant comes from the session.
-    expect(mockRefresh).toHaveBeenCalledWith("t-1");
+    // The cache is the process tenant's, never the session's.
+    expect(mockRefresh).toHaveBeenCalledWith();
   });
+});
+
+describe("one process, one tenant", () => {
+  it.each([
+    ["GET", () => GET()],
+    ["PUT", () => put({ changes: { LOG_LEVEL: "debug" } })],
+  ])(
+    "%s answers 403 to an admin of another tenant and loads nothing",
+    async (_m, call) => {
+      mockRequireAdmin.mockResolvedValue({ userId: "a", tenantId: "t-2" });
+      expect((await call()).status).toBe(403);
+      expect(mockRefresh).not.toHaveBeenCalled();
+      expect(mockSave).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("GET /api/settings, session length", () => {
@@ -126,5 +143,15 @@ describe("PUT /api/settings", () => {
     expect(mockSave).toHaveBeenCalledWith("t-1", "admin-1", {
       LOG_LEVEL: null,
     });
+  });
+});
+
+describe("PUT /api/settings, a save that loses the race", () => {
+  it("answers 400 with the rule when the authoritative pair is invalid", async () => {
+    mockSave.mockRejectedValue(new SettingsValidationError("Pair is invalid."));
+    const res = await put({ changes: { QUERY_MAX_PER_USER: 5 } });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.message).toBe("Pair is invalid.");
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 });

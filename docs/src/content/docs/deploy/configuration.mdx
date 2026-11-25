@@ -155,7 +155,7 @@ Set `METRICS_TOKEN` to enable the Prometheus endpoint `GET /api/metrics`; see [P
 An admin can change seven of these live, under **Settings → System**, with no restart: the five query scheduler caps (`QUERY_MAX_CONCURRENT`, `QUERY_MAX_PER_USER`, `QUERY_MAX_QUEUE_DEPTH`, `QUERY_QUEUE_TIMEOUT_MS`, `QUERY_SHED_THRESHOLD`), `REGISTRATION_ENABLED` and `LOG_LEVEL`. `SESSION_MAX_AGE` is shown there but stays read-only.
 
 - **Env is the default.** A value an admin sets in the app wins over the env value. Resetting it returns the setting to the env value, or to the built-in default when env does not set it.
-- **`SETTINGS_LOCKED` pins keys.** `SETTINGS_LOCKED=QUERY_MAX_CONCURRENT,LOG_LEVEL` makes those keys follow env only. The page shows them as locked and the API refuses to change them.
+- **`SETTINGS_LOCKED` pins keys.** `SETTINGS_LOCKED=QUERY_MAX_CONCURRENT,LOG_LEVEL` makes those keys follow env only (and the default when the variable is unset): to pin sign-up closed, leave `REGISTRATION_ENABLED` unset or `false`. The page shows them as locked and the API refuses to change them.
 - **Several replicas.** The replica that handles the save applies it at once. The others read the change within 30 seconds.
 - A change to a scheduler cap applies from the next scheduling decision. Queries already running or waiting are left alone.
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveTenantId } from "@/lib/auth/tenant-id";
 
 /**
  * Runtime policy that an admin can change live (#2416). The keys are the env
@@ -95,14 +96,30 @@ export interface SettingRow {
 // build gives instrumentation and each route its own copy of this module.
 interface State {
   rows: Map<string, SettingRow>;
+  /** Refresh sequence numbers; shared so every copy orders its reads together. */
+  seq: { started: number; applied: number };
   listeners: Set<() => void>;
   timer?: ReturnType<typeof setInterval>;
 }
 const g = globalThis as typeof globalThis & { __neoboardSettings?: State };
 export const state: State = (g.__neoboardSettings ??= {
   rows: new Map(),
+  seq: { started: 0, applied: 0 },
   listeners: new Set(),
 });
+
+/**
+ * One process serves one tenant (`TENANT_ID`, `resolveTenantId()`), so the
+ * cache above holds that tenant's rows and nothing else. Anything that would
+ * load or write another tenant's settings through this process is refused.
+ * ponytail: a process that serves several tenants needs tenant-keyed settings
+ * (cache, listeners, scheduler caps); today none exists.
+ */
+export const isProcessTenant = (tenantId: string): boolean =>
+  tenantId === resolveTenantId();
+
+/** A save the authoritative rows refuse; the route answers 400. */
+export class SettingsValidationError extends Error {}
 
 export const isSettingKey = (key: string): key is SettingKey =>
   KEY_SET.has(key);
@@ -131,6 +148,7 @@ export interface SettingDescription<K extends SettingKey = SettingKey> {
 
 export function describeSetting<K extends SettingKey>(
   key: K,
+  rows: Map<string, SettingRow> = state.rows,
 ): SettingDescription<K> {
   const def = SETTINGS[key];
   const env = envValue(key);
@@ -139,7 +157,7 @@ export function describeSetting<K extends SettingKey>(
       ? { value: def.default as SettingValue<K>, source: "default" as const }
       : { value: env, source: "env" as const };
   const locked = isLocked(key);
-  const row = state.rows.get(key);
+  const row = rows.get(key);
   const parsed = row ? def.schema.safeParse(row.value) : null;
   const stored = !locked && parsed?.success ? row : undefined;
   let source: SettingSource = base.source;
@@ -192,6 +210,7 @@ export function applySettingRows(rows: SettingRow[]): void {
  */
 export function validateChanges(
   changes: Record<string, unknown>,
+  rows: Map<string, SettingRow> = state.rows,
 ): string | null {
   for (const [key, value] of Object.entries(changes)) {
     if (!isSettingKey(key)) return `Unknown setting: ${key}`;
@@ -205,8 +224,8 @@ export function validateChanges(
     key: "QUERY_MAX_CONCURRENT" | "QUERY_MAX_PER_USER",
   ): number => {
     const v = changes[key];
-    if (v === null) return describeSetting(key).base.value;
-    return typeof v === "number" ? v : getSetting(key);
+    if (v === null) return describeSetting(key, rows).base.value;
+    return typeof v === "number" ? v : describeSetting(key, rows).value;
   };
   // Only when a change touches either cap: env alone may be lenient, and that
   // must not make every unrelated save a 400.

@@ -92,8 +92,15 @@ export default function SystemPage() {
   const errorOf = (key: string) => {
     if (!isNumberKey(key)) return "";
     const concurrent = String(current("QUERY_MAX_CONCURRENT"));
-    if (changed(key)) return numberError(key, String(current(key)), concurrent);
-    if (key === "QUERY_MAX_PER_USER" && changed("QUERY_MAX_CONCURRENT")) {
+    // A row being reset sends null: the server takes the env value as it is,
+    // so the typed-value rules don't apply, only the cap relationship does.
+    if (changed(key) && !(key in resetting)) {
+      return numberError(key, String(current(key)), concurrent);
+    }
+    if (
+      key === "QUERY_MAX_PER_USER" &&
+      (changed(key) || changed("QUERY_MAX_CONCURRENT"))
+    ) {
       return Number(current(key)) > Number(concurrent)
         ? `Can't be more than Max concurrent (${concurrent}).`
         : "";
@@ -166,6 +173,7 @@ export default function SystemPage() {
           <Button
             type="button"
             variant="secondary"
+            disabled={saving !== null}
             onClick={() => cancel(section)}
           >
             Cancel
@@ -220,7 +228,12 @@ export default function SystemPage() {
       <>
         {s.updatedByName && when && `Set by ${s.updatedByName} on ${when}. `}
         {!(key in resetting) && (
-          <Button type="button" variant="link" onClick={() => reset(key)}>
+          <Button
+            type="button"
+            variant="link"
+            disabled={saving !== null}
+            onClick={() => reset(key)}
+          >
             {label} ({fmt(key, baseShown)})
           </Button>
         )}
@@ -256,7 +269,7 @@ export default function SystemPage() {
               className="w-28"
               inputMode="numeric"
               value={String(current(key))}
-              disabled={locked}
+              disabled={locked || saving !== null}
               onChange={(e) => edit(key, e.target.value)}
             />
             {f.unit && (
@@ -348,7 +361,7 @@ export default function SystemPage() {
                 stateLabel
                 aria-labelledby="f-REGISTRATION_ENABLED-label"
                 checked={open}
-                disabled={regLocked}
+                disabled={regLocked || saving !== null}
                 onCheckedChange={(v) => edit("REGISTRATION_ENABLED", v)}
               />
             </Field>
@@ -379,7 +392,7 @@ export default function SystemPage() {
             >
               <Select
                 value={String(current("LOG_LEVEL"))}
-                disabled={logLocked}
+                disabled={logLocked || saving !== null}
                 onValueChange={(v) => edit("LOG_LEVEL", v)}
               >
                 <SelectTrigger className="w-40">

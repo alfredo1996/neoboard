@@ -1,26 +1,34 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { settings, users } from "@/lib/db/schema";
+import { ForbiddenError } from "@/lib/auth/errors";
 import { resolveTenantId } from "@/lib/auth/tenant-id";
 import {
-  SETTING_KEYS,
+  SettingsValidationError,
   applySettingRows,
-  getSetting,
+  isProcessTenant,
+  describeSetting,
   state,
+  validateChanges,
   type SettingKey,
+  type SettingRow,
 } from "./core";
 
 /** How long another replica can run on a stale value after an admin saves. */
 export const SETTINGS_TTL_MS = 30_000;
 
-// Sequence numbers: a SELECT that started before a write committed can finish
-// after the write's own refresh; only the newest start may land.
-const seq = { started: 0, applied: 0 };
-
-/** Read the tenant's rows and make them the cache. One query. */
-export async function refreshSettings(
-  tenantId: string = resolveTenantId(),
-): Promise<void> {
+/**
+ * Read the process tenant's rows and make them the cache. One query. Never
+ * another tenant's: see `isProcessTenant`.
+ *
+ * A SELECT that started before a write committed can finish after the write's
+ * own refresh; only the newest start may land. The sequence lives in `state`
+ * (globalThis), not here: instrumentation's interval and a route's save are
+ * separate module copies in a production build (#1888).
+ */
+export async function refreshSettings(): Promise<void> {
+  const tenantId = resolveTenantId();
+  const seq = state.seq;
   const mine = ++seq.started;
   const rows = await db
     .select({
@@ -68,22 +76,45 @@ export interface SettingChange {
  * Write `changes` (`null` deletes the row, so the key falls back to env or the
  * default), reload the cache so this process applies it at once, and return
  * every key written, for the audit trail.
+ *
+ * The tenant's saves run one at a time (a transaction-scoped advisory lock),
+ * and validation, old and new all come from the rows read under that lock, so
+ * two admins can't together persist an invalid pair or audit each other's value.
  */
 export async function saveSettings(
   tenantId: string,
   userId: string,
   changes: Partial<Record<SettingKey, unknown>>,
 ): Promise<SettingChange[]> {
-  const before = new Map(SETTING_KEYS.map((k) => [k, getSetting(k)]));
-  await db.transaction(async (tx) => {
+  if (!isProcessTenant(tenantId)) throw new ForbiddenError();
+  const changed = await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`neoboard.settings:${tenantId}`}))`,
+    );
+    const stored = await tx
+      .select({
+        key: settings.key,
+        value: settings.value,
+        updatedBy: settings.updatedBy,
+        updatedAt: settings.updatedAt,
+      })
+      .from(settings)
+      .where(eq(settings.tenantId, tenantId));
+    const before = new Map<string, SettingRow>(stored.map((r) => [r.key, r]));
+    const problem = validateChanges(changes, before);
+    if (problem) throw new SettingsValidationError(problem);
+
+    const after = new Map(before);
     for (const [key, value] of Object.entries(changes)) {
       if (value === null) {
+        after.delete(key);
         await tx
           .delete(settings)
           .where(and(eq(settings.tenantId, tenantId), eq(settings.key, key)));
         continue;
       }
       const row = { value, updatedBy: userId, updatedAt: new Date() };
+      after.set(key, { key, ...row });
       await tx
         .insert(settings)
         .values({ tenantId, key, ...row })
@@ -92,13 +123,14 @@ export async function saveSettings(
           set: row,
         });
     }
+    // Every key written or deleted, even when the effective value stayed: a
+    // pinned value is a real change, env can move later.
+    return (Object.keys(changes) as SettingKey[]).map((key) => ({
+      key,
+      old: describeSetting(key, before).value,
+      new: describeSetting(key, after).value,
+    }));
   });
-  await refreshSettings(tenantId);
-  // Every key written or deleted, even when the effective value stayed: a
-  // pinned value is a real change, env can move later.
-  return (Object.keys(changes) as SettingKey[]).map((key) => ({
-    key,
-    old: before.get(key),
-    new: getSetting(key),
-  }));
+  await refreshSettings();
+  return changed;
 }
