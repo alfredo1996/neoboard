@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   ontologyConcepts,
   ontologyConceptSides,
@@ -20,16 +20,18 @@ vi.mock("@/lib/db", () => ({
 type Conn = { id: string; tenantId: string; name: string; type: string };
 let usable: Conn[] = [];
 const live = new Map<string, unknown[] | undefined>();
+let reads: string[] = [];
 vi.mock("@/lib/ontology/concepts", async (orig) => ({
   ...(await orig<typeof import("@/lib/ontology/concepts")>()),
   usableConnections: vi.fn(async () => usable),
-  liveTermsById: vi.fn(
-    async (cs: Conn[]) => new Map(cs.map((c) => [c.id, live.get(c.id)])),
-  ),
+  liveTermsById: vi.fn(async (cs: Conn[]) => {
+    reads.push(...cs.map((c) => c.id));
+    return new Map(cs.map((c) => [c.id, live.get(c.id)]));
+  }),
 }));
 
-// A language that is not a function of the type: two connections of one type
-// speak different ones.
+// The language comes from the connector's descriptor: changing what the
+// registry says changes the answer, whatever the type is called.
 const LANGUAGE: Record<string, string> = {
   "type-a": "lang-a",
   "type-b": "lang-b",
@@ -38,7 +40,10 @@ vi.mock("@neoboard/connection", () => ({
   getConnector: (type: string) => ({ queryLanguage: LANGUAGE[type] }),
 }));
 
-import { getGroundingModel } from "../grounding";
+import {
+  getGroundingModel,
+  GroundingStructureUnavailableError,
+} from "../grounding";
 
 const session = { userId: "u1", role: "creator", tenantId: "t1" } as const;
 const conn = (id: string, type = "type-a"): Conn => ({
@@ -57,7 +62,14 @@ const prop = (entityKey: string, key: string) => ({
 const stored = (
   t: { kind: string; key: string; parentKey: string },
   p: Record<string, unknown>,
-) => ({ ...t, displayName: "", description: "", hidden: false, ...p });
+) => ({
+  ...t,
+  connectionId: "c1",
+  displayName: "",
+  description: "",
+  hidden: false,
+  ...p,
+});
 const side = (conceptId: string, connectionId: string, e = "P", k = "id") => ({
   conceptId,
   connectionId,
@@ -74,9 +86,14 @@ const concept = (id: string, parameter = "person") => ({
 beforeEach(() => {
   rows.clear();
   live.clear();
+  reads = [];
   usable = [conn("c1"), conn("c2", "type-b")];
   live.set("c1", [entity("P"), prop("P", "id"), prop("P", "name")]);
   live.set("c2", [entity("Q"), prop("Q", "pid")]);
+});
+
+afterEach(() => {
+  LANGUAGE["type-b"] = "lang-b";
 });
 
 describe("getGroundingModel terms", () => {
@@ -95,10 +112,103 @@ describe("getGroundingModel terms", () => {
   });
 });
 
+describe("getGroundingModel hidden terms", () => {
+  it("drops a hidden entity, its properties and a side on it", async () => {
+    rows.set(ontologyTerms, [stored(entity("P"), { hidden: true })]);
+    rows.set(ontologyConcepts, [concept("k1")]);
+    rows.set(ontologyConceptSides, [
+      side("k1", "c1"),
+      side("k1", "c2", "Q", "pid"),
+    ]);
+    const m = await getGroundingModel(session, "c1");
+    expect(m?.terms).toEqual([]);
+    expect(m?.concepts).toEqual([]);
+    // the other connection no longer sees it from c1 either
+    const q = await getGroundingModel(session, "c2");
+    expect(q?.concepts[0].otherSides).toEqual([]);
+  });
+
+  it("drops a side whose key property is hidden", async () => {
+    rows.set(ontologyTerms, [stored(prop("P", "id"), { hidden: true })]);
+    rows.set(ontologyConcepts, [concept("k1")]);
+    rows.set(ontologyConceptSides, [
+      side("k1", "c1"),
+      side("k1", "c2", "Q", "pid"),
+    ]);
+    expect((await getGroundingModel(session, "c1"))?.concepts).toEqual([]);
+  });
+
+  it("drops another side hidden on its own connection", async () => {
+    rows.set(ontologyTerms, [
+      stored(entity("Q"), { hidden: true, connectionId: "c2" }),
+    ]);
+    rows.set(ontologyConcepts, [concept("k1")]);
+    rows.set(ontologyConceptSides, [
+      side("k1", "c1"),
+      side("k1", "c2", "Q", "pid"),
+    ]);
+    const [c] = (await getGroundingModel(session, "c1"))?.concepts ?? [];
+    expect(c.otherSides).toEqual([]);
+  });
+
+  it("drops a relationship's properties with it, and a join to a hidden entity", async () => {
+    live.set("c1", [
+      entity("P"),
+      entity("H"),
+      {
+        kind: "relationship",
+        key: "R",
+        parentKey: "",
+        joins: [
+          { from: "P", to: "H" },
+          { from: "P", to: "P" },
+        ],
+      },
+      { kind: "relationship", key: "S", parentKey: "" },
+      { kind: "property", key: "since", parentKey: "relationship:S" },
+    ]);
+    rows.set(ontologyTerms, [
+      stored(entity("H"), { hidden: true }),
+      stored(
+        { kind: "relationship", key: "S", parentKey: "" },
+        { hidden: true },
+      ),
+    ]);
+    const m = await getGroundingModel(session, "c1");
+    expect(m?.terms.map((t) => t.key)).toEqual(["P", "R"]);
+    expect(m?.terms[1].joins).toEqual([{ from: "P", to: "P" }]);
+  });
+});
+
+describe("getGroundingModel keys and joins", () => {
+  it("reports primaryKey and joins, joins sorted", async () => {
+    live.set("c1", [
+      entity("P"),
+      { ...prop("P", "id"), primaryKey: true },
+      {
+        kind: "relationship",
+        key: "R",
+        parentKey: "",
+        joins: [
+          { from: "P", to: "Z" },
+          { from: "A", to: "P" },
+        ],
+      },
+      entity("A"),
+      entity("Z"),
+    ]);
+    const m = await getGroundingModel(session, "c1");
+    expect(m?.terms.find((t) => t.key === "id")?.primaryKey).toBe(true);
+    expect(m?.terms.find((t) => t.key === "R")?.joins).toEqual([
+      { from: "A", to: "P" },
+      { from: "P", to: "Z" },
+    ]);
+  });
+});
+
 describe("getGroundingModel connection", () => {
   it("reads each language from the connector, not from the type", async () => {
     usable = [conn("c1", "type-b"), conn("c2", "type-b")];
-    LANGUAGE["type-b"] = "lang-b";
     expect((await getGroundingModel(session, "c1"))?.connection).toEqual({
       id: "c1",
       name: "name-c1",
@@ -108,15 +218,20 @@ describe("getGroundingModel connection", () => {
     expect(
       (await getGroundingModel(session, "c1"))?.connection.queryLanguage,
     ).toBe("changed");
-    LANGUAGE["type-b"] = "lang-b";
   });
 
-  it.each([["not usable by the caller (or of another tenant)", "nope"]])(
-    "returns null for a connection %s",
-    async (_n, id) => {
-      expect(await getGroundingModel(session, id)).toBeNull();
-    },
-  );
+  // The tenant filters on the queries are covered by the tenant-scope ratchet
+  // (db/__tests__/tenant-scope.test.ts); this only proves the lookup by id.
+  it("returns null for a connection the caller cannot use", async () => {
+    expect(await getGroundingModel(session, "nope")).toBeNull();
+  });
+
+  it("throws, never an empty model, when its own structure cannot be read", async () => {
+    live.set("c1", undefined);
+    await expect(getGroundingModel(session, "c1")).rejects.toBeInstanceOf(
+      GroundingStructureUnavailableError,
+    );
+  });
 });
 
 describe("getGroundingModel concepts", () => {
@@ -166,6 +281,30 @@ describe("getGroundingModel concepts", () => {
     expect(c.otherSides).toEqual([]);
   });
 
+  it("drops another side whose connection cannot be read", async () => {
+    live.set("c2", undefined);
+    rows.set(ontologyConcepts, [concept("k1")]);
+    rows.set(ontologyConceptSides, [
+      side("k1", "c1"),
+      side("k1", "c2", "Q", "pid"),
+    ]);
+    const [c] = (await getGroundingModel(session, "c1"))?.concepts ?? [];
+    expect(c.sides).toHaveLength(1);
+    expect(c.otherSides).toEqual([]);
+  });
+
+  it("reads only the connections that share a concept with this one", async () => {
+    usable = [conn("c1"), conn("c2", "type-b"), conn("c3")];
+    rows.set(ontologyConcepts, [concept("k1"), concept("k2", "other")]);
+    rows.set(ontologyConceptSides, [
+      side("k1", "c1"),
+      side("k1", "c2", "Q", "pid"),
+      side("k2", "c3", "X", "x"), // an unrelated concept maps c3
+    ]);
+    await getGroundingModel(session, "c1");
+    expect(reads.sort()).toEqual(["c1", "c2"]);
+  });
+
   it("never shows a side on a connection the caller cannot use", async () => {
     rows.set(ontologyConcepts, [concept("k1")]);
     rows.set(ontologyConceptSides, [side("k1", "c1"), side("k1", "secret")]);
@@ -189,12 +328,17 @@ describe("getGroundingModel version and determinism", () => {
       ontologyConceptSides,
       order([
         side("k1", "c1"),
+        side("k1", "c1", "P", "name"),
         side("k1", "c2", "Q", "pid"),
+        side("k1", "c2", "Q", "pname"),
+        side("k1", "c3", "Q", "pid"),
         side("k2", "c1", "P", "name"),
       ]),
     );
     live.set("c1", order([entity("P"), prop("P", "id"), prop("P", "name")]));
-    usable = order([conn("c1"), conn("c2", "type-b")]);
+    live.set("c2", [entity("Q"), prop("Q", "pid"), prop("Q", "pname")]);
+    live.set("c3", [entity("Q"), prop("Q", "pid")]);
+    usable = order([conn("c1"), conn("c2", "type-b"), conn("c3")]);
   };
 
   it("gives byte-identical JSON and one version whatever the read order", async () => {
@@ -204,6 +348,9 @@ describe("getGroundingModel version and determinism", () => {
     const b = await getGroundingModel(session, "c1");
     expect(JSON.stringify(b)).toBe(JSON.stringify(a));
     expect(a?.version).toMatch(/^[0-9a-f]{16}$/);
+    // the inner lists are non-trivial, so a missing sort shows
+    expect(a?.concepts[0].sides).toHaveLength(2);
+    expect(a?.concepts[0].otherSides).toHaveLength(3);
   });
 
   it("changes the version when a display name changes", async () => {
@@ -216,5 +363,22 @@ describe("getGroundingModel version and determinism", () => {
     expect((await getGroundingModel(session, "c1"))?.version).not.toBe(
       a?.version,
     );
+  });
+
+  it("changes the version when a concept field or another connection's name changes", async () => {
+    seed(false);
+    const v0 = (await getGroundingModel(session, "c1"))?.version;
+    rows.set(ontologyConcepts, [
+      { ...concept("k1"), description: "changed" },
+      concept("k2", "b"),
+    ]);
+    const v1 = (await getGroundingModel(session, "c1"))?.version;
+    expect(v1).not.toBe(v0);
+    usable = [
+      conn("c1"),
+      { ...conn("c2", "type-b"), name: "renamed" },
+      conn("c3"),
+    ];
+    expect((await getGroundingModel(session, "c1"))?.version).not.toBe(v1);
   });
 });
