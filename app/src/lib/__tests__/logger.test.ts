@@ -63,6 +63,38 @@ describe("logger", () => {
     expect(logger.level).toBe("info");
   });
 
+  it("a level changed in Settings reaches the root and all three children (#2416)", async () => {
+    delete process.env.LOG_LEVEL;
+    const { logger, queryLogger, authLogger, apiLogger } =
+      await import("../logger");
+    const { applySettingRows } = await import("../settings/core");
+    applySettingRows([
+      { key: "LOG_LEVEL", value: "debug", updatedBy: null, updatedAt: null },
+    ]);
+    expect(
+      [logger, queryLogger, authLogger, apiLogger].map((l) => l.level),
+    ).toEqual(["debug", "debug", "debug", "debug"]);
+    applySettingRows([]);
+    expect(apiLogger.level).toBe("info");
+  });
+
+  it("two copies of the module both follow a level change (#2416, #1888)", async () => {
+    delete process.env.LOG_LEVEL;
+    const first = await import("../logger");
+    vi.resetModules();
+    const second = await import("../logger");
+    expect(second.logger).not.toBe(first.logger);
+    const { applySettingRows } = await import("../settings/core");
+    applySettingRows([
+      { key: "LOG_LEVEL", value: "debug", updatedBy: null, updatedAt: null },
+    ]);
+    expect([first.queryLogger.level, second.queryLogger.level]).toEqual([
+      "debug",
+      "debug",
+    ]);
+    applySettingRows([]);
+  });
+
   it("child loggers inherit the configured level", async () => {
     process.env.LOG_LEVEL = "warn";
     const { queryLogger, logger } = await import("../logger");

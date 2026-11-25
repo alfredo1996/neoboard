@@ -2,6 +2,7 @@ import pino from "pino";
 import { anonymizeLogRecord } from "./log-anonymizer";
 import { redactSecrets, redactString, scrubQuotedValues } from "./log-redact";
 import { buildTransport } from "./logger-transports";
+import { getSetting, onSettingsChange } from "./settings/core";
 
 /**
  * NeoBoard structured logger.
@@ -15,7 +16,8 @@ import { buildTransport } from "./logger-transports";
  *   queryLogger.info({ event: "query_executed", durationMs, ... }, "query_executed");
  *
  * Env vars:
- *   LOG_LEVEL      — error | warn | info | debug   (default: info)
+ *   LOG_LEVEL      — fatal | error | warn | info | debug | trace (default: info)
+ *                    An admin can change it live in Settings -> System (#2416).
  *   LOG_FORMAT     — json | pretty                 (default: json)
  *   LOG_OUTPUT     — stdout | file | both          (default: stdout)
  *   LOG_FILE_PATH  — file destination              (default: ./logs/neoboard.log)
@@ -38,24 +40,11 @@ import { buildTransport } from "./logger-transports";
  * log index and the human-readable format both carry signal.
  */
 
-const LOG_LEVEL = process.env.LOG_LEVEL?.toLowerCase() || "info";
 const LOG_ANONYMIZE = process.env.LOG_ANONYMIZE?.toLowerCase() === "true";
-
-function normaliseLevel(level: string): pino.Level {
-  const allowed: pino.Level[] = [
-    "fatal",
-    "error",
-    "warn",
-    "info",
-    "debug",
-    "trace",
-  ];
-  return (allowed as string[]).includes(level) ? (level as pino.Level) : "info";
-}
 
 export function buildOptions(): pino.LoggerOptions {
   const base: pino.LoggerOptions = {
-    level: normaliseLevel(LOG_LEVEL),
+    level: getSetting("LOG_LEVEL"),
     base: {
       service: "neoboard",
       env: process.env.NODE_ENV ?? "development",
@@ -158,3 +147,10 @@ export const authLogger = logger.child({ module: "auth" });
 
 /** Child logger for API request/response lifecycle. */
 export const apiLogger = logger.child({ module: "api" });
+
+// A level change in Settings -> System (#2416). pino cascades a root level
+// change to the children that have not set their own, so the query, auth and
+// api loggers follow (the logger test pins it).
+onSettingsChange(() => {
+  logger.level = getSetting("LOG_LEVEL");
+});

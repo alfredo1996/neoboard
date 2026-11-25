@@ -16,7 +16,7 @@ Use this checklist before deploying NeoBoard to production or to a new customer.
 - [ ] `NEXTAUTH_SECRET` generated (minimum 32 characters)
 - [ ] `NEXTAUTH_URL` set to the public URL (e.g., `https://neoboard.example.com`)
 - [ ] `API_KEY_HMAC_SECRET` generated — **required in every install**, not just when using API keys; the app refuses to start without it
-- [ ] `REGISTRATION_ENABLED` left unset or `false` (closed by default since v1.0 — set to `true` only if open signup is desired)
+- [ ] `REGISTRATION_ENABLED` left unset or `false` (closed by default since v1.0 — set to `true` only if open signup is desired). An admin can also open it in **Settings → System**; where sign-up must stay closed, keep `REGISTRATION_ENABLED` unset or `false` and pin it with `SETTINGS_LOCKED=REGISTRATION_ENABLED`
 - [ ] `FORCE_HTTPS` left unset (HTTPS redirect is **on by default** in production) — set to `false` only if TLS terminates at a reverse proxy or load balancer that does not forward `X-Forwarded-Proto`
 
 ### Infrastructure

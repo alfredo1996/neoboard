@@ -15,6 +15,7 @@ import { isTenantIdSet, resolveTenantId } from "@/lib/auth/tenant-id";
 import { emailSchema, normalizeEmail } from "@/lib/auth/email-schema";
 import { tenantScopedAdapter } from "@/lib/auth/tenant-adapter";
 import { randomId } from "@/lib/random-id";
+import { readSessionMaxAge } from "@/lib/auth/session-max-age";
 
 /** Reasons an authorize() call can fail. */
 type SignInFailureReason =
@@ -55,10 +56,7 @@ if (!isTenantIdSet()) {
   );
 }
 
-const sessionMaxAge = Number.parseInt(
-  process.env.SESSION_MAX_AGE || "28800",
-  10,
-);
+const { seconds: sessionMaxAge } = readSessionMaxAge();
 
 /**
  * Ends one session for good (#2138): every session read re-sets the cookie,

@@ -6,6 +6,7 @@ import {
   setDefaultSchedulerOptions,
 } from "@/lib/query/scheduler-registry";
 import type { SchedulerOptions } from "@/lib/query/scheduler";
+import { applySettingRows } from "@/lib/settings/core";
 
 const testOptions: SchedulerOptions = {
   maxConcurrent: 3,
@@ -19,6 +20,65 @@ describe("scheduler-registry", () => {
   beforeEach(() => {
     resetSchedulerRegistry();
     setDefaultSchedulerOptions(testOptions);
+  });
+
+  // #2416: an admin's change reaches schedulers that already exist.
+  describe("a changed setting", () => {
+    const ticket = (id: string, userId = "u1") => ({
+      id,
+      userId,
+      connectorId: "conn-live",
+      priority: 2 as const,
+      enqueuedAt: Date.now(),
+    });
+    const row = (key: string, value: unknown) => ({
+      key,
+      value,
+      updatedBy: null,
+      updatedAt: null,
+    });
+    const oneSlot = { ...testOptions, maxConcurrent: 1, maxPerUser: 1 };
+
+    it("lets queued queries in on a raised cap and leaves the running one alone", async () => {
+      setDefaultSchedulerOptions(oneSlot);
+      const s = getScheduler("conn-live");
+      await s.enqueue(ticket("running"));
+      let started = false;
+      const queued = s.enqueue(ticket("queued", "u2")).then(() => {
+        started = true;
+      });
+      expect(started).toBe(false);
+
+      applySettingRows([
+        row("QUERY_MAX_CONCURRENT", 2),
+        row("QUERY_MAX_PER_USER", 2),
+      ]);
+      await queued;
+
+      expect(started).toBe(true);
+      expect(s.getStats().activeQueries).toBe(2);
+      applySettingRows([]);
+    });
+
+    it("refuses new arrivals past a lowered queue depth, keeping the queued ones", async () => {
+      setDefaultSchedulerOptions(oneSlot);
+      const s = getScheduler("conn-live");
+      await s.enqueue(ticket("running"));
+      s.enqueue(ticket("q1", "u2")).catch(() => {});
+      s.enqueue(ticket("q2", "u3")).catch(() => {});
+      expect(s.getStats().queueDepth).toBe(2);
+
+      // A change replaces the whole config, so pin the one-slot caps too.
+      applySettingRows([
+        row("QUERY_MAX_CONCURRENT", 1),
+        row("QUERY_MAX_PER_USER", 1),
+        row("QUERY_MAX_QUEUE_DEPTH", 1),
+      ]);
+
+      await expect(s.enqueue(ticket("q3", "u4"))).rejects.toThrow();
+      expect(s.getStats().queueDepth).toBe(2);
+      applySettingRows([]);
+    });
   });
 
   it("returns the same instance for repeated getScheduler calls", () => {

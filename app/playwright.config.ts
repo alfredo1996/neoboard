@@ -7,6 +7,13 @@ import { CDP_OFFSET, resolveServerPort } from "./e2e/server-port";
 // the env), so baseURL, the CDP port, global setup and teardown all agree.
 const serverPort = resolveServerPort();
 
+// `--project=serial` or `--project serial`. Workers do not see the runner's
+// argv, so the choice rides the env, as the port does.
+if (/--project(?:=|\s)serial\b/.test(process.argv.join(" "))) {
+  process.env.E2E_SERIAL = "1";
+}
+const SERIAL_SELECTED = !!process.env.E2E_SERIAL;
+
 /** Nextcov coverage config — read by loadNextcovConfig() in global-setup/teardown. */
 export const nextcov: import("nextcov").NextcovConfig = {
   buildDir: ".next",
@@ -40,7 +47,15 @@ export default defineConfig({
   workers: 2,
   // CI: github (PR annotations) + list (real-time stream) + blob (for cross-shard merge).
   // Local: interactive HTML report.
-  reporter: process.env.CI ? [["github"], ["list"], ["blob"]] : "html",
+  // The blob reporter wipes its output dir on start, so the serial run in CI
+  // names its own (E2E_BLOB_DIR) instead of erasing the shard's blob.
+  reporter: process.env.CI
+    ? [
+        ["github"],
+        ["list"],
+        ["blob", { outputDir: process.env.E2E_BLOB_DIR ?? "blob-report" }],
+      ]
+    : "html",
   // Production build eliminates cold-start compilation — tighter timeouts are safe.
   timeout: 30_000,
   expect: { timeout: 5_000 },
@@ -80,10 +95,31 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      // *.serial.spec.ts flips deployment-wide state (#2416) and runs alone,
+      // in its own invocation (`--project=serial`) after this project ends.
+      testIgnore: "**/*.serial.spec.ts",
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1280, height: 1024 },
       },
     },
+    // Registered only when asked for by name. A `dependencies: ["chromium"]`
+    // chain makes `--shard=N/5` keep both projects in one shard: shard 1 ran
+    // the whole suite and shards 2-5 ran nothing. Without the dependency, a
+    // bare `playwright test` would run it beside the chromium workers, so it
+    // stays out of the default run: `npm run test:e2e` runs chromium, then
+    // serial; CI runs serial once, after shard 1's chromium tests.
+    ...(SERIAL_SELECTED
+      ? [
+          {
+            name: "serial",
+            testMatch: "**/*.serial.spec.ts",
+            use: {
+              ...devices["Desktop Chrome"],
+              viewport: { width: 1280, height: 1024 },
+            },
+          },
+        ]
+      : []),
   ],
 });

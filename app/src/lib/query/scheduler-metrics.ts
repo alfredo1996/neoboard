@@ -149,10 +149,11 @@ export function startSchedulerMetricsEmitter(
   if (runningTimer) return () => stopSchedulerMetricsEmitter();
 
   const prevTotals = new Map<string, { rejections: number; sheds: number }>();
-  const config = readSchedulerConfig();
 
   runningTimer = setInterval(() => {
     try {
+      // Read per tick: an admin can change these live (#2416).
+      const config = readSchedulerConfig();
       _runTick(
         prevTotals,
         config.maxQueueDepth,

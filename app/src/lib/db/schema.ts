@@ -626,6 +626,30 @@ export const auditLogs = pgTable(
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
 
+// ─── Settings (#2416) ───────────────────────────────────────────────
+// Runtime policy an admin sets live. The keys are a fixed list (see
+// lib/settings/core.ts), so no secret can live here.
+
+export const settings = pgTable(
+  "settings",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    tenantId: text("tenant_id").notNull().default("default"),
+    key: text("key").notNull(),
+    value: jsonb("value").notNull(),
+    // Single-column FK on purpose (see auditLogs): SET NULL must not null tenant_id.
+    updatedBy: text("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
+  },
+  (table) => [
+    unique("settings_tenant_key_unique").on(table.tenantId, table.key),
+  ],
+);
+
 // ─── Inferred types ──────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;

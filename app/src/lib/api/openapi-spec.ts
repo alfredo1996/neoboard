@@ -1072,6 +1072,46 @@ const SPEC = {
         },
       },
     },
+    "/api/settings": {
+      get: {
+        tags: ["Settings"],
+        summary: "Get the runtime settings",
+        description:
+          "Admin only. Every setting an admin can change live (#2416) with the value in force and where it comes from: " +
+          "`locked` (pinned by `SETTINGS_LOCKED`), `database` (set in Settings -> System), `env` or `default`. `base` is " +
+          "what a reset returns to. The session length is read-only.",
+        responses: {
+          200: jsonResponse(
+            "The settings",
+            "#/components/schemas/SystemSettings",
+          ),
+          401: R.unauthorized,
+          403: R.forbidden,
+          500: R.serverError,
+        },
+      },
+      put: {
+        tags: ["Settings"],
+        summary: "Change runtime settings",
+        description:
+          "Admin only. `changes` maps a setting key to its new value, or to `null` to return it to the env value or the " +
+          "default. Unknown keys, locked keys and values out of range answer 400 and nothing is written. Each changed " +
+          "key writes one `settings.update` audit entry. The server that handles the call applies it at once; other " +
+          "replicas follow within 30 seconds.",
+        requestBody: jsonBody("#/components/schemas/UpdateSettingsRequest"),
+        responses: {
+          200: jsonResponse(
+            "The settings after the change",
+            "#/components/schemas/SystemSettings",
+          ),
+          400: R.badRequest,
+          401: R.unauthorized,
+          403: R.forbidden,
+          413: R.tooLarge,
+          500: R.serverError,
+        },
+      },
+    },
     "/api/users/me": {
       get: {
         tags: ["Users"],
@@ -3027,6 +3067,36 @@ const SPEC = {
         type: "object",
         required: ["name"],
         properties: { name: { type: "string", minLength: 1 } },
+      },
+      UpdateSettingsRequest: {
+        type: "object",
+        required: ["changes"],
+        properties: {
+          changes: {
+            type: "object",
+            description:
+              "QUERY_MAX_CONCURRENT, QUERY_MAX_PER_USER, QUERY_MAX_QUEUE_DEPTH, QUERY_QUEUE_TIMEOUT_MS (ms), QUERY_SHED_THRESHOLD (0.1-1), REGISTRATION_ENABLED, LOG_LEVEL. `null` resets a key.",
+            additionalProperties: true,
+          },
+        },
+      },
+      SystemSettings: {
+        type: "object",
+        properties: {
+          settings: {
+            type: "object",
+            description:
+              "Per key: `value`, `source` (locked, database, env, default), `base` ({ value, source }), `updatedByName`, `updatedAt`.",
+            additionalProperties: true,
+          },
+          sessionMaxAge: {
+            type: "object",
+            properties: {
+              seconds: { type: "integer" },
+              source: { type: "string", enum: ["env", "default"] },
+            },
+          },
+        },
       },
       ChangePasswordRequest: {
         type: "object",

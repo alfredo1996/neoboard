@@ -347,10 +347,33 @@ jobs:
 
       - name: Run E2E tests (shard ${{ matrix.shard }}/5)
         working-directory: app
-        run: npx playwright test --shard=${{ matrix.shard }}/5
+        run: npx playwright test --project=chromium --shard=${{ matrix.shard }}/5
         env:
           CI: 'true'
           E2E_COVERAGE: '1'
+
+      # Deployment-wide state (#2416: sign-up) cannot share a server with
+      # parallel tests, so it runs once, here, after shard 1's chromium tests,
+      # on fresh containers. Named like the shard so the merge bar's
+      # `E2E \(shard` log scan sees it. No E2E_COVERAGE: a second finalize
+      # would overwrite shard 1's lcov, and this spec covers no new code.
+      - name: Run serial E2E tests (deployment-wide state)
+        if: ${{ matrix.shard == 1 && !cancelled() }}
+        working-directory: app
+        run: npx playwright test --project=serial
+        env:
+          CI: 'true'
+          E2E_SKIP_BUILD: '1'
+          E2E_BLOB_DIR: blob-report-serial
+
+      - name: Upload serial blob report
+        uses: actions/upload-artifact@v7
+        if: ${{ matrix.shard == 1 && !cancelled() }}
+        with:
+          name: blob-report-serial
+          retention-days: 1
+          path: app/blob-report-serial/
+          if-no-files-found: warn
 
       - name: Upload blob report
         uses: actions/upload-artifact@v7
