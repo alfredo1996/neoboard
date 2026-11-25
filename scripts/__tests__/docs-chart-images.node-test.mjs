@@ -29,20 +29,22 @@ describe("chart pages embed their chart (#1745)", () => {
   });
 
   for (const page of pages) {
-    it(`${page} embeds a light and a dark image that exist`, () => {
+    it(`${page} puts its own light and dark image in the matching wrapper`, () => {
+      const slug = page.replace(/\.mdx$/, "");
       const src = readFileSync(join(CHARTS, page), "utf8");
-      const refs = [...src.matchAll(/!\[[^\]]*\]\((\/charts\/[^)\s]+)\)/g)].map(
-        (m) => m[1],
-      );
-      assert.ok(refs.length > 0, `${page} embeds no /charts/ image`);
-      for (const ref of refs) {
-        assert.ok(existsSync(join(DOCS, "public", ref)), `${ref} is missing`);
-      }
       for (const theme of ["light", "dark"]) {
-        assert.ok(
-          refs.some((r) => r.endsWith(`-${theme}.png`)),
-          `${page} has no ${theme} image`,
+        const ref = `/charts/${slug}-${theme}.png`;
+        const block = src.match(
+          new RegExp(
+            `<div class="chart-shot chart-shot-${theme}">([\\s\\S]*?)</div>`,
+          ),
         );
+        assert.ok(block, `${page} has no chart-shot-${theme} wrapper`);
+        assert.ok(
+          block[1].includes(`](${ref})`),
+          `${page}: chart-shot-${theme} does not embed ${ref}`,
+        );
+        assert.ok(existsSync(join(DOCS, "public", ref)), `${ref} is missing`);
       }
     });
   }
@@ -55,28 +57,34 @@ describe(
     const base = (process.env.DOCS_BASE ?? "").replace(/\/+$/, "");
     const DIST = join(DOCS, "dist");
 
-    for (const page of pages) {
-      it(`${page} has an <img> under "${base}/"`, () => {
-        const file = join(
-          DIST,
-          "charts",
-          page.replace(/\.mdx$/, ""),
-          "index.html",
+    it("the built CSS carries the theme rules that pick the image", () => {
+      const css = readdirSync(join(DIST, "_astro"))
+        .filter((f) => f.endsWith(".css"))
+        .map((f) => readFileSync(join(DIST, "_astro", f), "utf8"))
+        .join("\n");
+      for (const theme of ["light", "dark"]) {
+        assert.ok(
+          css.includes(`.chart-shot-${theme}`),
+          `no .chart-shot-${theme} rule`,
         );
+      }
+    });
+
+    for (const page of pages) {
+      it(`${page} has both <img> under "${base}/"`, () => {
+        const slug = page.replace(/\.mdx$/, "");
+        const file = join(DIST, "charts", slug, "index.html");
         assert.ok(existsSync(file), `${file} was not built`);
         const html = readFileSync(file, "utf8");
-        const srcs = [...html.matchAll(/<img[^>]*\ssrc="([^"]+)"/g)]
-          .map((m) => m[1])
-          .filter((s) => s.includes("/charts/"));
-        assert.ok(srcs.length > 0, `${page} built with no chart <img>`);
-        for (const s of srcs) {
+        for (const theme of ["light", "dark"]) {
+          const ref = `${base}/charts/${slug}-${theme}.png`;
           assert.ok(
-            s.startsWith(`${base}/charts/`),
-            `${s} lacks the base "${base}"`,
+            html.includes(`src="${ref}"`),
+            `${page} built without <img src="${ref}">`,
           );
           assert.ok(
-            existsSync(join(DIST, s.slice(base.length))),
-            `${s} not in dist`,
+            existsSync(join(DIST, ref.slice(base.length))),
+            `${ref} not in dist`,
           );
         }
       });

@@ -31,6 +31,10 @@ const only = flag("id", null);
 // --docs: one cropped light/dark pair per chart page, written to
 // docs/public/charts/<page>-<theme>.png. The story ids are the docs pages'
 // pictures; change one here and re-run to refresh after a chart's look changes.
+// Not fully deterministic: iframe shows live example.com, and map and
+// choropleth fetch basemap tiles at capture time. Run it online and look at
+// those three images (and the whole set) before committing a refresh.
+// The story root is captured whole, so a story's own height never crops it.
 const docs = args.includes("--docs");
 
 /**
@@ -70,13 +74,7 @@ const DOCS_SHOTS = Object.entries({
   "single-value": "charts-singlevaluechart--with-trend",
   sunburst: "charts-sunburstchart--default",
   table: "composed-datagrid--default",
-}).map(([name, id]) => ({
-  id,
-  name,
-  // The graph canvas lays out taller than the rest.
-  h: name === "graph" ? 560 : 360,
-  w: 720,
-}));
+}).map(([name, id]) => ({ id, name, w: 720, h: 1400 }));
 
 const shots = docs
   ? DOCS_SHOTS
@@ -92,15 +90,25 @@ for (const { id, name, h, w = 1280 } of shots) {
   for (const theme of ["light", "dark"]) {
     const page = await browser.newPage({
       viewport: { width: w, height: h },
-      deviceScaleFactor: docs ? 1 : 2,
+      deviceScaleFactor: 2,
       colorScheme: theme,
     });
     await page.goto(`${BASE}?id=${id}&viewMode=story&globals=theme:${theme}`, {
       waitUntil: "networkidle",
     });
-    // ECharts finishes its first paint after networkidle resolves.
-    await page.waitForTimeout(1200);
-    await page.screenshot({ path: `${outDir}/${name}-${theme}.png` });
+    // ECharts finishes its first paint after networkidle resolves. Docs mode
+    // waits longer: the gauge animates for 1000 ms and the stories expose no
+    // chart instance to await a "finished" event on.
+    await page.waitForTimeout(docs ? 3000 : 1200);
+    const path = `${outDir}/${name}-${theme}.png`;
+    if (docs) {
+      const root = page.locator("#storybook-root");
+      const tall = await root.evaluate((el, max) => el.scrollHeight > max, h);
+      if (tall) throw new Error(`${name}: story is taller than ${h}px`);
+      await root.screenshot({ path });
+    } else {
+      await page.screenshot({ path });
+    }
     await page.close();
     console.log(`captured ${name}-${theme}`);
   }
