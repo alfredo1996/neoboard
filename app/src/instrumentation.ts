@@ -10,6 +10,27 @@
  * Once any user exists in the database the function is permanently a no-op.
  */
 
+import type { Logger } from "pino";
+
+/**
+ * Load the admin-set runtime settings (#2416) and refresh them every 30 s so
+ * other replicas follow a change. Before the first load, env and defaults
+ * apply; a failure is logged and boot goes on.
+ */
+async function startSettings(logger: Pick<Logger, "warn" | "error">) {
+  try {
+    const { startSettingsRefresh } = await import("@/lib/settings/store");
+    await startSettingsRefresh((err) =>
+      logger.warn({ err }, "settings_refresh_failed"),
+    );
+  } catch (err) {
+    logger.error(
+      { event: "settings_start_failed", err },
+      "settings_start_failed",
+    );
+  }
+}
+
 export async function register() {
   // Only run in the Node.js runtime (not in the Edge runtime)
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
@@ -63,19 +84,7 @@ export async function register() {
 
   const { logger, authLogger } = await import("@/lib/logger");
 
-  // Load the admin-set runtime settings (#2416) and refresh them every 30 s so
-  // other replicas follow a change. Before the first load, env and defaults apply.
-  try {
-    const { startSettingsRefresh } = await import("@/lib/settings/store");
-    await startSettingsRefresh((err) =>
-      logger.warn({ err }, "settings_refresh_failed"),
-    );
-  } catch (err) {
-    logger.error(
-      { event: "settings_start_failed", err },
-      "settings_start_failed",
-    );
-  }
+  await startSettings(logger);
 
   // Register built-in query middleware (audit logging, etc.) before any
   // query route has a chance to run. Runs once per cold start.

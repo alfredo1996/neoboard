@@ -87,10 +87,9 @@ export async function saveSettings(
   changes: Partial<Record<SettingKey, unknown>>,
 ): Promise<SettingChange[]> {
   if (!isProcessTenant(tenantId)) throw new ForbiddenError();
+  const lockKey = `neoboard.settings:${tenantId}`;
   const changed = await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`select pg_advisory_xact_lock(hashtext(${`neoboard.settings:${tenantId}`}))`,
-    );
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`);
     const stored = await tx
       .select({
         key: settings.key,
@@ -105,24 +104,27 @@ export async function saveSettings(
     if (problem) throw new SettingsValidationError(problem);
 
     const after = new Map(before);
-    for (const [key, value] of Object.entries(changes)) {
-      if (value === null) {
-        after.delete(key);
-        await tx
-          .delete(settings)
-          .where(and(eq(settings.tenantId, tenantId), eq(settings.key, key)));
-        continue;
-      }
-      const row = { value, updatedBy: userId, updatedAt: new Date() };
-      after.set(key, { key, ...row });
-      await tx
-        .insert(settings)
-        .values({ tenantId, key, ...row })
-        .onConflictDoUpdate({
-          target: [settings.tenantId, settings.key],
-          set: row,
-        });
-    }
+    // One transaction connection: the writes queue on it in order, so they
+    // can be issued together instead of awaited one by one.
+    await Promise.all(
+      Object.entries(changes).map(([key, value]) => {
+        if (value === null) {
+          after.delete(key);
+          return tx
+            .delete(settings)
+            .where(and(eq(settings.tenantId, tenantId), eq(settings.key, key)));
+        }
+        const row = { value, updatedBy: userId, updatedAt: new Date() };
+        after.set(key, { key, ...row });
+        return tx
+          .insert(settings)
+          .values({ tenantId, key, ...row })
+          .onConflictDoUpdate({
+            target: [settings.tenantId, settings.key],
+            set: row,
+          });
+      }),
+    );
     // Every key written or deleted, even when the effective value stayed: a
     // pinned value is a real change, env can move later.
     return (Object.keys(changes) as SettingKey[]).map((key) => ({

@@ -184,7 +184,9 @@ export function getSetting<K extends SettingKey>(key: K): SettingValue<K> {
  */
 export function onSettingsChange(fn: () => void): () => void {
   state.listeners.add(fn);
-  return () => void state.listeners.delete(fn);
+  return () => {
+    state.listeners.delete(fn);
+  };
 }
 
 const fingerprint = () =>

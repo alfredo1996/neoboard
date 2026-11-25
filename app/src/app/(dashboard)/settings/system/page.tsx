@@ -63,14 +63,19 @@ export default function SystemPage() {
   const [saving, setSaving] = useState<SectionId | null>(null);
 
   const load = useCallback(() => {
-    fetch("/api/settings")
-      .then((r) =>
+    void (async () => {
+      try {
+        const r = await fetch("/api/settings");
         // Try again would only hit 403 again: say who can see this instead.
-        r.status === 403
-          ? setDenied(true)
-          : unwrapResponse<SystemData>(r).then(setData),
-      )
-      .catch(() => setFailed(true));
+        if (r.status === 403) {
+          setDenied(true);
+          return;
+        }
+        setData(await unwrapResponse<SystemData>(r));
+      } catch {
+        setFailed(true);
+      }
+    })();
   }, []);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- load once
   useEffect(load, []);
