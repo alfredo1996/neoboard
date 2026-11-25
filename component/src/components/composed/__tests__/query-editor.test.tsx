@@ -49,6 +49,7 @@ vi.mock("@codemirror/view", () => {
     state = {
       doc: { toString: () => "", length: 0 },
       selection: { main: mockSelection },
+      toText: (s: string) => ({ length: s.length }),
     };
     dispatch = mockDispatch;
     destroy = mockDestroy;

@@ -19,7 +19,8 @@ export function editorLanguageForConnector(
 // A dialect with more can be added; over-quoting is harmless.
 const SQL_RESERVED = new Set(
   `all analyse analyze and any array as asc between both case cast check collate
-  column constraint create cross current_date current_time current_timestamp
+  column constraint create cross current_catalog current_date current_role
+  current_schema localtime localtimestamp current_time current_timestamp
   current_user default desc distinct do else end except false fetch for foreign
   from full grant group having in inner intersect into is join leading left
   like limit natural not null offset on only or order outer placing primary

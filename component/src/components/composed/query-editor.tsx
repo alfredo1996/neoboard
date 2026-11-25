@@ -299,7 +299,8 @@ function QueryEditor({
       const { from, to } = view.state.selection.main;
       view.dispatch({
         changes: { from, to, insert: text },
-        selection: { anchor: from + text.length },
+        // CodeMirror stores CRLF as LF, so measure the text as it will be stored.
+        selection: { anchor: from + view.state.toText(text).length },
         scrollIntoView: true,
       });
     },
@@ -307,6 +308,20 @@ function QueryEditor({
   // Prevent the CM update listener from triggering onChange while we are
   // programmatically pushing a value into the editor.
   const suppressUpdate = React.useRef(false);
+  // Replace the whole document without notifying onChange. The cursor follows
+  // the new text, so a name inserted next lands at its end; its offset is read
+  // from the stored text (CRLF becomes LF), and the flag resets even on a throw.
+  const replaceDoc = (view: CMEditorView, text: string) => {
+    suppressUpdate.current = true;
+    try {
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: text },
+        selection: { anchor: view.state.toText(text).length },
+      });
+    } finally {
+      suppressUpdate.current = false;
+    }
+  };
 
   // Keep the latest callbacks and prop values in refs so the async initEditor
   // closure always reads the current values when it finishes initialising.
@@ -707,13 +722,7 @@ function QueryEditor({
     if (!view) return;
     const doc = view.state.doc.toString();
     if (doc !== value) {
-      suppressUpdate.current = true;
-      // The cursor follows the new text, so a name inserted next lands at its end.
-      view.dispatch({
-        changes: { from: 0, to: doc.length, insert: value },
-        selection: { anchor: value.length },
-      });
-      suppressUpdate.current = false;
+      replaceDoc(view, value);
     }
   }, [value, isControlled]);
 
@@ -729,12 +738,7 @@ function QueryEditor({
   const handleHistorySelect = (query: string) => {
     const view = viewRef.current;
     if (view) {
-      suppressUpdate.current = true;
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: query },
-        selection: { anchor: query.length },
-      });
-      suppressUpdate.current = false;
+      replaceDoc(view, query);
     }
     if (!isControlled) setInternalValue(query);
     onChange?.(query);
@@ -743,11 +747,7 @@ function QueryEditor({
   const handleClear = () => {
     const view = viewRef.current;
     if (view) {
-      suppressUpdate.current = true;
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: "" },
-      });
-      suppressUpdate.current = false;
+      replaceDoc(view, "");
       view.focus();
     }
     if (!isControlled) setInternalValue("");
