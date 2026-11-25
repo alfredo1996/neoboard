@@ -89,3 +89,20 @@
   border-color: var(--sl-color-white);
   color: var(--sl-color-black);
 }
+
+/* Chart pages carry a light and a dark capture of the real widget (#1745,
+   `node scripts/shoot-stories.mjs --docs`); show the one for the reader's
+   theme. Starlight sets data-theme on <html>; dark is the :root default. */
+.chart-shot img {
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.5rem;
+}
+.chart-shot-light {
+  display: none;
+}
+:root[data-theme="light"] .chart-shot-light {
+  display: block;
+}
+:root[data-theme="light"] .chart-shot-dark {
+  display: none;
+}

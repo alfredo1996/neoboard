@@ -9,12 +9,14 @@ on:
     paths:
       - 'docs/**'
       - 'scripts/check-docs-dist.mjs'
+      - 'scripts/__tests__/docs-chart-images.node-test.mjs'
       - '.github/workflows/docs-ci.yml'
   pull_request:
     branches: [main, dev, 'release/*']
     paths:
       - 'docs/**'
       - 'scripts/check-docs-dist.mjs'
+      - 'scripts/__tests__/docs-chart-images.node-test.mjs'
       - '.github/workflows/docs-ci.yml'
   workflow_dispatch:
 
@@ -84,6 +86,14 @@ jobs:
         run: |
           npm run build --prefix docs
           node scripts/check-docs-dist.mjs docs/dist
+
+      # Every chart page shows its chart (#1745): an <img> in each page's HTML,
+      # under the Pages base, resolving to a file in dist. Reads the build above.
+      - name: Fail if a chart page lost its picture
+        run: node --test scripts/__tests__/docs-chart-images.node-test.mjs
+        env:
+          DOCS_BUILT: '1'
+          DOCS_BASE: /neoboard
 
   # scripts/__tests__/docs-accuracy.test.mjs holds the pages to the source —
   # among other things it typechecks the connector-author page's code blocks
