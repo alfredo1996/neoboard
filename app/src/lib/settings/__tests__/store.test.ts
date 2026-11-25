@@ -5,7 +5,8 @@ import { applySettingRows, getSetting } from "../core";
 const mockDb = { select: vi.fn(), transaction: vi.fn() };
 vi.mock("@/lib/db", () => ({ db: mockDb }));
 
-const { refreshSettings, saveSettings } = await import("../store");
+const { refreshSettings, saveSettings, startSettingsRefresh } =
+  await import("../store");
 
 const row = (key: string, value: unknown) => ({
   key,
@@ -30,7 +31,58 @@ describe("refreshSettings", () => {
   });
 });
 
+describe("refresh ordering", () => {
+  it("a refresh that started earlier and lands later does not undo a newer one", async () => {
+    let releaseOld!: (rows: unknown[]) => void;
+    const old = new Promise<unknown[]>((r) => (releaseOld = r));
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain(old as never))
+      .mockReturnValueOnce(makeSelectChain([row("QUERY_MAX_CONCURRENT", 40)]));
+    const slow = refreshSettings("t-1");
+    await refreshSettings("t-1");
+    expect(getSetting("QUERY_MAX_CONCURRENT")).toBe(40);
+    releaseOld([]);
+    await slow;
+    expect(getSetting("QUERY_MAX_CONCURRENT")).toBe(40);
+  });
+});
+
+describe("startSettingsRefresh", () => {
+  it("resolves after the first load, and a failed load reports and does not throw", async () => {
+    const onError = vi.fn();
+    mockDb.select.mockReturnValueOnce(
+      makeSelectChain(Promise.reject(new Error("db down")) as never),
+    );
+    await startSettingsRefresh(onError);
+    expect(onError).toHaveBeenCalledTimes(1);
+    const { state } = await import("../core");
+    clearInterval(state.timer);
+    state.timer = undefined;
+  });
+});
+
 describe("saveSettings", () => {
+  it("reports a key written with its current value, and a reset of a key that had no row", async () => {
+    const insert = vi.fn(() => ({
+      values: () => ({ onConflictDoUpdate: () => Promise.resolve() }),
+    }));
+    const del = vi.fn(() => ({ where: () => Promise.resolve() }));
+    mockDb.transaction.mockImplementation(
+      async (fn: (tx: unknown) => Promise<void>) => fn({ insert, delete: del }),
+    );
+    mockDb.select.mockReturnValueOnce(
+      makeSelectChain([row("QUERY_MAX_CONCURRENT", 10)]),
+    );
+    const changed = await saveSettings("t-1", "u1", {
+      QUERY_MAX_CONCURRENT: 10,
+      LOG_LEVEL: null,
+    });
+    expect(changed.map((c) => c.key)).toEqual([
+      "QUERY_MAX_CONCURRENT",
+      "LOG_LEVEL",
+    ]);
+  });
+
   it("writes in a transaction, applies at once, and reports the effective change", async () => {
     const insert = vi.fn(() => ({
       values: () => ({ onConflictDoUpdate: () => Promise.resolve() }),

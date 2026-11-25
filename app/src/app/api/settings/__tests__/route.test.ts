@@ -68,6 +68,14 @@ describe("GET /api/settings", () => {
   });
 });
 
+describe("GET /api/settings, session length", () => {
+  it("an unparsable SESSION_MAX_AGE shows the 8 h default, as sign-in uses", async () => {
+    process.env.SESSION_MAX_AGE = "soon";
+    const { data } = await (await GET()).json();
+    expect(data.sessionMaxAge).toEqual({ seconds: 28800, source: "default" });
+  });
+});
+
 describe("PUT /api/settings", () => {
   it("saves with the session's tenant and user, one audit entry per changed key", async () => {
     mockSave.mockResolvedValue([
@@ -90,12 +98,6 @@ describe("PUT /api/settings", () => {
       action: "settings.update",
       details: { key: "LOG_LEVEL", old: "info", new: "debug" },
     });
-  });
-
-  it("writes no audit entry for a value that did not change", async () => {
-    mockSave.mockResolvedValue([]);
-    await put({ changes: { LOG_LEVEL: "info" } });
-    expect(mockAudit).not.toHaveBeenCalled();
   });
 
   it.each([

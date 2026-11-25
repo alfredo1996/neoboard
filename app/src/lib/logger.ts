@@ -151,6 +151,6 @@ export const apiLogger = logger.child({ module: "api" });
 // A level change in Settings -> System (#2416). pino cascades a root level
 // change to the children that have not set their own, so the query, auth and
 // api loggers follow (the logger test pins it).
-onSettingsChange("logger", () => {
+onSettingsChange(() => {
   logger.level = getSetting("LOG_LEVEL");
 });

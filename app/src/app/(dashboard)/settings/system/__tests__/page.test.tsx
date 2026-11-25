@@ -194,4 +194,51 @@ describe("System settings page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await screen.findByRole("form", { name: "Query scheduler" });
   });
+
+  it("a 403 says admins only, with no Try again", async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      json: async () => ({
+        data: null,
+        error: { code: "FORBIDDEN", message: "Forbidden" },
+        meta: null,
+      }),
+    }) as never;
+    render(<SystemPage />);
+    expect(
+      await screen.findByText("Only admins can see system settings."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
+  it("an untouched row outside the write range does not block Save on another section row", async () => {
+    // Env 15.5 s and depth 20000 are legal from env, out of range to type.
+    global.fetch = vi.fn().mockResolvedValue(
+      envelope({
+        ...DATA,
+        settings: {
+          ...DATA.settings,
+          QUERY_QUEUE_TIMEOUT_MS: setting(15500),
+          QUERY_MAX_QUEUE_DEPTH: setting(20000),
+          QUERY_MAX_CONCURRENT: setting(3),
+          QUERY_MAX_PER_USER: setting(5),
+        },
+      }),
+    ) as never;
+    await loaded();
+    fireEvent.change(screen.getByLabelText(/Shed threshold/), {
+      target: { value: "70" },
+    });
+    expect(saveIn("Query scheduler")).toBeEnabled();
+    expect(screen.queryByText(/Enter a number from/)).toBeNull();
+  });
+
+  it("editing Max concurrent below the per-user value still asks for a fix", async () => {
+    await loaded();
+    fireEvent.change(screen.getByLabelText(/Max concurrent/), {
+      target: { value: "2" },
+    });
+    expect(saveIn("Query scheduler")).toBeDisabled();
+  });
 });

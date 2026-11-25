@@ -34,7 +34,7 @@ const defaults = ((
 
 // An admin changed a cap (#2416): every live scheduler takes it from its next
 // scheduling decision, no restart.
-onSettingsChange("schedulers", () => {
+onSettingsChange(() => {
   defaults.o = readSchedulerConfig();
   for (const scheduler of schedulers.values()) scheduler.setOptions(defaults.o);
 });

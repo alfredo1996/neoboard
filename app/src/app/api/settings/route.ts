@@ -13,6 +13,7 @@ import {
   validateChanges,
   type SettingKey,
 } from "@/lib/settings/core";
+import { readSessionMaxAge } from "@/lib/auth/session-max-age";
 import { refreshSettings, saveSettings } from "@/lib/settings/store";
 
 /** Each key's value, where it comes from and who last set it. */
@@ -22,11 +23,7 @@ function snapshot() {
   );
   // Read-only here: a live change would let #2138's revocation rows, sized
   // for the old age, expire while a re-issued session lives on.
-  const fromEnv = Boolean(process.env.SESSION_MAX_AGE);
-  const sessionMaxAge = {
-    seconds: Number.parseInt(process.env.SESSION_MAX_AGE || "28800", 10),
-    source: fromEnv ? "env" : "default",
-  };
+  const sessionMaxAge = readSessionMaxAge();
   return { settings, sessionMaxAge };
 }
 

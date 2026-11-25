@@ -67,7 +67,7 @@ export async function register() {
   // other replicas follow a change. Before the first load, env and defaults apply.
   try {
     const { startSettingsRefresh } = await import("@/lib/settings/store");
-    startSettingsRefresh((err) =>
+    await startSettingsRefresh((err) =>
       logger.warn({ err }, "settings_refresh_failed"),
     );
   } catch (err) {

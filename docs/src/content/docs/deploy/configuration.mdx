@@ -66,6 +66,7 @@ Startup validation fails fast if any of these is missing or malformed — you ge
 | `NEXTAUTH_URL` | Public URL of the instance. Set it to your public URL when running behind a reverse proxy so callback URLs are built correctly | Unset in the app: auth URLs are derived from the request host, and page metadata falls back to `http://localhost:3000`. The Compose files and the `neoboard` CLI set `http://localhost:<app port>` (3000 by default), which overrides the request host until you change it |
 | `TENANT_ID` | Tenant for single-tenant deployments | `default` |
 | `SESSION_MAX_AGE` | Session lifetime in seconds | `28800` (8 hours) |
+| `SETTINGS_LOCKED` | Comma-separated settings an admin cannot change in Settings → System (for example `REGISTRATION_ENABLED,LOG_LEVEL`) | unset |
 | `REGISTRATION_ENABLED` | Allow open signup. Closed by default — only the first-user bootstrap works when unset | `false` |
 | `ADMIN_BOOTSTRAP_TOKEN` | One-time token for creating the first admin via `/signup` | unset |
 | `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | Create the first admin automatically on first boot (dev/demo convenience) | unset |

@@ -98,11 +98,11 @@ describe("cache", () => {
 
   it("notifies listeners on a change, not on an identical reload", () => {
     const fn = vi.fn();
-    onSettingsChange("test", fn);
+    const off = onSettingsChange(fn);
     applySettingRows([row("QUERY_MAX_CONCURRENT", 40)]);
     applySettingRows([row("QUERY_MAX_CONCURRENT", 40)]);
     expect(fn).toHaveBeenCalledTimes(1);
-    onSettingsChange("test", () => {});
+    off();
   });
 });
 
@@ -120,6 +120,15 @@ describe("validateChanges", () => {
     [{ QUERY_MAX_CONCURRENT: 4 }, /more than max concurrent/i],
   ])("refuses %j", (changes, message) => {
     expect(validateChanges(changes)).toMatch(message);
+  });
+
+  it("does not judge the per-user cap when neither cap is in the change (env legal config)", () => {
+    process.env.QUERY_MAX_CONCURRENT = "3";
+    expect(validateChanges({ REGISTRATION_ENABLED: true })).toBeNull();
+    expect(validateChanges({ LOG_LEVEL: "debug" })).toBeNull();
+    expect(validateChanges({ QUERY_MAX_CONCURRENT: 2 })).toMatch(
+      /more than max concurrent/i,
+    );
   });
 
   it("accepts valid values and null (reset)", () => {

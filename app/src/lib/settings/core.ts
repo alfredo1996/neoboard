@@ -95,13 +95,13 @@ export interface SettingRow {
 // build gives instrumentation and each route its own copy of this module.
 interface State {
   rows: Map<string, SettingRow>;
-  listeners: Map<string, () => void>;
+  listeners: Set<() => void>;
   timer?: ReturnType<typeof setInterval>;
 }
 const g = globalThis as typeof globalThis & { __neoboardSettings?: State };
 export const state: State = (g.__neoboardSettings ??= {
   rows: new Map(),
-  listeners: new Map(),
+  listeners: new Set(),
 });
 
 export const isSettingKey = (key: string): key is SettingKey =>
@@ -160,9 +160,13 @@ export function getSetting<K extends SettingKey>(key: K): SettingValue<K> {
   return describeSetting(key).value;
 }
 
-/** Subscribe by id; a second call with the same id replaces the first. */
-export function onSettingsChange(id: string, fn: () => void): void {
-  state.listeners.set(id, fn);
+/**
+ * Subscribe; returns the unsubscribe. A Set, not ids: every bundle copy of a
+ * module registers its own listener and none may evict another (#1888).
+ */
+export function onSettingsChange(fn: () => void): () => void {
+  state.listeners.add(fn);
+  return () => void state.listeners.delete(fn);
 }
 
 const fingerprint = () =>
@@ -173,7 +177,7 @@ export function applySettingRows(rows: SettingRow[]): void {
   const before = fingerprint();
   state.rows = new Map(rows.map((r) => [r.key, r]));
   if (fingerprint() === before) return;
-  for (const fn of state.listeners.values()) {
+  for (const fn of state.listeners) {
     try {
       fn();
     } catch {
@@ -204,6 +208,11 @@ export function validateChanges(
     if (v === null) return describeSetting(key).base.value;
     return typeof v === "number" ? v : getSetting(key);
   };
+  // Only when a change touches either cap: env alone may be lenient, and that
+  // must not make every unrelated save a 400.
+  if (!("QUERY_MAX_PER_USER" in changes || "QUERY_MAX_CONCURRENT" in changes)) {
+    return null;
+  }
   if (after("QUERY_MAX_PER_USER") > after("QUERY_MAX_CONCURRENT")) {
     return "QUERY_MAX_PER_USER can't be more than max concurrent.";
   }

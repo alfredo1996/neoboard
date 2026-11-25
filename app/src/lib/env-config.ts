@@ -67,6 +67,7 @@ const ENV_VARS: EnvVar[] = [
   { key: "TENANT_ID", required: false },
   { key: "SESSION_MAX_AGE", required: false },
   { key: "REGISTRATION_ENABLED", required: false },
+  { key: "SETTINGS_LOCKED", required: false },
   { key: "ADMIN_BOOTSTRAP_TOKEN", required: false },
   { key: "BOOTSTRAP_ADMIN_EMAIL", required: false },
   { key: "BOOTSTRAP_ADMIN_PASSWORD", required: false },

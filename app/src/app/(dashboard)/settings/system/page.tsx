@@ -57,14 +57,19 @@ export default function SystemPage() {
   const { toast } = useToast();
   const [data, setData] = useState<SystemData | null>(null);
   const [failed, setFailed] = useState(false);
+  const [denied, setDenied] = useState(false);
   const [draft, setDraft] = useState<Record<string, Shown>>({});
   const [resetting, setResetting] = useState<Record<string, true>>({});
   const [saving, setSaving] = useState<SectionId | null>(null);
 
   const load = useCallback(() => {
     fetch("/api/settings")
-      .then((r) => unwrapResponse<SystemData>(r))
-      .then(setData)
+      .then((r) =>
+        // Try again would only hit 403 again: say who can see this instead.
+        r.status === 403
+          ? setDenied(true)
+          : unwrapResponse<SystemData>(r).then(setData),
+      )
       .catch(() => setFailed(true));
   }, []);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- load once
@@ -81,14 +86,20 @@ export default function SystemPage() {
   const changed = (key: string) =>
     key in resetting ||
     (key in draft && String(draft[key]) !== String(inForce(key)));
-  const errorOf = (key: string) =>
-    isNumberKey(key)
-      ? numberError(
-          key,
-          String(current(key)),
-          String(current("QUERY_MAX_CONCURRENT")),
-        )
-      : "";
+  // Only rows the admin changed are judged: env may hold a value the page
+  // would not accept as typed, and that must not block saving another row.
+  // Max per user is also judged when Max concurrent moves under it.
+  const errorOf = (key: string) => {
+    if (!isNumberKey(key)) return "";
+    const concurrent = String(current("QUERY_MAX_CONCURRENT"));
+    if (changed(key)) return numberError(key, String(current(key)), concurrent);
+    if (key === "QUERY_MAX_PER_USER" && changed("QUERY_MAX_CONCURRENT")) {
+      return Number(current(key)) > Number(concurrent)
+        ? `Can't be more than Max concurrent (${concurrent}).`
+        : "";
+    }
+    return "";
+  };
 
   function edit(key: string, value: Shown) {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -209,13 +220,9 @@ export default function SystemPage() {
       <>
         {s.updatedByName && when && `Set by ${s.updatedByName} on ${when}. `}
         {!(key in resetting) && (
-          <button
-            type="button"
-            className="text-primary underline-offset-2 hover:underline"
-            onClick={() => reset(key)}
-          >
+          <Button type="button" variant="link" onClick={() => reset(key)}>
             {label} ({fmt(key, baseShown)})
-          </button>
+          </Button>
         )}
       </>
     );
@@ -263,6 +270,15 @@ export default function SystemPage() {
   }
 
   function body() {
+    if (denied) {
+      return (
+        <Alert role="alert">
+          <AlertDescription>
+            Only admins can see system settings.
+          </AlertDescription>
+        </Alert>
+      );
+    }
     if (failed) {
       return (
         <Alert variant="destructive" role="alert">
@@ -298,7 +314,7 @@ export default function SystemPage() {
       (section: SectionId) => (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
         const { dirty, invalid } = sectionState(section);
-        if (dirty && !invalid) save(section);
+        if (dirty && !invalid) void save(section);
       };
     return (
       <>
