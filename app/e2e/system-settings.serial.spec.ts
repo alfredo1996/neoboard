@@ -17,7 +17,7 @@ test.describe("Settings — System", () => {
     await authPage.login(ALICE.email, ALICE.password);
     try {
       await page.goto("/settings/system");
-      const form = page.getByRole("form", { name: "Sign-up" });
+      const form = page.getByRole("form", { name: "Sign-up", exact: true });
       const toggle = form.getByRole("switch");
       await expect(toggle).toBeChecked(); // global-setup opens it through env
 
@@ -26,12 +26,12 @@ test.describe("Settings — System", () => {
           (r) =>
             r.url().endsWith("/api/settings") && r.request().method() === "PUT",
         );
-        await form.getByRole("button", { name: "Save" }).click();
+        await form.getByRole("button", { name: "Save", exact: true }).click();
         expect((await done).ok()).toBe(true);
       };
       await toggle.click();
       await save();
-      await expect(form.getByText("Set here")).toBeVisible();
+      await expect(form.getByText("Set here", { exact: true })).toBeVisible();
 
       const visitor = await browser.newContext();
       const signup = await visitor.newPage();
@@ -44,7 +44,7 @@ test.describe("Settings — System", () => {
       await save();
       await signup.reload();
       await expect(
-        signup.getByRole("button", { name: "Create account" }),
+        signup.getByRole("button", { name: "Create account", exact: true }),
       ).toBeVisible();
       await visitor.close();
     } finally {
@@ -62,11 +62,16 @@ test.describe("Settings — System", () => {
   }) => {
     await authPage.login(BOB.email, BOB.password);
     await sidebarPage.navigateTo("Settings");
-    const tabs = page.getByRole("navigation", { name: "Settings" });
+    const tabs = page.getByRole("navigation", {
+      name: "Settings",
+      exact: true,
+    });
     await expect(
       tabs.getByRole("link", { name: "Profile", exact: true }),
     ).toBeVisible();
-    await expect(tabs.getByRole("link", { name: "System" })).toHaveCount(0);
+    await expect(
+      tabs.getByRole("link", { name: "System", exact: true }),
+    ).toHaveCount(0);
     const res = await page.request.get("/api/settings");
     expect(res.status()).toBe(403);
   });
