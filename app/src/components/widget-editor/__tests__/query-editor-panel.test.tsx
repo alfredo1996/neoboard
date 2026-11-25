@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 
 // Mock next/dynamic to render the QueryEditor stub synchronously
@@ -118,6 +118,27 @@ const QUERY_SYNTAX =
 describe("QueryEditorPanel", () => {
   beforeEach(() => {
     useWidgetEditorStore.getState().resetForAdd();
+  });
+
+  it("has a Model button that is disabled, with its reason, until a connection is chosen (#1693)", () => {
+    const onOpenModel = vi.fn();
+    render(
+      <QueryEditorPanel editorLanguage="cypher" onOpenModel={onOpenModel} />,
+    );
+    expect(screen.getByRole("button", { name: "Model" })).toBeDisabled();
+    expect(screen.getByTestId("query-editor")).toHaveTextContent(
+      "Choose a connection to browse its model",
+    );
+  });
+
+  it("opens the model from the Model button once a connection is chosen (#1693)", () => {
+    const onOpenModel = vi.fn();
+    useWidgetEditorStore.getState().setConnectionId("pg");
+    render(
+      <QueryEditorPanel editorLanguage="cypher" onOpenModel={onOpenModel} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Model" }));
+    expect(onOpenModel).toHaveBeenCalledOnce();
   });
 
   it("gives the editor what creators said about the connection's terms, for autocomplete (#2415)", () => {

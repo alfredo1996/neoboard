@@ -219,10 +219,21 @@ vi.mock("@neoboard/components", async () => {
     // composition, not the panel's sections.
     ChartSettingsPanel: ({
       groups,
+      onSectionChange,
     }: {
       groups: { name: string; render: (search: string) => React.ReactNode }[];
+      onSectionChange: (section: string) => void;
     }) => (
       <div data-testid="chart-settings">
+        {["data", "style"].map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-label={id}
+            onClick={() => onSectionChange(id)}
+          />
+        ))}
         {groups.map((g) => (
           <div key={g.name} data-group={g.name}>
             {g.render("")}
@@ -305,7 +316,9 @@ vi.mock("../widget-editor/widget-preview-panel", () => ({
     seedPreviewOptions,
     stopped,
     onStopPreview,
+    paneTabs,
   }: {
+    paneTabs?: React.ReactNode;
     isLabMode?: boolean;
     seedPreviewOptions?: unknown;
     stopped?: boolean;
@@ -318,12 +331,38 @@ vi.mock("../widget-editor/widget-preview-panel", () => ({
         data-lab-mode={String(isLabMode)}
         data-stopped={String(stopped)}
       >
+        {paneTabs}
         <button type="button" onClick={onStopPreview}>
           Stop preview
         </button>
       </div>
     );
   },
+}));
+// The real tabs, a stub pane: this test is about when the pane shows (#1693).
+vi.mock("../widget-editor/model-pane", async (orig) => ({
+  ...(await orig<typeof import("../widget-editor/model-pane")>()),
+  ModelPane: ({
+    language,
+    onInsert,
+    onRun,
+    tabs,
+  }: {
+    language: string;
+    onInsert: (t: string) => void;
+    onRun: () => void;
+    tabs: React.ReactNode;
+  }) => (
+    <div data-testid="model-pane" data-language={language}>
+      {tabs}
+      <button type="button" onClick={onRun}>
+        Run
+      </button>
+      <button type="button" onClick={() => onInsert("title")}>
+        Insert title
+      </button>
+    </div>
+  ),
 }));
 vi.mock("../widget-editor/chart-type-selector", () => ({
   ChartTypeSelect: (props: ChartTypeSelectProps) => {
@@ -531,6 +570,84 @@ describe("WidgetEditorModal — editor maximize (#1374)", () => {
 
 // #1824: a selector lists its options from its saved database, so the editor
 // shows that database, where it can be seen and set back to Default.
+describe("WidgetEditorModal — the model beside the query (#1693)", () => {
+  beforeEach(() => {
+    useWidgetEditorStore.getState().resetForAdd();
+  });
+
+  /** Opening the editor resets the store, so the connection is chosen after. */
+  function renderWithConnection() {
+    renderModal();
+    act(() => useWidgetEditorStore.getState().setConnectionId("c1"));
+  }
+
+  it("swaps the preview for the model, and Run brings the preview back", async () => {
+    const user = userEvent.setup();
+    renderWithConnection();
+    await user.click(screen.getByRole("button", { name: "Model" }));
+    expect(screen.getByTestId("model-pane")).toBeInTheDocument();
+    expect(screen.queryByTestId("widget-preview")).not.toBeInTheDocument();
+    // The query editor is neither covered nor resized.
+    expect(screen.getByTestId("query-editor")).toHaveAttribute(
+      "data-class-name",
+      "[&_.cm-editor]:max-h-[320px]",
+    );
+    await user.click(screen.getByRole("button", { name: "Run" }));
+    expect(screen.getByTestId("widget-preview")).toBeInTheDocument();
+    expect(screen.queryByTestId("model-pane")).not.toBeInTheDocument();
+  });
+
+  it("the Preview tab brings the preview back, and Model returns", async () => {
+    const user = userEvent.setup();
+    renderWithConnection();
+    await user.click(screen.getByRole("button", { name: "Model" }));
+    await user.click(screen.getByRole("tab", { name: "Preview" }));
+    expect(screen.getByTestId("widget-preview")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Model" }));
+    expect(screen.getByTestId("model-pane")).toBeInTheDocument();
+  });
+
+  it("hands the model the query editor's language", async () => {
+    const user = userEvent.setup();
+    renderWithConnection();
+    await user.click(screen.getByRole("button", { name: "Model" }));
+    expect(screen.getByTestId("model-pane")).toHaveAttribute(
+      "data-language",
+      "",
+    );
+  });
+
+  it("leaving Data returns the pane to Preview, and coming back finds it there", async () => {
+    const user = userEvent.setup();
+    renderWithConnection();
+    await user.click(screen.getByRole("button", { name: "Model" }));
+    await user.click(screen.getByRole("tab", { name: "style" }));
+    expect(screen.getByTestId("widget-preview")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Model" })).toBeNull();
+    await user.click(screen.getByRole("tab", { name: "data" }));
+    expect(screen.getByTestId("widget-preview")).toBeInTheDocument();
+    expect(screen.queryByTestId("model-pane")).not.toBeInTheDocument();
+  });
+
+  it("maximized, the Model button restores the split and opens the model", async () => {
+    const user = userEvent.setup();
+    renderWithConnection();
+    await user.click(screen.getByRole("button", { name: /expand editor/i }));
+    expect(screen.queryByTestId("widget-preview")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Model" }));
+    expect(screen.getByTestId("model-pane")).toBeInTheDocument();
+    expect(screen.getByTestId("query-editor")).toHaveAttribute(
+      "data-class-name",
+      "[&_.cm-editor]:max-h-[320px]",
+    );
+  });
+
+  it("offers no Model tab until a connection is chosen", () => {
+    renderModal();
+    expect(screen.queryByRole("tab", { name: "Model" })).toBeNull();
+  });
+});
+
 describe("WidgetEditorModal — a parameter selector's database (#1824)", () => {
   function renderSelector(parameterType: string) {
     render(

@@ -51,11 +51,10 @@ import {
   DialogContent,
   DialogTitle,
   DialogDescription,
-} from "@neoboard/components";
-import type {
-  OptionGroup,
-  OptionSection,
-  SettingsGroup,
+  type OptionGroup,
+  type OptionSection,
+  type QueryEditorHandle,
+  type SettingsGroup,
 } from "@neoboard/components";
 import {
   getCompatibleChartTypes,
@@ -76,6 +75,7 @@ import {
 } from "./widget-editor/chart-type-selector";
 import { useBuildWidgetForSave } from "./widget-editor/use-widget-save";
 import { QueryEditorPanel } from "./widget-editor/query-editor-panel";
+import { ModelPane, PaneTabs, type PaneView } from "./widget-editor/model-pane";
 import { FormFieldsEditor } from "./widget-editor/form-fields-editor";
 import { ParameterConfigSection } from "./widget-editor/parameter-config-section";
 import { StylingRulesEditor } from "./widget-editor/styling-rules-editor";
@@ -227,10 +227,19 @@ export function WidgetEditorModal({
   // the styling and action rules screens are open, and a section state inside it
   // would fall back to Data on the way back (#2388).
   const [section, setSection] = useState<OptionSection>("data");
+  // #1693 — the right-hand pane shows the model instead of the preview. It is
+  // asked for here; whether it shows depends on `showModel` below.
+  const [modelRequested, setModelRequested] = useState(false);
+  const editorRef = useRef<QueryEditorHandle>(null);
+  const changeSection = (next: OptionSection) => {
+    setSection(next);
+    setModelRequested(false);
+  };
   const openedWithRef = useRef<string | null>(null);
   useEffect(() => {
     if (!open) return;
     setSection("data");
+    setModelRequested(false);
     const store = useWidgetEditorStore.getState();
     if (mode === "edit" && widget) {
       store.loadFromWidget(widget);
@@ -651,6 +660,25 @@ export function WidgetEditorModal({
   const editorMaximized =
     editorMaximizedRequested && !isParamSelect && !isContentOnly;
 
+  /** #1693 — the model pane needs a connection, the Data section and a split. */
+  const canBrowseModel =
+    !isContentOnly &&
+    !isParamSelect &&
+    section === "data" &&
+    !!connectionId &&
+    !editorMaximized;
+  const showModel = canBrowseModel && modelRequested;
+  const runPreview = () => {
+    setModelRequested(false);
+    handlePreview();
+  };
+  const paneTabs = canBrowseModel ? (
+    <PaneTabs
+      active={showModel ? "model" : "preview"}
+      onSelect={(view: PaneView) => setModelRequested(view === "model")}
+    />
+  ) : undefined;
+
   function handleSave() {
     const widgetToSave = buildWidgetForSave();
     onSave(widgetToSave);
@@ -842,7 +870,12 @@ export function WidgetEditorModal({
                 {connectionRows}
                 {hasQuery && (
                   <QueryEditorPanel
-                    onRun={isForm ? undefined : handlePreview}
+                    onRun={isForm ? undefined : runPreview}
+                    editorRef={editorRef}
+                    onOpenModel={() => {
+                      setEditorMaximizedRequested(false);
+                      setModelRequested(true);
+                    }}
                     editorLanguage={editorLanguage}
                     running={previewQuery.isPending}
                     onStop={previewQuery.stop}
@@ -1078,7 +1111,7 @@ export function WidgetEditorModal({
               <ChartSettingsPanel
                 groups={settingsGroups}
                 section={section}
-                onSectionChange={setSection}
+                onSectionChange={changeSection}
                 searchable={styleOptionCount > 4}
               />
 
@@ -1087,8 +1120,20 @@ export function WidgetEditorModal({
                   canvas does not survive a 0-height mount, so `display: none`
                   would leave them alive at 0x0 and mis-measured on the way
                   back (#1374). */}
-              {!editorMaximized && (
+              {showModel && (
+                <ModelPane
+                  key={connectionId}
+                  connectionId={connectionId}
+                  language={editorLanguage}
+                  onInsert={(text) => editorRef.current?.insert(text)}
+                  onRun={runPreview}
+                  runDisabled={isForm || !query.trim()}
+                  tabs={paneTabs}
+                />
+              )}
+              {!editorMaximized && !showModel && (
                 <WidgetPreviewPanel
+                  paneTabs={paneTabs}
                   chartType={chartType}
                   connectionId={connectionId}
                   query={query}

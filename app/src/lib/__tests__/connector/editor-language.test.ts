@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { editorLanguageForConnector } from "@/lib/connector/editor-language";
+import {
+  editorLanguageForConnector,
+  quoteTerm,
+} from "@/lib/connector/editor-language";
 
 // What GET /api/connectors hands the browser (#1899) — fixture connectors, so
 // the test says nothing about which connectors exist.
@@ -29,5 +32,27 @@ describe("editorLanguageForConnector", () => {
     expect(editorLanguageForConnector(connectors)).toBe("");
     expect(editorLanguageForConnector(connectors, null)).toBe("");
     expect(editorLanguageForConnector(undefined, "acme-graph")).toBe("");
+  });
+});
+
+describe("quoteTerm", () => {
+  it.each([
+    ["cypher", "title", "title"],
+    ["cypher", "Movie", "Movie"],
+    ["cypher", "_x9", "_x9"],
+    ["cypher", "first name", "`first name`"],
+    ["cypher", "9lives", "`9lives`"],
+    ["cypher", "a-b", "`a-b`"],
+    ["cypher", "we`ird", "`we``ird`"],
+    ["sql", "orders", "orders"],
+    ["sql", "order_items2", "order_items2"],
+    ["sql", "Product Name", '"Product Name"'],
+    ["sql", "Orders", '"Orders"'],
+    ["sql", "2fast", '"2fast"'],
+    ["sql", 'a"b', '"a""b"'],
+    ["", "first name", "first name"],
+    ["acmeql", "first name", "first name"],
+  ])("%s: %s becomes %s", (language, name, expected) => {
+    expect(quoteTerm(name, language)).toBe(expected);
   });
 });

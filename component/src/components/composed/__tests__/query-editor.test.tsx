@@ -19,7 +19,9 @@
 import { render, screen, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { createRef } from "react";
 import { QueryEditor } from "../query-editor";
+import type { QueryEditorHandle } from "../query-editor";
 
 // ---------------------------------------------------------------------------
 // Mock CodeMirror dynamic imports
@@ -28,6 +30,7 @@ import { QueryEditor } from "../query-editor";
 const mockDispatch = vi.fn();
 const mockDestroy = vi.fn();
 const mockFocus = vi.fn();
+const mockSelection = { from: 0, to: 0 };
 /** CodeMirror's closeCompletion: true when it closed an open list. */
 const mockCloseCompletion = vi.fn((_view: unknown) => false);
 
@@ -43,7 +46,10 @@ let lastStateConfig: { extensions: unknown[] } | null = null;
 
 vi.mock("@codemirror/view", () => {
   class FakeEditorView {
-    state = { doc: { toString: () => "", length: 0 } };
+    state = {
+      doc: { toString: () => "", length: 0 },
+      selection: { main: mockSelection },
+    };
     dispatch = mockDispatch;
     destroy = mockDestroy;
     focus = mockFocus;
@@ -777,5 +783,43 @@ describe("QueryEditor toolbar and wrapping (#2388)", () => {
     expect(clear.closest(".border-b")).toContainElement(
       screen.getByRole("button", { name: "Templates" }),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Insert handle (#1693) — the Model pane puts a name at the cursor
+// ---------------------------------------------------------------------------
+
+describe("QueryEditor — insert handle", () => {
+  async function mounted() {
+    const ref = createRef<QueryEditorHandle>();
+    render(<QueryEditor ref={ref} />);
+    await flushAsync();
+    mockDispatch.mockClear();
+    return ref;
+  }
+
+  it("inserts at the cursor and leaves the cursor after the text", async () => {
+    mockSelection.from = 4;
+    mockSelection.to = 4;
+    const ref = await mounted();
+    act(() => ref.current?.insert("title"));
+    expect(mockDispatch).toHaveBeenCalledWith({
+      changes: { from: 4, to: 4, insert: "title" },
+      selection: { anchor: 9 },
+      scrollIntoView: true,
+    });
+  });
+
+  it("replaces a selection", async () => {
+    mockSelection.from = 2;
+    mockSelection.to = 7;
+    const ref = await mounted();
+    act(() => ref.current?.insert("`a b`"));
+    expect(mockDispatch).toHaveBeenCalledWith({
+      changes: { from: 2, to: 7, insert: "`a b`" },
+      selection: { anchor: 7 },
+      scrollIntoView: true,
+    });
   });
 });

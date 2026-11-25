@@ -30,7 +30,14 @@ type CMEditorView = any;
 // Public API
 // ---------------------------------------------------------------------------
 
+/** What a parent can ask of the editor (#1693). */
+export interface QueryEditorHandle {
+  /** Replaces the selection (or inserts at the cursor) and puts the cursor after the text. */
+  insert: (text: string) => void;
+}
+
 export interface QueryEditorProps {
+  ref?: React.Ref<QueryEditorHandle>;
   value?: string;
   defaultValue?: string;
   onChange?: (value: string) => void;
@@ -258,6 +265,7 @@ async function buildExtensions(
 // ---------------------------------------------------------------------------
 
 function QueryEditor({
+  ref,
   value,
   defaultValue = "",
   onChange,
@@ -284,6 +292,18 @@ function QueryEditor({
 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const viewRef = React.useRef<CMEditorView>(null);
+  React.useImperativeHandle(ref, () => ({
+    insert(text: string) {
+      const view = viewRef.current;
+      if (!view) return;
+      const { from, to } = view.state.selection.main;
+      view.dispatch({
+        changes: { from, to, insert: text },
+        selection: { anchor: from + text.length },
+        scrollIntoView: true,
+      });
+    },
+  }));
   // Prevent the CM update listener from triggering onChange while we are
   // programmatically pushing a value into the editor.
   const suppressUpdate = React.useRef(false);
