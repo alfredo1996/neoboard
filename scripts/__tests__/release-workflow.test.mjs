@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,6 +29,11 @@ import { join } from "node:path";
 
 const ROOT = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 const YML = readFileSync(join(ROOT, ".github/workflows/release.yml"), "utf8");
+const LIB_YML = readFileSync(
+  join(ROOT, ".github/workflows/release-libraries.yml"),
+  "utf8",
+);
+const LIB_SCRIPT = join(ROOT, "scripts/release-library.sh");
 
 /**
  * The same text with `#` comments removed, for assertions that ask what the
@@ -45,10 +56,10 @@ function stripComments(text) {
  * The text of one top-level job, from `  <name>:` up to the next job.
  * Job keys sit at exactly two spaces of indentation.
  */
-function jobBlock(name) {
-  const lines = YML.split("\n");
+function jobBlock(name, yml = YML) {
+  const lines = yml.split("\n");
   const start = lines.indexOf(`  ${name}:`);
-  expect(start, `job "${name}" not found in release.yml`).toBeGreaterThan(-1);
+  expect(start, `job "${name}" not found`).toBeGreaterThan(-1);
   let end = lines.length;
   for (let i = start + 1; i < lines.length; i++) {
     if (/^ {2}\S/.test(lines[i])) {
@@ -144,7 +155,9 @@ const DOCKER = stripComments(jobBlock("docker"));
 
 describe("release workflow: action pinning", () => {
   it("pins every action to a tag, never a branch", () => {
-    const refs = [...YML.matchAll(/uses:\s+(\S+)/g)].map((m) => m[1]);
+    const refs = [YML, LIB_YML].flatMap((y) =>
+      [...y.matchAll(/uses:\s+(\S+)/g)].map((m) => m[1]),
+    );
     expect(refs.length).toBeGreaterThan(0);
 
     for (const ref of refs) {
@@ -156,7 +169,7 @@ describe("release workflow: action pinning", () => {
   });
 
   it("does not regress to a branch ref", () => {
-    expect(YML).not.toMatch(/uses:\s+\S+@(main|master|HEAD)\b/);
+    expect(YML + LIB_YML).not.toMatch(/uses:\s+\S+@(main|master|HEAD)\b/);
   });
 });
 
@@ -194,12 +207,11 @@ describe("release workflow: permissions are least-privilege", () => {
     // SBOM/provenance here are OCI attestations pushed to ghcr by BuildKit,
     // NOT entries in GitHub's attestations API. `attestations: write` would
     // be handed out for a capability nothing in this workflow uses.
-    expect(stripComments(YML)).not.toContain("attestations: write");
+    expect(stripComments(YML + LIB_YML)).not.toContain("attestations: write");
   });
 
   it("does not grant contents: write outside the release job", () => {
     expect(DOCKER).not.toContain("contents: write");
-    expect(jobBlock("publish-cli")).not.toContain("contents: write");
   });
 });
 
@@ -222,11 +234,10 @@ describe("release workflow: multi-arch build", () => {
 
 describe("release workflow: a hung build is bounded (#2530)", () => {
   // [job, lowest cap that still clears a healthy run, highest cap that is
-  // still "bounded"]. Healthy: docker 23-41 min, release 9-15 s, publish-cli 6-8 s.
+  // still "bounded"]. Healthy: docker 23-41 min, release 9-15 s.
   it.each([
     ["docker", 60, 90],
     ["release", 10, 30],
-    ["publish-cli", 10, 30],
   ])("caps the %s job between %i and %i minutes", (job, lo, hi) => {
     const m = jobBlock(job).match(/^ {4}timeout-minutes:\s*(\d+)\s*$/m);
     expect(m, `${job} sets timeout-minutes`).not.toBeNull();
@@ -496,13 +507,6 @@ describe("release versions", () => {
     },
   );
 
-  it("keeps cli/package.json off the release version, so publish-cli skips", () => {
-    // v1.5 plan decision: the CLI stays at its own version so the publish-cli
-    // job (tag == cli version) skips on v1.5.0; NPM_TOKEN is not configured.
-    // Delete this case in v1.8, when @neoboard/cli is published for the first time.
-    expect(JSON.parse(read("cli/package.json")).version).not.toBe(version);
-  });
-
   it("keeps package-lock.json in step with the workspace versions", () => {
     const lock = JSON.parse(read("package-lock.json"));
     expect(lock.version).toBe(version);
@@ -536,4 +540,392 @@ describe("release versions", () => {
         .map((v) => `[${v.join(".")}]`),
     ).toEqual([]);
   });
+});
+
+describe("release.yml publishes nothing to npm (#1876)", () => {
+  it("has no publish-cli job and no npm publish or token", () => {
+    const code = stripComments(YML);
+    expect(code).not.toContain("publish-cli");
+    expect(code).not.toContain("npm publish");
+    expect(code).not.toContain("NPM_TOKEN");
+    expect(code).not.toContain("NODE_AUTH_TOKEN");
+  });
+
+  it("still triggers on v* tags only", () => {
+    expect(YML).toMatch(
+      /^on:\n {2}push:\n {4}tags: \["v\*"\]\n\npermissions:/m,
+    );
+  });
+});
+
+describe("library workflow: triggers (#1876)", () => {
+  const TAGS = ["@neoboard/cli@*", "@neoboard/connector-sdk@*"];
+
+  it("fires on exactly the two library tag globs, and on PRs only for their paths", () => {
+    const on = LIB_YML.slice(
+      LIB_YML.indexOf("\non:"),
+      LIB_YML.indexOf("\npermissions:"),
+    );
+    const tags = on.slice(on.indexOf("tags:"), on.indexOf("pull_request:"));
+    expect(
+      [...tags.matchAll(/"(@neoboard\/[^"]+)"/g)].map((m) => m[1]),
+    ).toEqual(TAGS);
+    for (const p of [
+      "cli/**",
+      "connector-sdk/**",
+      ".github/workflows/release-libraries.yml",
+    ]) {
+      expect(on.slice(on.indexOf("pull_request:"))).toContain(p);
+    }
+  });
+
+  it("never matches the v* trigger of release.yml", () => {
+    const dir = mkdtempSync(join(tmpdir(), "release-tags-"));
+    try {
+      const git = (...a) => execFileSync("git", a, { cwd: dir, stdio: "pipe" });
+      git("init", "-q");
+      git(
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@t",
+        "commit",
+        "-q",
+        "--allow-empty",
+        "-m",
+        "x",
+      );
+      for (const t of [
+        "@neoboard/cli@1.7.0",
+        "@neoboard/connector-sdk@0.2.0",
+      ]) {
+        git("tag", t);
+      }
+      expect(git("tag", "-l", "v*").toString()).toBe("");
+      expect(git("tag", "-l", "@neoboard/cli@*").toString().trim()).toBe(
+        "@neoboard/cli@1.7.0",
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("library release script (#1876)", () => {
+  // The verify job runs scripts/release-library.sh; so does this test.
+  const fixture = (pkgs) => {
+    const dir = mkdtempSync(join(tmpdir(), "release-lib-"));
+    execFileSync("git", ["init", "-q"], { cwd: dir });
+    for (const [d, { name, version, changelog }] of Object.entries(pkgs)) {
+      mkdirSync(join(dir, d));
+      writeFileSync(
+        join(dir, d, "package.json"),
+        JSON.stringify({ name, version }),
+      );
+      if (changelog !== undefined) {
+        writeFileSync(join(dir, d, "CHANGELOG.md"), changelog);
+      }
+    }
+    return dir;
+  };
+  const CL =
+    "# Changelog\n\n## [Unreleased]\n\n## [1.2.3] - 2026-01-01\n\n- the 1.2.3 change\n\n## [1.2.2]\n\n- older\n";
+  const PKGS = {
+    cli: { name: "@neoboard/cli", version: "1.2.3", changelog: CL },
+    "connector-sdk": {
+      name: "@neoboard/connector-sdk",
+      version: "1.2.3",
+      changelog: CL,
+    },
+  };
+  const run = (dir, tag) => {
+    const out = join(dir, "out");
+    const body = join(dir, "body.md");
+    try {
+      execFileSync("bash", [LIB_SCRIPT, tag], {
+        cwd: dir,
+        env: { ...process.env, GITHUB_OUTPUT: out, RELEASE_BODY: body },
+        stdio: "pipe",
+      });
+    } catch (e) {
+      return { ok: false, message: String(e.stdout) };
+    }
+    const outputs = Object.fromEntries(
+      readFileSync(out, "utf8")
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => l.split("=")),
+    );
+    return { ok: true, outputs, body: readFileSync(body, "utf8") };
+  };
+  const withFixture = (pkgs, fn) => {
+    const dir = fixture(pkgs);
+    try {
+      return fn(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+
+  it.each([
+    ["@neoboard/cli@1.2.3", "cli", "@neoboard/cli"],
+    [
+      "@neoboard/connector-sdk@1.2.3",
+      "connector-sdk",
+      "@neoboard/connector-sdk",
+    ],
+  ])("passes %s and returns only its section", (tag, dirName, name) => {
+    withFixture(PKGS, (dir) => {
+      const r = run(dir, tag);
+      expect(r.ok).toBe(true);
+      expect(r.outputs).toMatchObject({ dir: dirName, version: "1.2.3", name });
+      expect(r.body.trim()).toBe("- the 1.2.3 change");
+    });
+  });
+
+  // Each case must fail for its own reason: the asserted message is the check
+  // that fired, so deleting that check turns exactly its case red.
+  const CL_124 = `${CL}\n## [1.2.4]\n\n- the 1.2.4 change\n`;
+  const withCl = (cl, extra = {}) => ({
+    ...PKGS,
+    cli: { ...PKGS.cli, changelog: cl, ...extra },
+  });
+  it.each([
+    [
+      "a version differing from package.json",
+      withCl(CL_124),
+      "@neoboard/cli@1.2.4",
+      /package\.json is 1\.2\.3, the tag says 1\.2\.4/,
+    ],
+    [
+      "an unknown package name",
+      PKGS,
+      "@neoboard/components@1.2.3",
+      /@neoboard\/components is not a library released/,
+    ],
+    [
+      "a non-plain version",
+      PKGS,
+      "@neoboard/cli@1.2.3-rc.1",
+      /is not @neoboard\/<package>@X\.Y\.Z/,
+    ],
+    [
+      "a malformed tag",
+      PKGS,
+      "cli@1.2.3",
+      /is not @neoboard\/<package>@X\.Y\.Z/,
+    ],
+    [
+      "a tag with no version",
+      PKGS,
+      "@neoboard/cli@",
+      /is not @neoboard\/<package>@X\.Y\.Z/,
+    ],
+    [
+      "a package.json naming a different package than the tag",
+      withCl(CL, { name: "@neoboard/other" }),
+      "@neoboard/cli@1.2.3",
+      /named @neoboard\/other, the tag says @neoboard\/cli/,
+    ],
+  ])("fails on %s", (_, pkgs, tag, message) => {
+    withFixture(pkgs, (dir) => {
+      const r = run(dir, tag);
+      expect(r.ok).toBe(false);
+      expect(r.message).toMatch(message);
+    });
+  });
+
+  it.each([
+    ["missing", undefined, /CHANGELOG\.md does not exist/],
+    [
+      "without the version's section",
+      "# Changelog\n\n## [Unreleased]\n",
+      /has no '## \[1\.2\.3\]' section/,
+    ],
+    [
+      "a section that is empty",
+      "## [1.2.3]\n\n## [1.2.2]\n- x\n",
+      /has no '## \[1\.2\.3\]' section/,
+    ],
+    [
+      "a heading that only matches as a regex",
+      "## [1x2x3]\n- wrong\n",
+      /has no '## \[1\.2\.3\]' section/,
+    ],
+  ])(
+    "fails, with no fallback text, when the CHANGELOG is %s",
+    (_, changelog, message) => {
+      withFixture({ ...PKGS, cli: { ...PKGS.cli, changelog } }, (dir) => {
+        const r = run(dir, "@neoboard/cli@1.2.3");
+        expect(r.ok).toBe(false);
+        expect(r.message).toMatch(message);
+      });
+    },
+  );
+});
+
+describe("library workflow: jobs (#1876)", () => {
+  const job = (n) => stripComments(jobBlock(n, LIB_YML));
+  const granted = (n) =>
+    [...job(n).matchAll(/^ {6}(\S+): (read|write)\s*$/gm)].map(
+      (m) => `${m[1]}: ${m[2]}`,
+    );
+  // The `if:` line of a job, exactly; "" when it has none.
+  const ifLine = (n) => job(n).match(/^ {4}if: (.*)$/m)?.[1] ?? "";
+  // A step's single-line `run:`, exactly.
+  const runLine = (n, step) => {
+    const lines = job(n).split("\n");
+    const at = lines.findIndex((l) => l.trim() === `- name: ${step}`);
+    expect(at, `step "${step}" not found`).toBeGreaterThan(-1);
+    return lines
+      .slice(at)
+      .find((l) => /^\s+run: \S/.test(l))
+      ?.replace(/^\s+run: /, "");
+  };
+  const script = (n, step) => stepScript(job(n), step).trimEnd() + "\n";
+  const top = stripComments(LIB_YML.slice(0, LIB_YML.indexOf("\njobs:")));
+
+  it("triggers on library tags and library paths only, with nothing else on push", () => {
+    const push = top.slice(
+      top.indexOf("  push:"),
+      top.indexOf("  pull_request:"),
+    );
+    expect(push).toBe(
+      '  push:\n    tags:\n      - "@neoboard/cli@*"\n      - "@neoboard/connector-sdk@*"\n',
+    );
+  });
+
+  it("defaults to contents: read at the top level, and nothing else", () => {
+    expect(top.slice(top.indexOf("\npermissions:")).trim()).toBe(
+      "permissions:\n  contents: read",
+    );
+  });
+
+  it("grants publish exactly contents: read and id-token: write", () => {
+    expect(granted("publish").sort()).toEqual([
+      "contents: read",
+      "id-token: write",
+    ]);
+  });
+
+  it("grants contents: write only to github-release", () => {
+    expect(granted("github-release")).toContain("contents: write");
+    for (const j of ["verify", "publish", "dry-run"]) {
+      expect(job(j)).not.toContain("contents: write");
+    }
+  });
+
+  it("gives dry-run and verify no id-token", () => {
+    expect(job("dry-run")).not.toContain("id-token");
+    expect(job("verify")).not.toContain("id-token");
+  });
+
+  it("publishes behind the npm-publish environment, on tag pushes only, after verify", () => {
+    expect(job("publish")).toMatch(/^ {4}environment: npm-publish$/m);
+    expect(job("publish")).toMatch(/needs: verify/);
+    expect(ifLine("publish")).toBe("github.event_name == 'push'");
+    expect(ifLine("verify")).toBe("github.event_name == 'push'");
+    expect(ifLine("dry-run")).toBe("github.event_name == 'pull_request'");
+    expect(job("github-release")).toMatch(/needs: publish/);
+  });
+
+  it("publishes with provenance on Node >= 22.14 after an npm >= 11.5.1 guard", () => {
+    const p = job("publish");
+    expect(p).toContain("--provenance --access public");
+    // The major follows .nvmrc; the floor is a runtime guard, so the job
+    // keeps receiving Node patches instead of freezing on 22.14.0.
+    const nvmMajor = readFileSync(join(ROOT, ".nvmrc"), "utf8")
+      .trim()
+      .split(".")[0];
+    expect(p).toMatch(new RegExp(`node-version: "${nvmMajor}"`));
+    expect(script("publish", "Require Node 22.14 or later")).toBe(
+      "node -e 'const [a,b]=process.versions.node.split(\".\").map(Number); process.exit(a>22||(a===22&&b>=14)?0:1)'\n",
+    );
+    // An exact npm, not a float.
+    expect(runLine("publish", "Upgrade npm")).toMatch(
+      /^npm install -g npm@11\.\d+\.\d+$/,
+    );
+    expect(script("publish", "Require npm 11.5.1 or later")).toBe(
+      'npm --version\nnode -e \'const [a,b,c]=process.argv[1].split(".").map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)\' "$(npm --version)"\n',
+    );
+    for (const step of [
+      "Setup Node.js",
+      "Upgrade npm",
+      "Require npm 11.5.1 or later",
+    ]) {
+      expect(p.indexOf(`- name: ${step}`), step).toBeGreaterThan(-1);
+      expect(p.indexOf(`- name: ${step}`), step).toBeLessThan(
+        p.indexOf("- name: Publish to npm"),
+      );
+    }
+  });
+
+  it("installs without lifecycle scripts in the job that holds id-token", () => {
+    // Every dependency's postinstall would otherwise run next to the OIDC
+    // token request variables. Both builds are plain tsc.
+    expect(runLine("publish", "Install workspace dependencies")).toBe(
+      "npm ci --ignore-scripts",
+    );
+    const p = job("publish");
+    expect(p.indexOf("npm ci --ignore-scripts")).toBeLessThan(
+      p.indexOf("- name: Build"),
+    );
+    expect(runLine("publish", "Build")).toBe(
+      "npm run build --workspace=${{ needs.verify.outputs.name }}",
+    );
+    expect(runLine("publish", "Publish to npm")).toBe(
+      "npm publish --workspace=${{ needs.verify.outputs.name }} --provenance --access public",
+    );
+  });
+
+  it("authenticates by OIDC alone, with no token anywhere", () => {
+    expect(LIB_YML).not.toContain("NPM_TOKEN");
+    expect(LIB_YML).not.toContain("NODE_AUTH_TOKEN");
+  });
+
+  it("never takes the product's Latest badge", () => {
+    expect(job("github-release")).toMatch(/make_latest: false/);
+  });
+
+  it("runs the verify script on the tag, whose failure stops the run before approval", () => {
+    expect(
+      runLine("verify", "Check the tag against package.json and CHANGELOG.md"),
+    ).toBe('bash scripts/release-library.sh "$GITHUB_REF_NAME"');
+  });
+
+  it("dry-runs the build and the pack of each package the PR touches", () => {
+    const s = script("dry-run", "Dry-run npm publish");
+    expect(s).toContain('npm run build --workspace="$name"');
+    expect(s).toContain('npm publish --dry-run --workspace="$name"');
+    expect(s).toContain(
+      "for entry in cli:@neoboard/cli connector-sdk:@neoboard/connector-sdk",
+    );
+  });
+});
+
+describe("library release prep (#1876)", () => {
+  const read = (p) => readFileSync(join(ROOT, p), "utf8");
+
+  it("keeps components private", () => {
+    expect(JSON.parse(read("component/package.json")).private).toBe(true);
+  });
+
+  it("links connection to the SDK by workspace range", () => {
+    const sdk = "@neoboard/connector-sdk";
+    expect(JSON.parse(read("connection/package.json")).dependencies[sdk]).toBe(
+      "*",
+    );
+    expect(
+      JSON.parse(read("package-lock.json")).packages.connection.dependencies[
+        sdk
+      ],
+    ).toBe("*");
+  });
+
+  it.each(["cli", "connector-sdk"])(
+    "%s has a changelog with an Unreleased section",
+    (d) => {
+      expect(read(`${d}/CHANGELOG.md`)).toMatch(/^## \[Unreleased\]$/m);
+    },
+  );
 });
