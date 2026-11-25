@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { ArrowUpRight } from "lucide-react";
 import { cn, tabRowClass, tabTriggerClass } from "@neoboard/components";
 import { useFeature, type FeatureId } from "@/hooks/use-features";
@@ -13,6 +14,8 @@ interface Tab {
   requiresFeature?: FeatureId;
   /** Opens in a new tab via an anchor (e.g. the Swagger UI HTML route). */
   external?: boolean;
+  /** Only admins see the tab (#2416). The API enforces it as well. */
+  adminOnly?: boolean;
 }
 
 const tabs: Tab[] = [
@@ -21,6 +24,7 @@ const tabs: Tab[] = [
   // Swagger UI lives at an API route, not a settings page — link out so the
   // OpenAPI docs are discoverable from the app (#1056).
   { href: "/api/docs", label: "API docs", external: true },
+  { href: "/settings/system", label: "System", adminOnly: true },
   {
     href: "/settings/authentication",
     label: "Authentication",
@@ -34,8 +38,12 @@ export function SettingsTabs() {
   // initial load — we hide gated tabs in that window to avoid a flicker of
   // enterprise UI on community installs.
   const ssoEnabled = useFeature("sso");
+  const { data: session } = useSession();
+  const isAdmin =
+    (session?.user as { role?: string } | undefined)?.role === "admin";
 
   const visibleTabs = tabs.filter((t) => {
+    if (t.adminOnly && !isAdmin) return false;
     if (!t.requiresFeature) return true;
     if (t.requiresFeature === "sso") return ssoEnabled === true;
     // Unknown feature gate: hide by default (safer than leak).

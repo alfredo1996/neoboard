@@ -105,7 +105,7 @@ Default is synchronous JSON to stdout — 12-factor friendly, zero config. Every
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LOG_LEVEL` | `error` \| `warn` \| `info` \| `debug` | `info` |
+| `LOG_LEVEL` | `fatal` \| `error` \| `warn` \| `info` \| `debug` \| `trace` | `info` |
 | `LOG_FORMAT` | `json` \| `pretty` (use `pretty` for local dev only) | `json` |
 | `LOG_OUTPUT` | `stdout` \| `file` \| `both` | `stdout` |
 | `LOG_FILE_PATH` | File destination when `LOG_OUTPUT` includes `file` | `./logs/neoboard.log` |
@@ -148,6 +148,15 @@ redaction applies to query text either way.
 See [Monitoring](/deploy/monitoring#log-monitoring) for log fields and aggregation.
 
 Set `METRICS_TOKEN` to enable the Prometheus endpoint `GET /api/metrics`; see [Prometheus metrics](/deploy/metrics).
+
+## Settings changed in the app
+
+An admin can change seven of these live, under **Settings → System**, with no restart: the five query scheduler caps (`QUERY_MAX_CONCURRENT`, `QUERY_MAX_PER_USER`, `QUERY_MAX_QUEUE_DEPTH`, `QUERY_QUEUE_TIMEOUT_MS`, `QUERY_SHED_THRESHOLD`), `REGISTRATION_ENABLED` and `LOG_LEVEL`. `SESSION_MAX_AGE` is shown there but stays read-only.
+
+- **Env is the default.** A value an admin sets in the app wins over the env value. Resetting it returns the setting to the env value, or to the built-in default when env does not set it.
+- **`SETTINGS_LOCKED` pins keys.** `SETTINGS_LOCKED=QUERY_MAX_CONCURRENT,LOG_LEVEL` makes those keys follow env only. The page shows them as locked and the API refuses to change them.
+- **Several replicas.** The replica that handles the save applies it at once. The others read the change within 30 seconds.
+- A change to a scheduler cap applies from the next scheduling decision. Queries already running or waiting are left alone.
 
 ## Project config file
 

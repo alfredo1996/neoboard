@@ -160,6 +160,7 @@ describe("Database migrations", () => {
       "ontology_term",
       "ontology_concept",
       "ontology_concept_side",
+      "settings",
     ];
 
     const columns = await client`
@@ -194,6 +195,7 @@ describe("Database migrations", () => {
     "ontology_term",
     "ontology_concept",
     "ontology_concept_side",
+    "settings",
   ];
 
   it("indexes tenant_id as the LEADING column on every tenant-scoped table (#1646)", async () => {

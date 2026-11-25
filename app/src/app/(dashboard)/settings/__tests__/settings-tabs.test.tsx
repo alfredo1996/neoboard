@@ -24,7 +24,31 @@ vi.mock("@/hooks/use-features", () => ({
   useFeature: () => false,
 }));
 
+let mockRole = "creator";
+vi.mock("next-auth/react", () => ({
+  useSession: () => ({ data: { user: { role: mockRole } } }),
+}));
+
 import { SettingsTabs } from "../settings-tabs";
+
+describe("SettingsTabs — System tab (#2416)", () => {
+  it("an admin sees it, linked to /settings/system", () => {
+    mockRole = "admin";
+    render(<SettingsTabs />);
+    expect(screen.getByRole("link", { name: "System" })).toHaveAttribute(
+      "href",
+      "/settings/system",
+    );
+    mockRole = "creator";
+  });
+
+  it.each(["creator", "reader"])("a %s does not", (role) => {
+    mockRole = role;
+    render(<SettingsTabs />);
+    expect(screen.queryByRole("link", { name: "System" })).toBeNull();
+    mockRole = "creator";
+  });
+});
 
 describe("SettingsTabs — API docs discoverability (#1056, #2255)", () => {
   it("renders an API docs link that opens /api/docs in a new tab", () => {

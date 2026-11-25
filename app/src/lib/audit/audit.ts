@@ -34,6 +34,7 @@ export type AuditAction =
   | "user.password.reset"
   | "user.password.change"
   | "user.profile.update"
+  | "settings.update"
   | "key.create"
   | "key.revoke"
   | "admin.key.rotate"

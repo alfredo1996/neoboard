@@ -1,5 +1,6 @@
 import { QueryScheduler, type SchedulerOptions } from "./scheduler";
 import { readSchedulerConfig } from "./scheduler-config";
+import { onSettingsChange } from "@/lib/settings/core";
 
 /**
  * Singleton registry of per-connector schedulers.
@@ -25,7 +26,18 @@ const globalRegistry = globalThis as typeof globalThis & {
   __neoboardSchedulers?: Map<string, QueryScheduler>;
 };
 const schedulers = (globalRegistry.__neoboardSchedulers ??= new Map());
-let defaultOptions: SchedulerOptions = readSchedulerConfig();
+// Shared like the map: the settings listener below pushes new caps into it
+// from whichever bundle copy registered last.
+const defaults = ((
+  globalRegistry as { __neoboardSchedulerDefaults?: { o: SchedulerOptions } }
+).__neoboardSchedulerDefaults ??= { o: readSchedulerConfig() });
+
+// An admin changed a cap (#2416): every live scheduler takes it from its next
+// scheduling decision, no restart.
+onSettingsChange("schedulers", () => {
+  defaults.o = readSchedulerConfig();
+  for (const scheduler of schedulers.values()) scheduler.setOptions(defaults.o);
+});
 
 /**
  * Return the scheduler for a connection id, constructing it lazily on
@@ -33,7 +45,7 @@ let defaultOptions: SchedulerOptions = readSchedulerConfig();
  */
 export function getScheduler(
   connectionId: string,
-  options: SchedulerOptions = defaultOptions,
+  options: SchedulerOptions = defaults.o,
 ): QueryScheduler {
   let existing = schedulers.get(connectionId);
   if (!existing) {
@@ -52,7 +64,7 @@ export function resetSchedulerRegistry(): void {
     scheduler.shutdown();
   }
   schedulers.clear();
-  defaultOptions = readSchedulerConfig();
+  defaults.o = readSchedulerConfig();
 }
 
 /**
@@ -62,7 +74,7 @@ export function resetSchedulerRegistry(): void {
  * `resetSchedulerRegistry()` first if you need a clean slate.
  */
 export function setDefaultSchedulerOptions(options: SchedulerOptions): void {
-  defaultOptions = options;
+  defaults.o = options;
 }
 
 /**

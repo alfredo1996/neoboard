@@ -153,7 +153,7 @@ function createBucket(): PriorityBucket {
 // ---------------------------------------------------------------------------
 
 export class QueryScheduler {
-  private readonly options: SchedulerOptions;
+  private options: SchedulerOptions;
   private readonly buckets: Record<QueryPriority, PriorityBucket> = {
     1: createBucket(),
     2: createBucket(),
@@ -169,6 +169,18 @@ export class QueryScheduler {
 
   constructor(options: SchedulerOptions) {
     this.options = options;
+  }
+
+  /**
+   * Take new caps from the next scheduling decision on (#2416). Running
+   * queries are untouched, queued ones keep their timers, and a lower queue
+   * depth only refuses new arrivals. Raised caps let waiters start now.
+   */
+  setOptions(options: SchedulerOptions): void {
+    this.options = options;
+    for (let i = this.active.size; i < options.maxConcurrent; i++) {
+      this.wakeNext();
+    }
   }
 
   /**

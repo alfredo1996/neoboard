@@ -80,6 +80,18 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      // *.serial.spec.ts flips deployment-wide state (#2416) and runs alone,
+      // in the project below, after every parallel worker has finished.
+      testIgnore: "**/*.serial.spec.ts",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 1024 },
+      },
+    },
+    {
+      name: "serial",
+      testMatch: "**/*.serial.spec.ts",
+      dependencies: ["chromium"],
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1280, height: 1024 },
