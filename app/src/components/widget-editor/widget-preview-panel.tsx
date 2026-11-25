@@ -77,6 +77,8 @@ type WidgetPreviewPanelProps = Readonly<{
   };
   initialPreviewData: PreviewData | undefined;
   onRunPreview: () => void;
+  /** #1693 — the Preview / Model switch, in place of the plain label. */
+  paneTabs?: React.ReactNode;
   /** Ends the running preview (#2445). */
   onStopPreview?: () => void;
   /** The run has been pending long enough for Stop to replace Run (#2445). */
@@ -351,6 +353,7 @@ export function WidgetPreviewPanel({
   previewQuery,
   initialPreviewData,
   onRunPreview,
+  paneTabs,
   onStopPreview,
   stoppable,
   stopped,
@@ -415,7 +418,7 @@ export function WidgetPreviewPanel({
     // real card, with the title as it will read there (#2388).
     <div className="flex min-h-0 min-w-0 flex-col gap-2.5 border-l border-rule bg-page-ground px-5 py-3.5">
       <div className="flex min-h-8 items-center justify-between">
-        <span className="text-caption font-medium">Preview</span>
+        {paneTabs ?? <span className="text-caption font-medium">Preview</span>}
         {!isParamSelect && !isForm && !isContentOnly && (
           <div className="flex items-center gap-2">
             {!waitingForParams && previewQuery.isError && (

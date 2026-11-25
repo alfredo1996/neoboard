@@ -195,6 +195,8 @@ export async function typeInEditor(
         if (view.state.readOnly) return "readonly";
         view.dispatch({
           changes: { from: 0, to: view.state.doc.length, insert: text },
+          // Typing leaves the cursor after the text; a raw dispatch leaves it at 0.
+          selection: { anchor: text.length },
         });
         return view.state.doc.toString().includes(text.substring(0, 20))
           ? "ok"

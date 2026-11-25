@@ -168,7 +168,11 @@ export {
 } from "./iframe-widget";
 
 // Query
-export { QueryEditor, type QueryEditorProps } from "./query-editor";
+export {
+  QueryEditor,
+  type QueryEditorProps,
+  type QueryEditorHandle,
+} from "./query-editor";
 export { CodePreview, type CodePreviewProps } from "./code-preview";
 
 // Column Mapping

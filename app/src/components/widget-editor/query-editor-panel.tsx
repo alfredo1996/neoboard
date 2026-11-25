@@ -9,6 +9,7 @@ import {
   Clock,
   Maximize2,
   Minimize2,
+  Network,
 } from "lucide-react";
 import {
   Alert,
@@ -24,6 +25,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  type QueryEditorHandle,
 } from "@neoboard/components";
 import { FileCode } from "lucide-react";
 import type { ChartType } from "@/lib/plugin/chart-helpers";
@@ -164,6 +166,12 @@ export interface QueryEditorPanelProps {
   maximized?: boolean;
   /** When omitted, the expand/collapse toggle is not rendered. */
   onToggleMaximized?: () => void;
+  /** #1693 — shows the Model button, which opens the model in the side pane. */
+  onOpenModel?: () => void;
+  /** #1693 — the model is showing, so the Model button reads as pressed. */
+  modelShown?: boolean;
+  /** #1693 — the editor's insert handle, for the model to put a name at the cursor. */
+  editorRef?: React.Ref<QueryEditorHandle>;
 }
 
 export function QueryEditorPanel({
@@ -174,6 +182,9 @@ export function QueryEditorPanel({
   stoppable,
   maximized = false,
   onToggleMaximized,
+  onOpenModel,
+  modelShown = false,
+  editorRef,
 }: QueryEditorPanelProps) {
   const chartType = useWidgetEditorStore((s) => s.chartType);
   const query = useWidgetEditorStore((s) => s.query);
@@ -311,6 +322,31 @@ export function QueryEditorPanel({
           )}
         </>
       )}
+      {onOpenModel && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {/* aria-disabled, not disabled: the button stays focusable, so a
+                keyboard user reaches the tooltip that says why. */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-5 gap-1 px-1.5 text-xs text-muted-foreground aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+              onClick={connectionId ? onOpenModel : undefined}
+              aria-disabled={!connectionId}
+              aria-pressed={modelShown}
+            >
+              <Network className="h-3 w-3" aria-hidden />
+              Model
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            {connectionId
+              ? "Browse the connection's model and insert names"
+              : "Choose a connection to browse its model"}
+          </TooltipContent>
+        </Tooltip>
+      )}
       {/* #1374 — lives in the *editor* header, not the preview header: the
             preview header disappears when maximized, which would leave no way
             back (and #1372 adds its own toggle there). */}
@@ -361,6 +397,7 @@ export function QueryEditorPanel({
         </Alert>
       )}
       <QueryEditor
+        ref={editorRef}
         value={query}
         aria-labelledby="editor-query-label"
         onChange={onQueryChange}

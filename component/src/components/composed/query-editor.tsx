@@ -30,7 +30,14 @@ type CMEditorView = any;
 // Public API
 // ---------------------------------------------------------------------------
 
+/** What a parent can ask of the editor (#1693). */
+export interface QueryEditorHandle {
+  /** Replaces the selection (or inserts at the cursor) and puts the cursor after the text. */
+  insert: (text: string) => void;
+}
+
 export interface QueryEditorProps {
+  ref?: React.Ref<QueryEditorHandle>;
   value?: string;
   defaultValue?: string;
   onChange?: (value: string) => void;
@@ -258,6 +265,7 @@ async function buildExtensions(
 // ---------------------------------------------------------------------------
 
 function QueryEditor({
+  ref,
   value,
   defaultValue = "",
   onChange,
@@ -284,9 +292,36 @@ function QueryEditor({
 
   const containerRef = React.useRef<HTMLDivElement>(null);
   const viewRef = React.useRef<CMEditorView>(null);
+  React.useImperativeHandle(ref, () => ({
+    insert(text: string) {
+      const view = viewRef.current;
+      if (!view) return;
+      const { from, to } = view.state.selection.main;
+      view.dispatch({
+        changes: { from, to, insert: text },
+        // CodeMirror stores CRLF as LF, so measure the text as it will be stored.
+        selection: { anchor: from + view.state.toText(text).length },
+        scrollIntoView: true,
+      });
+    },
+  }));
   // Prevent the CM update listener from triggering onChange while we are
   // programmatically pushing a value into the editor.
   const suppressUpdate = React.useRef(false);
+  // Replace the whole document without notifying onChange. The cursor follows
+  // the new text, so a name inserted next lands at its end; its offset is read
+  // from the stored text (CRLF becomes LF), and the flag resets even on a throw.
+  const replaceDoc = (view: CMEditorView, text: string) => {
+    suppressUpdate.current = true;
+    try {
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: text },
+        selection: { anchor: view.state.toText(text).length },
+      });
+    } finally {
+      suppressUpdate.current = false;
+    }
+  };
 
   // Keep the latest callbacks and prop values in refs so the async initEditor
   // closure always reads the current values when it finishes initialising.
@@ -687,9 +722,7 @@ function QueryEditor({
     if (!view) return;
     const doc = view.state.doc.toString();
     if (doc !== value) {
-      suppressUpdate.current = true;
-      view.dispatch({ changes: { from: 0, to: doc.length, insert: value } });
-      suppressUpdate.current = false;
+      replaceDoc(view, value);
     }
   }, [value, isControlled]);
 
@@ -705,11 +738,7 @@ function QueryEditor({
   const handleHistorySelect = (query: string) => {
     const view = viewRef.current;
     if (view) {
-      suppressUpdate.current = true;
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: query },
-      });
-      suppressUpdate.current = false;
+      replaceDoc(view, query);
     }
     if (!isControlled) setInternalValue(query);
     onChange?.(query);
@@ -718,11 +747,7 @@ function QueryEditor({
   const handleClear = () => {
     const view = viewRef.current;
     if (view) {
-      suppressUpdate.current = true;
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: "" },
-      });
-      suppressUpdate.current = false;
+      replaceDoc(view, "");
       view.focus();
     }
     if (!isControlled) setInternalValue("");

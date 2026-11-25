@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { useWidgetEditorStore } from "@/stores/widget-editor-store";
 
 // Mock next/dynamic to render the QueryEditor stub synchronously
@@ -118,6 +118,56 @@ const QUERY_SYNTAX =
 describe("QueryEditorPanel", () => {
   beforeEach(() => {
     useWidgetEditorStore.getState().resetForAdd();
+  });
+
+  it("keeps the Model button focusable with its reason until a connection is chosen, and a click opens nothing (#1693)", () => {
+    const onOpenModel = vi.fn();
+    render(
+      <QueryEditorPanel editorLanguage="cypher" onOpenModel={onOpenModel} />,
+    );
+    const model = screen.getByRole("button", { name: "Model" });
+    expect(model).not.toBeDisabled();
+    expect(model).toHaveAttribute("aria-disabled", "true");
+    model.focus();
+    expect(model).toHaveFocus();
+    fireEvent.click(model);
+    expect(onOpenModel).not.toHaveBeenCalled();
+  });
+
+  it("marks the Model button pressed while the model is shown (#1693)", () => {
+    useWidgetEditorStore.getState().setConnectionId("pg");
+    const { rerender } = render(
+      <QueryEditorPanel
+        editorLanguage="cypher"
+        onOpenModel={vi.fn()}
+        modelShown={false}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Model" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    rerender(
+      <QueryEditorPanel
+        editorLanguage="cypher"
+        onOpenModel={vi.fn()}
+        modelShown
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Model" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("opens the model from the Model button once a connection is chosen (#1693)", () => {
+    const onOpenModel = vi.fn();
+    useWidgetEditorStore.getState().setConnectionId("pg");
+    render(
+      <QueryEditorPanel editorLanguage="cypher" onOpenModel={onOpenModel} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Model" }));
+    expect(onOpenModel).toHaveBeenCalledOnce();
   });
 
   it("gives the editor what creators said about the connection's terms, for autocomplete (#2415)", () => {
