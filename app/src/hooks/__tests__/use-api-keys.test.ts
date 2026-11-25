@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock React Query — we're testing the fetch logic, not the React wiring
+const { QueryClient } = await vi.importActual<
+  typeof import("@tanstack/react-query")
+>("@tanstack/react-query");
+const queryClient = new QueryClient();
+
 vi.mock("@tanstack/react-query", () => ({
   useQuery: vi.fn((config: Record<string, unknown>) => config),
   useMutation: vi.fn((config: Record<string, unknown>) => config),
-  useQueryClient: vi.fn(() => ({ invalidateQueries: vi.fn() })),
+  useQueryClient: vi.fn(() => queryClient),
 }));
 
 // Import after mocks are set up
@@ -171,6 +176,37 @@ describe("use-api-keys", () => {
         mutationFn: (id: string) => Promise<unknown>;
       };
       await expect(config.mutationFn("bad-id")).rejects.toThrow("Not found");
+    });
+  });
+
+  describe("useCreateApiKey onSuccess (#2569)", () => {
+    it("puts the new key in the list cache before the refetch lands, without its secret", async () => {
+      queryClient.clear();
+      const existing = { id: "1", name: "old" };
+      queryClient.setQueryData(["api-keys"], [existing]);
+      // The list refetch stays open: the row must not wait for it.
+      let release!: (rows: unknown[]) => void;
+      const refetch = new Promise<unknown[]>((r) => (release = r));
+      queryClient.setQueryDefaults(["api-keys"], { queryFn: () => refetch });
+
+      const created = {
+        id: "2",
+        name: "new",
+        keyPrefix: "nb_ab",
+        key: "nb_secret",
+      };
+      const config = useCreateApiKey() as unknown as {
+        onSuccess: (c: typeof created) => Promise<void>;
+      };
+      const done = config.onSuccess(created);
+      await Promise.race([done, new Promise((r) => setTimeout(r, 50))]);
+
+      const cached = queryClient.getQueryData<Record<string, unknown>[]>([
+        "api-keys",
+      ]);
+      expect(cached?.map((k) => k.id)).toEqual(["2", "1"]);
+      expect(cached?.[0]).not.toHaveProperty("key");
+      release([existing]);
     });
   });
 });

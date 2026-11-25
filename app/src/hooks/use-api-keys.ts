@@ -49,7 +49,16 @@ export function useCreateApiKey() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       }),
-    onSuccess: () => {
+    onSuccess: async ({ key: _secret, ...row }) => {
+      // The list GET in flight when the key was created can resolve without
+      // it, and nothing refetches after (#2569): cancel it, put the server's
+      // own row in the list (minus the one-time secret), then refetch.
+      await queryClient.cancelQueries({ queryKey: ["api-keys"] });
+      queryClient.setQueryData<ApiKeyListItem[]>(["api-keys"], (old = []) => [
+        { lastUsedAt: null, ...row },
+        ...old,
+      ]);
+      // Not awaited: the dialog must not wait on the refetch.
       queryClient.invalidateQueries({ queryKey: ["api-keys"] });
     },
   });
