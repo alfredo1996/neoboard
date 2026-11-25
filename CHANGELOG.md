@@ -20,7 +20,7 @@ A patch on 1.9.0: a new API key shows in the list as soon as it is created, and 
 
 ### Fixed
 
-- **A new API key** shows in the list as soon as the create dialog closes. If the list was still loading when the key was created, the key could stay missing until the page was reloaded (#2569).
+- **A new API key** shows in the list as soon as the create dialog closes. If the list was still loading when the key was created, the key could stay missing until the list was fetched again, for example on a reload (#2569).
 - **A selector's Seed Query and a form field's Options Query** are the query editor, highlighted in the connection's query language (#2513). This shipped in 1.9.0, but its notes left it out.
 
 ## [1.9.0] — 2026-11-24 — Ontology
