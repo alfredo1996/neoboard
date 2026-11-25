@@ -91,7 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PUBLISHED: 1.7.1 # the newest published image; bump when a newer one ships
+      PUBLISHED: 1.9.0 # the newest published image; bump when a newer one ships
       LOCAL_TAG: ci-head
     steps:
       - uses: actions/checkout@v7

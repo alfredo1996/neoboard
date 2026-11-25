@@ -10,6 +10,19 @@ NeoBoard versioning resets at **1.0.0**.
 > 1.0.0 to 1.6.0 were never tagged or published: each was a release branch consolidated into `dev`, and the date
 > beside it, where there is one, is the date of that consolidation.
 
+## [1.9.1] — 2026-11-25 — API keys and chart pictures
+
+A patch on 1.9.0: a new API key shows in the list as soon as it is created, and every chart page in the docs shows its chart.
+
+### Added
+
+- **Every chart page in the docs shows its chart**, captured from the real component, in the reader's light or dark theme (#1745).
+
+### Fixed
+
+- **A new API key** shows in the list as soon as the create dialog closes. If the list was still loading when the key was created, the key could stay missing until the page was reloaded (#2569).
+- **A selector's Seed Query and a form field's Options Query** are the query editor, highlighted in the connection's query language (#2513). This shipped in 1.9.0, but its notes left it out.
+
 ## [1.9.0] — 2026-11-24 — Ontology
 
 Gives every connection's tables, labels and columns a name people can read, and lets one concept link an entity across connections, so a filter or click on one connection's widget can drive another's (#2415, #2484, #2485, #2510). It ships ahead of 1.8 (Security); the version gap is intended. It also carries 1.7.1.
