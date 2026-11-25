@@ -49,8 +49,19 @@ export function useCreateApiKey() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["api-keys"] });
+    onSuccess: async ({ key: _secret, ...row }) => {
+      // The list GET in flight when the key was created can resolve without
+      // it, and nothing refetches after (#2569): cancel it, put the server's
+      // own row in the list (minus the one-time secret), then refetch.
+      await queryClient.cancelQueries({ queryKey: ["api-keys"] });
+      queryClient.setQueryData<ApiKeyListItem[]>(["api-keys"], (old = []) => [
+        // Same id already there: a list GET read after the INSERT landed first.
+        // Appended, as the route lists rows in insertion order.
+        ...old.filter((k) => k.id !== row.id),
+        { lastUsedAt: null, ...row },
+      ]);
+      // Not awaited: the dialog must not wait on the refetch.
+      void queryClient.invalidateQueries({ queryKey: ["api-keys"] });
     },
   });
 }

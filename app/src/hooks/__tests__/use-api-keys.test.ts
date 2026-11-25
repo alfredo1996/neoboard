@@ -1,10 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock React Query — we're testing the fetch logic, not the React wiring
+const { QueryClient, QueryObserver } = await vi.importActual<
+  typeof import("@tanstack/react-query")
+>("@tanstack/react-query");
+const queryClient = new QueryClient();
+
 vi.mock("@tanstack/react-query", () => ({
   useQuery: vi.fn((config: Record<string, unknown>) => config),
   useMutation: vi.fn((config: Record<string, unknown>) => config),
-  useQueryClient: vi.fn(() => ({ invalidateQueries: vi.fn() })),
+  useQueryClient: vi.fn(() => queryClient),
 }));
 
 // Import after mocks are set up
@@ -171,6 +176,66 @@ describe("use-api-keys", () => {
         mutationFn: (id: string) => Promise<unknown>;
       };
       await expect(config.mutationFn("bad-id")).rejects.toThrow("Not found");
+    });
+  });
+
+  describe("useCreateApiKey onSuccess (#2569)", () => {
+    const existing = { id: "1", name: "old" };
+    const created = {
+      id: "2",
+      name: "new",
+      keyPrefix: "nb_ab",
+      key: "nb_secret",
+    };
+    const config = useCreateApiKey() as unknown as {
+      onSuccess: (c: typeof created) => Promise<void>;
+    };
+    const onSuccess = () => config.onSuccess(created);
+    const ids = () =>
+      queryClient
+        .getQueryData<{ id: string }[]>(["api-keys"])
+        ?.map((k) => k.id);
+
+    beforeEach(() => queryClient.clear());
+
+    it("keeps the new key when the first list GET, issued before the POST, resolves without it", async () => {
+      // The first load is in flight with no data: an invalidate alone would
+      // join it, and nothing would refetch afterwards.
+      const pending: ((rows: unknown[]) => void)[] = [];
+      const queryFn = vi.fn(
+        () => new Promise<unknown[]>((r) => pending.push(r)),
+      );
+      const unsubscribe = new QueryObserver(queryClient, {
+        queryKey: ["api-keys"],
+        queryFn,
+      }).subscribe(() => {});
+      expect(queryFn).toHaveBeenCalledTimes(1);
+
+      await onSuccess();
+      pending[0]([existing]); // the stale GET lands without the new key
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(ids()).toEqual(["2"]);
+      expect(queryFn).toHaveBeenCalledTimes(2);
+      expect(
+        JSON.stringify(
+          queryClient
+            .getQueryCache()
+            .getAll()
+            .map((q) => q.state),
+        ),
+      ).not.toContain("nb_secret");
+      unsubscribe();
+    });
+
+    it("appends the row once, after the existing ones, when the cache already holds it", async () => {
+      queryClient.setQueryData(["api-keys"], [existing]);
+      await onSuccess();
+      expect(ids()).toEqual(["1", "2"]);
+
+      queryClient.setQueryData(["api-keys"], [existing, { id: "2" }]);
+      await onSuccess();
+      expect(ids()).toEqual(["1", "2"]);
     });
   });
 });
