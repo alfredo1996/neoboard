@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  cleanDashboardTags,
-  MAX_TAGS,
-  MAX_TAG_LENGTH,
-} from "@/lib/dashboard/dashboard-tags";
+import { dashboardTagsSchema } from "@/lib/dashboard/dashboard-tags";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { dashboards, users } from "@/lib/db/schema";
@@ -73,11 +69,7 @@ const updateDashboardSchema = z
     name: z.string().min(1).optional(),
     description: z.string().optional(),
     // Cleaned here too, never trusting the client (#1692).
-    tags: z
-      .array(z.string().max(MAX_TAG_LENGTH))
-      .max(MAX_TAGS)
-      .transform(cleanDashboardTags)
-      .optional(),
+    tags: dashboardTagsSchema.optional(),
     layoutJson: z
       .object({
         version: z.literal(2),

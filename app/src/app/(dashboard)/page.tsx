@@ -89,7 +89,10 @@ import {
   Stat,
 } from "@neoboard/components/kit";
 import { dashboardRowDescription } from "./dashboard-row-description";
-import { parseTagsInput } from "@/lib/dashboard/dashboard-tags";
+import {
+  cleanDashboardTags,
+  parseTagsInput,
+} from "@/lib/dashboard/dashboard-tags";
 import {
   dashboardListFilters,
   dashboardListMeta,
@@ -810,6 +813,8 @@ export default function DashboardListPage() {
   // A tag whose last use an edit removed is no longer picked (#1692).
   const tagOption = tagOptions.find((o) => o.key === pickedTag);
   const activeTag = tagOption?.key ?? "";
+  // Forget it for real, or the tag coming back would narrow the list unasked.
+  if (pickedTag && !tagOption) setPickedTag("");
   const filteredDashboards = filterDashboardsByTag(
     filterDashboardsByName(dashboardList ?? [], search),
     activeTag,
@@ -895,7 +900,7 @@ export default function DashboardListPage() {
     }
   }
 
-  const savedTags = parseTagsInput(detailsTags);
+  const savedTags = cleanDashboardTags(detailsTags.split(","));
 
   return (
     <div className="flex min-h-full flex-col">
@@ -1050,10 +1055,10 @@ export default function DashboardListPage() {
                   className="mt-1 flex min-h-5 flex-wrap items-center gap-1 text-xs text-muted-foreground"
                   aria-live="polite"
                 >
-                  {savedTags.ok && savedTags.tags.length > 0 ? (
+                  {savedTags.length > 0 ? (
                     <>
                       <span className="mr-1">Saves as</span>
-                      {savedTags.tags.map((t) => (
+                      {savedTags.map((t) => (
                         <Tag key={t}>{t}</Tag>
                       ))}
                     </>

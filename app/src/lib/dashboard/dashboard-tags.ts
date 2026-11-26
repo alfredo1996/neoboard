@@ -2,6 +2,8 @@
  * Dashboard tags (#1692): one cleanup rule, shared by the PUT route and the
  * Edit details dialog. Same limits as widget template tags.
  */
+import { z } from "zod";
+
 export const MAX_TAGS = 20;
 export const MAX_TAG_LENGTH = 100;
 
@@ -18,6 +20,12 @@ export function cleanDashboardTags(tags: readonly string[]): string[] {
   }
   return out;
 }
+
+/** The API's rule: clean first, then check the limits on what is left. */
+export const dashboardTagsSchema = z
+  .array(z.string())
+  .transform(cleanDashboardTags)
+  .pipe(z.array(z.string().max(MAX_TAG_LENGTH)).max(MAX_TAGS));
 
 export type ParsedTags =
   { ok: true; tags: string[] } | { ok: false; error: string };

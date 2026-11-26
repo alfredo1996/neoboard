@@ -7,6 +7,7 @@
 
 import { PRODUCT_NAME, PRODUCT_PITCH } from "@/lib/branding";
 import { DEFAULT_MAX_ROWS } from "@/lib/query/query-executor";
+import { MAX_TAGS, MAX_TAG_LENGTH } from "@/lib/dashboard/dashboard-tags";
 import { API_ERROR_CODES } from "./api-response";
 import { MAX_ROWS_BOUNDS } from "@/lib/connector/connection-form";
 import { DEAD_CONNECTOR_TTL_MS } from "@/lib/query/middleware/dead-connector";
@@ -29,6 +30,11 @@ function jsonBody(schemaRef: string) {
  * The body every handler sends (#1961): `apiSuccess` and `apiList` wrap each
  * payload as `{ data, error: null, meta }`. `data` is a schema, or a $ref to one.
  */
+const TAGS_SCHEMA = {
+  type: "array",
+  maxItems: MAX_TAGS,
+  items: { type: "string", maxLength: MAX_TAG_LENGTH },
+} as const;
 const NULLABLE_META = { type: "object", nullable: true } as const;
 
 function envelope(data: string | object, meta: object = NULLABLE_META) {
@@ -2235,9 +2241,7 @@ const SPEC = {
           name: { type: "string" },
           description: { type: "string", nullable: true },
           tags: {
-            type: "array",
-            maxItems: 20,
-            items: { type: "string", maxLength: 100 },
+            ...TAGS_SCHEMA,
             description:
               "Labels the list filters by. Trimmed, with empty entries and case-insensitive duplicates dropped; the same for everyone who can see the dashboard.",
           },
@@ -2290,9 +2294,7 @@ const SPEC = {
           name: { type: "string" },
           description: { type: "string", nullable: true },
           tags: {
-            type: "array",
-            maxItems: 20,
-            items: { type: "string", maxLength: 100 },
+            ...TAGS_SCHEMA,
             description:
               "Labels the list filters by. Trimmed, with empty entries and case-insensitive duplicates dropped; the same for everyone who can see the dashboard.",
           },
@@ -2404,9 +2406,7 @@ const SPEC = {
           name: { type: "string", minLength: 1 },
           description: { type: "string" },
           tags: {
-            type: "array",
-            maxItems: 20,
-            items: { type: "string", maxLength: 100 },
+            ...TAGS_SCHEMA,
             description:
               "Labels the list filters by. Trimmed, with empty entries and case-insensitive duplicates dropped; the same for everyone who can see the dashboard.",
           },
@@ -2586,9 +2586,7 @@ const SPEC = {
               name: { type: "string" },
               description: { type: "string", nullable: true },
               tags: {
-                type: "array",
-                maxItems: 20,
-                items: { type: "string", maxLength: 100 },
+                ...TAGS_SCHEMA,
                 description:
                   "Labels the list filters by. Trimmed, with empty entries and case-insensitive duplicates dropped; the same for everyone who can see the dashboard.",
               },
@@ -2639,9 +2637,7 @@ const SPEC = {
               name: { type: "string", minLength: 1 },
               description: { type: "string", nullable: true },
               tags: {
-                type: "array",
-                maxItems: 20,
-                items: { type: "string", maxLength: 100 },
+                ...TAGS_SCHEMA,
                 description:
                   "Labels the list filters by. Trimmed, with empty entries and case-insensitive duplicates dropped; the same for everyone who can see the dashboard.",
               },
@@ -3241,9 +3237,7 @@ const SPEC = {
           name: { type: "string", minLength: 1, maxLength: 255 },
           description: { type: "string", maxLength: 1000 },
           tags: {
-            type: "array",
-            maxItems: 20,
-            items: { type: "string", maxLength: 100 },
+            ...TAGS_SCHEMA,
           },
           chartType: { type: "string", minLength: 1 },
           connectorType: {
@@ -3277,9 +3271,7 @@ const SPEC = {
           name: { type: "string", minLength: 1, maxLength: 255 },
           description: { type: "string", maxLength: 1000 },
           tags: {
-            type: "array",
-            maxItems: 20,
-            items: { type: "string", maxLength: 100 },
+            ...TAGS_SCHEMA,
           },
           chartType: { type: "string", minLength: 1 },
           connectorType: {

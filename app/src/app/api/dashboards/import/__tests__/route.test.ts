@@ -313,6 +313,36 @@ describe("POST /api/dashboards/import", () => {
     expect(insertChain.calls.values[0][0]).toMatchObject({ tags: expected });
   });
 
+  it.each([
+    ["limits apply after cleaning", [` ${"x".repeat(100)}`], 201],
+    [
+      "21 distinct tags are refused",
+      Array.from({ length: 21 }, (_, i) => `t${i}`),
+      400,
+    ],
+    [
+      "a 101-character tag is refused after trimming",
+      [` ${"x".repeat(101)} `],
+      400,
+    ],
+  ])("import tags: %s (#1692)", async (_l, tags, status) => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select
+      .mockReturnValueOnce(
+        makeSelectChain([{ id: "real-conn-id", type: "neo4j" }]),
+      )
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(makeInsertChain([{ id: "new-dash" }]));
+    const res = await POST(
+      makeRequest({
+        payload: { ...VALID_PAYLOAD, dashboard: { name: "D", tags } },
+        connectionMapping: { conn_0: "real-conn-id" },
+      }),
+    );
+    expect(res.status).toBe(status);
+  });
+
   it("lets an admin map onto any connection in the tenant (#2327)", async () => {
     mockRequireSession.mockResolvedValue({ ...SESSION, role: "admin" });
     const connectionsChain = makeSelectChain([

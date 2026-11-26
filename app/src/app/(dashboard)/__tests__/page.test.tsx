@@ -372,6 +372,32 @@ describe("DashboardListPage edit details", () => {
     });
   });
 
+  it("previews the cleaned tags even past the limits; the refusal waits for Save (#1692)", () => {
+    openDetails();
+    type(
+      "dashboard-details-tags",
+      Array.from({ length: 21 }, (_, i) => `t${i}`).join(","),
+    );
+    expect(screen.getByText("Saves as")).toBeTruthy();
+    expect(screen.queryByText("No tags")).toBeNull();
+  });
+
+  it("saves nothing when nothing changed (#1692)", () => {
+    openDetails();
+    idle.mutateAsync.mockClear();
+    fireEvent.submit(document.getElementById("dashboard-details-name")!);
+    expect(idle.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("shows a rejected save and keeps the dialog open (#1692)", async () => {
+    openDetails();
+    idle.mutateAsync.mockRejectedValueOnce(new Error("Nope"));
+    type("dashboard-details-name", "Renamed");
+    fireEvent.submit(document.getElementById("dashboard-details-name")!);
+    expect(await screen.findByText("Nope")).toBeTruthy();
+    expect(document.getElementById("dashboard-details-name")).not.toBeNull();
+  });
+
   it("says No tags when the field is empty (#1692)", () => {
     openDetails();
     expect(screen.getByText("No tags")).toBeTruthy();
@@ -448,6 +474,19 @@ describe("DashboardListPage tags (#1692)", () => {
     rerender(<DashboardListPage />);
     expect(screen.getByText("Ops board")).toBeTruthy();
     expect(screen.queryByText("Tag is")).toBeNull();
+    // The tag coming back later is not a choice the user made again.
+    dashboards = [SALES, OPS];
+    rerender(<DashboardListPage />);
+    expect(screen.getByText("Ops board")).toBeTruthy();
+    expect(screen.queryByText("Tag is")).toBeNull();
+  });
+
+  it("lists a row's tag chips before its description", () => {
+    dashboards = [{ ...SALES, description: "Quarterly numbers" }];
+    render(<DashboardListPage />);
+    const row = screen.getByRole("row", { name: /Sales board/ });
+    expect(within(row).getByText("Sales")).toBeTruthy();
+    expect(within(row).getByText("Quarterly numbers")).toBeTruthy();
   });
 });
 
