@@ -20,11 +20,14 @@ async function mount(props: Record<string, unknown> = {}) {
     <QueryEditor ref={ref} language="sql" onChange={onChange} {...props} />,
   );
   // Wait for CodeMirror to mount; a fixed sleep raced a loaded CI runner (#2585).
-  const dom = await waitFor(() => {
-    const el = utils.container.querySelector<HTMLElement>(".cm-editor");
-    expect(el).not.toBeNull();
-    return el!;
-  });
+  const dom = await waitFor(
+    () => {
+      const el = utils.container.querySelector<HTMLElement>(".cm-editor");
+      expect(el).not.toBeNull();
+      return el!;
+    },
+    { timeout: 4000 },
+  );
   const view = EditorView.findFromDOM(dom)!;
   return { ref, onChange, view, ...utils };
 }
