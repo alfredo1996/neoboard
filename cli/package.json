@@ -47,14 +47,14 @@
   },
   "dependencies": {
     "chalk": "^5.0.0",
-    "commander": "^15.0.0",
+    "commander": "^15.1.0",
     "dotenv": "^17.0.0",
     "ora": "^9.4.1"
   },
   "devDependencies": {
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.6",
     "@vitest/coverage-v8": "^4.1.11",
-    "@vitest/eslint-plugin": "^1.6.27",
+    "@vitest/eslint-plugin": "^1.6.28",
     "typescript": "~5.9.3",
     "vitest": "^4.1.11"
   }
