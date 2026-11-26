@@ -91,7 +91,7 @@ import {
 import { dashboardRowDescription } from "./dashboard-row-description";
 import {
   cleanDashboardTags,
-  parseTagsInput,
+  planDetailsSave,
 } from "@/lib/dashboard/dashboard-tags";
 import {
   dashboardListFilters,
@@ -874,21 +874,19 @@ export default function DashboardListPage() {
   async function handleDetails(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!detailsTarget) return;
-    const name = detailsName.trim();
-    const parsed = parseTagsInput(detailsTags);
-    setDetailsError(name ? null : "Enter a name.");
-    setTagsError(parsed.ok ? null : parsed.error);
-    if (!name || !parsed.ok) return;
-    // Only what changed is sent: an untouched field adds nothing to the save.
-    const changes: { name?: string; tags?: string[] } = {};
-    if (name !== detailsTarget.name) changes.name = name;
-    if (parsed.tags.join("\n") !== detailsTarget.tags.join("\n")) {
-      changes.tags = parsed.tags;
+    const plan = planDetailsSave(detailsTarget, detailsName, detailsTags);
+    if ("nameError" in plan) {
+      setDetailsError(plan.nameError);
+      setTagsError(plan.tagsError);
+      return;
     }
-    if (Object.keys(changes).length === 0) {
+    setDetailsError(null);
+    setTagsError(null);
+    if ("nothing" in plan) {
       setDetailsTarget(null);
       return;
     }
+    const { changes } = plan;
     try {
       await updateDashboard.mutateAsync({ id: detailsTarget.id, ...changes });
       toast({ title: "Dashboard updated" });

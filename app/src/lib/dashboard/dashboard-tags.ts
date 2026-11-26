@@ -44,3 +44,30 @@ export function parseTagsInput(input: string): ParsedTags {
   }
   return { ok: true, tags };
 }
+
+export type DetailsSavePlan =
+  | { nameError: string | null; tagsError: string | null }
+  | { nothing: true }
+  | { changes: { name?: string; tags?: string[] } };
+
+/** What the Edit details dialog does on save: show errors, close, or send only the changed fields. */
+export function planDetailsSave(
+  target: { name: string; tags: readonly string[] },
+  nameInput: string,
+  tagsInput: string,
+): DetailsSavePlan {
+  const name = nameInput.trim();
+  const parsed = parseTagsInput(tagsInput);
+  if (!name || !parsed.ok) {
+    return {
+      nameError: name ? null : "Enter a name.",
+      tagsError: parsed.ok ? null : parsed.error,
+    };
+  }
+  const changes: { name?: string; tags?: string[] } = {};
+  if (name !== target.name) changes.name = name;
+  if (parsed.tags.join("\n") !== target.tags.join("\n")) {
+    changes.tags = parsed.tags;
+  }
+  return Object.keys(changes).length === 0 ? { nothing: true } : { changes };
+}

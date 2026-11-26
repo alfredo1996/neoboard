@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   cleanDashboardTags,
   parseTagsInput,
+  planDetailsSave,
   MAX_TAGS,
   MAX_TAG_LENGTH,
 } from "../dashboard-tags";
@@ -43,5 +44,38 @@ describe("parseTagsInput", () => {
       ok: false,
       error: "A tag can be at most 100 characters.",
     });
+  });
+});
+
+describe("planDetailsSave", () => {
+  const target = { name: "Sales", tags: ["a", "b"] };
+  it.each([
+    [
+      "blank name",
+      "  ",
+      "a, b",
+      { nameError: "Enter a name.", tagsError: null },
+    ],
+    [
+      "bad tags",
+      "Sales",
+      Array.from({ length: 21 }, (_, i) => `t${i}`).join(","),
+      { nameError: null, tagsError: "At most 20 tags." },
+    ],
+    [
+      "both bad",
+      "",
+      "x".repeat(101),
+      {
+        nameError: "Enter a name.",
+        tagsError: "A tag can be at most 100 characters.",
+      },
+    ],
+    ["nothing changed", " Sales ", "a,b", { nothing: true }],
+    ["name only", "Ops", "a, b", { changes: { name: "Ops" } }],
+    ["tags only", "Sales", "a", { changes: { tags: ["a"] } }],
+    ["both", "Ops", "c", { changes: { name: "Ops", tags: ["c"] } }],
+  ])("%s", (_l, name, tags, expected) => {
+    expect(planDetailsSave(target, name, tags)).toEqual(expected);
   });
 });
