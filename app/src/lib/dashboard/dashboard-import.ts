@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { dashboardTagsSchema } from "@/lib/dashboard/dashboard-tags";
+// Relative, not "@/": the root scripts suite imports this file without the app alias.
+import { dashboardTagsSchema } from "./dashboard-tags";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
 // ---------------------------------------------------------------------------
