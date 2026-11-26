@@ -37,6 +37,8 @@ export interface DashboardListItem {
   id: string;
   name: string;
   description: string | null;
+  /** Labels the list filters by (#1692). */
+  tags: string[];
   isPublic: boolean | null;
   createdAt: string;
   updatedAt: string;
@@ -166,6 +168,7 @@ export function useUpdateDashboard() {
       id: string;
       name?: string;
       description?: string;
+      tags?: string[];
       layoutJson?: DashboardLayoutV2;
       isPublic?: boolean;
       /** Optimistic lock — when provided, server returns 409 on mismatch. */

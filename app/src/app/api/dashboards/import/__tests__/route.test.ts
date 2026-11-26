@@ -289,6 +289,30 @@ describe("POST /api/dashboards/import", () => {
     });
   });
 
+  it.each([
+    ["keeps the file's tags", { name: "D", tags: ["Sales"] }, ["Sales"]],
+    ["imports an older export with none", { name: "D" }, []],
+  ])("%s (#1692)", async (_label, dashboard, expected) => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select
+      .mockReturnValueOnce(
+        makeSelectChain([{ id: "real-conn-id", type: "neo4j" }]),
+      )
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    const insertChain = makeInsertChain([{ id: "new-dash" }]);
+    mockDb.insert.mockReturnValue(insertChain);
+
+    const res = await POST(
+      makeRequest({
+        payload: { ...VALID_PAYLOAD, dashboard },
+        connectionMapping: { conn_0: "real-conn-id" },
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(insertChain.calls.values[0][0]).toMatchObject({ tags: expected });
+  });
+
   it("lets an admin map onto any connection in the tenant (#2327)", async () => {
     mockRequireSession.mockResolvedValue({ ...SESSION, role: "admin" });
     const connectionsChain = makeSelectChain([

@@ -88,6 +88,8 @@ import {
   PageHeader,
   Stat,
 } from "@neoboard/components/kit";
+import { dashboardRowDescription } from "./dashboard-row-description";
+import { parseTagsInput } from "@/lib/dashboard/dashboard-tags";
 import {
   dashboardListFilters,
   dashboardListMeta,
@@ -97,7 +99,9 @@ import {
 import { deleteDashboardToast } from "./delete-dashboard-toast";
 import { dashboardDeleteConsequences } from "@/lib/widget/plural-widgets";
 import {
+  dashboardTagOptions,
   filterDashboardsByName,
+  filterDashboardsByTag,
   isDuplicateDashboardName,
 } from "@/lib/dashboard/dashboard-list-helpers";
 import {
@@ -768,13 +772,16 @@ export default function DashboardListPage() {
   const [returnFocusTo, setReturnFocusTo] = useState<HTMLElement | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const focusOpener = () => returnFocus(returnFocusTo, headingRef.current);
-  // Rename dialog state (#1045) — reuses the create dialog's name validation.
-  const [renameTarget, setRenameTarget] = useState<{
+  // Edit details dialog state (#1045, #1692): name and tags in one save.
+  const [detailsTarget, setDetailsTarget] = useState<{
     id: string;
     name: string;
+    tags: string[];
   } | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [renameError, setRenameError] = useState<string | null>(null);
+  const [detailsName, setDetailsName] = useState("");
+  const [detailsTags, setDetailsTags] = useState("");
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [tagsError, setTagsError] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   // Bulk connection-change dialog (#1376), also the post-import remedy (#1377).
   // One dialog serves both entry points because both live on this page.
@@ -784,6 +791,8 @@ export default function DashboardListPage() {
   } | null>(null);
   const [search, setSearch] = useState("");
   const [onlyMine, setOnlyMine] = useState(false);
+  // The picked tag's lowercase key; "" is All tags (#1692).
+  const [pickedTag, setPickedTag] = useState("");
 
   // ponytail: page 1 of the connections list (100); the stat reads low past
   // that. Read `meta.total` (unwrapResponseWithMeta) if a tenant gets there.
@@ -797,11 +806,19 @@ export default function DashboardListPage() {
     hasWrite && (systemRole === "admin" || systemRole === "creator");
 
   // Client-side name filter for the list (#1048).
-  const filteredDashboards = filterDashboardsByName(
-    dashboardList ?? [],
-    search,
+  const tagOptions = dashboardTagOptions(dashboardList ?? []);
+  // A tag whose last use an edit removed is no longer picked (#1692).
+  const tagOption = tagOptions.find((o) => o.key === pickedTag);
+  const activeTag = tagOption?.key ?? "";
+  const filteredDashboards = filterDashboardsByTag(
+    filterDashboardsByName(dashboardList ?? [], search),
+    activeTag,
   ).filter((d) => !onlyMine || d.role === "owner");
-  const activeFilters = dashboardListFilters(search, onlyMine);
+  const activeFilters = dashboardListFilters(
+    search,
+    onlyMine,
+    tagOption?.label,
+  );
 
   async function handleCreate(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -840,35 +857,45 @@ export default function DashboardListPage() {
     />
   );
 
-  function openRename(d: { id: string; name: string }) {
+  function openDetails(d: { id: string; name: string; tags: string[] }) {
     setReturnFocusTo(focusedMenuTrigger());
-    setRenameTarget(d);
-    setRenameValue(d.name);
-    setRenameError(null);
+    setDetailsTarget(d);
+    setDetailsName(d.name);
+    setDetailsTags(d.tags.join(", "));
+    setDetailsError(null);
+    setTagsError(null);
   }
 
-  async function handleRename(e: React.SubmitEvent<HTMLFormElement>) {
+  async function handleDetails(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!renameTarget) return;
-    const trimmed = renameValue.trim();
-    if (!trimmed) {
-      setRenameError("Enter a name.");
-      return;
+    if (!detailsTarget) return;
+    const name = detailsName.trim();
+    const parsed = parseTagsInput(detailsTags);
+    setDetailsError(name ? null : "Enter a name.");
+    setTagsError(parsed.ok ? null : parsed.error);
+    if (!name || !parsed.ok) return;
+    // Only what changed is sent: an untouched field adds nothing to the save.
+    const changes: { name?: string; tags?: string[] } = {};
+    if (name !== detailsTarget.name) changes.name = name;
+    if (parsed.tags.join("\n") !== detailsTarget.tags.join("\n")) {
+      changes.tags = parsed.tags;
     }
-    if (trimmed === renameTarget.name) {
-      setRenameTarget(null);
+    if (Object.keys(changes).length === 0) {
+      setDetailsTarget(null);
       return;
     }
     try {
-      await updateDashboard.mutateAsync({ id: renameTarget.id, name: trimmed });
-      toast({ title: "Dashboard renamed" });
-      setRenameTarget(null);
+      await updateDashboard.mutateAsync({ id: detailsTarget.id, ...changes });
+      toast({ title: "Dashboard updated" });
+      setDetailsTarget(null);
     } catch (err) {
-      setRenameError(
-        err instanceof Error ? err.message : "Failed to rename dashboard",
+      setDetailsError(
+        err instanceof Error ? err.message : "Failed to update dashboard",
       );
     }
   }
+
+  const savedTags = parseTagsInput(detailsTags);
 
   return (
     <div className="flex min-h-full flex-col">
@@ -969,41 +996,78 @@ export default function DashboardListPage() {
       </Dialog>
 
       <Dialog
-        open={renameTarget !== null}
+        open={detailsTarget !== null}
         onOpenChange={(open) => {
           if (!open) {
-            setRenameTarget(null);
-            setRenameError(null);
+            setDetailsTarget(null);
+            setDetailsError(null);
+            setTagsError(null);
           }
         }}
       >
         <DialogContent onCloseAutoFocus={focusOpener}>
-          <form onSubmit={handleRename}>
+          <form onSubmit={handleDetails}>
             <DialogHeader>
-              <DialogTitle>Rename Dashboard</DialogTitle>
+              <DialogTitle>Edit details</DialogTitle>
               <DialogDescription>
-                Give this dashboard a new name. Its widgets and layout are
+                Name and tags for this dashboard. Its widgets and layout are
                 unaffected.
               </DialogDescription>
             </DialogHeader>
-            <div className="py-4">
-              <Field label="Name" id="dashboard-rename" error={renameError}>
+            <div className="space-y-4 py-4">
+              <Field
+                label="Name"
+                id="dashboard-details-name"
+                error={detailsError}
+              >
                 <Input
-                  value={renameValue}
+                  value={detailsName}
                   onChange={(e) => {
-                    setRenameValue(e.target.value);
-                    if (renameError) setRenameError(null);
+                    setDetailsName(e.target.value);
+                    if (detailsError) setDetailsError(null);
                   }}
                   placeholder="Dashboard name"
                   autoFocus
                 />
               </Field>
+              <div>
+                <Field
+                  label="Tags"
+                  id="dashboard-details-tags"
+                  help="Separate tags with commas. Everyone who can see this dashboard sees its tags."
+                  error={tagsError}
+                >
+                  <Input
+                    value={detailsTags}
+                    onChange={(e) => {
+                      setDetailsTags(e.target.value);
+                      if (tagsError) setTagsError(null);
+                    }}
+                    placeholder="sales, finance"
+                  />
+                </Field>
+                <div
+                  className="mt-1 flex min-h-5 flex-wrap items-center gap-1 text-xs text-muted-foreground"
+                  aria-live="polite"
+                >
+                  {savedTags.ok && savedTags.tags.length > 0 ? (
+                    <>
+                      <span className="mr-1">Saves as</span>
+                      {savedTags.tags.map((t) => (
+                        <Tag key={t}>{t}</Tag>
+                      ))}
+                    </>
+                  ) : (
+                    <span>No tags</span>
+                  )}
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => setRenameTarget(null)}
+                onClick={() => setDetailsTarget(null)}
               >
                 Cancel
               </Button>
@@ -1094,14 +1158,40 @@ export default function DashboardListPage() {
               </div>
               {/* Name search/filter for the list at scale (#1048). */}
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                <div className="w-full max-w-sm">
-                  <Input
-                    type="search"
-                    placeholder="Search dashboards…"
-                    aria-label="Search dashboards"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
+                {/* Search and the tag picker sit 12px apart, as the widget library's pickers do (#1692). */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="w-[384px] max-w-full">
+                    <Input
+                      type="search"
+                      placeholder="Search dashboards…"
+                      aria-label="Search dashboards"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+                  {tagOptions.length > 0 && (
+                    <Select
+                      value={tagOption ? `tag:${activeTag}` : "all"}
+                      onValueChange={(v) =>
+                        setPickedTag(v === "all" ? "" : v.slice("tag:".length))
+                      }
+                    >
+                      <SelectTrigger
+                        className="w-[180px]"
+                        aria-label="Filter by tag"
+                      >
+                        <SelectValue placeholder="All tags" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All tags</SelectItem>
+                        {tagOptions.map((o) => (
+                          <SelectItem key={o.key} value={`tag:${o.key}`}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox
@@ -1115,12 +1205,15 @@ export default function DashboardListPage() {
               <FilterLine
                 prefix="Showing dashboards where"
                 filters={activeFilters}
-                onRemove={(id) =>
-                  id === "owner" ? setOnlyMine(false) : setSearch("")
-                }
+                onRemove={(id) => {
+                  if (id === "owner") setOnlyMine(false);
+                  else if (id === "tag") setPickedTag("");
+                  else setSearch("");
+                }}
                 onReset={() => {
                   setSearch("");
                   setOnlyMine(false);
+                  setPickedTag("");
                 }}
               />
               {filteredDashboards.length === 0 ? (
@@ -1147,7 +1240,10 @@ export default function DashboardListPage() {
                       <ListRow
                         key={d.id}
                         title={d.name}
-                        description={d.description ?? undefined}
+                        description={dashboardRowDescription(
+                          d.tags,
+                          d.description,
+                        )}
                         href={`/${d.id}`}
                         onOpen={() => router.push(`/${d.id}`)}
                         meta={[
@@ -1188,11 +1284,15 @@ export default function DashboardListPage() {
                               {canEdit && (
                                 <DropdownMenuItem
                                   onClick={() =>
-                                    openRename({ id: d.id, name: d.name })
+                                    openDetails({
+                                      id: d.id,
+                                      name: d.name,
+                                      tags: d.tags,
+                                    })
                                   }
                                 >
                                   <TextCursorInput className="mr-2 h-4 w-4" />
-                                  Rename
+                                  Edit details…
                                 </DropdownMenuItem>
                               )}
                               {canDuplicate && (

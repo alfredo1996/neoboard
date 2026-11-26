@@ -127,6 +127,8 @@ export const neoboardExportSchema = z
     dashboard: z.object({
       name: z.string().min(1),
       description: z.string().nullable().optional(),
+      // Absent in an older export and in a NeoDash file (#1692).
+      tags: z.array(z.string().max(100)).max(20).optional(),
     }),
     connections: z.record(
       z.string(),

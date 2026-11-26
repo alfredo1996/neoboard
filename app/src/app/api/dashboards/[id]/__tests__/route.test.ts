@@ -502,6 +502,49 @@ describe("PUT /api/dashboards/[id]", () => {
     expectScopedById(chain.calls.where[0]);
   });
 
+  it("cleans tags server-side before writing them (#1692)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const chain = makeUpdateChain([{ ...OWNER_DASHBOARD, tags: ["Sales"] }]);
+    mockDb.update.mockReturnValue(chain);
+
+    const res = await PUT(
+      makeRequest({ tags: [" Sales ", "sales", ""] }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(200);
+    expect(chain.calls.set[0][0]).toMatchObject({ tags: ["Sales"] });
+  });
+
+  it.each([
+    ["21 tags", Array.from({ length: 21 }, (_, i) => `t${i}`)],
+    ["a 101-character tag", ["x".repeat(101)]],
+  ])("returns 400 for %s (#1692)", async (_label, tags) => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const res = await PUT(makeRequest({ tags }), makeParams("d1"));
+    expect(res.status).toBe(400);
+  });
+
+  it("refuses a viewer-share tag edit (#1692)", async () => {
+    mockRequireSession.mockResolvedValue({ ...SESSION, userId: "user-2" });
+    const shared = { ...OWNER_DASHBOARD, userId: "user-1" };
+    const viewerShare = {
+      dashboardId: "d1",
+      userId: "user-2",
+      tenantId: "tenant-1",
+      role: "viewer",
+    };
+    mockDb.select
+      .mockReturnValueOnce(makeSelectChain([shared]))
+      .mockReturnValueOnce(makeSelectChain([viewerShare]))
+      .mockReturnValueOnce(makeSelectChain([shared]))
+      .mockReturnValueOnce(makeSelectChain([viewerShare]));
+    const res = await PUT(makeRequest({ tags: ["a"] }), makeParams("d1"));
+    expect(res.status).toBe(403);
+    expect(mockDb.update).not.toHaveBeenCalled();
+  });
+
   it("sets updatedBy to session userId on update", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));

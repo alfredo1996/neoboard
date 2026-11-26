@@ -31,6 +31,7 @@ const DASHBOARD: DashboardListItem = {
   id: "d1",
   name: "Movie Analytics",
   description: null,
+  tags: [],
   isPublic: false,
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
@@ -152,15 +153,40 @@ vi.mock("@neoboard/components", async () => {
     "Label",
     "LoadingButton",
     "LoadingOverlay",
-    "Select",
     "SelectContent",
-    "SelectItem",
     "SelectTrigger",
     "SelectValue",
     "TimeAgo",
   ];
+  const PickCtx = React.createContext<(v: string) => void>(() => {});
   return {
     Field: FieldStub,
+    // Picks through the item's click, which the real Select does by value.
+    Select: ({
+      onValueChange,
+      children,
+    }: {
+      onValueChange?: (v: string) => void;
+      children?: React.ReactNode;
+    }) => (
+      <PickCtx.Provider value={onValueChange ?? (() => {})}>
+        {children}
+      </PickCtx.Provider>
+    ),
+    SelectItem: function SelectItem({
+      value,
+      children,
+    }: {
+      value: string;
+      children?: React.ReactNode;
+    }) {
+      const pick = React.useContext(PickCtx);
+      return (
+        <div role="option" aria-selected={false} onClick={() => pick(value)}>
+          {children}
+        </div>
+      );
+    },
     ...Object.fromEntries(names.map((name) => [name, Passthrough])),
     // Focusable, so a closing dialog can hand focus back to it (#2146).
     Button: ({
@@ -314,19 +340,114 @@ describe("DashboardListPage duplicate", () => {
   });
 });
 
-describe("DashboardListPage rename", () => {
-  it("submits the trimmed new name for the dashboard picked (#1045)", () => {
+describe("DashboardListPage edit details", () => {
+  const openDetails = () => {
     dashboards = [{ ...DASHBOARD, role: "owner" }];
     render(<DashboardListPage />);
-    fireEvent.click(screen.getByText("Rename"));
-    fireEvent.change(document.getElementById("dashboard-rename")!, {
-      target: { value: "  Box Office  " },
-    });
-    fireEvent.submit(document.getElementById("dashboard-rename")!);
+    fireEvent.click(screen.getByText("Edit details…"));
+  };
+  const type = (id: string, value: string) =>
+    fireEvent.change(document.getElementById(id)!, { target: { value } });
+
+  it("submits the trimmed new name for the dashboard picked (#1045)", () => {
+    openDetails();
+    type("dashboard-details-name", "  Box Office  ");
+    fireEvent.submit(document.getElementById("dashboard-details-name")!);
     expect(idle.mutateAsync).toHaveBeenCalledWith({
       id: "d1",
       name: "Box Office",
     });
+  });
+
+  it("saves the name and the cleaned tags together, and previews them (#1692)", () => {
+    openDetails();
+    type("dashboard-details-name", "Box Office");
+    type("dashboard-details-tags", " Sales , sales,, finance ");
+    expect(screen.getByText("Saves as")).toBeTruthy();
+    fireEvent.submit(document.getElementById("dashboard-details-tags")!);
+    expect(idle.mutateAsync).toHaveBeenCalledWith({
+      id: "d1",
+      name: "Box Office",
+      tags: ["Sales", "finance"],
+    });
+  });
+
+  it("says No tags when the field is empty (#1692)", () => {
+    openDetails();
+    expect(screen.getByText("No tags")).toBeTruthy();
+  });
+
+  it.each([
+    [
+      "21 tags",
+      Array.from({ length: 21 }, (_, i) => `t${i}`).join(","),
+      "At most 20 tags.",
+    ],
+    [
+      "a 101-character tag",
+      "x".repeat(101),
+      "A tag can be at most 100 characters.",
+    ],
+  ])(
+    "refuses %s on Save with an inline error (#1692)",
+    (_n, value, message) => {
+      openDetails();
+      idle.mutateAsync.mockClear();
+      type("dashboard-details-tags", value);
+      fireEvent.submit(document.getElementById("dashboard-details-tags")!);
+      expect(screen.getByRole("alert").textContent).toBe(message);
+      expect(idle.mutateAsync).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe("DashboardListPage tags (#1692)", () => {
+  const SALES = {
+    ...DASHBOARD,
+    id: "t1",
+    name: "Sales board",
+    tags: ["Sales"],
+  };
+  const OPS = { ...DASHBOARD, id: "t2", name: "Ops board", tags: ["ops"] };
+  const PLAIN = { ...DASHBOARD, id: "t3", name: "Plain board" };
+
+  it("shows no tag picker while no dashboard has a tag", () => {
+    dashboards = [PLAIN];
+    render(<DashboardListPage />);
+    expect(screen.queryByText("All tags")).toBeNull();
+  });
+
+  it("shows each tag on its row, and +N with every tag in the title past three", () => {
+    dashboards = [{ ...PLAIN, tags: ["a", "b", "c", "d", "e"] }];
+    render(<DashboardListPage />);
+    const row = screen.getByRole("row", { name: /Plain board/ });
+    expect(within(row).queryByText("d")).toBeNull();
+    expect(within(row).getByText("+2").getAttribute("title")).toBe(
+      "a, b, c, d, e",
+    );
+  });
+
+  it("narrows the list to a picked tag, names it in the filter line, and restores on remove", () => {
+    dashboards = [SALES, OPS, PLAIN];
+    render(<DashboardListPage />);
+    fireEvent.click(screen.getByRole("option", { name: "Sales" }));
+    expect(screen.queryByText("Ops board")).toBeNull();
+    expect(screen.getByText("Sales board")).toBeTruthy();
+    expect(screen.getByText("Tag is")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Remove Tag filter" }));
+    expect(screen.getByText("Ops board")).toBeTruthy();
+    expect(screen.getByText("Plain board")).toBeTruthy();
+  });
+
+  it("goes back to all tags when an edit removes the last use of the picked one", () => {
+    dashboards = [SALES, OPS];
+    const { rerender } = render(<DashboardListPage />);
+    fireEvent.click(screen.getByRole("option", { name: "Sales" }));
+    expect(screen.queryByText("Ops board")).toBeNull();
+    dashboards = [{ ...SALES, tags: [] }, OPS];
+    rerender(<DashboardListPage />);
+    expect(screen.getByText("Ops board")).toBeTruthy();
+    expect(screen.queryByText("Tag is")).toBeNull();
   });
 });
 
@@ -692,7 +813,7 @@ const cancelIn = (id: string) => () =>
 it.each([
   ["New dashboard", false, cancelIn("dashboard-name")],
   ["Import", false, cancelIn("import-file")],
-  ["Rename", true, cancelIn("dashboard-rename")],
+  ["Edit details…", true, cancelIn("dashboard-details-name")],
   [
     "Change connection…",
     true,
@@ -840,7 +961,7 @@ describe("DashboardListPage rows (#2253)", () => {
 
   const MENU = [
     "Edit",
-    "Rename",
+    "Edit details…",
     "Duplicate",
     "Change connection…",
     "Export",

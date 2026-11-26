@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  dashboardTagOptions,
   filterDashboardsByName,
+  filterDashboardsByTag,
   isDuplicateDashboardName,
 } from "../dashboard-list-helpers";
 
@@ -36,5 +38,33 @@ describe("isDuplicateDashboardName (#1048)", () => {
 
   it("returns false for an empty name", () => {
     expect(isDuplicateDashboardName("   ", LIST)).toBe(false);
+  });
+});
+
+describe("dashboard tags on the list (#1692)", () => {
+  const TAGGED = [
+    { name: "a", tags: ["Sales", "finance"] },
+    { name: "b", tags: ["sales"] },
+    { name: "c", tags: [] },
+    { name: "d" },
+  ];
+
+  it("lists each tag in use once, ignoring case, A to Z, with its first spelling", () => {
+    expect(dashboardTagOptions(TAGGED)).toEqual([
+      { key: "finance", label: "finance" },
+      { key: "sales", label: "Sales" },
+    ]);
+  });
+
+  it("has no options when no dashboard has a tag", () => {
+    expect(dashboardTagOptions([{ tags: [] }, {}])).toEqual([]);
+  });
+
+  it("filters ignoring case, and an empty key keeps everything", () => {
+    expect(filterDashboardsByTag(TAGGED, "sales").map((d) => d.name)).toEqual([
+      "a",
+      "b",
+    ]);
+    expect(filterDashboardsByTag(TAGGED, "")).toHaveLength(4);
   });
 });
