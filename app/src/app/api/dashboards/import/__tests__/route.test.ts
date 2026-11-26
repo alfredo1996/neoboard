@@ -426,7 +426,8 @@ describe("POST /api/dashboards/import", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    mockDb.insert.mockReturnValue(makeInsertChain([created]));
+    const insertChain = makeInsertChain([created]);
+    mockDb.insert.mockReturnValue(insertChain);
 
     const res = await POST(
       makeRequest({
@@ -437,6 +438,8 @@ describe("POST /api/dashboards/import", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data.id).toBe("nd-dash");
+    // A NeoDash file carries no tags: the row is stored with [] (#1692).
+    expect(insertChain.calls.values[0][0]).toMatchObject({ tags: [] });
     expect(Array.isArray(body.data.notes)).toBe(true);
   });
 
