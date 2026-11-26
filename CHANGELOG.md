@@ -10,7 +10,7 @@ NeoBoard versioning resets at **1.0.0**.
 > 1.0.0 to 1.6.0 were never tagged or published: each was a release branch consolidated into `dev`, and the date
 > beside it, where there is one, is the date of that consolidation.
 
-## [1.9.1] — 2026-11-25 — API keys and chart pictures
+## [1.9.1] — 2026-11-26 — API keys and chart pictures
 
 A patch on 1.9.0: a new API key shows in the list as soon as it is created, and every chart page in the docs shows its chart.
 
