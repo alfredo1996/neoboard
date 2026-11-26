@@ -187,7 +187,9 @@ describe("ModelPane", () => {
     await userEvent.click(screen.getByRole("button", { name: /Show 50 more/ }));
     expect(screen.getAllByRole("button", { name: /^Open / })).toHaveLength(120);
     expect(screen.queryByRole("button", { name: /Show 50 more/ })).toBeNull();
-  });
+    // Renders up to 120 rows and clicks twice: passed the 5s default on a loaded
+    // CI runner (#2585), so this one test gets headroom.
+  }, 15000);
 
   it("shows skeletons while reading", () => {
     result = { isPending: true, isError: false, refetch };

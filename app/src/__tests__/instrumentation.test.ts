@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+// Every test resets the module cache and cold-imports instrumentation (and
+// register() imports its modules again). On a loaded CI runner that exceeded the
+// 5s default in 10 of 14 tests (#2585, same class as #2172). Headroom, file-wide.
+vi.setConfig({ testTimeout: 30000 });
+
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
