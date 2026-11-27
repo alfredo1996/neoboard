@@ -90,6 +90,11 @@ import {
 } from "@neoboard/components/kit";
 import { dashboardRowDescription } from "./dashboard-row-description";
 import {
+  DashboardTagPicker,
+  SavedTagsPreview,
+  useTagFilter,
+} from "./dashboard-tag-filter";
+import {
   cleanDashboardTags,
   planDetailsSave,
 } from "@/lib/dashboard/dashboard-tags";
@@ -102,7 +107,6 @@ import {
 import { deleteDashboardToast } from "./delete-dashboard-toast";
 import { dashboardDeleteConsequences } from "@/lib/widget/plural-widgets";
 import {
-  dashboardTagOptions,
   filterDashboardsByName,
   filterDashboardsByTag,
   isDuplicateDashboardName,
@@ -795,7 +799,6 @@ export default function DashboardListPage() {
   const [search, setSearch] = useState("");
   const [onlyMine, setOnlyMine] = useState(false);
   // The picked tag's lowercase key; "" is All tags (#1692).
-  const [pickedTag, setPickedTag] = useState("");
 
   // ponytail: page 1 of the connections list (100); the stat reads low past
   // that. Read `meta.total` (unwrapResponseWithMeta) if a tenant gets there.
@@ -809,12 +812,9 @@ export default function DashboardListPage() {
     hasWrite && (systemRole === "admin" || systemRole === "creator");
 
   // Client-side name filter for the list (#1048).
-  const tagOptions = dashboardTagOptions(dashboardList ?? []);
-  // A tag whose last use an edit removed is no longer picked (#1692).
-  const tagOption = tagOptions.find((o) => o.key === pickedTag);
-  const activeTag = tagOption?.key ?? "";
-  // Forget it for real, or the tag coming back would narrow the list unasked.
-  if (pickedTag && !tagOption) setPickedTag("");
+  const { tagOptions, tagOption, activeTag, setPickedTag } = useTagFilter(
+    dashboardList ?? [],
+  );
   const filteredDashboards = filterDashboardsByTag(
     filterDashboardsByName(dashboardList ?? [], search),
     activeTag,
@@ -1053,16 +1053,7 @@ export default function DashboardListPage() {
                   className="mt-1 flex min-h-5 flex-wrap items-center gap-1 text-xs text-muted-foreground"
                   aria-live="polite"
                 >
-                  {savedTags.length > 0 ? (
-                    <>
-                      <span className="mr-1">Saves as</span>
-                      {savedTags.map((t) => (
-                        <Tag key={t}>{t}</Tag>
-                      ))}
-                    </>
-                  ) : (
-                    <span>No tags</span>
-                  )}
+                  <SavedTagsPreview tags={savedTags} />
                 </div>
               </div>
             </div>
@@ -1173,27 +1164,11 @@ export default function DashboardListPage() {
                     />
                   </div>
                   {tagOptions.length > 0 && (
-                    <Select
-                      value={tagOption ? `tag:${activeTag}` : "all"}
-                      onValueChange={(v) =>
-                        setPickedTag(v === "all" ? "" : v.slice("tag:".length))
-                      }
-                    >
-                      <SelectTrigger
-                        className="w-[180px]"
-                        aria-label="Filter by tag"
-                      >
-                        <SelectValue placeholder="All tags" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All tags</SelectItem>
-                        {tagOptions.map((o) => (
-                          <SelectItem key={o.key} value={`tag:${o.key}`}>
-                            {o.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <DashboardTagPicker
+                      options={tagOptions}
+                      selected={tagOption}
+                      onPick={setPickedTag}
+                    />
                   )}
                 </div>
                 <label className="flex items-center gap-2 text-sm">
