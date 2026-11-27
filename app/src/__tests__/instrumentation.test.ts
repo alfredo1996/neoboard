@@ -107,28 +107,37 @@ describe("register (instrumentation hook)", () => {
     const start = vi.fn(
       () => new Promise<void>((resolve) => (release = resolve)),
     );
-    vi.resetModules();
-    vi.doMock("@/lib/auth/bootstrap", () => ({
-      bootstrapAdmin: mockBootstrapAdmin,
-    }));
-    vi.doMock("@/lib/settings/store", () => ({ startSettingsRefresh: start }));
-    const mod = await import("../instrumentation");
-    process.env.NEXT_RUNTIME = "nodejs";
-    delete process.env.BOOTSTRAP_ADMIN_EMAIL;
-    delete process.env.BOOTSTRAP_ADMIN_PASSWORD;
-    let done = false;
-    const p = mod.register().then(() => (done = true));
-    await new Promise((r) => setTimeout(r, 20));
-    expect(done).toBe(false);
-    release();
-    await p;
-    expect(done).toBe(true);
+    try {
+      vi.resetModules();
+      vi.doMock("@/lib/auth/bootstrap", () => ({
+        bootstrapAdmin: mockBootstrapAdmin,
+      }));
+      vi.doMock("@/lib/settings/store", () => ({
+        startSettingsRefresh: start,
+      }));
+      const mod = await import("../instrumentation");
+      process.env.NEXT_RUNTIME = "nodejs";
+      delete process.env.BOOTSTRAP_ADMIN_EMAIL;
+      delete process.env.BOOTSTRAP_ADMIN_PASSWORD;
+      let done = false;
+      const p = mod.register().then(() => (done = true));
+      // Wait until register() is parked on the load, however slow its cold imports.
+      await vi.waitFor(() => expect(start).toHaveBeenCalled(), {
+        timeout: 5000,
+      });
+      await Promise.resolve();
+      expect(done).toBe(false);
+      release();
+      await p;
+      expect(done).toBe(true);
 
-    start.mockRejectedValueOnce(new Error("boom"));
-    await expect(mod.register()).resolves.toBeUndefined();
-    vi.doMock("@/lib/settings/store", () => ({
-      startSettingsRefresh: async () => {},
-    }));
+      start.mockRejectedValueOnce(new Error("boom"));
+      await expect(mod.register()).resolves.toBeUndefined();
+    } finally {
+      vi.doMock("@/lib/settings/store", () => ({
+        startSettingsRefresh: async () => {},
+      }));
+    }
   });
 
   it("swallows errors from query middleware bootstrap without crashing", async () => {
