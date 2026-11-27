@@ -32,6 +32,16 @@ describe("dashboardListFilters (#2253)", () => {
   });
 });
 
+describe("dashboardListFilters tag (#1692)", () => {
+  it("reads the chosen tag as 'Tag is <tag>', between name and owner", () => {
+    expect(dashboardListFilters("mov", true, "Sales")).toEqual([
+      { id: "name", label: "Name", operator: "contains", value: "mov" },
+      { id: "tag", label: "Tag", value: "Sales" },
+      { id: "owner", label: "Owner", value: "you" },
+    ]);
+  });
+});
+
 describe("dashboardListTotals (#2253)", () => {
   it("counts shared dashboards by the API's flag and sums widgets, missing counts as 0", () => {
     expect(

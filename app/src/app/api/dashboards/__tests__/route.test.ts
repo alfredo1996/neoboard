@@ -232,6 +232,23 @@ describe("GET /api/dashboards", () => {
     },
   );
 
+  it.each([
+    ["admin", "admin-1"],
+    ["creator", "user-1"],
+  ])("selects tags on the %s path (#1692)", async (role, userId) => {
+    mockRequireSession.mockResolvedValue({
+      userId,
+      role,
+      canWrite: true,
+      tenantId: "tenant-x",
+    });
+    mockDb.select.mockReturnValueOnce(makeSelectChain([{ count: 0 }]));
+    mockDb.selectDistinctOn.mockReturnValueOnce(makeSelectChain([]));
+    await GET(makeRequest({}, "http://localhost/api/dashboards"));
+    const fields = mockDb.selectDistinctOn.mock.calls[0][1];
+    expect(Object.keys(fields)).toContain("tags");
+  });
+
   it("returns all tenant dashboards for admin role", async () => {
     mockRequireSession.mockResolvedValue({
       userId: "admin-1",

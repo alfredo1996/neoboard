@@ -146,21 +146,23 @@ test.describe("Dashboard CRUD", () => {
         .first();
       await expect(card).toBeVisible({ timeout: 10_000 });
       await card.getByRole("button", { name: "Dashboard options" }).click();
-      await page.getByRole("menuitem", { name: "Rename" }).click();
+      await page
+        .getByRole("menuitem", { name: "Edit details…", exact: true })
+        .click();
 
       const renameDialog = page.getByRole("dialog", {
-        name: "Rename Dashboard",
+        name: "Edit details",
       });
       await expect(renameDialog).toBeVisible({ timeout: 5_000 });
       // Pre-filled with the current name.
-      await expect(renameDialog.locator("#dashboard-rename")).toHaveValue(
+      await expect(renameDialog.locator("#dashboard-details-name")).toHaveValue(
         original,
       );
-      await renameDialog.locator("#dashboard-rename").fill(renamed);
+      await renameDialog.locator("#dashboard-details-name").fill(renamed);
       await renameDialog.getByRole("button", { name: "Save" }).click();
 
       await expect(
-        page.getByText("Dashboard renamed", { exact: true }),
+        page.getByText("Dashboard updated", { exact: true }),
       ).toBeVisible({ timeout: 5_000 });
       await expect(page.getByText(renamed, { exact: true })).toBeVisible({
         timeout: 10_000,

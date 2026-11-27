@@ -23,6 +23,7 @@ import { formatImportError } from "@/lib/dashboard/format-import-error";
 import { auditRequest } from "@/lib/audit/audit";
 import { isContentOnlyChartType } from "@/lib/widget/content-only-chart";
 import { pluralWidgets } from "@/lib/widget/plural-widgets";
+import { cleanDashboardTags } from "@/lib/dashboard/dashboard-tags";
 import {
   layoutConnectionIds,
   unusableConnectionIds,
@@ -223,6 +224,7 @@ export async function POST(request: Request) {
         tenantId,
         name,
         description: exportData.dashboard.description ?? null,
+        tags: cleanDashboardTags(exportData.dashboard.tags ?? []),
         layoutJson: mappedLayout,
         isPublic: false,
         updatedBy: userId,

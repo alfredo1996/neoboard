@@ -186,6 +186,8 @@ export const dashboards = pgTable(
     tenantId: text("tenant_id").notNull().default("default"),
     name: text("name").notNull(),
     description: text("description"),
+    /** Labels the list filters by; a property of the dashboard, the same for everyone (#1692). */
+    tags: text("tags").array().notNull().default([]),
     layoutJson: jsonb("layoutJson")
       .$type<DashboardLayoutV2>()
       .default({

@@ -17,16 +17,17 @@ export function dashboardListMeta(total: number, shared: number): string {
 
 /** One active filter on the dashboards list, as the kit's `FilterLine` reads it. */
 export interface DashboardListFilter {
-  id: "name" | "owner";
+  id: "name" | "tag" | "owner";
   label: string;
   operator?: string;
   value: string;
 }
 
-/** The filter line's chips: the trimmed search as "Name contains", and "Owner is you" when Only mine is on. */
+/** The filter line's chips: the trimmed search as "Name contains", the chosen tag as "Tag is …", and "Owner is you" when Only mine is on. */
 export function dashboardListFilters(
   search: string,
   onlyMine: boolean,
+  tag = "",
 ): DashboardListFilter[] {
   const filters: DashboardListFilter[] = [];
   const term = search.trim();
@@ -38,6 +39,7 @@ export function dashboardListFilters(
       value: term,
     });
   }
+  if (tag) filters.push({ id: "tag", label: "Tag", value: tag });
   if (onlyMine) filters.push({ id: "owner", label: "Owner", value: "you" });
   return filters;
 }

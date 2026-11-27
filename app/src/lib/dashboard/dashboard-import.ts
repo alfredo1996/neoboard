@@ -1,4 +1,6 @@
 import { z } from "zod";
+// Relative, not "@/": the root scripts suite imports this file without the app alias.
+import { dashboardTagsSchema } from "./dashboard-tags";
 import type { DashboardLayoutV2 } from "@/lib/db/schema";
 
 // ---------------------------------------------------------------------------
@@ -127,6 +129,8 @@ export const neoboardExportSchema = z
     dashboard: z.object({
       name: z.string().min(1),
       description: z.string().nullable().optional(),
+      // Absent in an older export and in a NeoDash file (#1692).
+      tags: dashboardTagsSchema.optional(),
     }),
     connections: z.record(
       z.string(),

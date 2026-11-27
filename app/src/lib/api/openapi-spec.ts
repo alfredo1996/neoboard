@@ -7,6 +7,7 @@
 
 import { PRODUCT_NAME, PRODUCT_PITCH } from "@/lib/branding";
 import { DEFAULT_MAX_ROWS } from "@/lib/query/query-executor";
+import { MAX_TAGS, MAX_TAG_LENGTH } from "@/lib/dashboard/dashboard-tags";
 import { API_ERROR_CODES } from "./api-response";
 import { MAX_ROWS_BOUNDS } from "@/lib/connector/connection-form";
 import { DEAD_CONNECTOR_TTL_MS } from "@/lib/query/middleware/dead-connector";
@@ -29,6 +30,11 @@ function jsonBody(schemaRef: string) {
  * The body every handler sends (#1961): `apiSuccess` and `apiList` wrap each
  * payload as `{ data, error: null, meta }`. `data` is a schema, or a $ref to one.
  */
+const TAGS_SCHEMA = {
+  type: "array",
+  maxItems: MAX_TAGS,
+  items: { type: "string", maxLength: MAX_TAG_LENGTH },
+} as const;
 const NULLABLE_META = { type: "object", nullable: true } as const;
 
 function envelope(data: string | object, meta: object = NULLABLE_META) {
@@ -600,7 +606,7 @@ const SPEC = {
           "The owner, an editor or an admin may save. Readers and users without write permission get 403, so does a " +
           "caller with only a viewer share; a caller with no share (a merely public dashboard included) gets 404. " +
           "Only the owner or an admin may change `isPublic` (403); anyone else may re-send the stored value, which is " +
-          "not written: when no other field (name, description, layoutJson) is sent the stored dashboard is answered as it is and `version` is not bumped. " +
+          "not written: when no other field (name, description, tags, layoutJson) is sent the stored dashboard is answered as it is and `version` is not bumped. " +
           "An accepted save that sends one of those fields adds one to `version`, even one that changes no value. " +
           "A save answers 403 when its layout adds a connection the caller cannot use, or adds or changes a query while the dashboard names a connection neither the caller nor its owner can use. " +
           "Adding a form, or changing a form's query, connection or database, needs the caller's own access to that connection even when the dashboard already uses it: " +
@@ -2220,6 +2226,7 @@ const SPEC = {
           "tenantId",
           "name",
           "description",
+          "tags",
           "layoutJson",
           "version",
           "isPublic",
@@ -2233,6 +2240,11 @@ const SPEC = {
           tenantId: { type: "string" },
           name: { type: "string" },
           description: { type: "string", nullable: true },
+          tags: {
+            ...TAGS_SCHEMA,
+            description:
+              "Labels the list filters by. Trimmed, with empty entries and case-insensitive duplicates dropped; the same for everyone who can see the dashboard.",
+          },
           layoutJson: {
             type: "object",
             nullable: true,
@@ -2265,6 +2277,7 @@ const SPEC = {
           "id",
           "name",
           "description",
+          "tags",
           "isPublic",
           "createdAt",
           "updatedAt",
@@ -2280,6 +2293,11 @@ const SPEC = {
           id: { type: "string" },
           name: { type: "string" },
           description: { type: "string", nullable: true },
+          tags: {
+            ...TAGS_SCHEMA,
+            description:
+              "Labels the list filters by. Trimmed, with empty entries and case-insensitive duplicates dropped; the same for everyone who can see the dashboard.",
+          },
           isPublic: { type: "boolean", nullable: true },
           createdAt: { type: "string", format: "date-time", nullable: true },
           updatedAt: { type: "string", format: "date-time", nullable: true },
@@ -2376,21 +2394,27 @@ const SPEC = {
         type: "object",
         additionalProperties: false,
         description:
-          "At least one of name, description, layoutJson or isPublic; expectedVersion alone, or any other key, is refused (400).",
+          "At least one of name, description, tags, layoutJson or isPublic; expectedVersion alone, or any other key, is refused (400).",
         anyOf: [
           { required: ["name"] },
           { required: ["description"] },
+          { required: ["tags"] },
           { required: ["layoutJson"] },
           { required: ["isPublic"] },
         ],
         properties: {
           name: { type: "string", minLength: 1 },
           description: { type: "string" },
+          tags: {
+            ...TAGS_SCHEMA,
+            description:
+              "Labels the list filters by. Trimmed, with empty entries and case-insensitive duplicates dropped; the same for everyone who can see the dashboard.",
+          },
           isPublic: {
             type: "boolean",
             description:
               "Only the owner or an admin may change it (403). Anyone else may re-send the stored value: it is not " +
-              "written, and when no other field (name, description, layoutJson) is sent the stored dashboard is answered as it is and `version` is not bumped.",
+              "written, and when no other field (name, description, tags, layoutJson) is sent the stored dashboard is answered as it is and `version` is not bumped.",
           },
           layoutJson: {
             type: "object",
@@ -2561,6 +2585,11 @@ const SPEC = {
             properties: {
               name: { type: "string" },
               description: { type: "string", nullable: true },
+              tags: {
+                ...TAGS_SCHEMA,
+                description:
+                  "Labels the list filters by. Trimmed, with empty entries and case-insensitive duplicates dropped; the same for everyone who can see the dashboard.",
+              },
             },
           },
           connections: {
@@ -2607,6 +2636,11 @@ const SPEC = {
             properties: {
               name: { type: "string", minLength: 1 },
               description: { type: "string", nullable: true },
+              tags: {
+                ...TAGS_SCHEMA,
+                description:
+                  "Labels the list filters by. Trimmed, with empty entries and case-insensitive duplicates dropped; the same for everyone who can see the dashboard.",
+              },
             },
           },
           connections: {
@@ -3203,9 +3237,7 @@ const SPEC = {
           name: { type: "string", minLength: 1, maxLength: 255 },
           description: { type: "string", maxLength: 1000 },
           tags: {
-            type: "array",
-            maxItems: 20,
-            items: { type: "string", maxLength: 100 },
+            ...TAGS_SCHEMA,
           },
           chartType: { type: "string", minLength: 1 },
           connectorType: {
@@ -3239,9 +3271,7 @@ const SPEC = {
           name: { type: "string", minLength: 1, maxLength: 255 },
           description: { type: "string", maxLength: 1000 },
           tags: {
-            type: "array",
-            maxItems: 20,
-            items: { type: "string", maxLength: 100 },
+            ...TAGS_SCHEMA,
           },
           chartType: { type: "string", minLength: 1 },
           connectorType: {

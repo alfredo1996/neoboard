@@ -133,6 +133,7 @@ describe("POST /api/dashboards/[id]/duplicate", () => {
       userId: "u1",
       name: "My Dashboard",
       description: "desc",
+      tags: ["Sales", "finance"],
       layoutJson: { version: 2, pages: [] },
       isPublic: true,
     };
@@ -143,12 +144,18 @@ describe("POST /api/dashboards/[id]/duplicate", () => {
       isPublic: false,
     };
     mockDb.select.mockReturnValueOnce(makeSelectChain([source]));
-    mockDb.insert.mockReturnValueOnce(makeInsertChain([copy]));
+    const values = vi.fn((_row: unknown) => ({
+      returning: () => Promise.resolve([copy]),
+    }));
+    mockDb.insert.mockReturnValueOnce({ values } as never);
 
     const res = await POST({} as Request, makeParams("d1"));
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data.name).toBe("My Dashboard (copy)");
+    expect(values.mock.calls[0][0]).toMatchObject({
+      tags: ["Sales", "finance"],
+    });
   });
 
   it("admin can duplicate any dashboard (bypasses ownership)", async () => {

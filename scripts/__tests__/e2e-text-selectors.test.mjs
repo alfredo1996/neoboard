@@ -120,7 +120,7 @@ const BASELINE = {
   "dashboard-portability.spec.ts": { role: 13, text: 6 },
   "dashboard-states.spec.ts": { role: 27, text: 22 },
   "dashboard-visibility.spec.ts": { role: 1, text: 5 },
-  "dashboards.spec.ts": { role: 26 },
+  "dashboards.spec.ts": { role: 25 },
   "design-system.spec.ts": { role: 23, text: 5 },
   "edit-needs-write.spec.ts": { role: 5, text: 1 },
   "edit-page-preservation.spec.ts": { role: 7, text: 3 },

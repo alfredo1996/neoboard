@@ -895,6 +895,7 @@ describe("#1981 payloads: dashboards-crud", () => {
     "tenantId",
     "name",
     "description",
+    "tags",
     "layoutJson",
     "version",
     "isPublic",
@@ -916,6 +917,7 @@ describe("#1981 payloads: dashboards-crud", () => {
       "id",
       "name",
       "description",
+      "tags",
       "isPublic",
       "createdAt",
       "updatedAt",
@@ -1022,6 +1024,7 @@ describe("#1981 payloads: dashboards-crud", () => {
     expect(body.anyOf?.map((s) => s.required)).toEqual([
       ["name"],
       ["description"],
+      ["tags"],
       ["layoutJson"],
       ["isPublic"],
     ]);
@@ -1047,7 +1050,7 @@ describe("#1981 payloads: dashboards-crud", () => {
       body.properties!.isPublic.description,
     ]) {
       expect(text).toMatch(
-        /no other field \(name, description, layoutJson\) is sent.*`version` is not bumped/,
+        /no other field \(name, description, tags, layoutJson\) is sent.*`version` is not bumped/,
       );
       expect(text).not.toMatch(/still (counts|adds)/);
     }

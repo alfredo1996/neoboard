@@ -289,6 +289,60 @@ describe("POST /api/dashboards/import", () => {
     });
   });
 
+  it.each([
+    ["keeps the file's tags", { name: "D", tags: ["Sales"] }, ["Sales"]],
+    ["imports an older export with none", { name: "D" }, []],
+  ])("%s (#1692)", async (_label, dashboard, expected) => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select
+      .mockReturnValueOnce(
+        makeSelectChain([{ id: "real-conn-id", type: "neo4j" }]),
+      )
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    const insertChain = makeInsertChain([{ id: "new-dash" }]);
+    mockDb.insert.mockReturnValue(insertChain);
+
+    const res = await POST(
+      makeRequest({
+        payload: { ...VALID_PAYLOAD, dashboard },
+        connectionMapping: { conn_0: "real-conn-id" },
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(insertChain.calls.values[0][0]).toMatchObject({ tags: expected });
+  });
+
+  it.each([
+    ["limits apply after cleaning", [` ${"x".repeat(100)}`], 201],
+    [
+      "21 distinct tags are refused",
+      Array.from({ length: 21 }, (_, i) => `t${i}`),
+      400,
+    ],
+    [
+      "a 101-character tag is refused after trimming",
+      [` ${"x".repeat(101)} `],
+      400,
+    ],
+  ])("import tags: %s (#1692)", async (_l, tags, status) => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select
+      .mockReturnValueOnce(
+        makeSelectChain([{ id: "real-conn-id", type: "neo4j" }]),
+      )
+      .mockReturnValueOnce(makeSelectChain([]))
+      .mockReturnValueOnce(makeSelectChain([]));
+    mockDb.insert.mockReturnValue(makeInsertChain([{ id: "new-dash" }]));
+    const res = await POST(
+      makeRequest({
+        payload: { ...VALID_PAYLOAD, dashboard: { name: "D", tags } },
+        connectionMapping: { conn_0: "real-conn-id" },
+      }),
+    );
+    expect(res.status).toBe(status);
+  });
+
   it("lets an admin map onto any connection in the tenant (#2327)", async () => {
     mockRequireSession.mockResolvedValue({ ...SESSION, role: "admin" });
     const connectionsChain = makeSelectChain([
@@ -372,7 +426,8 @@ describe("POST /api/dashboards/import", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    mockDb.insert.mockReturnValue(makeInsertChain([created]));
+    const insertChain = makeInsertChain([created]);
+    mockDb.insert.mockReturnValue(insertChain);
 
     const res = await POST(
       makeRequest({
@@ -383,6 +438,8 @@ describe("POST /api/dashboards/import", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.data.id).toBe("nd-dash");
+    // A NeoDash file carries no tags: the row is stored with [] (#1692).
+    expect(insertChain.calls.values[0][0]).toMatchObject({ tags: [] });
     expect(Array.isArray(body.data.notes)).toBe(true);
   });
 

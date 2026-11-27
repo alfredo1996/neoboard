@@ -502,6 +502,56 @@ describe("PUT /api/dashboards/[id]", () => {
     expectScopedById(chain.calls.where[0]);
   });
 
+  it("cleans tags server-side before writing them (#1692)", async () => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const chain = makeUpdateChain([{ ...OWNER_DASHBOARD, tags: ["Sales"] }]);
+    mockDb.update.mockReturnValue(chain);
+
+    const res = await PUT(
+      makeRequest({ tags: [" Sales ", "sales", ""] }),
+      makeParams("d1"),
+    );
+    expect(res.status).toBe(200);
+    expect(chain.calls.set[0][0]).toMatchObject({ tags: ["Sales"] });
+  });
+
+  const TWENTY = Array.from({ length: 20 }, (_, i) => `t${i}`);
+  it.each([
+    [
+      "a tag that is 100 characters once trimmed",
+      [` ${"x".repeat(100)}`],
+      ["x".repeat(100)],
+    ],
+    [
+      "25 entries that clean down to 20",
+      [...TWENTY, "T1", "T2", "T3", "T4", "T5"],
+      Array.from({ length: 20 }, (_, i) => `t${i}`),
+    ],
+  ])(
+    "limits apply after cleaning: stores %s (#1692)",
+    async (_l, tags, stored) => {
+      mockRequireSession.mockResolvedValue(SESSION);
+      mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+      const chain = makeUpdateChain([{ ...OWNER_DASHBOARD, tags: stored }]);
+      mockDb.update.mockReturnValue(chain);
+      const res = await PUT(makeRequest({ tags }), makeParams("d1"));
+      expect(res.status).toBe(200);
+      expect(chain.calls.set[0][0]).toMatchObject({ tags: stored });
+    },
+  );
+
+  it.each([
+    ["21 tags", Array.from({ length: 21 }, (_, i) => `t${i}`)],
+    ["a 101-character tag", ["x".repeat(101)]],
+    ["a 101-character tag after trimming", [` ${"x".repeat(101)} `]],
+  ])("returns 400 for %s (#1692)", async (_label, tags) => {
+    mockRequireSession.mockResolvedValue(SESSION);
+    mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
+    const res = await PUT(makeRequest({ tags }), makeParams("d1"));
+    expect(res.status).toBe(400);
+  });
+
   it("sets updatedBy to session userId on update", async () => {
     mockRequireSession.mockResolvedValue(SESSION);
     mockDb.select.mockReturnValue(makeSelectChain([OWNER_DASHBOARD]));
