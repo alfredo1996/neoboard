@@ -19,7 +19,7 @@
  * happened to run it from — and one level up is the repo's real docker/.
  * `cli/docker/` is gitignored.
  */
-import { mkdirSync, copyFileSync, rmSync } from "node:fs";
+import { mkdirSync, copyFileSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,15 +27,13 @@ const cliDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const repoDocker = join(dirname(cliDir), "docker");
 const dest = join(cliDir, "docker");
 
-// Only what a standalone install can actually use. prod-full pulls
+// The list is shared with build-sea.mjs (compose-assets.json). Only what a
+// standalone install can actually use. prod-full pulls
 // ghcr.io/... rather than building from source, which a standalone user has
 // none of; the dev compose files reference build contexts that will not exist.
-const FILES = [
-  "docker-compose.prod-full.yml",
-  "docker-compose.prod.yml",
-  "neo4j/init.cypher",
-  "postgres/init.sql",
-];
+const FILES = JSON.parse(
+  readFileSync(join(cliDir, "scripts", "compose-assets.json"), "utf8"),
+);
 
 rmSync(dest, { recursive: true, force: true });
 

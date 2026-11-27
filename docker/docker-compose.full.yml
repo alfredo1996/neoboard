@@ -56,6 +56,10 @@ services:
     restart: unless-stopped
 
   neoboard:
+    # A checkout builds below and tags the result neoboard:local. The one-line
+    # installer's standalone CLI has no source to build: it sets NEOBOARD_IMAGE
+    # in docker/.env to the release it installed, and compose pulls that (#1314).
+    image: ${NEOBOARD_IMAGE:-neoboard:local}
     build:
       context: ..
       dockerfile: Dockerfile

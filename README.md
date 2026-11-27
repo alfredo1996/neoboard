@@ -33,7 +33,16 @@ NeoBoard is a dashboard builder you run yourself: write Cypher and SQL in the br
 
 ## Quick Start
 
-Needs Docker and Node.js 20+ ([install requirements](docs/src/content/docs/start-here/install.mdx)).
+Needs only Docker with Compose v2, on Linux or macOS (on Windows, run it inside WSL2). One line installs the `neoboard` command and starts NeoBoard:
+
+```bash
+curl -fsSL https://github.com/alfredo1996/neoboard/releases/latest/download/install.sh | sh
+# → http://localhost:3000
+```
+
+To read the script before running it, download it first: `curl -fsSL https://github.com/alfredo1996/neoboard/releases/latest/download/install.sh -o install.sh`, then `less install.sh && sh install.sh`. It checks every download against the release's `SHA256SUMS`, never uses sudo, and never rewrites an existing `.env`. More in [Install](docs/src/content/docs/start-here/install.mdx).
+
+To work on the source instead, clone the repo ([install requirements](docs/src/content/docs/start-here/install.mdx)):
 
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git
@@ -44,7 +53,7 @@ bash install.sh   # installs deps, starts Docker, runs migrations
 
 Create the first admin at <http://localhost:3000/signup> with the bootstrap token from the ready banner. `neoboard demo` loads seven sample dashboards, and creates the demo admin `admin@neoboard.local` / `admin123` only when no user exists yet; the [tour](docs/src/content/docs/start-here/tour.mdx) walks through them.
 
-The CLI is not on npm yet, so install from a clone. If setup fails, see [Troubleshooting](docs/src/content/docs/start-here/troubleshooting.mdx).
+If setup fails, see [Troubleshooting](docs/src/content/docs/start-here/troubleshooting.mdx).
 
 ## Deploy
 

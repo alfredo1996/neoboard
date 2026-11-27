@@ -1,6 +1,7 @@
 import { createConnection } from "node:net";
 import { run, runOrNull, dockerExec as execInContainer } from "./exec.js";
-import { paths, readProjectConfig, getMode } from "./config.js";
+import { paths, readProjectConfig, getMode, isStandalone } from "./config.js";
+import { stageStandaloneCompose } from "./assets.js";
 import { ensureDockerEnvFile } from "./docker-env.js";
 import { join } from "node:path";
 
@@ -88,8 +89,13 @@ export function composeUp(opts?: {
     // The full stack needs per-install secrets (#970); generated once,
     // reused forever. OS env still overrides --env-file values (CI).
     const envFile = ensureDockerEnvFile();
+    // A standalone install has no source tree: it starts the pinned image
+    // (NEOBOARD_IMAGE in docker/.env) from the compose files it carries
+    // (#1314), and compose pulls what is missing instead of building.
+    const standalone = isStandalone();
+    if (standalone) stageStandaloneCompose(paths.dockerDir);
     run(
-      `docker compose -f "${file}"${overlay} --env-file "${envFile}" up -d --build`,
+      `docker compose -f "${file}"${overlay} --env-file "${envFile}" up -d${standalone ? "" : " --build"}`,
       { cwd: paths.root, env },
     );
     return;

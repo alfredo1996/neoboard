@@ -1,7 +1,7 @@
 import { composeUp } from "../lib/docker.js";
 import { waitForHealth } from "../lib/health.js";
 import { isPgReady, isNeo4jReady, isAppReady } from "../lib/docker.js";
-import { readProjectConfig, getMode } from "../lib/config.js";
+import { readProjectConfig, getMode, isStandalone } from "../lib/config.js";
 import { info, success, warn, banner, error } from "../lib/output.js";
 import {
   runDoctor,
@@ -157,7 +157,9 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
 
   // 4. Run migrations — abort (don't print "ready") if they fail, so callers
   // like setup/demo don't seed against a schema-less DB. (#MEDIUM)
-  const migrated = await runDbMigrate({});
+  // A standalone install has no scripts/db-migrate.mjs, and the image runs the
+  // same migrator on boot (MIGRATE_ON_START), which the app wait above covers (#1314).
+  const migrated = isStandalone() || (await runDbMigrate({}));
   if (!migrated) {
     error("Migrations failed — the stack is not ready.");
     process.exitCode = 1;
@@ -248,10 +250,7 @@ async function checkHealthOrFail(opts: {
  * process for a non-zero exit. Centralizes the "what to do next" message
  * for any docker-mode healthcheck timeout.
  */
-function failWithHints(
-  reason: string,
-  logsHint = "neoboard logs -f",
-): void {
+function failWithHints(reason: string, logsHint = "neoboard logs -f"): void {
   error(reason);
   console.log("");
   console.log(`  See logs:  ${logsHint}`);

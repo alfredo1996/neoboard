@@ -1,0 +1,85 @@
+name: Build CLI binaries
+
+# The single-file `neoboard` binary, once per platform (#1314). A binary is a
+# copy of the Node that built it, so each one is built on a runner of its own
+# OS and architecture. release.yml calls this on a `v*` tag; the pull_request
+# trigger below runs the SAME matrix on any PR that touches what goes into a
+# binary, so the matrix is proven before the first tag instead of at it.
+#
+# Runner labels, checked against GitHub's hosted-runner reference on
+# 2026-11-27 (free and unlimited on public repos): ubuntu-24.04 (x64),
+# ubuntu-24.04-arm (arm64), macos-15-intel (x64) and macos-15 (arm64).
+# `macos-13` is gone and `macos-latest` is arm64, so the Intel runner is
+# named, not inferred. Labels move: re-check this list when a leg fails to
+# queue.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Release version baked into the binaries, e.g. 1.9.2"
+        type: string
+        required: true
+  pull_request:
+    paths:
+      - "cli/**"
+      - "docker/docker-compose.full.yml"
+      - "docker/postgres/**"
+      - "docker/neo4j/**"
+      - ".github/workflows/build-cli-binaries.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  binary:
+    name: ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: linux, arch: x64, runner: ubuntu-24.04 }
+          - { os: linux, arch: arm64, runner: ubuntu-24.04-arm }
+          - { os: darwin, arch: x64, runner: macos-15-intel }
+          - { os: darwin, arch: arm64, runner: macos-15 }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # An official Node 22: build-sea.mjs copies this very executable, and a
+      # distro build without the SEA fuse cannot take the blob.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      # Only the CLI's own tree (esbuild, postject): the app's dependencies
+      # are not part of a binary.
+      - name: Install the CLI's dependencies
+        run: npm ci --workspace=cli --ignore-scripts
+
+      # A pull request has no release version; the placeholder is a valid one.
+      - name: Build the binary
+        env:
+          VERSION: ${{ inputs.version || '0.0.0-ci' }}
+        run: |
+          node cli/scripts/build-sea.mjs \
+            --version "$VERSION" \
+            --out "dist/neoboard-${{ matrix.os }}-${{ matrix.arch }}"
+
+      - name: Check it is native and, on macOS, signed
+        run: |
+          set -euo pipefail
+          f="dist/neoboard-${{ matrix.os }}-${{ matrix.arch }}"
+          file "$f"
+          if [ "${{ matrix.os }}" = darwin ]; then codesign --verify --verbose "$f"; fi
+
+      - name: Upload the binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: neoboard-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/neoboard-${{ matrix.os }}-${{ matrix.arch }}
+          if-no-files-found: error
+          retention-days: 7

@@ -14,6 +14,8 @@ on:
       # unguarded prepare there fails the image build outright (#1356), and
       # this is the only job that builds the image outside a release.
       - 'connector-sdk/package.json'
+      - 'scripts/web-installer.sh'
+      - 'scripts/assemble-installer-assets.sh'
       - '.github/workflows/cli-integration.yml'
   pull_request:
     branches: [main, dev, 'release/*']
@@ -24,6 +26,8 @@ on:
       - 'scripts/demo/**'
       - 'Dockerfile'
       - 'connector-sdk/package.json'
+      - 'scripts/web-installer.sh'
+      - 'scripts/assemble-installer-assets.sh'
       - '.github/workflows/cli-integration.yml'
   workflow_dispatch:
 
@@ -172,3 +176,139 @@ jobs:
           command -v neoboard >/dev/null \
             || { echo "::error::install.sh did not put 'neoboard' on PATH"; exit 1; }
           neoboard --version
+
+  web-installer:
+    name: One-line web installer
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Guards #1314: `curl ... install.sh | sh` must end in a running NeoBoard on
+    # a machine with only Docker. Everything a release would do is done here
+    # from the PR instead: build the linux-x64 binary, assemble install.sh and
+    # SHA256SUMS with the same script release.yml runs, serve them locally, and
+    # run the script against an image built from this checkout.
+    #
+    # What only a tag can prove: the other three platforms' binaries (the
+    # build-cli-binaries workflow builds them on every PR, but nothing runs
+    # them here), the real github.com download URLs, and the published image.
+    env:
+      VERSION: 0.0.0-ci
+      PORT: "8977"
+      NEOBOARD_RELEASES_URL: http://127.0.0.1:8977
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install the CLI's build dependencies
+        run: npm ci --workspace=cli --ignore-scripts
+
+      - name: Choose the paths
+        run: |
+          {
+            echo "ASSETS=$RUNNER_TEMP/serve/download/v$VERSION"
+            echo "NEOBOARD_BIN_DIR=$RUNNER_TEMP/bin"
+            echo "NEOBOARD_DIR=$RUNNER_TEMP/neoboard"
+          } >> "$GITHUB_ENV"
+
+      - name: Build the binary and assemble the release assets
+        run: |
+          mkdir -p "$ASSETS"
+          node cli/scripts/build-sea.mjs --version "$VERSION" --out "$ASSETS/neoboard-linux-x64"
+          sh scripts/assemble-installer-assets.sh "$VERSION" "$ASSETS"
+
+      # Tagged exactly as install.sh pins it, so compose finds it locally and
+      # pulls nothing from ghcr.
+      - name: Build the image from this checkout
+        run: docker build -t "ghcr.io/alfredo1996/neoboard:$VERSION" .
+
+      - name: Serve the assets
+        run: |
+          python3 -m http.server "$PORT" --bind 127.0.0.1 --directory "$RUNNER_TEMP/serve" >/dev/null 2>&1 &
+          echo "SERVER_PID=$!" >> "$GITHUB_ENV"
+          for _ in $(seq 1 20); do
+            curl -fs "$NEOBOARD_RELEASES_URL/download/v$VERSION/SHA256SUMS" >/dev/null && exit 0
+            sleep 1
+          done
+          echo "::error::the local asset server did not start"; exit 1
+
+      - name: A tampered checksum or binary fails the install and installs nothing
+        run: |
+          set -uo pipefail
+          cp "$ASSETS/SHA256SUMS" "$RUNNER_TEMP/sums.good"
+          cp "$ASSETS/neoboard-linux-x64" "$RUNNER_TEMP/bin.good"
+
+          sed -i 's/^./0/' "$ASSETS/SHA256SUMS"
+          if sh "$ASSETS/install.sh" > "$RUNNER_TEMP/tamper1.out" 2>&1; then
+            echo "::error::a wrong checksum did not fail the install"; exit 1
+          fi
+          grep -q 'checksum mismatch' "$RUNNER_TEMP/tamper1.out" \
+            || { cat "$RUNNER_TEMP/tamper1.out"; echo "::error::no checksum message"; exit 1; }
+          cp "$RUNNER_TEMP/sums.good" "$ASSETS/SHA256SUMS"
+
+          echo tampered >> "$ASSETS/neoboard-linux-x64"
+          if sh "$ASSETS/install.sh" > "$RUNNER_TEMP/tamper2.out" 2>&1; then
+            echo "::error::a swapped binary did not fail the install"; exit 1
+          fi
+          cp "$RUNNER_TEMP/bin.good" "$ASSETS/neoboard-linux-x64"
+
+          test ! -e "$NEOBOARD_BIN_DIR/neoboard" \
+            || { echo "::error::a failed install left a binary behind"; exit 1; }
+          test ! -e "$NEOBOARD_DIR/docker/.env" \
+            || { echo "::error::a failed install reached setup"; exit 1; }
+
+      - name: With no Docker the message says what to do
+        run: |
+          set -uo pipefail
+          bare="$RUNNER_TEMP/nodocker"
+          mkdir -p "$bare"
+          for t in uname curl awk grep cut mktemp mkdir chmod mv rm sha256sum; do
+            ln -sf "$(command -v "$t")" "$bare/$t"
+          done
+          if PATH="$bare" /bin/sh "$ASSETS/install.sh" > "$RUNNER_TEMP/nodocker.out" 2>&1; then
+            echo "::error::the install passed without Docker"; exit 1
+          fi
+          grep -q 'Docker is not installed. Install Docker Engine' "$RUNNER_TEMP/nodocker.out" \
+            || { cat "$RUNNER_TEMP/nodocker.out"; echo "::error::the no-Docker message is wrong"; exit 1; }
+
+      - name: Clean install, piped to sh as a stranger would
+        run: |
+          curl -fsSL "$NEOBOARD_RELEASES_URL/download/v$VERSION/install.sh" | sh 2>&1 | tee "$RUNNER_TEMP/install.out"
+
+      - name: The app is up on the pinned image and the printed token is the one it expects
+        run: |
+          set -euo pipefail
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/health)" = 200
+          test "$(docker inspect neoboard-app --format '{{.Config.Image}}')" = "ghcr.io/alfredo1996/neoboard:$VERSION"
+          grep -qx "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:$VERSION" "$NEOBOARD_DIR/docker/.env"
+          token=$(sed -n 's/^.*Token: *\([0-9a-f]\{64\}\).*$/\1/p' "$RUNNER_TEMP/install.out" | head -1)
+          test -n "$token" || { echo "::error::the banner printed no token"; exit 1; }
+          test "$(docker exec neoboard-app printenv ADMIN_BOOTSTRAP_TOKEN)" = "$token"
+          curl -s http://localhost:3000/api/auth/bootstrap-status | grep -q '"bootstrapRequired":true'
+
+      - name: A second run leaves .env untouched
+        run: |
+          set -euo pipefail
+          before=$(sha256sum "$NEOBOARD_DIR/docker/.env")
+          sh "$ASSETS/install.sh" 2>&1 | tee "$RUNNER_TEMP/rerun.out"
+          test "$(sha256sum "$NEOBOARD_DIR/docker/.env")" = "$before"
+          grep -q 'Keeping the installed' "$RUNNER_TEMP/rerun.out"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/health)" = 200
+
+      - name: Show container logs on failure
+        if: failure()
+        run: |
+          docker logs neoboard-app 2>&1 | tail -50 || true
+          docker ps -a
+
+      - name: Cleanup
+        if: always()
+        run: |
+          kill "$SERVER_PID" 2>/dev/null || true
+          if [ -f "$NEOBOARD_DIR/docker/docker-compose.full.yml" ]; then
+            docker compose -f "$NEOBOARD_DIR/docker/docker-compose.full.yml" --env-file "$NEOBOARD_DIR/docker/.env" down -v
+          fi

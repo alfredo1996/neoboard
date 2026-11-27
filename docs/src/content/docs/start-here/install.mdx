@@ -5,9 +5,43 @@ sidebar:
   order: 2
 ---
 
-Pick one of two installation paths. The first is fastest; the second is for contributors who want to hack on the source.
+Pick one of three installation paths. The first needs only Docker; the third is for contributors who want to hack on the source.
 
-## Option 1: Bundled setup script (Recommended)
+## Option 1: One-line installer (Recommended)
+
+Needs Docker with Compose v2 on Linux or macOS. On Windows, run it inside [WSL2](https://learn.microsoft.com/windows/wsl/install) with Docker Desktop's WSL integration turned on. Node.js is not needed.
+
+```bash
+curl -fsSL https://github.com/alfredo1996/neoboard/releases/latest/download/install.sh | sh
+```
+
+It installs the `neoboard` command into `~/.local/bin`, then runs `neoboard setup` in `./neoboard`: it writes the secrets, starts the stack, waits for it and prints the URL and the first-run token. If `~/.local/bin` is not on your `PATH`, it prints the line to add.
+
+To read the script before it runs, download it first:
+
+```bash
+curl -fsSL https://github.com/alfredo1996/neoboard/releases/latest/download/install.sh -o install.sh
+less install.sh
+sh install.sh
+```
+
+What it guarantees:
+
+- Every download is checked against the release's `SHA256SUMS`; a mismatch stops the install and installs nothing.
+- It never uses sudo. If Docker needs elevated permission, it says so and stops.
+- Each release's script is pinned to that release's image and binary. Set `NEOBOARD_VERSION=1.9.2` to install a different release.
+- Running it again is safe: `docker/.env` (your secrets) is never rewritten, and the release already recorded stays until you pass `NEOBOARD_VERSION`.
+- It sends no telemetry.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `NEOBOARD_VERSION` | the release the script belongs to | Release to install, and the one recorded in `docker/.env` |
+| `NEOBOARD_DIR` | `./neoboard` | Where the install lives |
+| `NEOBOARD_BIN_DIR` | `~/.local/bin` | Where the `neoboard` command goes |
+
+On a machine with no prebuilt binary (another CPU architecture) and Node.js 20+, the script falls back to installing the CLI from npm. That works only once the package has been published; until then it stops with a message.
+
+## Option 2: Bundled setup script
 
 The root-level `install.sh` script bootstraps the bundled `neoboard` CLI, starts the database containers via Docker Compose, runs migrations, and prints the next-step commands:
 
@@ -29,7 +63,7 @@ neoboard --help   # full command list
 
 `neoboard demo` is the quickest way to see NeoBoard with data in it — [Tour NeoBoard with demo data](/start-here/tour) walks through what it seeds. Every command is described in the [CLI reference](/cli/commands).
 
-## Option 2: Manual setup (contributors)
+## Option 3: Manual setup (contributors)
 
 For full control or active development against the source:
 

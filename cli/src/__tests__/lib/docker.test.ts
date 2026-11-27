@@ -31,6 +31,11 @@ vi.mock("../../lib/config.js", () => ({
     },
   })),
   getMode: vi.fn(() => "docker"),
+  isStandalone: vi.fn(() => false),
+}));
+
+vi.mock("../../lib/assets.js", () => ({
+  stageStandaloneCompose: vi.fn(),
 }));
 
 import {
@@ -38,7 +43,8 @@ import {
   runOrNull,
   dockerExec as execInContainer,
 } from "../../lib/exec.js";
-import { getMode, readProjectConfig } from "../../lib/config.js";
+import { getMode, readProjectConfig, isStandalone } from "../../lib/config.js";
+import { stageStandaloneCompose } from "../../lib/assets.js";
 import {
   isDockerRunning,
   composeFile,
@@ -95,6 +101,24 @@ describe("composeUp", () => {
       'docker compose -f "/project/docker/docker-compose.full.yml" --env-file "/project/docker/.env" up -d --build',
       expect.objectContaining({ cwd: "/project" }),
     );
+  });
+
+  describe("standalone install (#1314)", () => {
+    it("stages the packaged compose and starts it without --build", () => {
+      vi.mocked(isStandalone).mockReturnValueOnce(true);
+      composeUp({ full: true });
+      expect(stageStandaloneCompose).toHaveBeenCalledWith("/project/docker");
+      // No source tree to build from: the pinned image is pulled instead.
+      expect(mockRun).toHaveBeenCalledWith(
+        'docker compose -f "/project/docker/docker-compose.full.yml" --env-file "/project/docker/.env" up -d',
+        expect.objectContaining({ cwd: "/project" }),
+      );
+    });
+
+    it("stages nothing in a checkout, which has the files already", () => {
+      composeUp({ full: true });
+      expect(stageStandaloneCompose).not.toHaveBeenCalled();
+    });
   });
 
   // Reaching a database on the HOST is opt-in per run (#1346): most installs

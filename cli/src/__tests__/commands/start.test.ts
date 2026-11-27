@@ -17,6 +17,7 @@ vi.mock("../../lib/config.js", () => ({
     ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
   })),
   getMode: vi.fn(() => "docker"),
+  isStandalone: vi.fn(() => false),
 }));
 
 vi.mock("../../lib/output.js", () => ({
@@ -51,7 +52,7 @@ vi.mock("../../lib/bootstrap-status.js", () => ({
 
 import { composeUp } from "../../lib/docker.js";
 import { waitForHealth } from "../../lib/health.js";
-import { getMode } from "../../lib/config.js";
+import { getMode, isStandalone } from "../../lib/config.js";
 import { banner, error } from "../../lib/output.js";
 import {
   printResults,
@@ -80,7 +81,9 @@ beforeEach(() => {
   // Migrations succeed by default; runStart now aborts (no "ready" banner)
   // when they fail. Failure is exercised in its own test.
   mockRunDbMigrate.mockResolvedValue(true);
-  mockReadDockerEnvSecrets.mockReturnValue({ ADMIN_BOOTSTRAP_TOKEN: "tok-abc123" });
+  mockReadDockerEnvSecrets.mockReturnValue({
+    ADMIN_BOOTSTRAP_TOKEN: "tok-abc123",
+  });
   mockIsBootstrapPending.mockResolvedValue(true);
   process.exitCode = 0;
 });
@@ -119,6 +122,13 @@ describe("runStart", () => {
   it("runs migrations after health checks pass", async () => {
     await runStart();
     expect(mockRunDbMigrate).toHaveBeenCalledWith({});
+  });
+
+  it("leaves migrations to the app container on a standalone install (#1314)", async () => {
+    // scripts/db-migrate.mjs is not in the binary; the image migrates on boot.
+    vi.mocked(isStandalone).mockReturnValueOnce(true);
+    expect(await runStart({ full: true })).toBe(true);
+    expect(mockRunDbMigrate).not.toHaveBeenCalled();
   });
 
   it("polls app readiness when full=true (docker mode)", async () => {

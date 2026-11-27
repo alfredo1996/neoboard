@@ -17,6 +17,8 @@ jobs:
       contents: write # softprops/action-gh-release creates the release
     outputs:
       is_latest: ${{ steps.tag.outputs.is_latest }}
+      version: ${{ steps.tag.outputs.version }}
+      semver: ${{ steps.tag.outputs.semver }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -42,6 +44,15 @@ jobs:
         id: tag
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
+          # semver: a tag the installer can pin (X.Y.Z or X.Y.Z-rc.N). A tag
+          # like `vnext` still releases and builds the image, but gets no
+          # binaries, since a version has to be a valid image tag (#1314).
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "semver=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "semver=false" >> "$GITHUB_OUTPUT"
+          fi
           if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "plain=true" >> "$GITHUB_OUTPUT"
           else
@@ -246,3 +257,53 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
           category: trivy-image
+
+  # The one-line installer (#1314). The binaries come from a reusable workflow
+  # that pull requests also run, so the four-platform matrix is exercised
+  # before a tag does.
+  binaries:
+    name: Build CLI binaries
+    needs: release
+    if: needs.release.outputs.semver == 'true'
+    uses: ./.github/workflows/build-cli-binaries.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+
+  # Attaches install.sh, the four binaries and SHA256SUMS to the release.
+  # After the docker job on purpose: install.sh pins this version's image, so
+  # it must not be downloadable before that image can be pulled. Until then
+  # /releases/latest/download/install.sh is a 404, which fails closed.
+  installer:
+    name: Attach the installer and CLI binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [release, docker, binaries]
+    permissions:
+      contents: write # gh release upload
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download the binaries
+        uses: actions/download-artifact@v8
+        with:
+          pattern: neoboard-*
+          path: assets
+          merge-multiple: true
+
+      - name: Pin the version into install.sh and sum the binaries
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          count=$(ls assets/neoboard-* | wc -l | tr -d ' ')
+          [ "$count" = 4 ] || { echo "::error::expected 4 binaries, found $count"; exit 1; }
+          sh scripts/assemble-installer-assets.sh "$VERSION" assets
+          cat assets/SHA256SUMS
+          (cd assets && sha256sum -c SHA256SUMS)
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" assets/neoboard-* assets/SHA256SUMS assets/install.sh --clobber
