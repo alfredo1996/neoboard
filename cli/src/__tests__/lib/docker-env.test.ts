@@ -5,6 +5,7 @@ vi.mock("node:fs", () => ({
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
   readFileSync: vi.fn(),
+  renameSync: vi.fn(),
 }));
 
 vi.mock("node:crypto", () => ({
@@ -31,7 +32,13 @@ vi.mock("../../lib/output.js", () => ({
   success: vi.fn(),
 }));
 
-import { existsSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
+import {
+  existsSync,
+  writeFileSync,
+  readFileSync,
+  mkdirSync,
+  renameSync,
+} from "node:fs";
 import {
   ensureDockerEnvFile,
   DOCKER_ENV_PATH,
@@ -315,5 +322,53 @@ describe("ensureDockerEnvFile: file hygiene (#1314 review)", () => {
     }
     const now = "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.5\n";
     expect(mockWriteFileSync.mock.calls[0][1]).toBe(`A=1\n${now}B=2\n${now}`);
+  });
+
+  // Compose's env-file parser (checked against v2.3.3) accepts spaces around
+  // the =, an `export ` prefix, indentation and `:` as the separator, and the
+  // last assignment wins.
+  it.each([
+    "NEOBOARD_IMAGE = ghcr.io/alfredo1996/neoboard:1.9.0",
+    "export NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.0",
+    "  NEOBOARD_IMAGE: ghcr.io/alfredo1996/neoboard:1.9.0",
+  ])("moves the image line Compose also reads: %s", (old) => {
+    mockStandalone.mockReturnValue(true);
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      `A=1\nNEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.0\n${old}\n# NEOBOARD_IMAGE=keep\n`,
+    );
+    process.env.NEOBOARD_VERSION = "1.9.5";
+    try {
+      ensureDockerEnvFile();
+    } finally {
+      delete process.env.NEOBOARD_VERSION;
+      mockStandalone.mockReturnValue(false);
+    }
+    const now = "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.5\n";
+    expect(mockWriteFileSync.mock.calls[0][1]).toBe(
+      `A=1\n${now}${now}# NEOBOARD_IMAGE=keep\n`,
+    );
+  });
+
+  it("rewrites docker/.env through a 0600 sibling and a rename, so a failed write keeps the key", () => {
+    mockStandalone.mockReturnValue(true);
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      "ENCRYPTION_KEY=keep\nNEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.0\n",
+    );
+    process.env.NEOBOARD_VERSION = "1.9.5";
+    try {
+      ensureDockerEnvFile();
+    } finally {
+      delete process.env.NEOBOARD_VERSION;
+      mockStandalone.mockReturnValue(false);
+    }
+    const [tmp, , opts] = mockWriteFileSync.mock.calls[0];
+    expect(tmp).not.toBe("/project/docker/.env");
+    expect(opts).toEqual({ mode: 0o600 });
+    expect(vi.mocked(renameSync)).toHaveBeenCalledWith(
+      tmp,
+      "/project/docker/.env",
+    );
   });
 });

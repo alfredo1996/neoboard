@@ -1,4 +1,10 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
 import { randomBytes } from "node:crypto";
 import { dirname, join } from "node:path";
 import { parse as parseEnv } from "dotenv";
@@ -108,12 +114,19 @@ export function ensureDockerEnvFile(): string {
 function repinImage(envPath: string, version: string): void {
   const line = `NEOBOARD_IMAGE=${IMAGE_REPO}:${version}`;
   const text = readFileSync(envPath, "utf-8");
-  // Every matching line, not the first: with a duplicate the last one wins.
-  const next = /^NEOBOARD_IMAGE=.*$/m.test(text)
-    ? text.replace(/^NEOBOARD_IMAGE=.*$/gm, line)
+  // Every assignment Compose reads, not the first: with a duplicate the last
+  // one wins, and it accepts spaces around the separator, `:` for `=`, an
+  // `export ` prefix and indentation (checked against Compose v2.3.3).
+  const assignment = /^[ \t]*(?:export[ \t]+)?NEOBOARD_IMAGE[ \t]*[=:].*$/gm;
+  const next = assignment.test(text)
+    ? text.replace(assignment, line)
     : `${text}${text.endsWith("\n") ? "" : "\n"}${line}\n`;
   if (next === text) return;
-  writeFileSync(envPath, next);
+  // Sibling file, then rename: a failed write must not truncate the file that
+  // holds ENCRYPTION_KEY.
+  const tmp = `${envPath}.${process.pid}.tmp`;
+  writeFileSync(tmp, next, { mode: 0o600 });
+  renameSync(tmp, envPath);
   info(`NeoBoard image set to ${IMAGE_REPO}:${version}`);
 }
 
