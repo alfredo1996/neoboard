@@ -12,9 +12,16 @@ vi.mock("../../lib/output.js", () => ({
   success: vi.fn(),
 }));
 
+vi.mock("../../lib/config.js", () => ({
+  isStandalone: vi.fn(() => false),
+  recordInstallDir: vi.fn(),
+  paths: { root: "/home/me/neoboard" },
+}));
+
 import { runInit } from "../../commands/init.js";
 import { runStart } from "../../commands/start.js";
 import { success } from "../../lib/output.js";
+import { isStandalone, recordInstallDir } from "../../lib/config.js";
 import { runSetup } from "../../commands/setup.js";
 
 const mockRunInit = vi.mocked(runInit);
@@ -24,6 +31,19 @@ const mockSuccess = vi.mocked(success);
 beforeEach(() => {
   vi.clearAllMocks();
   mockRunStart.mockResolvedValue(true);
+});
+
+describe("runSetup records the install directory (#1314)", () => {
+  it("in a standalone install, so later commands find it from anywhere", async () => {
+    vi.mocked(isStandalone).mockReturnValueOnce(true);
+    await runSetup();
+    expect(recordInstallDir).toHaveBeenCalledWith("/home/me/neoboard");
+  });
+
+  it("never in a checkout", async () => {
+    await runSetup();
+    expect(recordInstallDir).not.toHaveBeenCalled();
+  });
 });
 
 describe("runSetup", () => {
