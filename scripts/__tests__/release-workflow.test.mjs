@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -467,6 +468,51 @@ describe("release workflow: tag classification", () => {
     // ...and it runs after the upload.
     expect(block.indexOf("Mark the release Latest")).toBeGreaterThan(
       block.indexOf("gh release upload"),
+    );
+  });
+
+  // A run for an older tag can reach promotion after a newer one finished (the
+  // classification is minutes old by then), so the step re-reads the remote's
+  // tags and only promotes the highest one.
+  function promote(tag, remoteTags) {
+    const remote = repoWithTags(remoteTags);
+    const work = mkdtempSync(join(tmpdir(), "release-promote-"));
+    const bin = join(work, "bin");
+    mkdirSync(bin);
+    const log = join(work, "gh.log");
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\necho "$@" >> "${log}"\n`, {
+      mode: 0o755,
+    });
+    execFileSync("git", ["init", "-q"], { cwd: work });
+    execFileSync("git", ["remote", "add", "origin", remote], { cwd: work });
+    try {
+      execFileSync(
+        "bash",
+        [
+          "-e",
+          "-c",
+          stepScript(
+            stripComments(jobBlock("installer")),
+            "Mark the release Latest",
+          ),
+        ],
+        {
+          cwd: work,
+          env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, TAG: tag },
+          stdio: "pipe",
+        },
+      );
+      return existsSync(log) ? readFileSync(log, "utf8").trim() : "";
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+      rmSync(remote, { recursive: true, force: true });
+    }
+  }
+
+  it("never lets an older tag's run demote a newer Latest", () => {
+    expect(promote("v1.9.2", ["v1.9.2", "v1.9.3"])).toBe("");
+    expect(promote("v1.9.3", ["v1.9.2", "v1.9.3", "v1.10.0-rc.1"])).toBe(
+      "release edit v1.9.3 --latest",
     );
   });
 

@@ -317,4 +317,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
+          # The is_latest fact is minutes old: a newer tag's run may have
+          # promoted since. Re-read the remote and never demote it.
+          # ponytail: a check-then-edit window of seconds remains; a
+          # serialised promote job would close it.
+          HIGHEST=$(git ls-remote --tags origin 'refs/tags/v*' | sed 's|.*refs/tags/||' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+          if [ "$TAG" != "$HIGHEST" ]; then
+            echo "::notice::$TAG is no longer the highest release tag ($HIGHEST) - leaving Latest alone."
+            exit 0
+          fi
           gh release edit "$TAG" --latest
