@@ -32,6 +32,7 @@ const VERSION = "1.9.2";
 
 // A "binary" that logs its arguments and the two variables the installer sets.
 const FAKE_BINARY = `#!/bin/sh
+[ "$1" = --version ] && { echo 1.0.0; exit 0; }
 echo "args=$* dir=$NEOBOARD_DIR version=\${NEOBOARD_VERSION-UNSET}" >> "$NB_TEST_LOG"
 `;
 
@@ -68,7 +69,7 @@ function release(version, { binary = FAKE_BINARY, sums } = {}) {
 
 // A PATH holding only what the script needs, so "no docker" is real even on a
 // machine that has it. `docker` itself is a stub that succeeds.
-function makePath(withDocker) {
+function makePath(withDocker, { without = [], stubs = {} } = {}) {
   const dir = join(tmp, "bin");
   mkdirSync(dir, { recursive: true });
   for (const t of [
@@ -90,16 +91,18 @@ function makePath(withDocker) {
     "cat",
     "head",
     "dirname",
-  ]) {
+  ].filter((t) => !without.includes(t))) {
     const which = spawnSync("sh", ["-c", `command -v ${t}`], {
       encoding: "utf8",
     }).stdout.trim();
     if (which.startsWith("/") && !existsSync(join(dir, t)))
       symlinkSync(which, join(dir, t));
   }
-  if (withDocker) {
-    writeFileSync(join(dir, "docker"), "#!/bin/sh\nexit 0\n");
-    chmodSync(join(dir, "docker"), 0o755);
+  if (withDocker) stubs = { docker: "exit 0", ...stubs };
+  for (const [name, body] of Object.entries(stubs)) {
+    rmSync(join(dir, name), { force: true }); // a symlink to the real tool
+    writeFileSync(join(dir, name), `#!/bin/sh\n${body}\n`);
+    chmodSync(join(dir, name), 0o755);
   }
   return dir;
 }
@@ -117,9 +120,18 @@ function sh(script, env) {
   });
 }
 
-function install(env = {}, { withDocker = true } = {}) {
-  return sh(SCRIPT, {
-    PATH: makePath(withDocker),
+// What release.yml publishes: the script with the tag's version in it.
+function pinnedScript() {
+  const assets = join(tmp, "assets");
+  mkdirSync(assets, { recursive: true });
+  writeFileSync(join(assets, ASSET), FAKE_BINARY);
+  execFileSync("sh", [ASSEMBLE, VERSION, assets]);
+  return join(assets, "install.sh");
+}
+
+function install(env = {}, { withDocker = true, pathOpts = {}, script } = {}) {
+  return sh(script ?? SCRIPT, {
+    PATH: makePath(withDocker, pathOpts),
     HOME: home,
     NB_TEST_LOG: log,
     NEOBOARD_RELEASES_URL: base,
@@ -196,6 +208,90 @@ describe("web installer: failing closed", () => {
   });
 });
 
+describe("web installer: the download base (#1314 review)", () => {
+  it.each([
+    "http://127.0.0.1:1@example.com/",
+    "http://localhost:80@example.com",
+    "http://127.0.0.1:80.example.com",
+  ])("refuses %s, which is not loopback whatever it starts with", async (u) => {
+    const r = await install({ NEOBOARD_RELEASES_URL: u });
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/non-HTTPS/);
+  });
+
+  it("restricts curl to https, redirects included, when the base is https", async () => {
+    const calls = join(tmp, "curl.log");
+    const r = await install(
+      { NEOBOARD_RELEASES_URL: "https://example.test/releases" },
+      { pathOpts: { stubs: { curl: `echo "$*" >> "${calls}"; exit 22` } } },
+    );
+    expect(r.status).not.toBe(0);
+    expect(readFileSync(calls, "utf8")).toMatch(
+      /--proto =https --proto-redir =https/,
+    );
+  });
+});
+
+describe("web installer: where it will install (#1314 review)", () => {
+  it("stops inside a NeoBoard checkout, before downloading or creating anything", async () => {
+    const checkout = join(tmp, "checkout");
+    mkdirSync(checkout);
+    writeFileSync(join(checkout, "package.json"), '{ "name": "neoboard" }');
+    release(VERSION);
+    const r = await install({ NEOBOARD_DIR: join(checkout, "inst") });
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/NeoBoard checkout/);
+    expect(requests).toEqual([]);
+    expect(existsSync(join(checkout, "inst"))).toBe(false);
+  });
+
+  it("tells the user where the install is, and how later commands find it", async () => {
+    release(VERSION);
+    const r = await install();
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toContain(`installed in ${join(tmp, "neoboard")}`);
+  });
+});
+
+describe("web installer: the checksum tool (#1314 review)", () => {
+  it("says a tool is missing, not that the release was tampered with, and downloads nothing", async () => {
+    release(VERSION);
+    const r = await install(
+      {},
+      { pathOpts: { without: ["sha256sum", "shasum"] } },
+    );
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/need sha256sum or shasum/);
+    expect(r.stderr).not.toMatch(/mismatch/);
+    expect(requests).toEqual([]);
+    expect(existsSync(join(home, ".local/bin/neoboard"))).toBe(false);
+  });
+});
+
+describe("web installer: the npm fallback (#1314 review)", () => {
+  const NODE_NPM = {
+    node: "echo 22",
+    npm: 'echo "npm $*" >> "$NB_TEST_LOG"',
+    // npm -g would put the CLI on PATH.
+    neoboard: 'echo "args=$*" >> "$NB_TEST_LOG"',
+  };
+
+  it("installs the CLI version the release was cut with, never 'latest', when the binary cannot run here", async () => {
+    // e.g. a glibc binary on Alpine: right architecture, will not execute.
+    release(VERSION, { binary: "#!/bin/sh\nexit 1\n" });
+    served[`/download/v${VERSION}/SHA256SUMS`] =
+      `${sha("#!/bin/sh\nexit 1\n")}  ${ASSET}\n`;
+    const r = await install(
+      {},
+      { pathOpts: { stubs: NODE_NPM }, script: pinnedScript() },
+    );
+    expect(r.status, r.stderr).toBe(0);
+    const npm = readFileSync(log, "utf8");
+    expect(npm).toMatch(/npm install -g @neoboard\/cli@\d+\.\d+\.\d+\b/);
+    expect(npm).not.toMatch(/@neoboard\/cli(\s|$)/);
+  });
+});
+
 describe("web installer: a clean install", () => {
   it("installs the verified binary and runs `setup` in NEOBOARD_DIR, pinning the version", async () => {
     release(VERSION);
@@ -233,12 +329,7 @@ describe("web installer: a clean install", () => {
 
 describe("web installer: a re-run", () => {
   it("keeps the binary and the recorded version, and leaves .env untouched", async () => {
-    // What release.yml publishes: the script with the tag's version in it.
-    const assets = join(tmp, "assets");
-    mkdirSync(assets);
-    writeFileSync(join(assets, ASSET), FAKE_BINARY);
-    execFileSync("sh", [ASSEMBLE, VERSION, assets]);
-    const pinned = join(assets, "install.sh");
+    const pinned = pinnedScript();
     release(VERSION);
     const run = () =>
       sh(pinned, {

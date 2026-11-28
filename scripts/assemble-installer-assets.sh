@@ -20,11 +20,15 @@ printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' ||
 set -- "$DIR"/neoboard-*
 [ -f "$1" ] || { echo "no neoboard-* binaries in $DIR" >&2; exit 1; }
 
-sed "s/^NB_PINNED_VERSION=\"@VERSION@\"/NB_PINNED_VERSION=\"$VERSION\"/" \
+# The npm fallback installs the CLI package as it stood at this tag, not "latest".
+NPM_VERSION=$(sed -n 's/^  "version": "\([^"]*\)".*/\1/p' "$HERE/../cli/package.json" | head -1)
+[ -n "$NPM_VERSION" ] || { echo "no version in cli/package.json" >&2; exit 1; }
+sed -e "s/^NB_PINNED_VERSION=\"@VERSION@\"/NB_PINNED_VERSION=\"$VERSION\"/" \
+  -e "s/^NB_NPM_VERSION=\"@NPM_VERSION@\"/NB_NPM_VERSION=\"$NPM_VERSION\"/" \
   "$HERE/web-installer.sh" > "$DIR/install.sh"
 grep -q "^NB_PINNED_VERSION=\"$VERSION\"" "$DIR/install.sh" ||
   { echo "could not pin the version into install.sh" >&2; exit 1; }
-if grep -q '@VERSION@"' "$DIR/install.sh"; then
+if grep -Eq '@(NPM_)?VERSION@"' "$DIR/install.sh"; then
   echo "install.sh still has an unsubstituted version" >&2
   exit 1
 fi
