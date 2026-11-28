@@ -22,7 +22,14 @@ function assertPgIdentifier(value: string, label: string): void {
   }
 }
 
+/**
+ * The compose file a command will read. A standalone install has none on disk
+ * until the binary writes them, so every caller (up, down, ps, logs, and the
+ * expose-host overlay beside it) routes through here and gets them staged
+ * first (#1314). A checkout has the files already.
+ */
 export function composeFile(full = false): string {
+  if (isStandalone()) stageStandaloneCompose(paths.dockerDir);
   const name = full ? "docker-compose.full.yml" : "docker-compose.yml";
   return join(paths.dockerDir, name);
 }
@@ -85,6 +92,9 @@ export function composeUp(opts?: {
   const file = composeFile(opts?.full);
   const overlay = exposeHostFlag(opts?.exposeHost);
   const env = composeEnv();
+  // No source tree to build from: a pinned image that cannot be pulled must
+  // fail, not fall back to building from the install directory (#1314).
+  const buildFlag = isStandalone() ? " --no-build" : " --build";
   if (opts?.full) {
     // The full stack needs per-install secrets (#970); generated once,
     // reused forever. OS env still overrides --env-file values (CI).
@@ -92,15 +102,13 @@ export function composeUp(opts?: {
     // A standalone install has no source tree: it starts the pinned image
     // (NEOBOARD_IMAGE in docker/.env) from the compose files it carries
     // (#1314), and compose pulls what is missing instead of building.
-    const standalone = isStandalone();
-    if (standalone) stageStandaloneCompose(paths.dockerDir);
     run(
-      `docker compose -f "${file}"${overlay} --env-file "${envFile}" up -d${standalone ? "" : " --build"}`,
+      `docker compose -f "${file}"${overlay} --env-file "${envFile}" up -d${buildFlag}`,
       { cwd: paths.root, env },
     );
     return;
   }
-  run(`docker compose -f "${file}"${overlay} up -d --build`, {
+  run(`docker compose -f "${file}"${overlay} up -d${buildFlag}`, {
     cwd: paths.root,
     env,
   });

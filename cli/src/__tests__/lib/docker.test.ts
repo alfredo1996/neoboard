@@ -104,19 +104,48 @@ describe("composeUp", () => {
   });
 
   describe("standalone install (#1314)", () => {
-    it("stages the packaged compose and starts it without --build", () => {
-      vi.mocked(isStandalone).mockReturnValueOnce(true);
+    beforeEach(() => vi.mocked(isStandalone).mockReturnValue(true));
+    afterEach(() => vi.mocked(isStandalone).mockReturnValue(false));
+
+    it("stages the packaged compose and starts it without building", () => {
       composeUp({ full: true });
       expect(stageStandaloneCompose).toHaveBeenCalledWith("/project/docker");
-      // No source tree to build from: the pinned image is pulled instead.
+      // No source tree to build from: the pinned image is pulled, and a failed
+      // pull must not fall back to building from the install directory.
       expect(mockRun).toHaveBeenCalledWith(
-        'docker compose -f "/project/docker/docker-compose.full.yml" --env-file "/project/docker/.env" up -d',
+        'docker compose -f "/project/docker/docker-compose.full.yml" --env-file "/project/docker/.env" up -d --no-build',
+        expect.objectContaining({ cwd: "/project" }),
+      );
+    });
+
+    // Every command that names a compose file must find it on disk: the
+    // ready banner tells the user to run `neoboard stop` and `neoboard logs`.
+    it.each([
+      ["composeFile", () => composeFile()],
+      ["composeDown", () => composeDown()],
+      ["composePs", () => composePs()],
+      ["composeUp, databases only", () => composeUp({ full: false })],
+      [
+        "composeUp, --expose-host",
+        () => composeUp({ full: true, exposeHost: true }),
+      ],
+    ])("stages the compose files before %s reads them", (_n, call) => {
+      call();
+      expect(stageStandaloneCompose).toHaveBeenCalledWith("/project/docker");
+    });
+
+    it("starts the databases-only stack without building", () => {
+      composeUp({ full: false });
+      expect(mockRun).toHaveBeenCalledWith(
+        'docker compose -f "/project/docker/docker-compose.yml" up -d --no-build',
         expect.objectContaining({ cwd: "/project" }),
       );
     });
 
     it("stages nothing in a checkout, which has the files already", () => {
+      vi.mocked(isStandalone).mockReturnValue(false);
       composeUp({ full: true });
+      composeDown();
       expect(stageStandaloneCompose).not.toHaveBeenCalled();
     });
   });

@@ -10,6 +10,10 @@ import { fileURLToPath } from "node:url";
  */
 export const COMPOSE_ASSETS = [
   "docker-compose.full.yml",
+  // What stop, logs, status and `start` without --full read, and the
+  // --expose-host overlay: all named by commands a standalone user runs.
+  "docker-compose.yml",
+  "docker-compose.expose-host.yml",
   "postgres/init.sql",
   "neo4j/init.cypher",
 ] as const;
