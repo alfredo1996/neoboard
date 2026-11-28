@@ -128,8 +128,16 @@ install_binary() {
   # short would leave a partial file at the path later runs trust.
   chmod 755 "$tmp/$asset"
   mv "$tmp/$asset" "$BIN_DIR/.$NB_CMD.new"
-  mv "$BIN_DIR/.$NB_CMD.new" "$cli"
   rm -rf "$tmp"
+  # Right architecture is not enough (a glibc binary does not run on musl), so
+  # prove it runs before it replaces a CLI that works.
+  if "$BIN_DIR/.$NB_CMD.new" --version >/dev/null 2>&1; then
+    mv "$BIN_DIR/.$NB_CMD.new" "$cli"
+    BINARY_RUNS=1
+  else
+    rm -f "$BIN_DIR/.$NB_CMD.new"
+    BINARY_RUNS=0
+  fi
 }
 
 install_from_npm() {
@@ -142,7 +150,9 @@ install_from_npm() {
     *[!0-9A-Za-z.-]* | "" | @*) die "no usable npm version (got \"$NB_NPM_VERSION\"); use the install.sh attached to a release." ;;
   esac
   npm install -g "$NB_NPM_PACKAGE@$NB_NPM_VERSION" || die "npm install -g failed. This installer never uses sudo; see https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally"
-  cli="$NB_CMD"
+  # npm -g installs into <prefix>/bin, which a shell may not have on PATH.
+  cli="$(npm prefix -g)/bin/$NB_CMD"
+  [ -x "$cli" ] || die "npm installed $NB_NPM_PACKAGE but $cli is not there."
 }
 
 if [ -z "$arch" ]; then
@@ -156,10 +166,8 @@ elif [ -x "$cli" ] && [ -z "${NEOBOARD_VERSION:-}" ]; then
   say "Keeping the installed $cli (set NEOBOARD_VERSION to change it)"
 else
   install_binary
-  # Right architecture is not enough: a glibc binary does not run on musl.
-  if ! "$cli" --version >/dev/null 2>&1; then
+  if [ "$BINARY_RUNS" != 1 ]; then
     say "The downloaded binary does not run on this machine"
-    rm -f "$cli"
     install_from_npm
   fi
 fi
@@ -179,14 +187,13 @@ fi
 say "Running: $NB_CMD setup (in $DIR)"
 "$cli" setup || die "setup did not finish; see the messages above, then: $NB_CMD doctor"
 
-case ":$PATH:" in
-  *":$BIN_DIR:"*) ;;
-  *)
-    if [ "$cli" != "$NB_CMD" ]; then
-      printf '\n%s is not on your PATH. Add this to your shell profile:\n  export PATH="%s:$PATH"\n' "$BIN_DIR" "$BIN_DIR"
-    fi
-    ;;
-esac
+if [ "$cli" != "$NB_CMD" ]; then
+  cli_dir=$(dirname "$cli")
+  case ":$PATH:" in
+    *":$cli_dir:"*) ;;
+    *) printf '\n%s is not on your PATH. Add this to your shell profile:\n  export PATH="%s:$PATH"\n' "$cli_dir" "$cli_dir" ;;
+  esac
+fi
 
 printf '\nNeoBoard is installed in %s\n' "$DIR"
 printf 'From any directory: %s stop, %s logs -f, %s status. To use another install, set NEOBOARD_DIR.\n' "$NB_CMD" "$NB_CMD" "$NB_CMD"

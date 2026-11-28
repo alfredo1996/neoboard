@@ -7,6 +7,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -269,20 +270,55 @@ describe("web installer: the checksum tool (#1314 review)", () => {
 });
 
 describe("web installer: the npm fallback (#1314 review)", () => {
+  // npm -g puts the CLI in <prefix>/bin, which is NOT on PATH here: the
+  // installer must find it through `npm prefix -g`, as a user's shell would
+  // not.
+  const prefix = () => join(tmp, "npm-prefix");
   const NODE_NPM = {
     node: "echo 22",
-    npm: 'echo "npm $*" >> "$NB_TEST_LOG"',
-    // npm -g would put the CLI on PATH.
-    neoboard: 'echo "args=$*" >> "$NB_TEST_LOG"',
+    npm: `case "$1" in
+  prefix) echo "${"${NB_NPM_PREFIX}"}" ;;
+  install)
+    echo "npm $*" >> "$NB_TEST_LOG"
+    mkdir -p "$NB_NPM_PREFIX/bin"
+    printf '#!/bin/sh\\n[ "$1" = --version ] && exit 0\\necho "args=$*" >> "$NB_TEST_LOG"\\n' > "$NB_NPM_PREFIX/bin/neoboard"
+    chmod 755 "$NB_NPM_PREFIX/bin/neoboard" ;;
+esac`,
   };
-
-  it("installs the CLI version the release was cut with, never 'latest', when the binary cannot run here", async () => {
-    // e.g. a glibc binary on Alpine: right architecture, will not execute.
+  const brokenBinary = () => {
     release(VERSION, { binary: "#!/bin/sh\nexit 1\n" });
     served[`/download/v${VERSION}/SHA256SUMS`] =
       `${sha("#!/bin/sh\nexit 1\n")}  ${ASSET}\n`;
+  };
+
+  it("runs setup from npm's prefix and says how to reach it when that is off PATH", async () => {
+    brokenBinary();
     const r = await install(
-      {},
+      { NB_NPM_PREFIX: prefix() },
+      { pathOpts: { stubs: NODE_NPM }, script: pinnedScript() },
+    );
+    expect(r.status, r.stderr).toBe(0);
+    expect(readFileSync(log, "utf8")).toContain("args=setup");
+    expect(r.stdout).toContain(`export PATH="${join(prefix(), "bin")}:$PATH"`);
+  });
+
+  it("keeps the CLI that works when the replacement cannot run and npm is not there to fall back on", async () => {
+    const bin = join(home, ".local", "bin");
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, "neoboard"), FAKE_BINARY, { mode: 0o755 });
+    brokenBinary();
+    // No node, no npm on PATH: the fallback dies.
+    const r = await install({}, { script: pinnedScript() });
+    expect(r.status).not.toBe(0);
+    expect(readFileSync(join(bin, "neoboard"), "utf8")).toBe(FAKE_BINARY);
+    expect(readdirSync(bin)).toEqual(["neoboard"]); // no staged leftover
+  });
+
+  it("installs the CLI version the release was cut with, never 'latest', when the binary cannot run here", async () => {
+    // e.g. a glibc binary on Alpine: right architecture, will not execute.
+    brokenBinary();
+    const r = await install(
+      { NB_NPM_PREFIX: prefix() },
       { pathOpts: { stubs: NODE_NPM }, script: pinnedScript() },
     );
     expect(r.status, r.stderr).toBe(0);
