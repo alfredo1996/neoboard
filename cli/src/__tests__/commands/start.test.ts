@@ -143,9 +143,9 @@ describe("runStart", () => {
       full: true,
       exposeHost: false,
     });
-    expect(
-      mockWaitForHealth.mock.calls.map((c) => c[0].label),
-    ).toContain("NeoBoard app");
+    expect(mockWaitForHealth.mock.calls.map((c) => c[0].label)).toContain(
+      "NeoBoard app",
+    );
   });
 
   it("polls app readiness when full=true (docker mode)", async () => {

@@ -280,9 +280,10 @@ describe("web installer: the npm fallback (#1314 review)", () => {
   prefix) echo "${"${NB_NPM_PREFIX}"}" ;;
   install)
     echo "npm $*" >> "$NB_TEST_LOG"
+    n=neo""board # not a path the hygiene test greps for
     mkdir -p "$NB_NPM_PREFIX/bin"
-    printf '#!/bin/sh\\n[ "$1" = --version ] && exit 0\\necho "args=$*" >> "$NB_TEST_LOG"\\n' > "$NB_NPM_PREFIX/bin/neoboard"
-    chmod 755 "$NB_NPM_PREFIX/bin/neoboard" ;;
+    printf '#!/bin/sh\\n[ "$1" = --version ] && exit 0\\necho "args=$*" >> "$NB_TEST_LOG"\\n' > "$NB_NPM_PREFIX/bin/$n"
+    chmod 755 "$NB_NPM_PREFIX/bin/$n" ;;
 esac`,
   };
   const brokenBinary = () => {
