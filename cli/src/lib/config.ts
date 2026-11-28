@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 
@@ -68,7 +68,9 @@ function installRecordFile(): string {
 export function recordInstallDir(dir: string): void {
   const file = installRecordFile();
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, `${dir}\n`);
+  // Absolute: a relative NEOBOARD_DIR would name a different place from
+  // every other working directory.
+  writeFileSync(file, `${resolve(dir)}\n`);
 }
 
 /**

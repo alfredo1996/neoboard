@@ -5,6 +5,7 @@ import {
   writeFileSync,
   rmSync,
   existsSync,
+  realpathSync,
   readFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -150,6 +151,23 @@ describe("the recorded install directory (#1314)", () => {
     expect(resolveRoot(join(tmp, "elsewhere"))).toBe(installed());
     // Not a second ./neoboard beside the user's current directory.
     expect(existsSync(join(tmp, "elsewhere", "neoboard"))).toBe(false);
+  });
+
+  it("records an absolute path, so a relative NEOBOARD_DIR survives a change of directory", async () => {
+    delete process.env.NEOBOARD_DIR;
+    const here = process.cwd();
+    mkdirSync(join(tmp, "work", "board"), { recursive: true });
+    const { recordInstallDir, resolveRoot } = await loadConfig();
+    try {
+      process.chdir(join(tmp, "work"));
+      recordInstallDir("./board");
+      process.chdir(tmp);
+      expect(realpathSync(resolveRoot(join(tmp, "nowhere")))).toBe(
+        realpathSync(join(tmp, "work", "board")),
+      );
+    } finally {
+      process.chdir(here);
+    }
   });
 
   it("loses to an explicit NEOBOARD_DIR", async () => {
