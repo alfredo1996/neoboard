@@ -39,6 +39,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "test": "SKIP_INTEGRATION=1 vitest run",
+    "build:sea": "node scripts/build-sea.mjs",
     "test:integration": "vitest run src/__tests__/integration",
     "test:watch": "vitest",
     "test:coverage": "SKIP_INTEGRATION=1 vitest run --coverage",
@@ -55,6 +56,8 @@
     "@types/node": "^26.6.4",
     "@vitest/coverage-v8": "^4.1.11",
     "@vitest/eslint-plugin": "^1.6.27",
+    "esbuild": "^0.28.1",
+    "postject": "1.0.0-alpha.6",
     "typescript": "~5.9.3",
     "vitest": "^4.1.11"
   }

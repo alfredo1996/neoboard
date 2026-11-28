@@ -1,7 +1,12 @@
 import { composeUp } from "../lib/docker.js";
 import { waitForHealth } from "../lib/health.js";
 import { isPgReady, isNeo4jReady, isAppReady } from "../lib/docker.js";
-import { readProjectConfig, getMode } from "../lib/config.js";
+import {
+  readProjectConfig,
+  getMode,
+  isStandalone,
+  paths,
+} from "../lib/config.js";
 import { info, success, warn, banner, error } from "../lib/output.js";
 import {
   runDoctor,
@@ -82,7 +87,10 @@ export interface StartOptions {
 export async function runStart(opts?: StartOptions): Promise<boolean> {
   const mode = getMode();
   const config = readProjectConfig();
-  const full = opts?.full ?? false;
+  // A standalone install has no app source to migrate or serve from, so a
+  // databases-only start would leave nothing running the app: it is always the
+  // full stack, which also makes the banner's `neoboard start` work (#1314).
+  const full = (opts?.full ?? false) || isStandalone();
   const exposeHost = opts?.exposeHost ?? false;
 
   // --expose-host overlays extra_hosts onto the `neoboard` service, which only
@@ -157,7 +165,9 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
 
   // 4. Run migrations — abort (don't print "ready") if they fail, so callers
   // like setup/demo don't seed against a schema-less DB. (#MEDIUM)
-  const migrated = await runDbMigrate({});
+  // A standalone install has no scripts/db-migrate.mjs, and the image runs the
+  // same migrator on boot (MIGRATE_ON_START), which the app wait above covers (#1314).
+  const migrated = isStandalone() || (await runDbMigrate({}));
   if (!migrated) {
     error("Migrations failed — the stack is not ready.");
     process.exitCode = 1;
@@ -192,6 +202,7 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     `PostgreSQL: localhost:${config.ports.postgres}`,
     "",
     ...(await firstRunLines(appRunning, opts?.seedsUsers ?? false)),
+    ...(isStandalone() ? [`Install:    ${paths.root}`] : []),
     `Stop:       neoboard stop`,
     `Logs:       neoboard logs -f`,
     ...(appRunning ? ["App logs:   docker logs -f neoboard-app"] : []),
@@ -248,10 +259,7 @@ async function checkHealthOrFail(opts: {
  * process for a non-zero exit. Centralizes the "what to do next" message
  * for any docker-mode healthcheck timeout.
  */
-function failWithHints(
-  reason: string,
-  logsHint = "neoboard logs -f",
-): void {
+function failWithHints(reason: string, logsHint = "neoboard logs -f"): void {
   error(reason);
   console.log("");
   console.log(`  See logs:  ${logsHint}`);

@@ -17,6 +17,8 @@ vi.mock("../../lib/config.js", () => ({
     ports: { app: 3000, postgres: 5432, neo4j_http: 7474, neo4j_bolt: 7687 },
   })),
   getMode: vi.fn(() => "docker"),
+  isStandalone: vi.fn(() => false),
+  paths: { root: "/home/me/neoboard" },
 }));
 
 vi.mock("../../lib/output.js", () => ({
@@ -51,7 +53,7 @@ vi.mock("../../lib/bootstrap-status.js", () => ({
 
 import { composeUp } from "../../lib/docker.js";
 import { waitForHealth } from "../../lib/health.js";
-import { getMode } from "../../lib/config.js";
+import { getMode, isStandalone } from "../../lib/config.js";
 import { banner, error } from "../../lib/output.js";
 import {
   printResults,
@@ -80,7 +82,9 @@ beforeEach(() => {
   // Migrations succeed by default; runStart now aborts (no "ready" banner)
   // when they fail. Failure is exercised in its own test.
   mockRunDbMigrate.mockResolvedValue(true);
-  mockReadDockerEnvSecrets.mockReturnValue({ ADMIN_BOOTSTRAP_TOKEN: "tok-abc123" });
+  mockReadDockerEnvSecrets.mockReturnValue({
+    ADMIN_BOOTSTRAP_TOKEN: "tok-abc123",
+  });
   mockIsBootstrapPending.mockResolvedValue(true);
   process.exitCode = 0;
 });
@@ -121,6 +125,29 @@ describe("runStart", () => {
     expect(mockRunDbMigrate).toHaveBeenCalledWith({});
   });
 
+  it("leaves migrations to the app container on a standalone install (#1314)", async () => {
+    // scripts/db-migrate.mjs is not in the binary; the image migrates on boot.
+    vi.mocked(isStandalone).mockReturnValueOnce(true);
+    expect(await runStart({ full: true })).toBe(true);
+    expect(mockRunDbMigrate).not.toHaveBeenCalled();
+  });
+
+  it("always starts the full stack on a standalone install, which has no app source to migrate or serve from a databases-only start (#1314)", async () => {
+    vi.mocked(isStandalone).mockReturnValue(true);
+    try {
+      await runStart();
+    } finally {
+      vi.mocked(isStandalone).mockReturnValue(false);
+    }
+    expect(mockComposeUp).toHaveBeenCalledWith({
+      full: true,
+      exposeHost: false,
+    });
+    expect(mockWaitForHealth.mock.calls.map((c) => c[0].label)).toContain(
+      "NeoBoard app",
+    );
+  });
+
   it("polls app readiness when full=true (docker mode)", async () => {
     await runStart({ full: true });
     // PG + Neo4j + app = 3 health waits when running full stack
@@ -141,6 +168,22 @@ describe("runStart", () => {
     await runStart({ full: true });
     const labels = mockWaitForHealth.mock.calls.map((c) => c[0].label);
     expect(labels).not.toContain("NeoBoard app");
+  });
+
+  it("banner says where a standalone install lives, and not for a checkout (#1314)", async () => {
+    await runStart();
+    expect(
+      mockBanner.mock.calls[0][0].some((l) => l.startsWith("Install:")),
+    ).toBe(false);
+    vi.mocked(isStandalone).mockReturnValue(true);
+    try {
+      await runStart();
+    } finally {
+      vi.mocked(isStandalone).mockReturnValue(false);
+    }
+    expect(mockBanner.mock.calls[1][0]).toContain(
+      "Install:    /home/me/neoboard",
+    );
   });
 
   it("banner includes Stop: and Logs: follow-up commands", async () => {

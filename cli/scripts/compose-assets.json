@@ -1,0 +1,9 @@
+[
+  "docker-compose.full.yml",
+  "docker-compose.yml",
+  "docker-compose.expose-host.yml",
+  "docker-compose.prod-full.yml",
+  "docker-compose.prod.yml",
+  "postgres/init.sql",
+  "neo4j/init.cypher"
+]

@@ -31,6 +31,11 @@ vi.mock("../../lib/config.js", () => ({
     },
   })),
   getMode: vi.fn(() => "docker"),
+  isStandalone: vi.fn(() => false),
+}));
+
+vi.mock("../../lib/assets.js", () => ({
+  stageStandaloneCompose: vi.fn(),
 }));
 
 import {
@@ -38,7 +43,8 @@ import {
   runOrNull,
   dockerExec as execInContainer,
 } from "../../lib/exec.js";
-import { getMode, readProjectConfig } from "../../lib/config.js";
+import { getMode, readProjectConfig, isStandalone } from "../../lib/config.js";
+import { stageStandaloneCompose } from "../../lib/assets.js";
 import {
   isDockerRunning,
   composeFile,
@@ -95,6 +101,74 @@ describe("composeUp", () => {
       'docker compose -f "/project/docker/docker-compose.full.yml" --env-file "/project/docker/.env" up -d --build',
       expect.objectContaining({ cwd: "/project" }),
     );
+  });
+
+  // The production docs tell operators to export NEOBOARD_IMAGE. In a checkout
+  // that would make `start --full` build from source and tag the dev build as
+  // the release (#1314 review).
+  it("keeps a checkout on its own build whatever NEOBOARD_IMAGE the shell has", () => {
+    process.env.NEOBOARD_IMAGE = "ghcr.io/alfredo1996/neoboard:1.9.2";
+    composeUp({ full: true });
+    delete process.env.NEOBOARD_IMAGE;
+    const opts = mockRun.mock.calls[0][1] as { env: NodeJS.ProcessEnv };
+    expect(opts.env.NEOBOARD_IMAGE).toBe("neoboard:local");
+  });
+
+  describe("standalone install (#1314)", () => {
+    beforeEach(() => vi.mocked(isStandalone).mockReturnValue(true));
+    afterEach(() => vi.mocked(isStandalone).mockReturnValue(false));
+
+    it("stages the packaged compose and starts it without building", () => {
+      composeUp({ full: true });
+      expect(stageStandaloneCompose).toHaveBeenCalledWith("/project/docker");
+      // No source tree to build from: the pinned image is pulled, and a failed
+      // pull must not fall back to building from the install directory.
+      expect(mockRun).toHaveBeenCalledWith(
+        'docker compose -f "/project/docker/docker-compose.full.yml" --env-file "/project/docker/.env" up -d --no-build',
+        expect.objectContaining({ cwd: "/project" }),
+      );
+    });
+
+    // Every command that names a compose file must find it on disk: the
+    // ready banner tells the user to run `neoboard stop` and `neoboard logs`.
+    it.each([
+      ["composeFile", () => composeFile()],
+      ["composeDown", () => composeDown()],
+      ["composePs", () => composePs()],
+      ["composeUp, databases only", () => composeUp({ full: false })],
+      [
+        "composeUp, --expose-host",
+        () => composeUp({ full: true, exposeHost: true }),
+      ],
+    ])("stages the compose files before %s reads them", (_n, call) => {
+      call();
+      expect(stageStandaloneCompose).toHaveBeenCalledWith("/project/docker");
+    });
+
+    it("starts the databases-only stack without building", () => {
+      composeUp({ full: false });
+      expect(mockRun).toHaveBeenCalledWith(
+        'docker compose -f "/project/docker/docker-compose.yml" up -d --no-build',
+        expect.objectContaining({ cwd: "/project" }),
+      );
+    });
+
+    it("does not let a shell NEOBOARD_IMAGE override the pin in docker/.env", () => {
+      // Compose gives shell variables precedence over --env-file, so an
+      // exported one would start a different release than the recorded pin.
+      process.env.NEOBOARD_IMAGE = "from-the-shell";
+      composeUp({ full: true });
+      delete process.env.NEOBOARD_IMAGE;
+      const opts = mockRun.mock.calls[0][1] as { env: NodeJS.ProcessEnv };
+      expect(opts.env).not.toHaveProperty("NEOBOARD_IMAGE");
+    });
+
+    it("stages nothing in a checkout, which has the files already", () => {
+      vi.mocked(isStandalone).mockReturnValue(false);
+      composeUp({ full: true });
+      composeDown();
+      expect(stageStandaloneCompose).not.toHaveBeenCalled();
+    });
   });
 
   // Reaching a database on the HOST is opt-in per run (#1346): most installs

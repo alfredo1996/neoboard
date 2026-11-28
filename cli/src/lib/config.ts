@@ -1,6 +1,8 @@
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { homedir } from "node:os";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { isSea } from "./assets.js";
 
 // Types
 export interface ProjectConfig {
@@ -53,13 +55,54 @@ export function findProjectRoot(startDir?: string): string | null {
 }
 
 /**
+ * Where a standalone `setup` recorded the install (#1314): one file under the
+ * user's config dir. Without it every command resolved ./neoboard under the
+ * directory it was run from, so `neoboard stop` elsewhere made a second,
+ * empty install, and `setup` there wrote a second .env with a new
+ * ENCRYPTION_KEY over the first install's data.
+ */
+function installRecordFile(): string {
+  const base = process.env.XDG_CONFIG_HOME || join(homedir(), ".config");
+  return join(base, "neoboard", "install-dir");
+}
+
+export function recordInstallDir(dir: string): void {
+  const file = installRecordFile();
+  mkdirSync(dirname(file), { recursive: true });
+  // Absolute: a relative NEOBOARD_DIR would name a different place from
+  // every other working directory.
+  writeFileSync(file, `${resolve(dir)}\n`);
+}
+
+/**
+ * The recorded directory, or null when none was recorded. A record whose
+ * directory is gone is an error, never a reason to start a fresh install
+ * (new secrets) in its place.
+ */
+function recordedInstallDir(): string | null {
+  const file = installRecordFile();
+  if (!existsSync(file)) return null;
+  const dir = readFileSync(file, "utf-8").trim();
+  if (!dir) return null;
+  if (!existsSync(dir)) {
+    throw new Error(
+      `The NeoBoard install recorded in ${file} is gone: ${dir}\n` +
+        `Restore it, set NEOBOARD_DIR to where it lives, or delete that file ` +
+        `to start over.`,
+    );
+  }
+  return dir;
+}
+
+/**
  * The directory the CLI operates on, in either situation:
  *
  *   inside the monorepo   the checkout root (contributors) — always wins, so a
  *                         stray NEOBOARD_DIR cannot silently redirect a
  *                         contributor's checkout somewhere else
- *   installed standalone  a working directory: $NEOBOARD_DIR, else
- *                         ./neoboard under the current directory
+ *   installed standalone  a working directory: $NEOBOARD_DIR, else the
+ *                         directory `setup` recorded, else ./neoboard under
+ *                         the current directory
  *
  * Created if missing — a standalone user has nowhere to put config, .env or
  * generated secrets otherwise.
@@ -68,7 +111,10 @@ export function resolveRoot(startDir?: string): string {
   const monorepo = findCheckout(startDir);
   if (monorepo) return monorepo;
 
-  const dir = process.env.NEOBOARD_DIR || join(process.cwd(), "neoboard");
+  const dir =
+    process.env.NEOBOARD_DIR ||
+    recordedInstallDir() ||
+    join(process.cwd(), "neoboard");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -110,6 +156,10 @@ export function isStandalone(startDir?: string): boolean {
  * monorepo's own `node cli/dist/index.js` from an unrelated directory.
  */
 function findCheckout(startDir?: string): string | null {
+  // The one-liner's binary is the standalone product (#1314): it carries its
+  // own compose files and pulls a pinned image, so a clone it happens to be
+  // run from is never its install. Contributors use the linked CLI.
+  if (isSea()) return null;
   if (startDir !== undefined) return findProjectRoot(startDir);
   return findProjectRoot(process.cwd()) ?? findProjectRoot();
 }

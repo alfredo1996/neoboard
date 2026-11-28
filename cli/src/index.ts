@@ -5,13 +5,17 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { error as logError } from "./lib/output.js";
+import { BUILT_IN_VERSION } from "./lib/version.js";
+import { isSea } from "./lib/assets.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const pkg = JSON.parse(
-  readFileSync(join(__dirname, "..", "package.json"), "utf-8"),
-);
+// The single-file binary has no package.json beside it; it knows its release.
+const version: string =
+  BUILT_IN_VERSION ??
+  JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"))
+    .version;
 
 export const program = new Command();
 
@@ -27,7 +31,7 @@ program
       "  neoboard dev            # Start dev server (auto-starts DBs)\n" +
       "  neoboard status         # Check service health",
   )
-  .version(pkg.version);
+  .version(version);
 
 // Top-level commands
 
@@ -321,6 +325,7 @@ db.command("restore")
 
 // Only parse when run directly (not when imported in tests)
 const isDirectRun =
+  isSea() ||
   process.argv[1]?.endsWith("index.js") ||
   process.argv[1]?.endsWith("neoboard");
 

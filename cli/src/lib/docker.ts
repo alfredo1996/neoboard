@@ -1,6 +1,7 @@
 import { createConnection } from "node:net";
 import { run, runOrNull, dockerExec as execInContainer } from "./exec.js";
-import { paths, readProjectConfig, getMode } from "./config.js";
+import { paths, readProjectConfig, getMode, isStandalone } from "./config.js";
+import { stageStandaloneCompose } from "./assets.js";
 import { ensureDockerEnvFile } from "./docker-env.js";
 import { join } from "node:path";
 
@@ -21,7 +22,14 @@ function assertPgIdentifier(value: string, label: string): void {
   }
 }
 
+/**
+ * The compose file a command will read. A standalone install has none on disk
+ * until the binary writes them, so every caller (up, down, ps, logs, and the
+ * expose-host overlay beside it) routes through here and gets them staged
+ * first (#1314). A checkout has the files already.
+ */
 export function composeFile(full = false): string {
+  if (isStandalone()) stageStandaloneCompose(paths.dockerDir);
   const name = full ? "docker-compose.full.yml" : "docker-compose.yml";
   return join(paths.dockerDir, name);
 }
@@ -48,7 +56,7 @@ export function composeFile(full = false): string {
  */
 function composeEnv(): NodeJS.ProcessEnv {
   const { ports } = readProjectConfig();
-  return {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     NEOBOARD_PORT_APP: String(ports.app),
     NEOBOARD_PORT_POSTGRES: String(ports.postgres),
@@ -56,7 +64,16 @@ function composeEnv(): NodeJS.ProcessEnv {
     NEOBOARD_PORT_NEO4J_BOLT: String(ports.neo4j_bolt),
     // Must follow the app port or auth callbacks break on a remapped install.
     NEXTAUTH_URL: `http://localhost:${ports.app}`,
+    // A checkout builds its own image. NEOBOARD_IMAGE is the variable the
+    // production docs tell operators to export; left to the shell it would
+    // tag the dev build as that release (#1314).
+    ...(isStandalone() ? {} : { NEOBOARD_IMAGE: "neoboard:local" }),
   };
+  // Compose lets a shell variable beat --env-file, so in a standalone install
+  // an exported NEOBOARD_IMAGE would override the recorded pin in docker/.env,
+  // which only NEOBOARD_VERSION moves (#1314).
+  if (isStandalone()) delete env.NEOBOARD_IMAGE;
+  return env;
 }
 
 /**
@@ -84,17 +101,23 @@ export function composeUp(opts?: {
   const file = composeFile(opts?.full);
   const overlay = exposeHostFlag(opts?.exposeHost);
   const env = composeEnv();
+  // No source tree to build from: a pinned image that cannot be pulled must
+  // fail, not fall back to building from the install directory (#1314).
+  const buildFlag = isStandalone() ? " --no-build" : " --build";
   if (opts?.full) {
     // The full stack needs per-install secrets (#970); generated once,
     // reused forever. OS env still overrides --env-file values (CI).
     const envFile = ensureDockerEnvFile();
+    // A standalone install has no source tree: it starts the pinned image
+    // (NEOBOARD_IMAGE in docker/.env) from the compose files it carries
+    // (#1314), and compose pulls what is missing instead of building.
     run(
-      `docker compose -f "${file}"${overlay} --env-file "${envFile}" up -d --build`,
+      `docker compose -f "${file}"${overlay} --env-file "${envFile}" up -d${buildFlag}`,
       { cwd: paths.root, env },
     );
     return;
   }
-  run(`docker compose -f "${file}"${overlay} up -d --build`, {
+  run(`docker compose -f "${file}"${overlay} up -d${buildFlag}`, {
     cwd: paths.root,
     env,
   });

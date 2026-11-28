@@ -13,6 +13,9 @@
 # Usage:
 #   docker compose -f docker/docker-compose.full.yml up --build
 #
+# The database ports are published on 127.0.0.1 only: the passwords below are
+# in a public repo, and Docker-published ports bypass a Linux host firewall.
+#
 # After first start, open http://localhost:3000 to complete setup.
 services:
   postgres:
@@ -23,7 +26,7 @@ services:
       POSTGRES_PASSWORD: neoboard
       POSTGRES_DB: neoboard
     ports:
-      - "${NEOBOARD_PORT_POSTGRES:-5432}:5432"
+      - "127.0.0.1:${NEOBOARD_PORT_POSTGRES:-5432}:5432"
     volumes:
       - neoboard_pgdata:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -42,8 +45,8 @@ services:
       # Advertise Docker hostname so the routing driver connects correctly
       NEO4J_server_default__advertised__address: neoboard-neo4j
     ports:
-      - "${NEOBOARD_PORT_NEO4J_HTTP:-7474}:7474"
-      - "${NEOBOARD_PORT_NEO4J_BOLT:-7687}:7687"
+      - "127.0.0.1:${NEOBOARD_PORT_NEO4J_HTTP:-7474}:7474"
+      - "127.0.0.1:${NEOBOARD_PORT_NEO4J_BOLT:-7687}:7687"
     volumes:
       - neoboard_neo4jdata:/data
       - ./neo4j/init.cypher:/var/lib/neo4j/import/init.cypher
@@ -56,6 +59,10 @@ services:
     restart: unless-stopped
 
   neoboard:
+    # A checkout builds below and tags the result neoboard:local. The one-line
+    # installer's standalone CLI has no source to build: it sets NEOBOARD_IMAGE
+    # in docker/.env to the release it installed, and compose pulls that (#1314).
+    image: ${NEOBOARD_IMAGE:-neoboard:local}
     build:
       context: ..
       dockerfile: Dockerfile

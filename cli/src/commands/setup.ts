@@ -1,6 +1,7 @@
 import { runInit } from "./init.js";
 import { runStart } from "./start.js";
 import { success } from "../lib/output.js";
+import { isStandalone, paths, recordInstallDir } from "../lib/config.js";
 
 /**
  * Returns true only when every start step actually succeeded, so callers
@@ -14,6 +15,7 @@ export async function runSetup(opts?: {
   /** The caller seeds its own users next; see StartOptions.seedsUsers. */
   seedsUsers?: boolean;
 }): Promise<boolean> {
+  if (isStandalone()) recordInstallDir(paths.root);
   await runInit(opts);
   const started = await runStart({
     full: opts?.full,

@@ -25,6 +25,7 @@ vi.mock("../../lib/config.js", () => ({
     },
   })),
   getMode: vi.fn(() => "docker"),
+  isStandalone: vi.fn(() => false),
 }));
 
 vi.mock("../../lib/output.js", () => ({
@@ -54,7 +55,7 @@ vi.mock("dotenv", () => ({
 import { runOrNull } from "../../lib/exec.js";
 import { isPortAvailable } from "../../lib/ports.js";
 import { existsSync, readFileSync } from "node:fs";
-import { getMode, readProjectConfig } from "../../lib/config.js";
+import { getMode, isStandalone, readProjectConfig } from "../../lib/config.js";
 import {
   checkCredentialDecryption,
   checkDockerRunning,
@@ -179,6 +180,20 @@ describe("runDoctor", () => {
     // 3 sync checks + 4 port checks + 2 file checks + 1 credential probe = 10
     expect(results.length).toBe(10);
     expect(results.every((r) => r.status === "ok")).toBe(true);
+  });
+
+  // A standalone install has no app/ and no app/.env.local, and the fixes the
+  // two checks name ('neoboard init', 'neoboard env') are checkout commands.
+  it("skips the source-tree checks in a standalone install (#1314)", async () => {
+    mockRunOrNull.mockReturnValue("Docker Compose version v2.24.0");
+    mockIsPortAvailable.mockResolvedValue(true);
+    mockExistsSync.mockReturnValue(false);
+    vi.mocked(isStandalone).mockReturnValueOnce(true);
+
+    const names = (await runDoctor()).map((r) => r.name);
+    expect(names).not.toContain("Dependencies");
+    expect(names).not.toContain(".env.local");
+    expect(names).toHaveLength(8);
   });
 
   // A well-formed key is not the RIGHT key. env-config validates the 64-hex

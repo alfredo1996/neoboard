@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
+  mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
   readFileSync: vi.fn(),
+  renameSync: vi.fn(),
 }));
 
 vi.mock("node:crypto", () => ({
@@ -16,6 +18,13 @@ vi.mock("../../lib/config.js", () => ({
   assertCheckout: vi.fn(),
   paths: { root: "/project" },
   getMode: vi.fn(() => "docker"),
+  isStandalone: vi.fn(() => false),
+}));
+
+// Only the built-in version is faked: requestedVersion's validation is under test.
+vi.mock("../../lib/version.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../lib/version.js")>()),
+  BUILT_IN_VERSION: "1.9.2",
 }));
 
 vi.mock("../../lib/output.js", () => ({
@@ -23,18 +32,25 @@ vi.mock("../../lib/output.js", () => ({
   success: vi.fn(),
 }));
 
-import { existsSync, writeFileSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  writeFileSync,
+  readFileSync,
+  mkdirSync,
+  renameSync,
+} from "node:fs";
 import {
   ensureDockerEnvFile,
   DOCKER_ENV_PATH,
   buildSeedEnv,
 } from "../../lib/docker-env.js";
-import { getMode } from "../../lib/config.js";
+import { getMode, isStandalone } from "../../lib/config.js";
 
 const mockExistsSync = vi.mocked(existsSync);
 const mockWriteFileSync = vi.mocked(writeFileSync);
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockGetMode = vi.mocked(getMode);
+const mockStandalone = vi.mocked(isStandalone);
 
 const SEED_CONFIG = {
   postgres: { user: "neoboard", password: "neoboard", database: "neoboard" },
@@ -194,5 +210,165 @@ describe("buildSeedEnv (#1039)", () => {
       if (prev.DATABASE_URL === undefined) delete process.env.DATABASE_URL;
       else process.env.DATABASE_URL = prev.DATABASE_URL;
     }
+  });
+});
+
+describe("ensureDockerEnvFile: image pin for the standalone install (#1314)", () => {
+  const written = () => mockWriteFileSync.mock.calls[0][1] as string;
+  const SECRETS = "ENCRYPTION_KEY=keep-me\nADMIN_BOOTSTRAP_TOKEN=tok\n";
+
+  beforeEach(() => {
+    mockStandalone.mockReturnValue(true);
+    delete process.env.NEOBOARD_VERSION;
+  });
+  afterEach(() => {
+    delete process.env.NEOBOARD_VERSION;
+    mockStandalone.mockReturnValue(false);
+  });
+
+  it("creates docker/ first: a standalone directory has none until now", () => {
+    mockExistsSync.mockReturnValue(false);
+    ensureDockerEnvFile();
+    expect(vi.mocked(mkdirSync)).toHaveBeenCalledWith("/project/docker", {
+      recursive: true,
+    });
+    expect(vi.mocked(mkdirSync).mock.invocationCallOrder[0]).toBeLessThan(
+      mockWriteFileSync.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("pins the image to the version the binary was built from on first run", () => {
+    mockExistsSync.mockReturnValue(false);
+    ensureDockerEnvFile();
+    expect(written()).toContain(
+      "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.2\n",
+    );
+  });
+
+  it("lets NEOBOARD_VERSION override the built-in version on first run", () => {
+    mockExistsSync.mockReturnValue(false);
+    process.env.NEOBOARD_VERSION = "1.9.5";
+    ensureDockerEnvFile();
+    expect(written()).toContain("neoboard:1.9.5\n");
+  });
+
+  it("does not pin a checkout, which builds its own image", () => {
+    mockStandalone.mockReturnValue(false);
+    mockExistsSync.mockReturnValue(false);
+    ensureDockerEnvFile();
+    expect(written()).not.toContain("NEOBOARD_IMAGE");
+  });
+
+  it("leaves an existing file untouched when no version was asked for", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      SECRETS + "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.0\n",
+    );
+    ensureDockerEnvFile();
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it("upgrades only the image line when NEOBOARD_VERSION differs, keeping every secret", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      SECRETS + "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.0\n",
+    );
+    process.env.NEOBOARD_VERSION = "1.9.5";
+    ensureDockerEnvFile();
+    expect(written()).toBe(
+      SECRETS + "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.5\n",
+    );
+  });
+
+  it("appends the image line when an existing file has none and a version is asked for", () => {
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(SECRETS);
+    process.env.NEOBOARD_VERSION = "1.9.5";
+    ensureDockerEnvFile();
+    expect(written()).toBe(
+      SECRETS + "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.5\n",
+    );
+  });
+
+  it.each(["1.9.2\nENCRYPTION_KEY=x", "latest", "../x", "1.9"])(
+    "refuses NEOBOARD_VERSION=%j, which would write a line it should not",
+    (v) => {
+      mockExistsSync.mockReturnValue(false);
+      process.env.NEOBOARD_VERSION = v;
+      expect(() => ensureDockerEnvFile()).toThrow(/NEOBOARD_VERSION/);
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe("ensureDockerEnvFile: file hygiene (#1314 review)", () => {
+  it("creates docker/.env readable by its owner only: it holds the key and the first-run token", () => {
+    mockExistsSync.mockReturnValue(false);
+    ensureDockerEnvFile();
+    expect(mockWriteFileSync.mock.calls[0][2]).toEqual({ mode: 0o600 });
+  });
+
+  it("moves every NEOBOARD_IMAGE line when the file has two, since the last one wins", () => {
+    mockStandalone.mockReturnValue(true);
+    mockExistsSync.mockReturnValue(true);
+    const old = "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.0\n";
+    mockReadFileSync.mockReturnValue(`A=1\n${old}B=2\n${old}`);
+    process.env.NEOBOARD_VERSION = "1.9.5";
+    try {
+      ensureDockerEnvFile();
+    } finally {
+      delete process.env.NEOBOARD_VERSION;
+      mockStandalone.mockReturnValue(false);
+    }
+    const now = "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.5\n";
+    expect(mockWriteFileSync.mock.calls[0][1]).toBe(`A=1\n${now}B=2\n${now}`);
+  });
+
+  // Compose's env-file parser (checked against v2.3.3) accepts spaces around
+  // the =, an `export ` prefix, indentation and `:` as the separator, and the
+  // last assignment wins.
+  it.each([
+    "NEOBOARD_IMAGE = ghcr.io/alfredo1996/neoboard:1.9.0",
+    "export NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.0",
+    "  NEOBOARD_IMAGE: ghcr.io/alfredo1996/neoboard:1.9.0",
+  ])("moves the image line Compose also reads: %s", (old) => {
+    mockStandalone.mockReturnValue(true);
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      `A=1\nNEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.0\n${old}\n# NEOBOARD_IMAGE=keep\n`,
+    );
+    process.env.NEOBOARD_VERSION = "1.9.5";
+    try {
+      ensureDockerEnvFile();
+    } finally {
+      delete process.env.NEOBOARD_VERSION;
+      mockStandalone.mockReturnValue(false);
+    }
+    const now = "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.5\n";
+    expect(mockWriteFileSync.mock.calls[0][1]).toBe(
+      `A=1\n${now}${now}# NEOBOARD_IMAGE=keep\n`,
+    );
+  });
+
+  it("rewrites docker/.env through a 0600 sibling and a rename, so a failed write keeps the key", () => {
+    mockStandalone.mockReturnValue(true);
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(
+      "ENCRYPTION_KEY=keep\nNEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.0\n",
+    );
+    process.env.NEOBOARD_VERSION = "1.9.5";
+    try {
+      ensureDockerEnvFile();
+    } finally {
+      delete process.env.NEOBOARD_VERSION;
+      mockStandalone.mockReturnValue(false);
+    }
+    const [tmp, , opts] = mockWriteFileSync.mock.calls[0];
+    expect(tmp).not.toBe("/project/docker/.env");
+    expect(opts).toEqual({ mode: 0o600 });
+    expect(vi.mocked(renameSync)).toHaveBeenCalledWith(
+      tmp,
+      "/project/docker/.env",
+    );
   });
 });

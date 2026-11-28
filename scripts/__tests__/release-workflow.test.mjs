@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -34,6 +35,10 @@ const LIB_YML = readFileSync(
   "utf8",
 );
 const LIB_SCRIPT = join(ROOT, "scripts/release-library.sh");
+const BIN_YML = readFileSync(
+  join(ROOT, ".github/workflows/build-cli-binaries.yml"),
+  "utf8",
+);
 
 /**
  * The same text with `#` comments removed, for assertions that ask what the
@@ -155,9 +160,10 @@ const DOCKER = stripComments(jobBlock("docker"));
 
 describe("release workflow: action pinning", () => {
   it("pins every action to a tag, never a branch", () => {
-    const refs = [YML, LIB_YML].flatMap((y) =>
-      [...y.matchAll(/uses:\s+(\S+)/g)].map((m) => m[1]),
-    );
+    const refs = [YML, LIB_YML, BIN_YML]
+      .flatMap((y) => [...y.matchAll(/uses:\s+(\S+)/g)].map((m) => m[1]))
+      // A reusable workflow in this repo is pinned by the commit it ships in.
+      .filter((r) => !r.startsWith("./"));
     expect(refs.length).toBeGreaterThan(0);
 
     for (const ref of refs) {
@@ -442,13 +448,71 @@ describe("release workflow: tag classification", () => {
     expect(stripComments(checkout)).toMatch(/fetch-depth: 0/);
   });
 
-  it("feeds both facts to the GitHub Release, so its Latest badge matches the image's", () => {
+  it("creates the GitHub Release not-Latest, and the installer job promotes it once the assets are attached (#1314)", () => {
     expect(CREATE).toContain("softprops/action-gh-release@");
     expect(CREATE).toMatch(
       /^ {10}prerelease: \$\{\{ steps\.tag\.outputs\.plain != 'true' \}\}$/m,
     );
-    expect(CREATE).toMatch(
-      /^ {10}make_latest: \$\{\{ steps\.tag\.outputs\.is_latest \}\}$/m,
+    // Latest before the assets exist makes releases/latest/download/install.sh
+    // a 404 for everyone who follows the README.
+    expect(CREATE).toMatch(/^ {10}make_latest: false$/m);
+    const promote = stepScript(
+      stripComments(jobBlock("installer")),
+      "Mark the release Latest",
+    );
+    expect(promote).toMatch(/gh release edit "\$TAG" --latest/);
+    const block = stripComments(jobBlock("installer"));
+    expect(block).toMatch(
+      /- name: Mark the release Latest\n\s+if: needs\.release\.outputs\.is_latest == 'true'/,
+    );
+    // ...and it runs after the upload.
+    expect(block.indexOf("Mark the release Latest")).toBeGreaterThan(
+      block.indexOf("gh release upload"),
+    );
+  });
+
+  // A run for an older tag can reach promotion after a newer one finished (the
+  // classification is minutes old by then), so the step re-reads the remote's
+  // tags and only promotes the highest one.
+  function promote(tag, remoteTags) {
+    const remote = repoWithTags(remoteTags);
+    const work = mkdtempSync(join(tmpdir(), "release-promote-"));
+    const bin = join(work, "bin");
+    mkdirSync(bin);
+    const log = join(work, "gh.log");
+    writeFileSync(join(bin, "gh"), `#!/bin/sh\necho "$@" >> "${log}"\n`, {
+      mode: 0o755,
+    });
+    execFileSync("git", ["init", "-q"], { cwd: work });
+    execFileSync("git", ["remote", "add", "origin", remote], { cwd: work });
+    try {
+      execFileSync(
+        "bash",
+        [
+          "-e",
+          "-c",
+          stepScript(
+            stripComments(jobBlock("installer")),
+            "Mark the release Latest",
+          ),
+        ],
+        {
+          cwd: work,
+          env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, TAG: tag },
+          stdio: "pipe",
+        },
+      );
+      return existsSync(log) ? readFileSync(log, "utf8").trim() : "";
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+      rmSync(remote, { recursive: true, force: true });
+    }
+  }
+
+  it("never lets an older tag's run demote a newer Latest", () => {
+    expect(promote("v1.9.2", ["v1.9.2", "v1.9.3"])).toBe("");
+    expect(promote("v1.9.3", ["v1.9.2", "v1.9.3", "v1.10.0-rc.1"])).toBe(
+      "release edit v1.9.3 --latest",
     );
   });
 
@@ -928,4 +992,77 @@ describe("library release prep (#1876)", () => {
       expect(read(`${d}/CHANGELOG.md`)).toMatch(/^## \[Unreleased\]$/m);
     },
   );
+});
+
+describe("release workflow: the one-line installer (#1314)", () => {
+  const INSTALLER = stripComments(jobBlock("installer"));
+  const BINARIES = stripComments(jobBlock("binaries"));
+  const BIN = stripComments(BIN_YML);
+
+  it("builds the binaries by calling the workflow that pull requests run too", () => {
+    expect(BINARIES).toContain(
+      "uses: ./.github/workflows/build-cli-binaries.yml",
+    );
+    expect(BINARIES).toContain("version: ${{ needs.release.outputs.version }}");
+    expect(BIN).toMatch(/^on:\n {2}workflow_call:/m);
+    expect(BIN).toMatch(/^ {2}pull_request:\n {4}paths:/m);
+  });
+
+  it("builds on one native runner per platform, with pinned labels", () => {
+    const legs = [
+      ...BIN.matchAll(/\{ os: (\w+), arch: (\w+), runner: ([\w.-]+) \}/g),
+    ].map((m) => m.slice(1, 4).join(" "));
+    expect(legs).toEqual([
+      "linux x64 ubuntu-24.04",
+      "linux arm64 ubuntu-24.04-arm",
+      "darwin x64 macos-15-intel",
+      "darwin arm64 macos-15",
+    ]);
+  });
+
+  it("gives a tag the installer cannot pin no binaries, and a pinnable one its version", () => {
+    const out = (tag) => {
+      const cwd = mkdtempSync(join(tmpdir(), "release-semver-"));
+      try {
+        execFileSync("git", ["init", "-q"], { cwd });
+        return runStep(stepScript(jobBlock("release"), "Classify the tag"), {
+          cwd,
+          ref: `refs/tags/${tag}`,
+        }).outputs;
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    };
+    expect(out("v1.9.2")).toMatchObject({ version: "1.9.2", semver: "true" });
+    expect(out("v1.9.2-rc.1")).toMatchObject({
+      version: "1.9.2-rc.1",
+      semver: "true",
+    });
+    for (const tag of ["vnext", "v1.9", "v1.9.2+build.1"]) {
+      expect(out(tag).semver, tag).toBe("false");
+    }
+    expect(stripComments(jobBlock("binaries"))).toContain(
+      "if: needs.release.outputs.semver == 'true'",
+    );
+  });
+
+  it("attaches only after the image is pushed, so install.sh never points at a missing image", () => {
+    expect(INSTALLER).toMatch(/needs: \[release, docker, binaries\]/);
+  });
+
+  it("is the only job besides the release job that can write contents", () => {
+    expect(INSTALLER).toContain("contents: write");
+    expect(DOCKER).not.toContain("contents: write");
+    expect(BINARIES).not.toContain("write");
+    expect(BIN).not.toContain("write");
+  });
+
+  it("attaches install.sh, the binaries and SHA256SUMS, and checks them first", () => {
+    expect(INSTALLER).toContain("assemble-installer-assets.sh");
+    expect(INSTALLER).toContain("sha256sum -c SHA256SUMS");
+    expect(INSTALLER).toMatch(/\[ "\$count" = 4 \]/);
+    expect(INSTALLER).toMatch(
+      /gh release upload "\$TAG" assets\/neoboard-\* assets\/SHA256SUMS assets\/install\.sh --clobber/,
+    );
+  });
 });

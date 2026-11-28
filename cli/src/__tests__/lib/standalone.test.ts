@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   mkdtempSync,
   mkdirSync,
   writeFileSync,
   rmSync,
   existsSync,
+  realpathSync,
+  readFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,9 +34,14 @@ async function loadConfig() {
   return mod;
 }
 
+let originalXdg: string | undefined;
+
 beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), "nb-standalone-"));
   originalNeoboardDir = process.env.NEOBOARD_DIR;
+  // The record lives under the user's config dir: never the real one.
+  originalXdg = process.env.XDG_CONFIG_HOME;
+  process.env.XDG_CONFIG_HOME = join(tmp, "xdg");
 });
 
 afterEach(async () => {
@@ -44,6 +51,8 @@ afterEach(async () => {
   // and clobbering it leaks this suite's state outward.
   if (originalNeoboardDir === undefined) delete process.env.NEOBOARD_DIR;
   else process.env.NEOBOARD_DIR = originalNeoboardDir;
+  if (originalXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+  else process.env.XDG_CONFIG_HOME = originalXdg;
   rmSync(tmp, { recursive: true, force: true });
 });
 
@@ -131,6 +140,72 @@ describe("resolveRoot — standalone working directory (#1315)", () => {
   });
 });
 
+describe("the recorded install directory (#1314)", () => {
+  const installed = () => join(tmp, "somewhere", "neoboard");
+
+  it("is where later commands go when NEOBOARD_DIR is unset, from any directory", async () => {
+    delete process.env.NEOBOARD_DIR;
+    mkdirSync(installed(), { recursive: true });
+    const { recordInstallDir, resolveRoot } = await loadConfig();
+    recordInstallDir(installed());
+    expect(resolveRoot(join(tmp, "elsewhere"))).toBe(installed());
+    // Not a second ./neoboard beside the user's current directory.
+    expect(existsSync(join(tmp, "elsewhere", "neoboard"))).toBe(false);
+  });
+
+  it("records an absolute path, so a relative NEOBOARD_DIR survives a change of directory", async () => {
+    delete process.env.NEOBOARD_DIR;
+    const here = process.cwd();
+    mkdirSync(join(tmp, "work", "board"), { recursive: true });
+    const { recordInstallDir, resolveRoot } = await loadConfig();
+    try {
+      process.chdir(join(tmp, "work"));
+      recordInstallDir("./board");
+      process.chdir(tmp);
+      expect(realpathSync(resolveRoot(join(tmp, "nowhere")))).toBe(
+        realpathSync(join(tmp, "work", "board")),
+      );
+    } finally {
+      process.chdir(here);
+    }
+  });
+
+  it("loses to an explicit NEOBOARD_DIR", async () => {
+    mkdirSync(installed(), { recursive: true });
+    process.env.NEOBOARD_DIR = join(tmp, "explicit");
+    const { recordInstallDir, resolveRoot } = await loadConfig();
+    recordInstallDir(installed());
+    expect(resolveRoot(join(tmp, "nowhere"))).toBe(join(tmp, "explicit"));
+  });
+
+  it("stops, instead of creating a fresh install with fresh secrets, when the recorded directory is gone", async () => {
+    delete process.env.NEOBOARD_DIR;
+    const { recordInstallDir, resolveRoot } = await loadConfig();
+    recordInstallDir(installed()); // never created
+    expect(() => resolveRoot(join(tmp, "nowhere"))).toThrow(installed());
+    expect(existsSync(installed())).toBe(false);
+  });
+
+  it("is never read by a checkout", async () => {
+    delete process.env.NEOBOARD_DIR;
+    writeFileSync(
+      join(tmp, "package.json"),
+      JSON.stringify({ name: "neoboard" }),
+    );
+    const { recordInstallDir, resolveRoot } = await loadConfig();
+    recordInstallDir(installed());
+    expect(resolveRoot(tmp)).toBe(tmp);
+  });
+
+  it("honours XDG_CONFIG_HOME for where the record lives", async () => {
+    const { recordInstallDir } = await loadConfig();
+    recordInstallDir(installed());
+    expect(
+      readFileSync(join(tmp, "xdg", "neoboard", "install-dir"), "utf8").trim(),
+    ).toBe(installed());
+  });
+});
+
 describe("invocation directory wins over install location (#1315)", () => {
   const withCwd = async (dir: string, fn: () => Promise<void> | void) => {
     const prev = process.cwd();
@@ -159,6 +234,36 @@ describe("invocation directory wins over install location (#1315)", () => {
       expect(() => assertCheckout("dev")).not.toThrow();
       expect(existsSync(join(tmp, "neoboard"))).toBe(false);
     });
+  });
+
+  it("the standalone binary ignores a checkout it is run from (#1314)", async () => {
+    // The one-liner's binary carries its own compose files and pulls a pinned
+    // image. Run from inside a clone with NEOBOARD_DIR set elsewhere (CI does
+    // exactly this), it took the clone: host migrations from the clone's
+    // app/, a source build tagged neoboard:local, and the explicit directory
+    // ignored.
+    writeFileSync(
+      join(tmp, "package.json"),
+      JSON.stringify({ name: "neoboard" }),
+    );
+    const explicit = join(tmp, "elsewhere", "install");
+    process.env.NEOBOARD_DIR = explicit;
+    const real = process.getBuiltinModule.bind(process);
+    const sea = vi.spyOn(process, "getBuiltinModule").mockImplementation(((
+      id: string,
+    ) =>
+      id === "node:sea"
+        ? { isSea: () => true, getAsset: () => "" }
+        : real(id)) as typeof process.getBuiltinModule);
+    try {
+      const { resolveRoot, isStandalone } = await loadConfig();
+      await withCwd(tmp, () => {
+        expect(isStandalone()).toBe(true);
+        expect(resolveRoot()).toBe(explicit);
+      });
+    } finally {
+      sea.mockRestore();
+    }
   });
 
   it("falls back to the install location when cwd has no checkout", async () => {
