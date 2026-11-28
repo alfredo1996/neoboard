@@ -7,6 +7,7 @@ import {
   paths,
   readProjectConfig,
   getMode,
+  isStandalone,
   type ProjectConfig,
 } from "../lib/config.js";
 import { success, warn, info, error as logError } from "../lib/output.js";
@@ -216,8 +217,8 @@ export async function runDoctor(
 
   results.push(
     ...(await checkPorts(config.ports, opts.preflight)),
-    checkNodeModulesExist(),
-    checkEnvFileExists(),
+    // The source-tree checks: a standalone install has neither (#1314).
+    ...(isStandalone() ? [] : [checkNodeModulesExist(), checkEnvFileExists()]),
     opts.preflight
       ? {
           name: "Credential decryption",

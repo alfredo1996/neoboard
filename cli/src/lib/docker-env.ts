@@ -95,7 +95,8 @@ export function ensureDockerEnvFile(): string {
     "",
   ];
   mkdirSync(dirname(envPath), { recursive: true }); // standalone: no docker/ yet
-  writeFileSync(envPath, lines.join("\n"));
+  // 0600: the file holds the encryption key and the first-run token.
+  writeFileSync(envPath, lines.join("\n"), { mode: 0o600 });
   info(`Generated per-install secrets in ${DOCKER_ENV_PATH}`);
   return envPath;
 }
@@ -107,10 +108,11 @@ export function ensureDockerEnvFile(): string {
 function repinImage(envPath: string, version: string): void {
   const line = `NEOBOARD_IMAGE=${IMAGE_REPO}:${version}`;
   const text = readFileSync(envPath, "utf-8");
-  if (text.split("\n").includes(line)) return;
+  // Every matching line, not the first: with a duplicate the last one wins.
   const next = /^NEOBOARD_IMAGE=.*$/m.test(text)
-    ? text.replace(/^NEOBOARD_IMAGE=.*$/m, line)
+    ? text.replace(/^NEOBOARD_IMAGE=.*$/gm, line)
     : `${text}${text.endsWith("\n") ? "" : "\n"}${line}\n`;
+  if (next === text) return;
   writeFileSync(envPath, next);
   info(`NeoBoard image set to ${IMAGE_REPO}:${version}`);
 }

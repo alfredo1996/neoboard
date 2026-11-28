@@ -64,6 +64,10 @@ function composeEnv(): NodeJS.ProcessEnv {
     NEOBOARD_PORT_NEO4J_BOLT: String(ports.neo4j_bolt),
     // Must follow the app port or auth callbacks break on a remapped install.
     NEXTAUTH_URL: `http://localhost:${ports.app}`,
+    // A checkout builds its own image. NEOBOARD_IMAGE is the variable the
+    // production docs tell operators to export; left to the shell it would
+    // tag the dev build as that release (#1314).
+    ...(isStandalone() ? {} : { NEOBOARD_IMAGE: "neoboard:local" }),
   };
 }
 

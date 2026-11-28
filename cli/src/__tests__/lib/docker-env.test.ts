@@ -293,3 +293,27 @@ describe("ensureDockerEnvFile: image pin for the standalone install (#1314)", ()
     },
   );
 });
+
+describe("ensureDockerEnvFile: file hygiene (#1314 review)", () => {
+  it("creates docker/.env readable by its owner only: it holds the key and the first-run token", () => {
+    mockExistsSync.mockReturnValue(false);
+    ensureDockerEnvFile();
+    expect(mockWriteFileSync.mock.calls[0][2]).toEqual({ mode: 0o600 });
+  });
+
+  it("moves every NEOBOARD_IMAGE line when the file has two, since the last one wins", () => {
+    mockStandalone.mockReturnValue(true);
+    mockExistsSync.mockReturnValue(true);
+    const old = "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.0\n";
+    mockReadFileSync.mockReturnValue(`A=1\n${old}B=2\n${old}`);
+    process.env.NEOBOARD_VERSION = "1.9.5";
+    try {
+      ensureDockerEnvFile();
+    } finally {
+      delete process.env.NEOBOARD_VERSION;
+      mockStandalone.mockReturnValue(false);
+    }
+    const now = "NEOBOARD_IMAGE=ghcr.io/alfredo1996/neoboard:1.9.5\n";
+    expect(mockWriteFileSync.mock.calls[0][1]).toBe(`A=1\n${now}B=2\n${now}`);
+  });
+});

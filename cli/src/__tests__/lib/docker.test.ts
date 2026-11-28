@@ -103,6 +103,17 @@ describe("composeUp", () => {
     );
   });
 
+  // The production docs tell operators to export NEOBOARD_IMAGE. In a checkout
+  // that would make `start --full` build from source and tag the dev build as
+  // the release (#1314 review).
+  it("keeps a checkout on its own build whatever NEOBOARD_IMAGE the shell has", () => {
+    process.env.NEOBOARD_IMAGE = "ghcr.io/alfredo1996/neoboard:1.9.2";
+    composeUp({ full: true });
+    delete process.env.NEOBOARD_IMAGE;
+    const opts = mockRun.mock.calls[0][1] as { env: NodeJS.ProcessEnv };
+    expect(opts.env.NEOBOARD_IMAGE).toBe("neoboard:local");
+  });
+
   describe("standalone install (#1314)", () => {
     beforeEach(() => vi.mocked(isStandalone).mockReturnValue(true));
     afterEach(() => vi.mocked(isStandalone).mockReturnValue(false));
@@ -140,6 +151,14 @@ describe("composeUp", () => {
         'docker compose -f "/project/docker/docker-compose.yml" up -d --no-build',
         expect.objectContaining({ cwd: "/project" }),
       );
+    });
+
+    it("leaves NEOBOARD_IMAGE to docker/.env, the one that pins the release", () => {
+      process.env.NEOBOARD_IMAGE = "from-the-shell";
+      composeUp({ full: true });
+      delete process.env.NEOBOARD_IMAGE;
+      const opts = mockRun.mock.calls[0][1] as { env: NodeJS.ProcessEnv };
+      expect(opts.env.NEOBOARD_IMAGE).toBe("from-the-shell");
     });
 
     it("stages nothing in a checkout, which has the files already", () => {
