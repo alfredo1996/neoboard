@@ -1,7 +1,12 @@
 import { composeUp } from "../lib/docker.js";
 import { waitForHealth } from "../lib/health.js";
 import { isPgReady, isNeo4jReady, isAppReady } from "../lib/docker.js";
-import { readProjectConfig, getMode, isStandalone } from "../lib/config.js";
+import {
+  readProjectConfig,
+  getMode,
+  isStandalone,
+  paths,
+} from "../lib/config.js";
 import { info, success, warn, banner, error } from "../lib/output.js";
 import {
   runDoctor,
@@ -194,6 +199,7 @@ export async function runStart(opts?: StartOptions): Promise<boolean> {
     `PostgreSQL: localhost:${config.ports.postgres}`,
     "",
     ...(await firstRunLines(appRunning, opts?.seedsUsers ?? false)),
+    ...(isStandalone() ? [`Install:    ${paths.root}`] : []),
     `Stop:       neoboard stop`,
     `Logs:       neoboard logs -f`,
     ...(appRunning ? ["App logs:   docker logs -f neoboard-app"] : []),

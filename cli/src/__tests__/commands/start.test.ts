@@ -18,6 +18,7 @@ vi.mock("../../lib/config.js", () => ({
   })),
   getMode: vi.fn(() => "docker"),
   isStandalone: vi.fn(() => false),
+  paths: { root: "/home/me/neoboard" },
 }));
 
 vi.mock("../../lib/output.js", () => ({
@@ -151,6 +152,22 @@ describe("runStart", () => {
     await runStart({ full: true });
     const labels = mockWaitForHealth.mock.calls.map((c) => c[0].label);
     expect(labels).not.toContain("NeoBoard app");
+  });
+
+  it("banner says where a standalone install lives, and not for a checkout (#1314)", async () => {
+    await runStart();
+    expect(
+      mockBanner.mock.calls[0][0].some((l) => l.startsWith("Install:")),
+    ).toBe(false);
+    vi.mocked(isStandalone).mockReturnValue(true);
+    try {
+      await runStart();
+    } finally {
+      vi.mocked(isStandalone).mockReturnValue(false);
+    }
+    expect(mockBanner.mock.calls[1][0]).toContain(
+      "Install:    /home/me/neoboard",
+    );
   });
 
   it("banner includes Stop: and Logs: follow-up commands", async () => {
