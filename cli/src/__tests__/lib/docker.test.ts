@@ -153,12 +153,14 @@ describe("composeUp", () => {
       );
     });
 
-    it("leaves NEOBOARD_IMAGE to docker/.env, the one that pins the release", () => {
+    it("does not let a shell NEOBOARD_IMAGE override the pin in docker/.env", () => {
+      // Compose gives shell variables precedence over --env-file, so an
+      // exported one would start a different release than the recorded pin.
       process.env.NEOBOARD_IMAGE = "from-the-shell";
       composeUp({ full: true });
       delete process.env.NEOBOARD_IMAGE;
       const opts = mockRun.mock.calls[0][1] as { env: NodeJS.ProcessEnv };
-      expect(opts.env.NEOBOARD_IMAGE).toBe("from-the-shell");
+      expect(opts.env).not.toHaveProperty("NEOBOARD_IMAGE");
     });
 
     it("stages nothing in a checkout, which has the files already", () => {

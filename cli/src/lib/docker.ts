@@ -56,7 +56,7 @@ export function composeFile(full = false): string {
  */
 function composeEnv(): NodeJS.ProcessEnv {
   const { ports } = readProjectConfig();
-  return {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     NEOBOARD_PORT_APP: String(ports.app),
     NEOBOARD_PORT_POSTGRES: String(ports.postgres),
@@ -69,6 +69,11 @@ function composeEnv(): NodeJS.ProcessEnv {
     // tag the dev build as that release (#1314).
     ...(isStandalone() ? {} : { NEOBOARD_IMAGE: "neoboard:local" }),
   };
+  // Compose lets a shell variable beat --env-file, so in a standalone install
+  // an exported NEOBOARD_IMAGE would override the recorded pin in docker/.env,
+  // which only NEOBOARD_VERSION moves (#1314).
+  if (isStandalone()) delete env.NEOBOARD_IMAGE;
+  return env;
 }
 
 /**
