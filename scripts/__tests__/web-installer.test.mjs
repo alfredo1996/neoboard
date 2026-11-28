@@ -156,7 +156,7 @@ describe("web installer: failing closed", () => {
     const r = await install();
     expect(r.status).not.toBe(0);
     expect(r.stderr).toMatch(/checksum mismatch/);
-    expect(existsSync(join(home, ".local/bin/neoboard"))).toBe(false);
+    expect(existsSync(join(home, ".local", "bin", "neoboard"))).toBe(false);
   });
 
   it("installs nothing when the binary was swapped but the sums were not", async () => {
@@ -166,7 +166,7 @@ describe("web installer: failing closed", () => {
       `${sha(FAKE_BINARY)}  ${ASSET}\n`;
     const r = await install();
     expect(r.status).not.toBe(0);
-    expect(existsSync(join(home, ".local/bin/neoboard"))).toBe(false);
+    expect(existsSync(join(home, ".local", "bin", "neoboard"))).toBe(false);
   });
 
   it("refuses a release whose SHA256SUMS has no line for this platform", async () => {
@@ -264,7 +264,7 @@ describe("web installer: the checksum tool (#1314 review)", () => {
     expect(r.stderr).toMatch(/need sha256sum or shasum/);
     expect(r.stderr).not.toMatch(/mismatch/);
     expect(requests).toEqual([]);
-    expect(existsSync(join(home, ".local/bin/neoboard"))).toBe(false);
+    expect(existsSync(join(home, ".local", "bin", "neoboard"))).toBe(false);
   });
 });
 
@@ -297,7 +297,7 @@ describe("web installer: a clean install", () => {
     release(VERSION);
     const r = await install();
     expect(r.status, r.stderr).toBe(0);
-    const bin = join(home, ".local/bin/neoboard");
+    const bin = join(home, ".local", "bin", "neoboard");
     expect(readFileSync(bin, "utf8")).toBe(FAKE_BINARY);
     expect(readFileSync(log, "utf8")).toBe(
       `args=setup dir=${join(tmp, "neoboard")} version=${VERSION}\n`,
@@ -311,7 +311,7 @@ describe("web installer: a clean install", () => {
       NEOBOARD_DIR: "inst",
     });
     expect(r.status, r.stderr).toBe(0);
-    expect(existsSync(join(tmp, "mybin/neoboard"))).toBe(true);
+    expect(existsSync(join(tmp, "mybin", "neoboard"))).toBe(true);
     expect(readFileSync(log, "utf8")).toContain(`dir=${join(tmp, "inst")}`);
     expect(r.stdout).toContain(`export PATH="${join(tmp, "mybin")}:$PATH"`);
   });

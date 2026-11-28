@@ -2,33 +2,33 @@ name: CLI Integration
 
 on:
   push:
-    branches: [main, dev, 'release/*']
+    branches: [main, dev, "release/*"]
     paths:
-      - 'cli/**'
-      - 'docker/**'
-      - 'scripts/seed-demo.mjs'
-      - 'scripts/demo/**'
-      - 'Dockerfile'
+      - "cli/**"
+      - "docker/**"
+      - "scripts/seed-demo.mjs"
+      - "scripts/demo/**"
+      - "Dockerfile"
       # connector-sdk's `prepare` runs during the Dockerfile's deps-stage
       # `npm ci`, which has only the package manifests — no source. An
       # unguarded prepare there fails the image build outright (#1356), and
       # this is the only job that builds the image outside a release.
-      - 'connector-sdk/package.json'
-      - 'scripts/web-installer.sh'
-      - 'scripts/assemble-installer-assets.sh'
-      - '.github/workflows/cli-integration.yml'
+      - "connector-sdk/package.json"
+      - "scripts/web-installer.sh"
+      - "scripts/assemble-installer-assets.sh"
+      - ".github/workflows/cli-integration.yml"
   pull_request:
-    branches: [main, dev, 'release/*']
+    branches: [main, dev, "release/*"]
     paths:
-      - 'cli/**'
-      - 'docker/**'
-      - 'scripts/seed-demo.mjs'
-      - 'scripts/demo/**'
-      - 'Dockerfile'
-      - 'connector-sdk/package.json'
-      - 'scripts/web-installer.sh'
-      - 'scripts/assemble-installer-assets.sh'
-      - '.github/workflows/cli-integration.yml'
+      - "cli/**"
+      - "docker/**"
+      - "scripts/seed-demo.mjs"
+      - "scripts/demo/**"
+      - "Dockerfile"
+      - "connector-sdk/package.json"
+      - "scripts/web-installer.sh"
+      - "scripts/assemble-installer-assets.sh"
+      - ".github/workflows/cli-integration.yml"
   workflow_dispatch:
 
 permissions:
@@ -52,7 +52,7 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -242,7 +242,11 @@ jobs:
           cp "$ASSETS/SHA256SUMS" "$RUNNER_TEMP/sums.good"
           cp "$ASSETS/neoboard-linux-x64" "$RUNNER_TEMP/bin.good"
 
-          sed -i 's/^./0/' "$ASSETS/SHA256SUMS"
+          # A fixed wrong hash, not "change the first character": a hash that
+          # already starts with that character would be left as it was.
+          printf '%064d  neoboard-linux-x64\n' 0 > "$ASSETS/SHA256SUMS"
+          ! cmp -s "$ASSETS/SHA256SUMS" "$RUNNER_TEMP/sums.good" \
+            || { echo "::error::the tamper step did not change the sums"; exit 1; }
           if sh "$ASSETS/install.sh" > "$RUNNER_TEMP/tamper1.out" 2>&1; then
             echo "::error::a wrong checksum did not fail the install"; exit 1
           fi
@@ -266,7 +270,7 @@ jobs:
           set -uo pipefail
           bare="$RUNNER_TEMP/nodocker"
           mkdir -p "$bare"
-          for t in uname curl awk grep cut mktemp mkdir chmod mv rm sha256sum; do
+          for t in uname curl awk grep cut mktemp mkdir chmod mv rm sha256sum dirname; do
             ln -sf "$(command -v "$t")" "$bare/$t"
           done
           if PATH="$bare" /bin/sh "$ASSETS/install.sh" > "$RUNNER_TEMP/nodocker.out" 2>&1; then
@@ -298,6 +302,29 @@ jobs:
           test "$(sha256sum "$NEOBOARD_DIR/docker/.env")" = "$before"
           grep -q 'Keeping the installed' "$RUNNER_TEMP/rerun.out"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/health)" = 200
+
+      # From a directory that is not the install and with NEOBOARD_DIR unset:
+      # the CLI has to find the install the way a user's next terminal would,
+      # through the directory `setup` recorded.
+      - name: stop and logs work from anywhere, on the compose files the binary staged
+        run: |
+          set -euo pipefail
+          elsewhere="$RUNNER_TEMP/elsewhere"
+          mkdir -p "$elsewhere"
+          cd "$elsewhere"
+          nb() { env -u NEOBOARD_DIR "$NEOBOARD_BIN_DIR/neoboard" "$@"; }
+          nb logs -n 5 postgres > "$RUNNER_TEMP/logs.out" 2>&1 \
+            || { cat "$RUNNER_TEMP/logs.out"; echo "::error::neoboard logs failed"; exit 1; }
+          test -s "$RUNNER_TEMP/logs.out"
+          nb stop
+          test ! -e "$elsewhere/neoboard" \
+            || { echo "::error::a second install was created beside the user's directory"; exit 1; }
+          # The databases-only compose file shares the project, so stopping
+          # with it also removed the app container.
+          if docker inspect neoboard-app >/dev/null 2>&1; then
+            echo "::error::neoboard stop left the app container running"; exit 1
+          fi
+          test -f "$NEOBOARD_DIR/docker/.env"
 
       - name: Show container logs on failure
         if: failure()

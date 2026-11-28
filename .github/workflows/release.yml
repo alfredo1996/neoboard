@@ -84,11 +84,13 @@ jobs:
         with:
           body_path: /tmp/release-body.md
           generate_release_notes: false
-          # Without make_latest the API defaults to true, so a back-published
-          # patch would take the Releases page's Latest badge while the image's
-          # `latest` stayed put. Both now follow the Classify step.
+          # Never Latest here: without make_latest the API defaults to true, and
+          # even the right value would flip the badge before install.sh is
+          # attached, so releases/latest/download/install.sh would 404 for
+          # everyone. The installer job promotes it (Classify's is_latest) once
+          # its assets are on the release (#1314).
           prerelease: ${{ steps.tag.outputs.plain != 'true' }}
-          make_latest: ${{ steps.tag.outputs.is_latest }}
+          make_latest: false
 
   docker:
     name: Build and Push Docker Image
@@ -307,3 +309,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: gh release upload "$TAG" assets/neoboard-* assets/SHA256SUMS assets/install.sh --clobber
+
+      # The Latest badge moves last, on the same fact as the image's `latest`.
+      - name: Mark the release Latest
+        if: needs.release.outputs.is_latest == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release edit "$TAG" --latest

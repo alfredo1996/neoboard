@@ -447,13 +447,26 @@ describe("release workflow: tag classification", () => {
     expect(stripComments(checkout)).toMatch(/fetch-depth: 0/);
   });
 
-  it("feeds both facts to the GitHub Release, so its Latest badge matches the image's", () => {
+  it("creates the GitHub Release not-Latest, and the installer job promotes it once the assets are attached (#1314)", () => {
     expect(CREATE).toContain("softprops/action-gh-release@");
     expect(CREATE).toMatch(
       /^ {10}prerelease: \$\{\{ steps\.tag\.outputs\.plain != 'true' \}\}$/m,
     );
-    expect(CREATE).toMatch(
-      /^ {10}make_latest: \$\{\{ steps\.tag\.outputs\.is_latest \}\}$/m,
+    // Latest before the assets exist makes releases/latest/download/install.sh
+    // a 404 for everyone who follows the README.
+    expect(CREATE).toMatch(/^ {10}make_latest: false$/m);
+    const promote = stepScript(
+      stripComments(jobBlock("installer")),
+      "Mark the release Latest",
+    );
+    expect(promote).toMatch(/gh release edit "\$TAG" --latest/);
+    const block = stripComments(jobBlock("installer"));
+    expect(block).toMatch(
+      /- name: Mark the release Latest\n\s+if: needs\.release\.outputs\.is_latest == 'true'/,
+    );
+    // ...and it runs after the upload.
+    expect(block.indexOf("Mark the release Latest")).toBeGreaterThan(
+      block.indexOf("gh release upload"),
     );
   });
 
