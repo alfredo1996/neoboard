@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { isSea } from "./assets.js";
 
 // Types
 export interface ProjectConfig {
@@ -155,6 +156,10 @@ export function isStandalone(startDir?: string): boolean {
  * monorepo's own `node cli/dist/index.js` from an unrelated directory.
  */
 function findCheckout(startDir?: string): string | null {
+  // The one-liner's binary is the standalone product (#1314): it carries its
+  // own compose files and pulls a pinned image, so a clone it happens to be
+  // run from is never its install. Contributors use the linked CLI.
+  if (isSea()) return null;
   if (startDir !== undefined) return findProjectRoot(startDir);
   return findProjectRoot(process.cwd()) ?? findProjectRoot();
 }

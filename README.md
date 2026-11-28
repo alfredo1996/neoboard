@@ -42,7 +42,7 @@ curl -fsSL https://github.com/alfredo1996/neoboard/releases/latest/download/inst
 
 To read the script before running it, download it first: `curl -fsSL https://github.com/alfredo1996/neoboard/releases/latest/download/install.sh -o install.sh`, then `less install.sh && sh install.sh`. It checks every download against the release's `SHA256SUMS`, never uses sudo, and never rewrites the secrets in an existing `.env`. To pick a release, set `NEOBOARD_VERSION` on the `sh` side: `curl -fsSL … | NEOBOARD_VERSION=1.9.2 sh`. More in [Install](docs/src/content/docs/start-here/install.mdx).
 
-To work on the source instead, clone the repo ([install requirements](docs/src/content/docs/start-here/install.mdx)):
+The CLI is not on npm yet: the one-liner installs its binary. To work on the source instead, clone the repo ([install requirements](docs/src/content/docs/start-here/install.mdx)):
 
 ```bash
 git clone https://github.com/alfredo1996/neoboard.git

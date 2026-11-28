@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   mkdtempSync,
   mkdirSync,
@@ -234,6 +234,36 @@ describe("invocation directory wins over install location (#1315)", () => {
       expect(() => assertCheckout("dev")).not.toThrow();
       expect(existsSync(join(tmp, "neoboard"))).toBe(false);
     });
+  });
+
+  it("the standalone binary ignores a checkout it is run from (#1314)", async () => {
+    // The one-liner's binary carries its own compose files and pulls a pinned
+    // image. Run from inside a clone with NEOBOARD_DIR set elsewhere (CI does
+    // exactly this), it took the clone: host migrations from the clone's
+    // app/, a source build tagged neoboard:local, and the explicit directory
+    // ignored.
+    writeFileSync(
+      join(tmp, "package.json"),
+      JSON.stringify({ name: "neoboard" }),
+    );
+    const explicit = join(tmp, "elsewhere", "install");
+    process.env.NEOBOARD_DIR = explicit;
+    const real = process.getBuiltinModule.bind(process);
+    const sea = vi.spyOn(process, "getBuiltinModule").mockImplementation(((
+      id: string,
+    ) =>
+      id === "node:sea"
+        ? { isSea: () => true, getAsset: () => "" }
+        : real(id)) as typeof process.getBuiltinModule);
+    try {
+      const { resolveRoot, isStandalone } = await loadConfig();
+      await withCwd(tmp, () => {
+        expect(isStandalone()).toBe(true);
+        expect(resolveRoot()).toBe(explicit);
+      });
+    } finally {
+      sea.mockRestore();
+    }
   });
 
   it("falls back to the install location when cwd has no checkout", async () => {

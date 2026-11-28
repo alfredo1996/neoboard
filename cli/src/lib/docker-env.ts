@@ -118,9 +118,10 @@ function repinImage(envPath: string, version: string): void {
   // one wins, and it accepts spaces around the separator, `:` for `=`, an
   // `export ` prefix and indentation (checked against Compose v2.3.3).
   const assignment = /^[ \t]*(?:export[ \t]+)?NEOBOARD_IMAGE[ \t]*[=:].*$/gm;
+  const separator = text.endsWith("\n") ? "" : "\n";
   const next = assignment.test(text)
     ? text.replace(assignment, line)
-    : `${text}${text.endsWith("\n") ? "" : "\n"}${line}\n`;
+    : `${text}${separator}${line}\n`;
   if (next === text) return;
   // Sibling file, then rename: a failed write must not truncate the file that
   // holds ENCRYPTION_KEY.
