@@ -29,15 +29,18 @@ What it guarantees:
 
 - Every download is checked against the release's `SHA256SUMS`; a mismatch stops the install and installs nothing.
 - It never uses sudo. If Docker needs elevated permission, it says so and stops.
-- Each release's script is pinned to that release's image and binary. Set `NEOBOARD_VERSION=1.9.2` to install a different release.
-- Running it again is safe: `docker/.env` (your secrets) is never rewritten, and the release already recorded stays until you pass `NEOBOARD_VERSION`.
+- Each release's script is pinned to that release's image and binary. To install a different release, set `NEOBOARD_VERSION` on the `sh` side of the pipe: `curl -fsSL https://github.com/alfredo1996/neoboard/releases/latest/download/install.sh | NEOBOARD_VERSION=1.9.2 sh`. Set before `curl`, it reaches only curl.
+- Running it again is safe: your secrets in `docker/.env` are never rewritten, and the release already recorded stays until you pass `NEOBOARD_VERSION`, which moves only the image line.
+- The databases are published on `127.0.0.1` only, so nothing outside the machine can reach them.
 - It sends no telemetry.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `NEOBOARD_VERSION` | the release the script belongs to | Release to install, and the one recorded in `docker/.env` |
-| `NEOBOARD_DIR` | `./neoboard` | Where the install lives |
+| `NEOBOARD_DIR` | `./neoboard` | Where the install lives. Setup records it, and the `neoboard` command uses the recorded directory from any folder when this is unset |
 | `NEOBOARD_BIN_DIR` | `~/.local/bin` | Where the `neoboard` command goes |
+
+Setup records where the install is in `~/.config/neoboard/install-dir` (or under `XDG_CONFIG_HOME`), so `neoboard stop`, `logs` and `status` work from any directory, and the ready banner prints the path. If that directory is later deleted, the command stops and says so; set `NEOBOARD_DIR`, or delete the file, to start over.
 
 On a machine with no prebuilt binary (another CPU architecture) and Node.js 20+, the script falls back to installing the CLI from npm. That works only once the package has been published; until then it stops with a message.
 
