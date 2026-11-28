@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -48,6 +48,10 @@ export function stageStandaloneCompose(
   for (const name of COMPOSE_ASSETS) {
     const to = join(dockerDir, name);
     mkdirSync(dirname(to), { recursive: true });
-    writeFileSync(to, read(name));
+    // Temp file then rename: a second command reading the file meanwhile
+    // sees the old or the new, never a truncated one.
+    const tmp = `${to}.${process.pid}.tmp`;
+    writeFileSync(tmp, read(name));
+    renameSync(tmp, to);
   }
 }

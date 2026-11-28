@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   mkdtempSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -34,6 +36,18 @@ describe("stageStandaloneCompose (#1314)", () => {
     expect(readFileSync(join(dir, "docker-compose.full.yml"), "utf8")).toBe(
       "new",
     );
+  });
+
+  it("replaces a file by rename, so a concurrent reader never sees it half written", () => {
+    const dir = join(tmp, "docker");
+    mkdirSync(dir, { recursive: true });
+    const file = join(dir, "docker-compose.full.yml");
+    writeFileSync(file, "old");
+    const before = statSync(file).ino;
+    stageStandaloneCompose(dir, () => "new");
+    // A truncate-and-write keeps the inode; a rename does not.
+    expect(statSync(file).ino).not.toBe(before);
+    expect(readdirSync(dir).filter((f) => f.includes(".tmp"))).toEqual([]);
   });
 
   it("never touches docker/.env, where the secrets and the pinned image live", () => {
