@@ -87,7 +87,10 @@ export interface StartOptions {
 export async function runStart(opts?: StartOptions): Promise<boolean> {
   const mode = getMode();
   const config = readProjectConfig();
-  const full = opts?.full ?? false;
+  // A standalone install has no app source to migrate or serve from, so a
+  // databases-only start would leave nothing running the app: it is always the
+  // full stack, which also makes the banner's `neoboard start` work (#1314).
+  const full = (opts?.full ?? false) || isStandalone();
   const exposeHost = opts?.exposeHost ?? false;
 
   // --expose-host overlays extra_hosts onto the `neoboard` service, which only

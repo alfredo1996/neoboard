@@ -132,6 +132,22 @@ describe("runStart", () => {
     expect(mockRunDbMigrate).not.toHaveBeenCalled();
   });
 
+  it("always starts the full stack on a standalone install, which has no app source to migrate or serve from a databases-only start (#1314)", async () => {
+    vi.mocked(isStandalone).mockReturnValue(true);
+    try {
+      await runStart();
+    } finally {
+      vi.mocked(isStandalone).mockReturnValue(false);
+    }
+    expect(mockComposeUp).toHaveBeenCalledWith({
+      full: true,
+      exposeHost: false,
+    });
+    expect(
+      mockWaitForHealth.mock.calls.map((c) => c[0].label),
+    ).toContain("NeoBoard app");
+  });
+
   it("polls app readiness when full=true (docker mode)", async () => {
     await runStart({ full: true });
     // PG + Neo4j + app = 3 health waits when running full stack
